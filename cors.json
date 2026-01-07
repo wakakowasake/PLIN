@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["https://plin.ink", "https://plin-db93d.web.app", "http://localhost:5000"],
+    "method": ["GET", "HEAD", "DELETE", "POST", "PUT"],
+    "responseHeader": ["Content-Type", "x-goog-meta-uploaded-by"],
+    "maxAgeSeconds": 3600
+  }
+]
