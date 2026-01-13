@@ -1,5 +1,4 @@
 // d:\SoongSil Univ\piln\public\js\ui-transit.js
-console.log('✅ ui-transit.js loaded - version: transit-fix-001');
 
 import { 
     travelData, targetDayIndex, setTargetDayIndex, setViewingItemIndex, viewingItemIndex, currentDayIndex,
@@ -444,9 +443,6 @@ export function saveTransitItem() {
 
 // [Transit Detail Modal Logic]
 export function openTransitDetailModal(item, index, dayIndex) {
-    console.log('🔍 openTransitDetailModal called with item:', item);
-    console.log('📋 detailedSteps:', item.detailedSteps);
-    console.log('🎯 dayIndex:', dayIndex);
     
     setViewingItemIndex(index);
     setTargetDayIndex(dayIndex);
@@ -617,12 +613,7 @@ export function openTransitDetailModal(item, index, dayIndex) {
     const stepsContainer = document.getElementById('transit-detail-steps');
     const stepsList = document.getElementById('transit-detail-steps-list');
     
-    console.log('🎯 stepsContainer:', stepsContainer);
-    console.log('📝 stepsList:', stepsList);
-    console.log('✅ Has detailedSteps?', item.detailedSteps && item.detailedSteps.length > 0);
-    
     if (item.detailedSteps && item.detailedSteps.length > 0) {
-        console.log('🚀 Rendering', item.detailedSteps.length, 'steps');
         stepsContainer.classList.remove('hidden');
         stepsList.innerHTML = '';
         
@@ -724,10 +715,6 @@ export function editCurrentTransitItem() {
 
 export function deleteCurrentTransitItem() {
     const itemIndex = viewingItemIndex !== null ? viewingItemIndex : currentRouteItemIndex;
-    console.log('🗑️ deleteCurrentTransitItem called');
-    console.log('  viewingItemIndex:', viewingItemIndex);
-    console.log('  currentRouteItemIndex:', currentRouteItemIndex);
-    console.log('  using itemIndex:', itemIndex);
     // 모든 모달 닫기 (z-index 높은 모달 포함)
     document.querySelectorAll('.fixed.inset-0').forEach(m => m.classList.add('hidden'));
     if (itemIndex !== null && targetDayIndex !== null) {
@@ -735,11 +722,7 @@ export function deleteCurrentTransitItem() {
         if (modal) {
             modal.style.zIndex = 99999;
             modal.classList.remove('hidden');
-            console.log('📦 Modal element:', modal);
-            console.log('✅ Modal shown');
         }
-    } else {
-        console.log('❌ Cannot show modal - itemIndex or targetDayIndex is null');
     }
 }
 
@@ -2925,10 +2908,8 @@ async function getEkispertRoute(fromItem, toItem) {
         let url;
         if (fromLat && fromLng && toLat && toLng) {
             url = `https://api-hkrwkegcrq-uc.a.run.app/ekispert-proxy?fromLat=${fromLat}&fromLng=${fromLng}&toLat=${toLat}&toLng=${toLng}`;
-            console.log(`[Ekispert] Searching route by coordinates: (${fromLat},${fromLng}) → (${toLat},${toLng})`);
         } else if (fromName && toName) {
             url = `https://api-hkrwkegcrq-uc.a.run.app/ekispert-proxy?fromName=${encodeURIComponent(fromName)}&toName=${encodeURIComponent(toName)}`;
-            console.log(`[Ekispert] Searching route by name: ${fromName} → ${toName}`);
         } else {
             console.warn('Missing both coordinates and names for Ekispert API');
             return null;
@@ -2942,8 +2923,6 @@ async function getEkispertRoute(fromItem, toItem) {
         }
         
         const data = await response.json();
-        
-        console.log('[Ekispert] API Response:', data);
         
         // API 응답 구조 확인
         if (!data.ResultSet || !data.ResultSet.Course || data.ResultSet.Course.length === 0) {
@@ -3030,23 +3009,17 @@ async function getEkispertRoute(fromItem, toItem) {
                 const lineCode = line.LineSymbol?.code || '';
                 const translatedLineName = translateLine(lineName);
                 
-                console.log(`[Ekispert] LineSymbol.Name: ${lineSymbolJa}, LineSymbol.code: ${lineCode}`);
                 
                 // 태그: 노선명 + 노선 기호 (예: "미도스지선 M")
                 // code가 숫자면 Name 사용, 아니면 code 사용
                 let tagText = translatedLineName;
                 if (lineCode && /^[A-Z]+$/i.test(lineCode)) {
                     tagText += ` ${lineCode}`;
-                    console.log(`[Ekispert] Tag with code: ${tagText}`);
                 } else if (lineSymbolJa && /^[A-Z]+$/i.test(lineSymbolJa)) {
                     // code가 숫자면 Name 사용 (예: code=226, Name=M)
                     tagText += ` ${lineSymbolJa}`;
-                    console.log(`[Ekispert] Tag with Name: ${tagText}`);
-                } else {
-                    console.log(`[Ekispert] No valid symbol code/name`);
                 }
                 
-                console.log(`[Ekispert] Line: ${lineName} → ${translatedLineName}, Tag: ${tagText}, Color: ${lineColor}`);
                 
                 routeSteps.push(`${emoji} ${translatedLineName}: ${fromStation} → ${toStation} (${timeOnBoard}분)`);
                 detailedSteps.push({
@@ -3090,9 +3063,6 @@ async function getEkispertRoute(fromItem, toItem) {
         const startStation = translateStation(startStationJa);
         const endStation = translateStation(endStationJa);
         
-        console.log(`[Ekispert] Route created: ${startStation} → ${endStation}`);
-        console.log('[Ekispert] DetailedSteps:', detailedSteps);
-        
         // 통합 카드 생성
         return [{
             time: durationStr,
@@ -3121,4 +3091,3 @@ async function getEkispertRoute(fromItem, toItem) {
         return null;
     }
 }
-

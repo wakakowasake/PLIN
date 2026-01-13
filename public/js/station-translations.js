@@ -566,8 +566,6 @@ export function translateLine(japaneseName) {
         return japaneseName;  // 한국어 "7호선", 영어 "501" 등은 그대로 반환
     }
     
-    console.log(`[translateLine] Input: ${japaneseName}`);
-    
     // ★ 먼저 회사명 제거 (OsakaMetro, 東京メトロ, ＪＲ 등)
     let lineName = japaneseName
         .replace(/^OsakaMetro/, '')
@@ -580,11 +578,8 @@ export function translateLine(japaneseName) {
         .replace(/外回り$/, '(외선)')
         .replace(/内回り$/, '(내선)');
     
-    console.log(`[translateLine] After company removal: ${lineName}`);
-    
     // 회사명 제거 후 전체 일치 번역 시도
     if (lineTranslations[lineName]) {
-        console.log(`[translateLine] Found in dictionary: ${lineTranslations[lineName]}`);
         return lineTranslations[lineName];
     }
     
@@ -623,6 +618,5 @@ export function translateLine(japaneseName) {
         }
     }
     
-    console.log(`[translateLine] Final output: ${lineName}`);
     return lineName || japaneseName;
 }
