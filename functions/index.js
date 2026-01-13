@@ -1,8 +1,12 @@
 const functions = require("firebase-functions");
+const {defineSecret} = require('firebase-functions/params');
 const express = require("express");
 // const fetch = require("node-fetch"); // [수정] Node.js 18 이상은 내장 fetch를 사용하므로 이 줄은 삭제하거나 주석 처리
 const cors = require('cors')({origin: true});
 require("dotenv").config();
+
+// Secret 정의
+const ekispertApiKey = defineSecret('EKISPERT_API_KEY');
 
 const app = express();
 app.use(cors);
@@ -150,7 +154,7 @@ app.post("/upload-attachment", async (req, res) => {
 // Ekispert API 프록시 (일본 철도 경로 검색) - 2단계 방식
 app.get("/ekispert-proxy", async (req, res) => {
   const { fromLat, fromLng, toLat, toLng } = req.query;
-  const apiKey = process.env.EKISPERT_API_KEY;
+  const apiKey = ekispertApiKey.value() || process.env.EKISPERT_API_KEY;
 
   if (!apiKey) {
     return res.status(500).json({ error: "EKISPERT_API_KEY is not configured" });
@@ -221,4 +225,4 @@ app.get("/ekispert-proxy", async (req, res) => {
 });
 
 // 여기서 함수 이름이 'api'이므로, 실제 주소는 .../api/directions 가 됩니다.
-exports.api = functions.https.onRequest(app);
+exports.api = functions.https.onRequest({secrets: [ekispertApiKey]}, app);

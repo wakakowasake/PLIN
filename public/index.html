@@ -157,6 +157,10 @@
         body {
             transition: opacity 0.3s ease-in;
         }
+        /* 모달 열릴 때 배경 스크롤 방지 */
+        body.modal-open {
+            overflow: hidden;
+        }
     </style>
 </head>
 <body class="bg-background-light dark:bg-background-dark font-display antialiased text-text-main dark:text-gray-100 min-h-screen flex flex-col opacity-0">
@@ -297,7 +301,7 @@
                 </div>
 
                 <div class="grid grid-cols-2 gap-4">
-                    <div class="bg-card-light dark:bg-card-dark p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col justify-between h-28">
+                    <div onclick="openWeatherDetailModal()" class="bg-card-light dark:bg-card-dark p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col justify-between h-28 cursor-pointer hover:shadow-lg transition-all hover:-translate-y-1">
                         <div class="flex justify-between items-start">
                             <span class="text-xs font-bold text-text-muted dark:text-gray-400 uppercase tracking-wider">날씨</span>
                             <span class="material-symbols-outlined text-orange-400">sunny</span>
@@ -305,7 +309,7 @@
                         <div>
                             <p id="weather-temp" class="text-2xl font-bold text-text-main dark:text-white">--</p>
                             <p id="weather-range" class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">-- / --</p>
-                            <p id="weather-desc" class="text-xs text-text-muted dark:text-gray-400">--</p>
+                            <p id="weather-desc" class="text-xs text-text-muted dark:text-gray-400">클릭하여 상세 보기</p>
                         </div>
                     </div>
                     <div onclick="openExpenseDetailModal()" class="bg-card-light dark:bg-card-dark p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col justify-between h-28 cursor-pointer hover:shadow-lg transition-all hover:-translate-y-1">
@@ -1157,7 +1161,7 @@
     </div>
 
     <!-- Expense Add Modal -->
-    <div id="expense-modal" class="hidden fixed inset-0 z-[999999] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+    <div id="expense-modal" class="hidden fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
         <div class="bg-white dark:bg-card-dark rounded-xl shadow-2xl w-full max-w-sm overflow-hidden">
             <div class="p-5 border-b border-gray-100 dark:border-gray-700">
                 <h3 class="text-lg font-bold text-text-main dark:text-white">지출 내역 추가</h3>
@@ -1188,7 +1192,7 @@
     </div>
 
     <!-- Shopping List Selector Modal -->
-    <div id="shopping-selector-modal" class="hidden fixed inset-0 z-[9999999] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+    <div id="shopping-selector-modal" class="hidden fixed inset-0 z-[130] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
         <div class="bg-white dark:bg-card-dark rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
             <div class="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
                 <h3 class="text-lg font-bold text-text-main dark:text-white">쇼핑 리스트에서 선택</h3>
@@ -1257,6 +1261,21 @@
             <div class="flex gap-3">
                 <button type="button" onclick="closeDeleteTripModal()" class="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-50 dark:hover:bg-gray-800 rounded-2xl transition-colors">취소</button>
                 <button type="button" onclick="confirmDeleteTrip()" class="flex-1 py-3 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 shadow-lg transition-colors">삭제</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Transit Item Confirm Modal -->
+    <div id="delete-transit-modal" class="hidden fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+        <div class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden text-center p-8 modal-slide-in">
+            <div class="w-16 h-16 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center mx-auto mb-4">
+                <span class="material-symbols-outlined text-4xl text-red-500">delete</span>
+            </div>
+            <h3 class="text-lg font-bold text-text-main dark:text-white mb-2">이동수단을 삭제하시겠습니까?</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">삭제된 항목은 복구할 수 없습니다.</p>
+            <div class="flex gap-3">
+                <button type="button" onclick="closeDeleteTransitModal()" class="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-50 dark:hover:bg-gray-800 rounded-2xl transition-colors">취소</button>
+                <button type="button" onclick="confirmDeleteTransit()" class="flex-1 py-3 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 shadow-lg transition-colors">삭제</button>
             </div>
         </div>
     </div>
@@ -1460,12 +1479,12 @@
     </div>
 
     <!-- Context Menu -->
-    <div id="context-menu" class="hidden fixed z-[9999] bg-white dark:bg-card-dark rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 py-1 min-w-[160px] transform transition-all origin-top-left">
+    <div id="context-menu" class="hidden fixed z-[180] bg-white dark:bg-card-dark rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 py-1 min-w-[160px] transform transition-all origin-top-left">
         <!-- JS로 메뉴 항목이 채워집니다 -->
     </div>
 
     <!-- Expense Detail Modal -->
-    <div id="expense-detail-modal" class="fixed inset-0 bg-black/50 z-[99999] hidden flex items-center justify-center p-4">
+    <div id="expense-detail-modal" class="fixed inset-0 bg-black/50 z-[140] hidden flex items-center justify-center p-4">
         <div class="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh] animate-fade-in-up">
             <div class="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gradient-to-r from-green-50 to-emerald-50 dark:from-gray-800 dark:to-gray-800">
                 <h3 class="font-bold text-lg text-gray-800 dark:text-white flex items-center gap-2">
@@ -1479,23 +1498,10 @@
             <div class="overflow-y-auto flex-1 bg-gray-50/50 dark:bg-gray-900/50 p-6">
                 <!-- 전체 지출 요약 -->
                 <div class="bg-white dark:bg-gray-800 rounded-xl p-6 mb-6 shadow-sm border border-gray-200 dark:border-gray-700">
-                    <div class="flex justify-between items-center mb-4">
+                    <div class="flex justify-between items-center">
                         <h4 class="text-lg font-bold text-gray-800 dark:text-white">전체 지출</h4>
                         <div class="text-right">
                             <p class="text-3xl font-bold text-primary" id="total-expense-amount">₩0</p>
-                        </div>
-                    </div>
-                    <div class="flex gap-3">
-                        <input type="number" id="split-people-count" min="1" value="1" class="flex-1 px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-800 dark:text-white" placeholder="인원 수">
-                        <button onclick="calculateSplit()" class="px-6 py-2 bg-primary text-white rounded-lg font-bold hover:bg-orange-500 transition-colors flex items-center gap-2">
-                            <span class="material-symbols-outlined text-sm">calculate</span>
-                            N분의 1 계산
-                        </button>
-                    </div>
-                    <div id="split-result" class="mt-4 hidden">
-                        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
-                            <p class="text-sm text-gray-600 dark:text-gray-300 mb-2">1인당 부담금액</p>
-                            <p class="text-2xl font-bold text-primary" id="per-person-amount">₩0</p>
                         </div>
                     </div>
                 </div>
@@ -1517,6 +1523,59 @@
     <!-- Hidden File Input for Image Upload -->
     <input type="file" id="hero-image-upload" class="hidden" accept="image/*" onchange="handleImageUpload(this)">
 
-    <script type="module" src="js/ui.js?v=final35"></script>
+    <script type="module" src="js/ui.js?v=transit-fix-001"></script>
+    <script type="module" src="js/ui-transit.js?v=transit-fix-001"></script>
+    
+    <!-- Weather Detail Modal -->
+    <div id="weather-detail-modal" class="hidden fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+        <div class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6 modal-slide-in">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-text-main dark:text-white flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">partly_cloudy_day</span>
+                    날씨
+                </h3>
+                <button type="button" onclick="closeWeatherDetailModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <!-- 위치 정보 -->
+            <div class="mb-6 text-center">
+                <p class="text-sm text-gray-600 dark:text-gray-400" id="weather-location-title">위치 로딩 중...</p>
+            </div>
+
+            <!-- 주간 날씨 캘린더 -->
+            <div id="weekly-weather-container" class="mb-6">
+                <!-- 주간 날씨 카드가 여기에 동적으로 추가됨 -->
+                <div class="text-center py-8 text-gray-400">
+                    <p class="text-sm">로딩 중...</p>
+                </div>
+            </div>
+
+            <!-- 구분선 -->
+            <div class="border-t border-gray-200 dark:border-gray-700 my-6"></div>
+
+            <!-- 선택된 날짜의 시간별 예보 -->
+            <div>
+                <h4 class="text-lg font-bold text-text-main dark:text-white mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-sm">schedule</span>
+                    <span id="selected-date-title">시간별 예보</span>
+                </h4>
+                <div id="hourly-weather-container">
+                    <!-- 시간별 날씨가 여기에 동적으로 추가됨 -->
+                    <div class="text-center py-8 text-gray-400">
+                        <p class="text-sm">날짜를 선택하세요.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end">
+                <button type="button" onclick="closeWeatherDetailModal()" class="px-6 py-2 bg-gray-200 dark:bg-gray-700 text-text-main dark:text-white rounded-xl hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
+                    닫기
+                </button>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>

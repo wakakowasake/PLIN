@@ -328,95 +328,116 @@ function fillInAddress() {
 export async function fetchWeather(lat, lng, date = null) {
     if (!lat || !lng) return;
     try {
-        // 날짜 유효성 검증 (과거 날짜, 미래 너무 먼 경우 제외)
+        // 날짜 유효성 검증
         if (date) {
             const requestDate = new Date(date);
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             
-            // 과거 날짜는 API 미지원 (forecast 엔드포인트는 오늘부터만 지원)
+            // 과거 날짜 확인
             if (requestDate < today) {
-                console.warn(`Past date ${date} not supported by weather API, skipping request`);
+                console.warn(`Past date ${date} not supported, skipping request`);
                 return;
             }
             
-            // 너무 먼 미래 (90일 이상)는 정확도 낮음
+            // 16일 이상 미래 확인
             const diffDays = Math.floor((requestDate - today) / (1000 * 60 * 60 * 24));
-            if (diffDays > 90) {
-                console.warn(`Date ${date} is too far in future (${diffDays} days), skipping weather fetch`);
+            if (diffDays > 16) {
+                console.warn(`Date ${date} is too far in future (${diffDays} days, max 16), skipping weather fetch`);
                 return;
             }
         }
 
-        let url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto`;
-        let isDaily = false;
-
+        // Open-Meteo API 사용 (무료, API 키 불필요)
+        let url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto`;
+        
         if (date) {
-            // 특정 날짜의 날씨 요청 (Daily Forecast)
+            // 특정 날짜 예보
             url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&start_date=${date}&end_date=${date}`;
-            isDaily = true;
         }
 
         const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        
-        // API 응답 검증
-        if (!data.daily && !data.current_weather) {
-            console.warn(`No weather data for ${lat}, ${lng} on ${date}`);
-            return;
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         }
         
-        // [Added] 타임존 정보 업데이트
+        const data = await res.json();
+        
+        // 타임존 정보 업데이트
         if (data.timezone) {
             updateMeta('timezone', data.timezone);
         }
 
-        let temp, code, minTemp, maxTemp;
-        
-        // 간단한 날씨 코드 매핑
-        let desc = "맑음";
-        if (code > 0 && code < 3) desc = "구름 조금";
-        else if (code >= 3 && code < 50) desc = "흐림/안개";
-        else if (code >= 50 && code < 80) desc = "비";
-        else if (code >= 80) desc = "소나기/눈";
+        let temp, minTemp, maxTemp, desc;
 
-        if (isDaily && data.daily && data.daily.time && data.daily.time.length > 0) {
-            const max = data.daily.temperature_2m_max[0];
-            const min = data.daily.temperature_2m_min[0];
-            maxTemp = `${Math.round(max)}°C`;
-            minTemp = `${Math.round(min)}°C`;
-            code = data.daily.weather_code[0];
-            temp = `${Math.round((max + min) / 2)}°C`; // 평균 기온
-        } else if (data.current_weather) {
-            temp = `${data.current_weather.temperature}°C`;
-            code = data.current_weather.weathercode;
+        if (date && data.daily) {
+            // 특정 날짜 예보
+            if (data.daily.temperature_2m_max && data.daily.temperature_2m_max.length > 0) {
+                const maxT = data.daily.temperature_2m_max[0];
+                const minT = data.daily.temperature_2m_min[0];
+                maxTemp = `${Math.round(maxT)}°C`;
+                minTemp = `${Math.round(minT)}°C`;
+                temp = `${Math.round((maxT + minT) / 2)}°C`;
+                
+                const code = data.daily.weather_code[0];
+                desc = translateWeatherCode(code);
+            }
+        } else if (data.current) {
+            // 현재 날씨
+            temp = `${Math.round(data.current.temperature_2m)}°C`;
+            desc = translateWeatherCode(data.current.weather_code);
+            
             if (data.daily && data.daily.temperature_2m_max) {
                 maxTemp = `${Math.round(data.daily.temperature_2m_max[0])}°C`;
                 minTemp = `${Math.round(data.daily.temperature_2m_min[0])}°C`;
             }
-        } else {
-            return; // 데이터 없음
         }
-        
-        // 날씨 코드에 따른 설명 재설정 (Daily 코드 기준)
-        if (code === 0) desc = "맑음";
-        else if (code > 0 && code < 4) desc = "구름 조금";
-        else if (code >= 4 && code < 50) desc = "흐림/안개";
-        else if (code >= 50 && code < 60) desc = "이슬비";
-        else if (code >= 60 && code < 80) desc = "비";
-        else if (code >= 80 && code < 95) desc = "눈";
-        else if (code >= 95) desc = "뇌우";
 
-        updateMeta('weather.temp', temp);
-        updateMeta('weather.minTemp', minTemp);
-        updateMeta('weather.maxTemp', maxTemp);
-        updateMeta('weather.desc', desc);
+        // 데이터 업데이트
+        if (temp) updateMeta('weather.temp', temp);
+        if (minTemp) updateMeta('weather.minTemp', minTemp);
+        if (maxTemp) updateMeta('weather.maxTemp', maxTemp);
+        if (desc) updateMeta('weather.desc', desc);
+        
         renderItinerary();
     } catch (e) {
         console.warn("Weather fetch failed for date", date, ":", e.message);
-        // 에러 발생해도 여행 진행 차단하지 않음
     }
+}
+
+// Open-Meteo 날씨 코드를 한국어로 변환
+function translateWeatherCode(code) {
+    const translations = {
+        0: '맑음',
+        1: '대체로 맑음',
+        2: '구름 조금',
+        3: '흐림',
+        45: '안개',
+        48: '안개',
+        51: '가랑비',
+        53: '가랑비',
+        55: '가랑비',
+        56: '차가운 이슬비',
+        57: '차가운 이슬비',
+        61: '약한 비',
+        63: '비',
+        65: '폭우',
+        66: '차가운 비',
+        67: '차가운 비',
+        71: '약한 눈',
+        73: '눈',
+        75: '폭설',
+        77: '진눈깨비',
+        80: '소나기',
+        81: '소나기',
+        82: '강한 소나기',
+        85: '눈',
+        86: '폭설',
+        95: '뇌우',
+        96: '뇌우',
+        99: '강한 뇌우'
+    };
+    return translations[code] || '맑음';
 }
 
 
@@ -431,13 +452,227 @@ async function loadGoogleMapsAPI() {
         const config = await response.json();
         const mapsApiKey = config.googleMapsApiKey;
         
-        const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${mapsApiKey}&libraries=places,geometry&loading=async&language=ko&callback=initMap`;
-        script.async = true;
-        document.head.appendChild(script);
+        if (!window.google || !window.google.maps) {
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${mapsApiKey}&libraries=places,geometry&loading=async&language=ko&callback=initMap`;
+            script.async = true;
+            document.head.appendChild(script);
+        } else {
+            console.warn('Google Maps API already loaded. Skipping additional load.');
+        }
     } catch (error) {
         console.error("Failed to load Google Maps API:", error);
     }
+}
+
+// 시간별 날씨 예보 가져오기 (Open-Meteo API)
+export async function fetchHourlyWeather(lat, lng, hours = 24) {
+    if (!lat || !lng) return null;
+    
+    try {
+        // Open-Meteo API - 시간별 예보
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,weather_code&timezone=auto&forecast_hours=${hours}`;
+        
+        const res = await fetch(url);
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+        
+        const data = await res.json();
+        
+        if (data.hourly && data.hourly.time && data.hourly.time.length > 0) {
+            const hourlyData = [];
+            
+            for (let i = 0; i < Math.min(hours, data.hourly.time.length); i++) {
+                const timeStr = data.hourly.time[i];
+                const temp = data.hourly.temperature_2m[i];
+                const feelsLike = data.hourly.apparent_temperature[i];
+                const humidity = data.hourly.relative_humidity_2m[i];
+                const precipitation = data.hourly.precipitation_probability[i];
+                const weatherCode = data.hourly.weather_code[i];
+                
+                hourlyData.push({
+                    time: formatHourlyTime(timeStr),
+                    temp: temp !== null ? Math.round(temp) : null,
+                    feelsLike: feelsLike !== null ? Math.round(feelsLike) : null,
+                    humidity: humidity || null,
+                    precipitation: precipitation || 0,
+                    weatherCode: weatherCode,
+                    weatherDesc: translateWeatherCode(weatherCode),
+                    icon: getWeatherIconFromCode(weatherCode),
+                    isDaytime: isDaytime(timeStr)
+                });
+            }
+            
+            return hourlyData;
+        }
+        
+        return null;
+    } catch (e) {
+        console.warn("Hourly weather fetch failed:", e.message);
+        return null;
+    }
+}
+
+// 시간 포맷 헬퍼 (ISO 8601 형식에서 시간 추출)
+function formatHourlyTime(isoTimeStr) {
+    if (!isoTimeStr) return '--:--';
+    
+    try {
+        const date = new Date(isoTimeStr);
+        const hours = date.getHours();
+        const ampm = hours < 12 ? '오전' : '오후';
+        const displayHour = hours === 0 ? 12 : (hours > 12 ? hours - 12 : hours);
+        
+        return `${ampm} ${displayHour}시`;
+    } catch (e) {
+        return '--:--';
+    }
+}
+
+// 낮/밤 판별
+function isDaytime(isoTimeStr) {
+    try {
+        const date = new Date(isoTimeStr);
+        const hours = date.getHours();
+        return hours >= 6 && hours < 18;
+    } catch (e) {
+        return true;
+    }
+}
+
+// 날씨 코드에 따른 아이콘 반환
+function getWeatherIconFromCode(code) {
+    if (code === 0) return 'wb_sunny';
+    if (code >= 1 && code <= 3) return 'partly_cloudy_day';
+    if (code >= 45 && code <= 48) return 'foggy';
+    if (code >= 51 && code <= 57) return 'rainy_light';
+    if (code >= 61 && code <= 67) return 'rainy';
+    if (code >= 71 && code <= 77) return 'ac_unit';
+    if (code >= 80 && code <= 82) return 'rainy';
+    if (code >= 85 && code <= 86) return 'ac_unit';
+    if (code >= 95 && code <= 99) return 'thunderstorm';
+    return 'wb_sunny';
+}
+
+// 주간 날씨 데이터 가져오기 (7일)
+export async function fetchWeeklyWeather(lat, lng, weekStartDate) {
+    if (!lat || !lng) return null;
+    
+    try {
+        const startDate = new Date(weekStartDate);
+        const endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 6);
+        
+        const startStr = formatDateStr(startDate);
+        const endStr = formatDateStr(endDate);
+        
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&start_date=${startStr}&end_date=${endStr}`;
+        
+        const res = await fetch(url);
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+        
+        const data = await res.json();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const weeklyData = [];
+        
+        if (data.daily && data.daily.time && data.daily.time.length > 0) {
+            for (let i = 0; i < data.daily.time.length; i++) {
+                const date = data.daily.time[i];
+                const dateObj = new Date(date);
+                const maxTemp = data.daily.temperature_2m_max[i];
+                const minTemp = data.daily.temperature_2m_min[i];
+                const weatherCode = data.daily.weather_code[i];
+                
+                // 오늘 이전 날짜는 사용 불가 처리
+                const isAvailable = dateObj >= today;
+                
+                weeklyData.push({
+                    date: date,
+                    maxTemp: maxTemp !== null ? Math.round(maxTemp) : null,
+                    minTemp: minTemp !== null ? Math.round(minTemp) : null,
+                    weatherCode: weatherCode,
+                    weatherDesc: translateWeatherCode(weatherCode),
+                    icon: getWeatherIconFromCode(weatherCode),
+                    available: isAvailable
+                });
+            }
+        }
+        
+        return weeklyData;
+    } catch (e) {
+        console.warn("Weekly weather fetch failed:", e.message);
+        return null;
+    }
+}
+
+// 특정 날짜의 시간별 날씨 가져오기
+export async function fetchHourlyWeatherForDate(lat, lng, dateStr) {
+    if (!lat || !lng) return null;
+    
+    try {
+        const targetDate = new Date(dateStr);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        // 과거 날짜는 데이터 없음
+        if (targetDate < today) {
+            return null;
+        }
+        
+        // Open-Meteo API - 특정 날짜의 시간별 예보
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,weather_code&timezone=auto&start_date=${dateStr}&end_date=${dateStr}`;
+        
+        const res = await fetch(url);
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+        
+        const data = await res.json();
+        
+        if (data.hourly && data.hourly.time && data.hourly.time.length > 0) {
+            const hourlyData = [];
+            
+            for (let i = 0; i < data.hourly.time.length; i++) {
+                const timeStr = data.hourly.time[i];
+                const temp = data.hourly.temperature_2m[i];
+                const feelsLike = data.hourly.apparent_temperature[i];
+                const humidity = data.hourly.relative_humidity_2m[i];
+                const precipitation = data.hourly.precipitation_probability[i];
+                const weatherCode = data.hourly.weather_code[i];
+                
+                hourlyData.push({
+                    time: formatHourlyTime(timeStr),
+                    temp: temp !== null ? Math.round(temp) : null,
+                    feelsLike: feelsLike !== null ? Math.round(feelsLike) : null,
+                    humidity: humidity || 0,
+                    precipitation: precipitation || 0,
+                    weatherCode: weatherCode,
+                    weatherDesc: translateWeatherCode(weatherCode),
+                    icon: getWeatherIconFromCode(weatherCode),
+                    isDaytime: isDaytime(timeStr)
+                });
+            }
+            
+            return hourlyData;
+        }
+        
+        return null;
+    } catch (e) {
+        console.warn("Hourly weather for date fetch failed:", e.message);
+        return null;
+    }
+}
+
+function formatDateStr(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
 // API 로드 시작
