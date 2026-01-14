@@ -11,6 +11,7 @@ import {
 import { parseTimeStr, formatTimeStr, calculateStraightDistance, minutesTo24Hour } from './ui-utils.js';
 import { airports, searchAirports, getAirportByCode, formatAirport } from './airports.js';
 import { translateStation, translateLine } from './station-translations.js';
+import { openUserProfile } from './ui/profile.js';
 
 // 현재 보고 있는 경로 아이템 인덱스
 let currentRouteItemIndex = null;
@@ -623,8 +624,8 @@ export function openTransitDetailModal(item, index, dayIndex) {
 
             // 태그 색상 처리 (노선명/번호)
             let tagHtml = '';
-            if (step.color && step.color.startsWith('rgb')) {
-                // RGB 색상값 사용 (Ekispert API 등)
+            if (step.color && (step.color.startsWith('rgb') || step.color.startsWith('#'))) {
+                // RGB 색상값(Ekispert) 또는 Hex 색상값(Google Maps) 사용
                 const bgColor = step.color;
                 const txtColor = step.textColor || 'white';
                 tagHtml = `<span style="background-color: ${bgColor}; color: ${txtColor};" class="px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">${step.tag}</span>`;
@@ -1547,9 +1548,12 @@ function processSelectedRoute(route, insertIdx) {
             // Google Maps 색상 처리
             let lineColor = null;
             let textColor = '#ffffff';
-            if (line.Color) {
+            // Google Maps API는 'color', Ekispert 등은 'Color'일 수 있음
+            const rawColor = line.color || line.Color;
+            
+            if (rawColor) {
                 // Google Maps는 #RRGGBB 형태로 제공
-                lineColor = line.color.startsWith('#') ? line.color : `#${line.color}`;
+                lineColor = rawColor.startsWith('#') ? rawColor : `#${rawColor}`;
                 
                 // 밝기 계산하여 텍스트 색상 결정
                 const hex = lineColor.replace('#', '');
@@ -1558,7 +1562,9 @@ function processSelectedRoute(route, insertIdx) {
                 const b = parseInt(hex.substring(4, 6), 16);
                 const brightness = (r * 299 + g * 587 + b * 114) / 1000;
                 textColor = brightness > 128 ? '#000000' : '#ffffff';
-            } else if (line.text_color) {
+            }
+            
+            if (line.text_color) {
                 textColor = line.text_color.startsWith('#') ? line.text_color : `#${line.text_color}`;
             }
             
@@ -3091,3 +3097,27 @@ async function getEkispertRoute(fromItem, toItem) {
         return null;
     }
 }
+
+// Expose functions to window
+window.addTransitItem = addTransitItem;
+window.openTransitInputModal = openTransitInputModal;
+window.closeTransitInputModal = closeTransitInputModal;
+window.saveTransitItem = saveTransitItem;
+window.calculateTransitDuration = calculateTransitDuration;
+window.fetchTransitTime = fetchTransitTime;
+window.openTransitDetailModal = openTransitDetailModal;
+window.closeTransitDetailModal = closeTransitDetailModal;
+window.editCurrentTransitItem = editCurrentTransitItem;
+window.deleteCurrentTransitItem = deleteCurrentTransitItem;
+window.closeDeleteTransitModal = closeDeleteTransitModal;
+window.confirmDeleteTransit = confirmDeleteTransit;
+window.openFlightInputModal = openFlightInputModal;
+window.closeFlightInputModal = closeFlightInputModal;
+window.searchFlightNumber = searchFlightNumber;
+window.saveFlightItem = saveFlightItem;
+window.openGoogleMapsRouteFromPrev = openGoogleMapsRouteFromPrev;
+window.addFastestTransitItem = addFastestTransitItem;
+window.openRouteSelectionModal = openRouteSelectionModal;
+window.closeRouteSelectionModal = closeRouteSelectionModal;
+window.openRouteModal = openRouteModal;
+window.closeRouteModal = closeRouteModal;

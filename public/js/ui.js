@@ -1,1613 +1,145 @@
+// Entry point for UI modules: re-export state and expose functions on window
 import { db, auth, provider, firebaseReady } from './firebase.js';
 import {
     travelData, currentDayIndex, currentTripId, newTripDataTemp, pendingTransitCallback,
     editingItemIndex, viewingItemIndex, currentTripUnsubscribe, isEditing, currentUser,
-    setTravelData, setCurrentDayIndex, setCurrentTripId, setNewTripDataTemp, targetDayIndex, setTargetDayIndex,
+    setTravelData, setCurrentDayIndex, setCurrentTripId, setNewTripDataTemp, targetDayIndex, setTargetDayIndex, defaultTravelData,
     setPendingTransitCallback, setEditingItemIndex, setViewingItemIndex,
     setCurrentTripUnsubscribe, setIsEditing, setCurrentUser,
-    insertingItemIndex, isEditingFromDetail, setInsertingItemIndex, setIsEditingFromDetail
+    insertingItemIndex, isEditingFromDetail, setInsertingItemIndex, setIsEditingFromDetail,
+    updateMetaState, updateTripDateState, updateTimelineItemState
 } from './state.js';
-export {
-    travelData, currentDayIndex, currentTripId, newTripDataTemp, pendingTransitCallback,
-    editingItemIndex, viewingItemIndex, currentTripUnsubscribe, isEditing, currentUser,
-    setTravelData, setCurrentDayIndex, setCurrentTripId, setNewTripDataTemp, targetDayIndex, setTargetDayIndex,
-    setPendingTransitCallback, setEditingItemIndex, setViewingItemIndex,
-    setCurrentTripUnsubscribe, setIsEditing, setCurrentUser,
-    insertingItemIndex, isEditingFromDetail, setInsertingItemIndex, setIsEditingFromDetail
-};
-import { setupWizardAutocomplete, fetchWeather, fetchHourlyWeather, fetchWeeklyWeather, fetchHourlyWeatherForDate, map as googleMap, mapMarker, setSearchMode, searchMode } from './map.js';
-import {
-    collection, doc, getDoc, setDoc, addDoc, getDocs, deleteDoc, updateDoc,
-    query, where, onSnapshot
-} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-import { signInWithPopup, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { parseTimeStr, formatTimeStr, parseDurationStr, formatDuration, minutesTo24Hour, calculateStraightDistance } from './ui-utils.js';
-import * as Transit from './ui-transit.js';
 
-// [Configuration] Google Maps API Key 및 백엔드 URL
+import { parseTimeStr, formatTimeStr, parseDurationStr, formatDuration, minutesTo24Hour, calculateStraightDistance } from './ui-utils.js';
+import * as Helpers from './ui/helpers.js';
+import { doc, getDoc, updateDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+
+import * as Modals from './ui/modals.js';
+import * as Header from './ui/header.js';
+import * as Renderers from './ui/renderers.js';
+import * as Auth from './ui/auth.js';
+import * as Profile from './ui/profile.js';
+import * as Trips from './ui/trips.js';
+import { fetchWeeklyWeather, fetchHourlyWeatherForDate } from './map.js';
+
+// Expose a maps API key placeholder so modules that import it won't fail at module-load time.
+// The real key is loaded dynamically by `map.js` from the backend; this placeholder
+// prevents import errors until the key is available.
 const BACKEND_URL = "https://us-central1-plin-db93d.cloudfunctions.net/api";
 
-// API 키를 서버에서 로드
-let GOOGLE_MAPS_API_KEY = null;
-let googleMapsLoaded = null; // Promise for Google Maps loading
-
-async function loadApiKeys() {
+let cachedMapsApiKey = null;
+export async function getMapsApiKey() {
+    if (cachedMapsApiKey) return cachedMapsApiKey;
     try {
         const response = await fetch(`${BACKEND_URL}/config`);
         const config = await response.json();
-        GOOGLE_MAPS_API_KEY = config.googleMapsApiKey;
-        
-        // Google Maps API가 이미 로드되었는지 확인
-        const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
-        
-        if (window.google && window.google.maps) {
-            // 이미 완전히 로드됨
-            googleMapsLoaded = Promise.resolve();
-        } else if (existingScript) {
-            // 스크립트는 있지만 아직 로드 중
-            googleMapsLoaded = new Promise((resolve) => {
-                existingScript.addEventListener('load', resolve);
-            });
-        } else if (GOOGLE_MAPS_API_KEY) {
-            // 스크립트 추가 필요
-            googleMapsLoaded = new Promise((resolve) => {
-                const script = document.createElement('script');
-                script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&loading=async`;
-                script.async = true;
-                script.defer = true;
-                script.onload = () => resolve();
-                document.head.appendChild(script);
-            });
-        }
-    } catch (error) {
-        console.error("Failed to load API keys:", error);
+        cachedMapsApiKey = config.googleMapsApiKey;
+        return cachedMapsApiKey;
+    } catch (e) {
+        console.error("Failed to fetch Maps API Key", e);
+        return "";
     }
 }
 
-// 페이지 로드 시 API 키 로드
-await loadApiKeys();
 
-export { GOOGLE_MAPS_API_KEY, googleMapsLoaded };
-
-// [Modal Background Scroll Lock]
-function lockBodyScroll() {
-    document.body.classList.add('modal-open');
-}
-
-function unlockBodyScroll() {
-    // 모든 모달이 닫혔는지 확인
-    const modals = document.querySelectorAll('[id$="-modal"]:not(#loading-overlay), [id$="-view"]:not(#main-view):not(#detail-view):not(#profile-view)');
-    const hasOpenModal = Array.from(modals).some(modal => !modal.classList.contains('hidden'));
-    
-    if (!hasOpenModal) {
-        document.body.classList.remove('modal-open');
-    }
-}
-
-// 모달 자동 감지 및 스크롤 잠금 적용
-if (typeof window !== 'undefined') {
-    const observer = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                const target = mutation.target;
-                const id = target.id;
-                
-                // 모달 또는 뷰 요소인지 확인
-                if (id && (id.endsWith('-modal') || id.endsWith('-view'))) {
-                    // loading-overlay, main-view, detail-view, profile-view는 제외
-                    if (id === 'loading-overlay' || id === 'main-view' || id === 'detail-view' || id === 'profile-view') {
-                        return;
-                    }
-                    
-                    const isHidden = target.classList.contains('hidden');
-                    
-                    if (!isHidden) {
-                        lockBodyScroll();
-                    } else {
-                        unlockBodyScroll();
-                    }
-                }
-            }
-        });
-    });
-    
-    // DOM이 로드된 후 관찰 시작
-    document.addEventListener('DOMContentLoaded', () => {
-        const modals = document.querySelectorAll('[id$="-modal"], [id$="-view"]');
-        modals.forEach(modal => {
-            observer.observe(modal, { attributes: true, attributeFilter: ['class'] });
-        });
-    });
-    
-    // 이미 DOM이 로드되어 있을 수 있으므로 즉시 실행도 시도
-    if (document.readyState === 'loading') {
-        // 아직 로딩 중
-    } else {
-        // DOM이 이미 준비됨
-        setTimeout(() => {
-            const modals = document.querySelectorAll('[id$="-modal"], [id$="-view"]');
-            modals.forEach(modal => {
-                observer.observe(modal, { attributes: true, attributeFilter: ['class'] });
-            });
-        }, 100);
-    }
-}
-
-// [Loading Overlay Functions]
-export function showLoading() {
-    document.getElementById('loading-overlay')?.classList.remove('hidden');
-}
-
-export function hideLoading() {
-    document.getElementById('loading-overlay')?.classList.add('hidden');
-}
-
-window.showLoading = showLoading;
-window.hideLoading = hideLoading;
-
-// [Add Selection Modal Logic]
-let draggingIndex = null;
-
-export function openAddModal(index, dayIndex = null) {
-    setInsertingItemIndex(Number(index)); // [Fix] 숫자로 명시적 변환
-    // dayIndex가 전달되면 해당 날짜를 타겟으로, 아니면 현재 보고 있는 날짜(또는 타겟 날짜) 사용
-    if (dayIndex !== null) {
-        setTargetDayIndex(dayIndex);
-    }
-    document.getElementById('add-selection-modal').classList.remove('hidden');
-}
-
-export function closeAddModal() {
-    document.getElementById('add-selection-modal').classList.add('hidden');
-    setInsertingItemIndex(null);
-}
-
-export function selectAddType(type, subType) {
-    if (type === 'activity') {
-        addTimelineItem(insertingItemIndex, targetDayIndex);
-    } else if (type === 'copy') {
-        openCopyItemModal();
-        return; // 모달 교체이므로 여기서 리턴
-    } else if (type === 'transit') {
-        Transit.addTransitItem(insertingItemIndex, subType, targetDayIndex);
-    } else if (type === 'note') {
-        addNoteItem(insertingItemIndex);
-    }
-    // 모달 닫기는 각 함수 내부나 여기서 처리. 
-    // addTimelineItem은 모달을 교체하므로 여기서 닫아줌.
-    document.getElementById('add-selection-modal').classList.add('hidden');
-}
-
-// [Copy Item Modal Logic]
-export function openCopyItemModal() {
-    document.getElementById('add-selection-modal').classList.add('hidden');
-    const modal = document.getElementById('copy-item-modal');
-    const list = document.getElementById('copy-item-list');
-    list.innerHTML = "";
-
-    let hasItems = false;
-
-    travelData.days.forEach((day, dIdx) => {
-        if (!day.timeline || day.timeline.length === 0) return;
-        hasItems = true;
-
-        const header = document.createElement('div');
-        header.className = "sticky top-0 bg-gray-50 dark:bg-gray-800 px-4 py-2 text-xs font-bold text-gray-500 uppercase border-b border-gray-100 dark:border-gray-700 z-10";
-        header.innerText = `${dIdx + 1}일차 • ${day.date}`;
-        list.appendChild(header);
-
-        day.timeline.forEach((item, iIdx) => {
-            const btn = document.createElement('button');
-            btn.className = "w-full text-left p-3 hover:bg-gray-50 dark:hover:bg-gray-800 border-b border-gray-50 dark:border-gray-800 flex items-center gap-3 transition-colors group";
-            btn.onclick = () => copyItemToCurrent(dIdx, iIdx);
-            
-            let iconColor = "text-gray-400";
-            if (item.isTransit) iconColor = "text-blue-400";
-            else if (item.tag === '메모') iconColor = "text-yellow-400";
-            else iconColor = "text-primary";
-
-            btn.innerHTML = `
-                <div class="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
-                    <span class="material-symbols-outlined text-lg ${iconColor}">${item.icon}</span>
-                </div>
-                <div class="flex-1 min-w-0">
-                    <p class="text-sm font-bold text-text-main dark:text-white truncate">${item.title}</p>
-                    <p class="text-xs text-gray-400 truncate">${item.location || item.time}</p>
-                </div>
-                <span class="material-symbols-outlined text-gray-300 group-hover:text-primary opacity-0 group-hover:opacity-100 transition-all">add_circle</span>
-            `;
-            list.appendChild(btn);
-        });
-    });
-
-    if (!hasItems) {
-        list.innerHTML = `
-            <div class="flex flex-col items-center justify-center h-full text-gray-400">
-                <span class="material-symbols-outlined text-4xl mb-2">content_paste_off</span>
-                <p class="text-sm">복사할 일정이 없습니다.</p>
-            </div>
-        `;
-    }
-
-    modal.classList.remove('hidden');
-}
-
-export function closeCopyItemModal() {
-    document.getElementById('copy-item-modal').classList.add('hidden');
-}
-
-export function copyItemToCurrent(dIdx, iIdx) {
-    const sourceItem = travelData.days[dIdx].timeline[iIdx];
-    // Deep copy
-    const newItem = JSON.parse(JSON.stringify(sourceItem));
-    
-    // 타임라인에 추가
-    const timeline = travelData.days[targetDayIndex].timeline;
-    if (typeof insertingItemIndex === 'number' && insertingItemIndex !== null) {
-        timeline.splice(insertingItemIndex + 1, 0, newItem);
-    } else {
-        timeline.push(newItem);
-    }
-
-    reorderTimeline(targetDayIndex);
-    closeCopyItemModal();
-    autoSave();
-}
-
-// [Main View] 여행 목록 불러오기
-export async function loadTripList(uid) {
-    const listContainer = document.getElementById('trip-list-container');
-    listContainer.innerHTML = '<div class="col-span-full text-center py-10 text-gray-500">로딩 중...</div>';
-
-    try {
-        const q = query(collection(db, "plans"), where(`members.${uid}`, "in", ["owner", "editor"]));
-        const querySnapshot = await getDocs(q);
-        
-        listContainer.innerHTML = '';
-
-        if (querySnapshot.empty) {
-            listContainer.innerHTML = `
-                <div class="col-span-full text-center py-20 bg-white dark:bg-card-dark rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
-                    <span class="material-symbols-outlined text-6xl text-gray-300 mb-4">flight_off</span>
-                    <p class="text-xl font-bold text-gray-500">아직 등록된 여행이 없습니다.</p>
-                    <p class="text-gray-400 mb-6">새로운 여행 계획을 만들어 보세요!</p>
-                    <button onclick="createNewTrip()" class="text-primary font-bold hover:underline">새 여행 만들기</button>
-                </div>
-            `;
-            return;
-        }
-
-        const trips = [];
-        querySnapshot.forEach((doc) => {
-            trips.push({ id: doc.id, ...doc.data() });
-        });
-
-        // 여행 시작일 기준 내림차순 정렬 (최신 날짜가 먼저)
-        trips.sort((a, b) => {
-            const dateA = (a.days && a.days[0]) ? a.days[0].date : "";
-            const dateB = (b.days && b.days[0]) ? b.days[0].date : "";
-            if (dateA < dateB) return 1;
-            if (dateA > dateB) return -1;
-            return 0;
-        });
-
-        trips.forEach((data) => {
-            const div = document.createElement('div');
-            // overflow-hidden 제거 (드롭다운 메뉴 표시를 위해)
-            div.className = "bg-white dark:bg-card-dark rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md transition-all cursor-pointer group relative";
-            div.onclick = () => openTrip(data.id);
-            
-            // [Fix] Replace broken placeholder URLs from legacy data
-            let mapImg = data.meta.mapImage || 'https://placehold.co/600x400';
-            if (mapImg.includes('via.placeholder.com')) mapImg = 'https://placehold.co/600x400';
-
-            // 여행 상태 판단
-            const status = getTripStatus(data);
-            const statusBadges = {
-                'upcoming': { text: '여행 전', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
-                'ongoing': { text: '여행 중', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' },
-                'completed': { text: '여행 후', color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' }
-            };
-            const badge = statusBadges[status];
-
-            div.innerHTML = `
-                <div class="h-40 bg-cover bg-center relative rounded-t-xl overflow-hidden" style="background-image: url('${mapImg}');">
-                    <div class="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors"></div>
-                    <div class="absolute top-2 left-2">
-                        <span class="px-3 py-1 rounded-full text-xs font-bold ${badge.color}">${badge.text}</span>
-                    </div>
-                </div>
-                <div class="absolute top-2 right-2 z-20">
-                    <button type="button" onclick="event.stopPropagation(); toggleTripMenu(event, '${data.id}')" class="bg-white/80 hover:bg-white text-gray-600 p-1.5 rounded-full backdrop-blur-sm transition-colors shadow-sm">
-                        <span class="material-symbols-outlined text-lg">more_vert</span>
-                    </button>
-                    <div id="trip-menu-${data.id}" class="hidden absolute right-0 top-full mt-1 w-32 bg-white dark:bg-card-dark rounded-lg shadow-xl border border-gray-100 dark:border-gray-700 py-1 z-30 overflow-hidden">
-                        <button onclick="event.stopPropagation(); openShareModal('${data.id}')" class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2">
-                            <span class="material-symbols-outlined text-base">group_add</span> 공유
-                        </button>
-                        <button onclick="event.stopPropagation(); deleteTrip('${data.id}')" class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2">
-                            <span class="material-symbols-outlined text-base">delete</span> 삭제
-                        </button>
-                    </div>
-                </div>
-                <div class="p-5">
-                    <div class="flex justify-between items-start mb-2">
-                        <h3 class="font-bold text-lg text-text-main dark:text-white line-clamp-1">${data.meta.title}</h3>
-                    </div>
-                    <p class="text-sm text-text-muted dark:text-gray-400 mb-4 line-clamp-1">${data.meta.subInfo}</p>
-                    <div class="flex items-center justify-between text-xs font-medium text-gray-500">
-                        <span class="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">${data.meta.dayCount}</span>
-                        <span>${data.meta.budget}</span>
-                    </div>
-                </div>
-            `;
-            listContainer.appendChild(div);
-        });
-    } catch (error) {
-        console.error("Error loading list:", error);
-        if (error.code === 'permission-denied') {
-            listContainer.innerHTML = '<div class="col-span-full text-center text-red-500 py-10">데이터 접근 권한이 없습니다.<br>Firebase Console > Firestore > 규칙(Rules)을 설정해주세요.</div>';
-        } else {
-            listContainer.innerHTML = '<div class="col-span-full text-center text-red-500">목록을 불러오는데 실패했습니다.</div>';
-        }
-    }
-}
-
-// 여행 상태 판단 (여행 전/중/후)
-function getTripStatus(tripData) {
-    if (!tripData.days || tripData.days.length === 0) return 'upcoming';
-    
-    const firstDay = tripData.days[0].date;
-    const lastDay = tripData.days[tripData.days.length - 1].date;
-    const today = new Date().toISOString().split('T')[0];
-    
-    if (today < firstDay) return 'upcoming'; // 여행 전
-    if (today > lastDay) return 'completed'; // 여행 후
-    return 'ongoing'; // 여행 중
-}
-
-// 여행 카드 메뉴 토글
-export function toggleTripMenu(e, tripId) {
-    // 다른 열린 메뉴들 닫기
-    document.querySelectorAll('[id^="trip-menu-"]').forEach(el => {
-        if (el.id !== `trip-menu-${tripId}`) el.classList.add('hidden');
-    });
-    
-    const menu = document.getElementById(`trip-menu-${tripId}`);
-    if (menu) menu.classList.toggle('hidden');
-}
-
-// [Detail View] 특정 여행 데이터 불러오기
 export async function openTrip(tripId) {
-    if (!currentUser) return;
-    setCurrentTripId(tripId);
-
-    // 다른 여행을 열 때 이전 리스너 구독 해제
-    if (currentTripUnsubscribe) {
-        currentTripUnsubscribe();
-    }
-
     try {
+        Modals.showLoading();
         const docRef = doc(db, "plans", tripId);
-        
-        // 실시간 리스너 연결
-        const unsubscribe = onSnapshot(docRef, (docSnap) => {
-            if (docSnap.exists()) {
-                setTravelData(docSnap.data());
-                
-                // 데이터 마이그레이션 (안전장치)
-                if (travelData.timeline && !travelData.days) {
-                    travelData.days = [{
-                        date: "Day 1",
-                        timeline: travelData.timeline
-                    }];
-                    delete travelData.timeline;
-                }
+        const docSnap = await getDoc(docRef);
 
-                if (!travelData.shoppingList) travelData.shoppingList = [];
-                if (!travelData.checklist) travelData.checklist = [];
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            const fullData = { ...defaultTravelData, ...data, meta: { ...defaultTravelData.meta, ...data.meta } };
+            setTravelData(fullData);
+            setCurrentTripId(tripId);
 
-                if (travelData.meta.lat && travelData.meta.lng) {
-                    const firstDate = travelData.days && travelData.days[0] ? travelData.days[0].date : null;
-                    fetchWeather(travelData.meta.lat, travelData.meta.lng, firstDate);
-                }
-                setTargetDayIndex(currentDayIndex === -1 ? 0 : currentDayIndex);
-                renderItinerary();
-                
-                // 여행 상태와 관계없이 항상 detail-view 표시
-                const mainView = document.getElementById('main-view');
-                const detailView = document.getElementById('detail-view');
-                
-                mainView.classList.add('hidden');
-                detailView.classList.remove('hidden');
-                document.getElementById('back-btn').classList.remove('hidden');
-                document.getElementById('share-btn').classList.remove('hidden');
-                
-                window.scrollTo(0, 0);
-            } else {
-                alert("여행 정보를 찾을 수 없거나 삭제되었습니다.");
-                backToMain();
-            }
-        });
-        setCurrentTripUnsubscribe(unsubscribe);
+            document.getElementById('main-view').classList.add('hidden');
+            document.getElementById('detail-view').classList.remove('hidden');
+            document.getElementById('back-btn').classList.remove('hidden');
 
-    } catch (error) {
-        console.error("Error opening trip:", error);
-    }
-}
-
-// [Main View] 새 여행 만들기 (Wizard)
-export function createNewTrip() {
-    if (!currentUser) {
-        alert("로그인이 필요합니다.");
-        login();
-        return;
-    }
-    
-    // Reset Wizard
-    document.getElementById('new-trip-location').value = "";
-    document.getElementById('new-trip-start').value = new Date().toISOString().split('T')[0];
-    document.getElementById('new-trip-end').value = new Date().toISOString().split('T')[0];
-    
-    setNewTripDataTemp({
-        locationName: "",
-        lat: null,
-        lng: null,
-        address: "",
-        mapImage: null
-    });
-
-    // Show Step 1
-    document.getElementById('new-trip-modal').classList.remove('hidden');
-    document.getElementById('wizard-step-1').classList.remove('hidden');
-    document.getElementById('wizard-step-2').classList.add('hidden');
-    
-    // Setup Autocomplete for Wizard (Google Maps 로드 대기)
-    if (googleMapsLoaded) {
-        googleMapsLoaded.then(() => setupWizardAutocomplete());
-    }
-    
-    // 엔터 키 네비게이션 설정
-    const locInput = document.getElementById('new-trip-location');
-    locInput.onkeydown = (e) => {
-        if (e.key === 'Enter') {
-            // 구글 맵 자동완성 선택 처리를 위해 잠시 대기 후 이동
-            setTimeout(() => nextWizardStep(2), 150);
+            selectDay(0); // 첫째날로 초기화
+        } else {
+            console.error("Trip not found:", tripId);
+            alert("여행 계획을 찾을 수 없습니다.");
+            backToMain();
         }
-    };
-
-    const startInput = document.getElementById('new-trip-start');
-    const endInput = document.getElementById('new-trip-end');
-    const handleDateEnter = (e) => {
-        if (e.key === 'Enter') finishNewTripWizard();
-    };
-    startInput.onkeydown = handleDateEnter;
-    endInput.onkeydown = handleDateEnter;
-
-    setTimeout(() => document.getElementById('new-trip-location').focus(), 100);
-}
-
-export function closeNewTripModal() {
-    document.getElementById('new-trip-modal').classList.add('hidden');
-}
-
-export function nextWizardStep(step) {
-    if (step === 2) {
-        const input = document.getElementById('new-trip-location');
-        // Validate Step 1
-        if (!newTripDataTemp.locationName && !input.value) {
-            input.classList.add('shake');
-            setTimeout(() => input.classList.remove('shake'), 300);
-            input.focus();
-            return;
-        }
-        // If user typed but didn't select from dropdown, just use the text
-        if (!newTripDataTemp.locationName) {
-            newTripDataTemp.locationName = input.value;
-        }
-        
-        document.getElementById('wizard-step-1').classList.add('hidden');
-        document.getElementById('wizard-step-2').classList.remove('hidden');
-        setTimeout(() => document.getElementById('new-trip-start').focus(), 100);
-    } else if (step === 1) {
-        document.getElementById('wizard-step-2').classList.add('hidden');
-        document.getElementById('wizard-step-1').classList.remove('hidden');
-    }
-}
-
-export async function finishNewTripWizard() {
-    const startDateStr = document.getElementById('new-trip-start').value;
-    const endDateStr = document.getElementById('new-trip-end').value;
-    
-    if (!startDateStr || !endDateStr) {
-        alert("날짜를 선택해주세요.");
-        return;
-    }
-    
-    const start = new Date(startDateStr);
-    const end = new Date(endDateStr);
-    
-    if (end < start) {
-        alert("종료일은 시작일보다 빠를 수 없습니다.");
-        return;
-    }
-    
-    // Calculate Duration
-    const diffTime = Math.abs(end - start);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-    
-    let durationText = "";
-    if (diffDays === 0) {
-        durationText = "당일치기";
-    } else {
-        durationText = `${diffDays}박 ${diffDays + 1}일`;
-    }
-    
-    // Format Date for SubInfo
-    const dateFormatted = `${start.getFullYear()}년 ${start.getMonth()+1}월 ${start.getDate()}일`;
-
-    // Create Data
-    const newTripData = JSON.parse(JSON.stringify(travelData)); // Use current structure as template
-    // Reset to defaults manually or import defaultTravelData if needed. 
-    // For now, let's assume travelData structure is correct.
-    newTripData.meta.title = `${newTripDataTemp.locationName} 여행`;
-    newTripData.meta.subInfo = `${newTripDataTemp.locationName} • ${dateFormatted}`;
-    newTripData.meta.dayCount = durationText;
-    newTripData.meta.budget = "₩0";
-    newTripData.meta.note = "첫 일정을 계획해보세요!";
-    
-    // [Fix] 새 여행 생성 시 쇼핑/준비물 리스트 초기화 (이전 데이터 복사 방지)
-    newTripData.shoppingList = [];
-    newTripData.checklist = [];
-    
-    newTripData.members = {
-        [currentUser.uid]: 'owner'
-    };
-    
-    if (newTripDataTemp.mapImage) {
-        newTripData.meta.mapImage = newTripDataTemp.mapImage;
-        newTripData.meta.defaultMapImage = newTripDataTemp.mapImage;
-    }
-
-    if (newTripDataTemp.lat && newTripDataTemp.lng) {
-        newTripData.meta.lat = newTripDataTemp.lat;
-        newTripData.meta.lng = newTripDataTemp.lng;
-    }
-    
-    // Initialize Days based on duration
-    const totalDays = diffDays + 1;
-    newTripData.days = [];
-    for(let i=0; i<totalDays; i++) {
-        const d = new Date(start);
-        d.setDate(d.getDate() + i);
-        const dateStr = d.toISOString().split('T')[0];
-        
-        const timeline = [];
-        // 첫째 날 맨 처음에 '집에서 출발' 또는 사용자의 집 주소 추가
-        if (i === 0) {
-            // [Added] 사용자가 등록한 집 주소가 있으면 그것을 첫 번째 아이템으로 추가
-            const homeItem = {
-                time: "오전 09:00",
-                title: currentUser.homeAddress ? "집에서 출발" : "집에서 출발",
-                location: currentUser.homeAddress || "집",
-                icon: "home",
-                tag: "출발",
-                image: null,
-                isTransit: false,
-                note: "",
-                lat: currentUser.homeLat || null,
-                lng: currentUser.homeLng || null,
-                duration: 0  // [Added] 첫 번째 장소는 바로이동(0분)이 기본
-            };
-            timeline.push(homeItem);
-        }
-
-        newTripData.days.push({
-            date: dateStr,
-            timeline: timeline
-        });
-    }
-
-    try {
-        const docRef = await addDoc(collection(db, "plans"), newTripData);
-        closeNewTripModal();
-        openTrip(docRef.id);
     } catch (e) {
-        console.error("Error creating trip:", e);
-        alert("여행 생성 실패");
+        console.error("Error opening trip:", e);
+        alert("여행 계획을 여는 중 오류가 발생했습니다.");
+        backToMain();
+    } finally {
+        Modals.hideLoading();
     }
 }
 
-// [Main View] 여행 삭제
-let tripIdToDelete = null;
-
-export function deleteTrip(tripId) {
-    tripIdToDelete = tripId;
-    // 메뉴 닫기
-    document.querySelectorAll('[id^="trip-menu-"]').forEach(el => el.classList.add('hidden'));
-    document.getElementById('delete-trip-modal').classList.remove('hidden');
-}
-
-export function closeDeleteTripModal() {
-    document.getElementById('delete-trip-modal').classList.add('hidden');
-    tripIdToDelete = null;
-}
-
-export async function confirmDeleteTrip() {
-    if (!tripIdToDelete) return;
-
-    try {
-        const planRef = doc(db, "plans", tripIdToDelete);
-        // 권한 체크는 Firestore 규칙이나 UI 필터링에 의존 (여기서는 간단히 삭제 시도)
-        await deleteDoc(planRef);
-        
-        loadTripList(currentUser.uid);
-        closeDeleteTripModal();
-    } catch (e) {
-        console.error("Delete failed:", e);
-        alert("삭제 실패");
-    }
-}
-
-// [Navigation] 메인으로 돌아가기
 export function backToMain() {
-    // 실시간 리스너 구독 해제
-    if (currentTripUnsubscribe) {
-        currentTripUnsubscribe();
-        setCurrentTripUnsubscribe(null);
-    }
-
     document.getElementById('detail-view').classList.add('hidden');
     document.getElementById('main-view').classList.remove('hidden');
     document.getElementById('back-btn').classList.add('hidden');
-    document.getElementById('share-btn').classList.add('hidden');
-    
     setCurrentTripId(null);
-    if (currentUser) loadTripList(currentUser.uid);
-}
-// [Memory Items] 추억 관련 글로벌 변수
-let memoryModalItemIndex = null;
-let memoryModalDayIndex = null;
-let pendingMemoryPhoto = null;
-
-export function addMemoryItem(itemIndex, dayIndex = currentDayIndex) {
-    memoryModalItemIndex = itemIndex;
-    memoryModalDayIndex = dayIndex;
-    
-    const modal = document.getElementById('memory-modal');
-    if (!modal) return;
-    
-    // 입력 필드 초기화
-    document.getElementById('memory-photo-input').value = '';
-    document.getElementById('memory-comment').value = '';
-    
-    // 사진 미리보기 초기화
-    const placeholder = document.getElementById('memory-photo-placeholder');
-    const img = document.getElementById('memory-photo-img');
-    const clearBtn = document.getElementById('memory-photo-clear');
-    if (placeholder) placeholder.classList.remove('hidden');
-    if (img) img.classList.add('hidden');
-    if (clearBtn) clearBtn.classList.add('hidden');
-    
-    pendingMemoryPhoto = null;
-    
-    modal.classList.remove('hidden');
-}
-
-export function closeMemoryModal() {
-    const modal = document.getElementById('memory-modal');
-    if (modal) modal.classList.add('hidden');
-    memoryModalItemIndex = null;
-    memoryModalDayIndex = null;
-    pendingMemoryPhoto = null;
-}
-
-export function clearMemoryPhoto() {
-    pendingMemoryPhoto = null;
-    document.getElementById('memory-photo-input').value = '';
-    const placeholder = document.getElementById('memory-photo-placeholder');
-    const img = document.getElementById('memory-photo-img');
-    const clearBtn = document.getElementById('memory-photo-clear');
-    if (placeholder) placeholder.classList.remove('hidden');
-    if (img) img.classList.add('hidden');
-    if (clearBtn) clearBtn.classList.add('hidden');
-}
-
-export function handleMemoryPhotoChange(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    // 이미지가 아니면 에러
-    if (!file.type.startsWith('image/')) {
-        alert('이미지 파일만 선택할 수 있습니다.');
-        return;
-    }
-    
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-            // Canvas로 이미지 리사이즈 및 압축
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            
-            // 최대 너비/높이 설정 (1200px)
-            const MAX_WIDTH = 1200;
-            const MAX_HEIGHT = 1200;
-            
-            let width = img.width;
-            let height = img.height;
-            
-            // 비율 유지하며 리사이즈
-            if (width > height) {
-                if (width > MAX_WIDTH) {
-                    height = Math.round((height * MAX_WIDTH) / width);
-                    width = MAX_WIDTH;
-                }
-            } else {
-                if (height > MAX_HEIGHT) {
-                    width = Math.round((width * MAX_HEIGHT) / height);
-                    height = MAX_HEIGHT;
-                }
-            }
-            
-            canvas.width = width;
-            canvas.height = height;
-            
-            // 이미지 그리기
-            ctx.drawImage(img, 0, 0, width, height);
-            
-            // JPEG로 압축 (품질 0.85)
-            const compressedDataURL = canvas.toDataURL('image/jpeg', 0.85);
-            
-            // 미리보기 업데이트
-            const placeholder = document.getElementById('memory-photo-placeholder');
-            const imgElement = document.getElementById('memory-photo-img');
-            const clearBtn = document.getElementById('memory-photo-clear');
-            
-            if (placeholder) placeholder.classList.add('hidden');
-            if (imgElement) {
-                imgElement.src = compressedDataURL;
-                imgElement.classList.remove('hidden');
-            }
-            if (clearBtn) clearBtn.classList.remove('hidden');
-            
-            pendingMemoryPhoto = compressedDataURL;
-        };
-        img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-}
-
-export async function saveMemoryItem() {
-    const comment = document.getElementById('memory-comment').value.trim();
-    
-    if (!comment && !pendingMemoryPhoto) {
-        alert('최소한 코멘트 또는 사진 중 하나는 입력해주세요.');
-        return;
-    }
-    
-    if (memoryModalItemIndex === null || memoryModalDayIndex === null) return;
-    
-    try {
-        // timeline item에 memories 배열이 없으면 생성
-        if (!travelData.days[memoryModalDayIndex].timeline[memoryModalItemIndex].memories) {
-            travelData.days[memoryModalDayIndex].timeline[memoryModalItemIndex].memories = [];
-        }
-        
-        let photoUrl = null;
-        
-        // 사진이 있으면 Cloud Functions를 통해 업로드
-        if (pendingMemoryPhoto) {
-            try {
-                // 고유한 파일명 생성
-                const timestamp = Date.now();
-                const fileName = `memory_${memoryModalDayIndex}_${memoryModalItemIndex}_${timestamp}.jpg`;
-                
-                // Cloud Functions 엔드포인트를 통해 업로드
-                const response = await fetch(`${BACKEND_URL}/upload-memory`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        base64Data: pendingMemoryPhoto,
-                        fileName: fileName,
-                        tripId: currentTripId
-                    })
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || '업로드 실패');
-                }
-
-                const result = await response.json();
-                photoUrl = result.url;
-            } catch (error) {
-                console.error("사진 업로드 실패:", error);
-                alert('사진 업로드에 실패했습니다: ' + error.message);
-                return;
-            }
-        }
-        
-        const newMemory = {
-            comment: comment,
-            hasPhoto: photoUrl ? true : false,
-            photoUrl: photoUrl,
-            createdAt: new Date().toISOString()
-        };
-        
-        travelData.days[memoryModalDayIndex].timeline[memoryModalItemIndex].memories.push(newMemory);
-        
-        // Firestore 업데이트
-        const docRef = doc(db, "plans", currentTripId);
-        await updateDoc(docRef, {
-            days: travelData.days
-        });
-        
-        closeMemoryModal();
-        renderItinerary();
-    } catch (error) {
-        console.error("추억 저장 실패:", error);
-        alert('추억 저장에 실패했습니다: ' + error.message);
+    // 현재 사용자 정보가 있으면 여행 목록을 다시 로드합니다.
+    if (currentUser) {
+        loadTripList(currentUser.uid);
     }
 }
 
-export function deleteMemory(itemIndex, dayIndex, memoryIndex) {
-    if (!confirm('이 추억을 삭제하시겠습니까?')) return;
-    
-    if (travelData.days[dayIndex].timeline[itemIndex].memories && 
-        travelData.days[dayIndex].timeline[itemIndex].memories[memoryIndex]) {
-        travelData.days[dayIndex].timeline[itemIndex].memories.splice(memoryIndex, 1);
-        
-        try {
-            const docRef = doc(db, "plans", currentTripId);
-            updateDoc(docRef, {
-                days: travelData.days
-            }).then(() => {
-                renderItinerary();
-            });
-        } catch (error) {
-            console.error("추억 삭제 실패:", error);
-            alert('추억 삭제에 실패했습니다.');
-        }
+export const createNewTrip = Trips.createNewTrip;
+export const closeNewTripModal = Trips.closeNewTripModal;
+export const nextWizardStep = Trips.nextWizardStep;
+
+export const loadTripList = Trips.loadTripList;
+export const finishNewTripWizard = Trips.finishNewTripWizard;
+export const deleteTrip = Trips.deleteTrip;
+
+export function closeDeleteTripModal() {}
+export function confirmDeleteTrip() {}
+
+export function toggleTripMenu(tripId) {
+    const menu = document.getElementById(`trip-menu-${tripId}`);
+    if (menu) {
+        const isHidden = menu.classList.contains('hidden');
+        document.querySelectorAll('[id^="trip-menu-"]').forEach(el => el.classList.add('hidden'));
+        if (isHidden) menu.classList.remove('hidden');
     }
 }
 
-// 추억 잠금/해제 토글
-export async function toggleMemoryLock() {
-    if (!travelData.meta) travelData.meta = {};
-    travelData.meta.memoryLocked = !travelData.meta.memoryLocked;
-    
-    try {
-        const docRef = doc(db, "plans", currentTripId);
-        await updateDoc(docRef, {
-            'meta.memoryLocked': travelData.meta.memoryLocked
-        });
-        
-        renderItinerary();
-    } catch (error) {
-        console.error("추억 잠금 상태 변경 실패:", error);
-        alert('상태 변경에 실패했습니다.');
-    }
-}
-
-
-// Google Login
-export async function login() {
-    try {
-        await firebaseReady; // Firebase가 초기화될 때까지 대기
-        await signInWithPopup(auth, provider);
-    } catch (error) {
-        console.error("로그인 실패", error);
-        alert("로그인 실패: " + error.message);
-    }
-}
-
-// Logout
-export async function logout() {
-    try { await firebaseReady; await signOut(auth); closeLogoutModal(); } catch (error) { console.error("로그아웃 실패", error); }
-}
-
-export function openLogoutModal() {
-    document.getElementById('logout-modal').classList.remove('hidden');
-}
-
-export function closeLogoutModal() {
-    document.getElementById('logout-modal').classList.add('hidden');
-}
-
-export function confirmLogout() {
-    openLogoutModal();
-}
-
-// 사용자 메뉴 열기/닫기
-export function openUserMenu() {
-    const dropdown = document.getElementById('user-menu-dropdown');
-    if (dropdown) {
-        dropdown.classList.toggle('hidden');
-        // 다른 곳 클릭 시 닫기
-        if (!dropdown.classList.contains('hidden')) {
-            document.addEventListener('click', closeUserMenuOnClickOutside);
-        }
-    }
-}
-
-function closeUserMenuOnClickOutside(e) {
-    const dropdown = document.getElementById('user-menu-dropdown');
-    const userAvatar = document.getElementById('user-avatar');
-    if (dropdown && userAvatar && !dropdown.contains(e.target) && !userAvatar.contains(e.target)) {
-        dropdown.classList.add('hidden');
-        document.removeEventListener('click', closeUserMenuOnClickOutside);
-    }
-}
-
-export function openUserSettings() {
-    // 추후 설정 페이지 구현
-    const dropdown = document.getElementById('user-menu-dropdown');
-    if (dropdown) dropdown.classList.add('hidden');
-    alert('설정 기능은 준비 중입니다.');
-}
-
-export function openUserProfile() {
-    // 프로필 페이지 열기
-    const profileView = document.getElementById('profile-view');
-    const mainView = document.getElementById('main-view');
-    const detailView = document.getElementById('detail-view');
-    const loginView = document.getElementById('login-view');
-    
-    // 다른 뷰 숨기고 프로필 뷰 표시
-    mainView.classList.add('hidden');
-    detailView.classList.add('hidden');
-    loginView.classList.add('hidden');
-    profileView.classList.remove('hidden');
-    
-    // 메뉴 닫기
-    const dropdown = document.getElementById('user-menu-dropdown');
-    if (dropdown) dropdown.classList.add('hidden');
-    
-    // 현재 사용자 정보 로드
-    loadProfileData();
-    
-    // [Added] 집 주소 자동완성 설정
-    setupHomeAddressAutocomplete();
-}
-
-export function closeProfileView() {
-    const profileView = document.getElementById('profile-view');
-    const mainView = document.getElementById('main-view');
-    
-    profileView.classList.add('hidden');
-    mainView.classList.remove('hidden');
-}
-
-// [Added] 집 주소 자동완성 설정
-function setupHomeAddressAutocomplete() {
-    const homeAddressInput = document.getElementById('profile-home-address');
-    if (!homeAddressInput) return;
-    
-    if (!window.google || !window.google.maps) {
-        console.warn('Google Maps API not loaded');
-        return;
-    }
-    
-    const autocomplete = new google.maps.places.Autocomplete(homeAddressInput, {
-        types: ['geocode']
-    });
-    
-    autocomplete.addListener('place_changed', () => {
-        const place = autocomplete.getPlace();
-        if (place.geometry && place.geometry.location) {
-            const homeCoords = document.getElementById('profile-home-coords');
-            if (homeCoords) {
-                homeCoords.textContent = `좌표: ${place.geometry.location.lat().toFixed(6)}, ${place.geometry.location.lng().toFixed(6)}`;
-            }
-        }
-    });
-    
-    // [Added] 엔터 키로 첫 번째 결과 자동 선택
-    homeAddressInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            
-            // 자동완성 dropdown에서 첫 번째 항목 선택
-            const event = new Event('keydown', { bubbles: true });
-            Object.defineProperty(event, 'keyCode', { value: 40 }); // down arrow
-            homeAddressInput.dispatchEvent(event);
-            
-            // 약간의 지연 후 enter 키 시뮬레이션
-            setTimeout(() => {
-                const enterEvent = new Event('keydown', { bubbles: true });
-                Object.defineProperty(enterEvent, 'keyCode', { value: 13 }); // enter
-                homeAddressInput.dispatchEvent(enterEvent);
-            }, 100);
-        }
-    });
-}
-
-// [Added] 주소를 좌표로 변환
-async function geocodeAddress(address) {
-    try {
-        if (!window.google || !window.google.maps) {
-            console.warn('Google Maps API not loaded');
-            return null;
-        }
-        
-        const geocoder = new google.maps.Geocoder();
-        return new Promise((resolve) => {
-            geocoder.geocode({ address }, (results, status) => {
-                if (status === 'OK' && results[0]) {
-                    resolve({
-                        lat: results[0].geometry.location.lat(),
-                        lng: results[0].geometry.location.lng()
-                    });
-                } else {
-                    alert('주소를 찾을 수 없습니다. 정확한 주소를 입력해주세요.');
-                    resolve(null);
-                }
-            });
-        });
-    } catch (error) {
-        console.error('Geocode error:', error);
-        return null;
-    }
-}
-
-function loadProfileData() {
-    if (!currentUser) return;
-    
-    // 이름 입력란
-    const nameInput = document.getElementById('profile-name-input');
-    if (nameInput) nameInput.value = currentUser.displayName || '';
-    
-    // 이메일 표시
-    const emailDisplay = document.getElementById('profile-email-display');
-    if (emailDisplay) emailDisplay.textContent = currentUser.email || '--';
-    
-    // 프로필 사진
-    let photoURL = currentUser.customPhotoURL || currentUser.photoURL || localStorage.getItem('cachedUserPhotoURL');
-    const avatarLarge = document.getElementById('profile-avatar-large');
-    if (avatarLarge && photoURL) {
-        avatarLarge.style.backgroundImage = `url('${photoURL}')`;
-    }
-    
-    // [Added] 집 주소 로드
-    const homeAddressInput = document.getElementById('profile-home-address');
-    const homeCoords = document.getElementById('profile-home-coords');
-    if (homeAddressInput && currentUser.homeAddress) {
-        homeAddressInput.value = currentUser.homeAddress;
-    }
-    if (homeCoords && currentUser.homeLat && currentUser.homeLng) {
-        homeCoords.textContent = `좌표: ${currentUser.homeLat.toFixed(6)}, ${currentUser.homeLng.toFixed(6)}`;
-    }
-    
-    // 여행 정보 로드
-    const phoneInput = document.getElementById('profile-phone');
-    const emergencyContactInput = document.getElementById('profile-emergency-contact');
-    const passportInput = document.getElementById('profile-passport');
-    const passportExpiryInput = document.getElementById('profile-passport-expiry');
-    const birthInput = document.getElementById('profile-birth');
-    const bloodTypeInput = document.getElementById('profile-blood-type');
-    const allergiesInput = document.getElementById('profile-allergies');
-    
-    if (phoneInput) phoneInput.value = currentUser.phone || '';
-    if (emergencyContactInput) emergencyContactInput.value = currentUser.emergencyContact || '';
-    if (passportInput) passportInput.value = currentUser.passport || '';
-    if (passportExpiryInput) passportExpiryInput.value = currentUser.passportExpiry || '';
-    if (birthInput) birthInput.value = currentUser.birth || '';
-    if (bloodTypeInput) bloodTypeInput.value = currentUser.bloodType || '';
-    if (allergiesInput) allergiesInput.value = currentUser.allergies || '';
-}
-
-export function handleProfilePhotoChange(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    // 파일 크기 확인 (5MB 제한)
-    if (file.size > 5 * 1024 * 1024) {
-        alert('파일 크기가 5MB를 초과합니다.');
-        return;
-    }
-    
-    // 이미지 미리보기
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const dataURL = e.target.result;
-        const avatarLarge = document.getElementById('profile-avatar-large');
-        if (avatarLarge) {
-            avatarLarge.style.backgroundImage = `url('${dataURL}')`;
-        }
-        // 임시 저장 (저장 버튼을 눌러야 실제 저장됨)
-        sessionStorage.setItem('pendingProfilePhoto', dataURL);
-    };
-    reader.readAsDataURL(file);
-}
-
-export async function saveProfileChanges() {
-    if (!currentUser) {
-        alert('로그인이 필요합니다.');
-        return;
-    }
-    
-    const nameInput = document.getElementById('profile-name-input');
-    const homeAddressInput = document.getElementById('profile-home-address');
-    const phoneInput = document.getElementById('profile-phone');
-    const emergencyContactInput = document.getElementById('profile-emergency-contact');
-    const passportInput = document.getElementById('profile-passport');
-    const passportExpiryInput = document.getElementById('profile-passport-expiry');
-    const birthInput = document.getElementById('profile-birth');
-    const bloodTypeInput = document.getElementById('profile-blood-type');
-    const allergiesInput = document.getElementById('profile-allergies');
-    
-    const newName = nameInput ? nameInput.value.trim() : '';
-    const newHomeAddress = homeAddressInput ? homeAddressInput.value.trim() : '';
-    const phone = phoneInput ? phoneInput.value.trim() : '';
-    const emergencyContact = emergencyContactInput ? emergencyContactInput.value.trim() : '';
-    const passport = passportInput ? passportInput.value.trim() : '';
-    const passportExpiry = passportExpiryInput ? passportExpiryInput.value : '';
-    const birth = birthInput ? birthInput.value : '';
-    const bloodType = bloodTypeInput ? bloodTypeInput.value : '';
-    const allergies = allergiesInput ? allergiesInput.value.trim() : '';
-    
-    if (!newName) {
-        alert('이름을 입력하세요.');
-        return;
-    }
-    
-    try {
-        // Firebase Auth에 이름 업데이트
-        await updateProfile(auth.currentUser, {
-            displayName: newName
-        });
-        
-        // Firestore에 업데이트
-        const userRef = doc(db, "users", currentUser.uid);
-        const updateData = {
-            displayName: newName,
-            phone: phone,
-            emergencyContact: emergencyContact,
-            passport: passport,
-            passportExpiry: passportExpiry,
-            birth: birth,
-            bloodType: bloodType,
-            allergies: allergies
-        };
-        
-        // [Added] 집 주소가 있으면 저장
-        if (newHomeAddress) {
-            // Google Places API로 주소 검색 (시뮬레이션)
-            const homeData = await geocodeAddress(newHomeAddress);
-            if (homeData) {
-                updateData.homeAddress = newHomeAddress;
-                updateData.homeLat = homeData.lat;
-                updateData.homeLng = homeData.lng;
-            }
-        } else {
-            // 집 주소 삭제
-            updateData.homeAddress = '';
-            updateData.homeLat = null;
-            updateData.homeLng = null;
-        }
-        
-        await updateDoc(userRef, updateData);
-        
-        // 프로필 사진이 변경되었으면 저장
-        const pendingPhoto = sessionStorage.getItem('pendingProfilePhoto');
-        if (pendingPhoto) {
-            // Firestore에 Base64로 저장
-            await updateDoc(userRef, {
-                photoURL: pendingPhoto
-            });
-            
-            // 로컬스토리지에 캐싱
-            localStorage.setItem('cachedUserPhotoURL', pendingPhoto);
-            
-            // currentUser 업데이트
-            setCurrentUser({ 
-                ...currentUser, 
-                customPhotoURL: pendingPhoto,
-                displayName: newName 
-            });
-            
-            // 헤더 프로필 사진도 즉시 업데이트
-            const userAvatar = document.getElementById('user-avatar');
-            if (userAvatar) {
-                userAvatar.style.backgroundImage = `url('${pendingPhoto}')`;
-            }
-            
-            sessionStorage.removeItem('pendingProfilePhoto');
-        } else {
-            // 사진 변경 없이 이름만 업데이트
-            setCurrentUser({ ...currentUser, displayName: newName });
-        }
-        
-        // 페이지 업데이트
-        const mainTitle = document.getElementById('main-view-title');
-        if (mainTitle) mainTitle.innerText = `${newName}님의 여행 계획`;
-        
-        // 성공 메시지
-        alert('프로필이 저장되었습니다.');
-        closeProfileView();
-        
-    } catch (error) {
-        console.error("프로필 저장 실패:", error);
-        alert('프로필 저장에 실패했습니다: ' + error.message);
-    }
-}
-
-// Auth State Observer
-async function initAuthStateObserver() {
-    await firebaseReady; // Firebase가 초기화될 때까지 대기
-    onAuthStateChanged(auth, (user) => {
-        setCurrentUser(user);
-        const loginBtn = document.getElementById('login-btn');
-        const userProfile = document.getElementById('user-profile');
-        const userAvatar = document.getElementById('user-avatar');
-        const mainTitle = document.getElementById('main-view-title');
-        const loginView = document.getElementById('login-view');
-    const mainView = document.getElementById('main-view');
-    const detailView = document.getElementById('detail-view');
-    const backBtn = document.getElementById('back-btn');
-    const faviconLink = document.querySelector("link[rel~='icon']");
-        
-        // 인증 상태 확인 후 UI 표시
-        document.body.style.opacity = '1';
-        hideLoading();
-    // [수정] 파비콘을 로그인 상태와 관계없이 고정
-    if (faviconLink) faviconLink.href = '/favicon.ico';
-
-    if (user) {
-        // 로그인 상태
-        loginBtn.classList.add('hidden');
-        userProfile.classList.remove('hidden');
-        
-        // 공유 기능을 위해 사용자 정보 저장 (로컬스토리지에도 백업)
-        const userRef = doc(db, "users", user.uid);
-        const userData = {
-            email: user.email,
-            displayName: user.displayName
-        };
-        
-        // [수정] Firestore에서 사용자 정보 로드 (프로필 사진, 집 주소 등)
-        getDoc(userRef).then((docSnap) => {
-            let customPhotoURL = null;
-            
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                
-                // Firestore에 저장된 커스텀 프로필 사진이 있으면 우선 사용
-                if (data.photoURL) {
-                    customPhotoURL = data.photoURL;
-                }
-                
-                // currentUser에 집 주소 및 여행 정보 추가
-                setCurrentUser({
-                    ...user,
-                    homeAddress: data.homeAddress || '',
-                    homeLat: data.homeLat || null,
-                    homeLng: data.homeLng || null,
-                    phone: data.phone || '',
-                    emergencyContact: data.emergencyContact || '',
-                    passport: data.passport || '',
-                    passportExpiry: data.passportExpiry || '',
-                    birth: data.birth || '',
-                    bloodType: data.bloodType || '',
-                    allergies: data.allergies || '',
-                    customPhotoURL: customPhotoURL
-                });
-            } else {
-                setCurrentUser({
-                    ...user,
-                    customPhotoURL: customPhotoURL
-                });
-            }
-            
-            // 프로필 사진 설정 (커스텀 > Google > 캐시)
-            const finalPhotoURL = customPhotoURL || user.photoURL || localStorage.getItem('cachedUserPhotoURL');
-            
-            if (finalPhotoURL) {
-                localStorage.setItem('cachedUserPhotoURL', finalPhotoURL);
-                userAvatar.style.backgroundImage = `url('${finalPhotoURL}')`;
-                
-                // 로드 실패 대비
-                const testImg = new Image();
-                testImg.onerror = () => {
-                    const cached = localStorage.getItem('cachedUserPhotoURL');
-                    if (cached && cached !== finalPhotoURL) {
-                        userAvatar.style.backgroundImage = `url('${cached}')`;
-                    } else {
-                        // 캐시도 실패 시 기본 그라데이션
-                        userAvatar.style.backgroundImage = '';
-                    }
-                };
-                testImg.src = finalPhotoURL;
-            } else {
-                // photoURL이 없으면 캐싱된 이미지 사용
-                const cached = localStorage.getItem('cachedUserPhotoURL');
-                if (cached) {
-                    userAvatar.style.backgroundImage = `url('${cached}')`;
-                } else {
-                    userAvatar.style.backgroundImage = '';
-                }
-            }
-        }).catch(error => {
-            console.error("Error loading user data:", error);
-            
-            // 에러 발생 시 기본 로직 사용
-            const fallbackPhotoURL = user.photoURL || localStorage.getItem('cachedUserPhotoURL');
-            if (fallbackPhotoURL) {
-                userAvatar.style.backgroundImage = `url('${fallbackPhotoURL}')`;
-            }
-        });
-        
-        // Firestore 업데이트 (merge로 기존 데이터 유지)
-        setDoc(userRef, userData, { merge: true });
-        
-        mainTitle.innerText = `${user.displayName}님의 여행 계획`;
-        
-        // 로컬스토리지에도 백업 저장
-        localStorage.setItem('cachedUserDisplayName', user.displayName || '');
-        localStorage.setItem('cachedUserEmail', user.email || '');
-
-        loginView.classList.add('hidden');
-        mainView.classList.remove('hidden');
-
-        loadTripList(user.uid);
-        checkInviteLink(); // 로그인 후 초대 링크 확인
-    } else {
-        // 로그아웃 상태
-        loginBtn.classList.remove('hidden');
-        userProfile.classList.add('hidden');
-        userAvatar.style.backgroundImage = '';
-        mainTitle.innerText = '나의 여행 계획';
-        
-        // 로그인 화면 표시, 다른 모든 뷰 숨기기
-        loginView.classList.remove('hidden');
-        mainView.classList.add('hidden');
-        detailView.classList.add('hidden');
-        backBtn.classList.add('hidden');
-    }
-    });
-}
-
-// Auth State Observer 초기화
-initAuthStateObserver();
-
-export function updateMeta(key, value) {
-    if (key.includes('.')) {
-        const [p, c] = key.split('.');
-        travelData.meta[p][c] = value;
-    } else {
-        travelData.meta[key] = value;
-    }
-}
-
-export function updateTimeline(index, key, value) {
-    travelData.days[targetDayIndex].timeline[index][key] = value;
-}
-
-// 날짜 변경 처리 (YYYY-MM-DD -> YYYY년 MM월 DD일)
-export function updateTripDate(dateStr) {
-    if (!dateStr) return;
-    const [y, m, d] = dateStr.split('-');
-    const formatted = `${y}년 ${parseInt(m)}월 ${parseInt(d)}일`;
-    updateMeta('subInfo', formatted);
-}
-
-export function updateDateRange() {
-    const startDateInput = document.getElementById('edit-start-date');
-    const endDateInput = document.getElementById('edit-end-date');
-    if (!startDateInput || !endDateInput) return;
-
-    const startDateStr = startDateInput.value;
-    const endDateStr = endDateInput.value;
-
-    if (!startDateStr || !endDateStr) return;
-
-    const start = new Date(startDateStr);
-    const end = new Date(endDateStr);
-
-    if (end < start) {
-        alert("종료일은 시작일보다 빠를 수 없습니다.");
-        // Revert to original dates
-        startDateInput.value = travelData.days[0].date;
-        endDateInput.value = travelData.days[travelData.days.length - 1].date;
-        return;
-    }
-
-    // Calculate new duration text
-    const diffTime = Math.abs(end - start);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    travelData.meta.dayCount = (diffDays === 0) ? "당일치기" : `${diffDays}박 ${diffDays + 1}일`;
-
-    // Adjust travelData.days array
-    const totalDays = diffDays + 1;
-    const currentTotalDays = travelData.days.length;
-
-    if (totalDays > currentTotalDays) {
-        for (let i = currentTotalDays; i < totalDays; i++) {
-            const newDate = new Date(start);
-            newDate.setDate(newDate.getDate() + i);
-            travelData.days.push({ date: newDate.toISOString().split('T')[0], timeline: [] });
-        }
-    } else if (totalDays < currentTotalDays) {
-        travelData.days.splice(totalDays);
-    }
-
-    travelData.days.forEach((day, i) => { const d = new Date(start); d.setDate(d.getDate() + i); day.date = d.toISOString().split('T')[0]; });
-    
-    const format = d => `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
-    let dateStr = format(start);
-    if (travelData.meta.dayCount !== "당일치기") {
-        dateStr += ` - ${end.getMonth() + 1}월 ${end.getDate()}일`;
-    }
-    let prefix = travelData.meta.subInfo && travelData.meta.subInfo.includes('•') ? travelData.meta.subInfo.split('•')[0].trim() : "";
-    travelData.meta.subInfo = prefix ? `${prefix} • ${dateStr}` : dateStr;
-
-    if (currentDayIndex >= travelData.days.length) { 
-        setCurrentDayIndex(travelData.days.length - 1);
-        setTargetDayIndex(travelData.days.length - 1);
-    }
-    renderItinerary();
-}
-
-// 이미지 업로드 처리 (Base64 변환)
-export function handleImageUpload(input) {
-    if (input.files && input.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            updateMeta('mapImage', e.target.result);
-            renderItinerary();
-        };
-        reader.readAsDataURL(input.files[0]);
-    }
-}
-
-// [Helper] 타임라인 재정렬 및 이동시간 자동 계산
-export function reorderTimeline(dayIndex = currentDayIndex, sortByTime = false) {
-    // [Added] 스크롤 위치 저장
-    const scrollPos = window.scrollY || document.documentElement.scrollTop;
-    
-    const timeline = travelData.days[dayIndex].timeline;
-    if (!timeline || timeline.length === 0) return;
-
-    // 1. 그룹화 (장소 + 그 뒤에 딸린 이동수단들)
-    let groups = [];
-    let currentGroup = { main: null, transits: [], originalIndex: -1 };
-
-    timeline.forEach((item, idx) => {
-        if (!item.isTransit) {
-            if (currentGroup.main !== null || currentGroup.transits.length > 0) {
-                groups.push(currentGroup);
-            }
-            currentGroup = { main: item, transits: [], originalIndex: idx };
-        } else {
-            currentGroup.transits.push(item);
-        }
-    });
-    groups.push(currentGroup);
-
-    // 2. 시간순 재정렬 옵션이 켜져있을 때만 정렬
-    if (sortByTime) {
-        groups.sort((a, b) => {
-            const timeA = a.main ? parseTimeStr(a.main.time) : -1;
-            const timeB = b.main ? parseTimeStr(b.main.time) : -1;
-            
-            if (timeA === -1 && timeB === -1) return 0;
-            if (timeA === -1) return 1;
-            if (timeB === -1) return -1;
-            
-            return timeA - timeB;
-        });
-    }
-
-    // 3. 순서가 바뀐 그룹 사이의 이동수단 제거
-    for (let i = 0; i < groups.length; i++) {
-        if (i > 0) {
-            const prevGroup = groups[i - 1];
-            const currentGroup = groups[i];
-            
-            // 원래 순서가 바뀌었으면 이전 그룹의 이동수단 제거
-            if (prevGroup.originalIndex > currentGroup.originalIndex) {
-                prevGroup.transits = [];
-            }
-        }
-    }
-
-    // 4. 평탄화 (장소 + 이동수단)
-    const newTimeline = [];
-    groups.forEach(g => {
-        if (g.main) newTimeline.push(g.main);
-        g.transits.forEach(t => newTimeline.push(t));
-    });
-
-    travelData.days[dayIndex].timeline = newTimeline;
-    renderItinerary();
-    autoSave();
-    
-    // [Added] 스크롤 위치 복원 (다음 렌더링 사이클에서)
-    requestAnimationFrame(() => {
-        window.scrollTo(0, scrollPos);
-    });
-}
-
-// ==========================================
-// [Touch Drag & Drop Logic]
-// ==========================================
+// [Touch Drag Logic]
 let touchLongPressTimer = null;
+let longPressTimer = null; // touchEnd에서 사용됨
 let isTouchDragging = false;
 let touchStartIndex = null;
-let touchStartX = 0;
-let touchStartY = 0;
-let isSwiping = false;
-let currentSwipeItem = null;
-let touchType = null;
+let draggingIndex = null;
 
-export function touchStart(e, index, type = 'item') {
-    // 롱프레스 감지
-    touchStartIndex = index;
-    touchType = type;
-    isTouchDragging = false;
-    isSwiping = false;
+export function touchStart(e, index, type) {
+    if (isEditing) return;
     
-    const touch = e.touches[0];
-    touchStartX = touch.clientX;
-    touchStartY = touch.clientY;
-    
+    // 롱프레스 감지 타이머 시작
     touchLongPressTimer = setTimeout(() => {
-        if (isSwiping) return;
-
+        isTouchDragging = true;
+        touchStartIndex = index;
+        
+        // 드래그 시작 시각적 피드백
+        const target = e.currentTarget;
+        if (target) target.style.opacity = '0.5';
+        
+        // 햅틱 피드백 (지원 기기)
         if (navigator.vibrate) navigator.vibrate(50);
-
-        if (isEditing && type === 'item') {
-            // 편집 모드일 때는 드래그 시작
-            isTouchDragging = true;
-            const target = e.currentTarget;
-            target.style.opacity = '0.5';
-            draggingIndex = index;
-        } else {
-            // 일반 모드일 때는 컨텍스트 메뉴 오픈
-            const touch = e.touches[0];
-            // 가짜 이벤트 객체 생성하여 openContextMenu 호출
-            const fakeEvent = {
-                preventDefault: () => {},
-                clientX: touch.clientX,
-                clientY: touch.clientY,
-                target: e.target
-            };
-            openContextMenu(fakeEvent, type, index);
-        }
     }, 500);
 }
 
 export function touchMove(e) {
-    const touch = e.touches[0];
-    const diffX = touch.clientX - touchStartX;
-    const diffY = touch.clientY - touchStartY;
-
-    if (isTouchDragging) {
-        e.preventDefault(); // 스크롤 방지
-        const element = document.elementFromPoint(touch.clientX, touch.clientY);
-        const targetItem = element?.closest('.group\\/timeline-item');
-        
-        clearDragStyles();
-        
-        if (targetItem) {
-            const indicator = targetItem.querySelector('.drag-indicator');
-            if (indicator) indicator.classList.remove('hidden');
-        }
-        return;
-    }
-
-    // 움직임 감지 시 롱프레스 취소
-    if (Math.abs(diffX) > 10 || Math.abs(diffY) > 10) {
+    // 스크롤이 발생하면 롱프레스 취소
+    if (touchLongPressTimer) {
         clearTimeout(touchLongPressTimer);
-        if (longPressTimer) {
-            clearTimeout(longPressTimer);
-            longPressTimer = null;
-            longPressStartIndex = null;
-        }
+        touchLongPressTimer = null;
+    }
+    
+    if (isTouchDragging) {
+        e.preventDefault(); // 드래그 중 스크롤 방지
+        
+        // 터치 위치에 따른 드래그 효과 로직 (필요 시 추가 구현)
+        // 현재는 touchEnd에서 elementFromPoint로 드롭 처리
     }
 }
 
@@ -1647,8 +179,6 @@ export function dragStart(e, index, dayIndex) {
     e.currentTarget.classList.add('dragging');
     draggingIndex = index; // 드래그 중인 인덱스 저장
 }
-
-
 
 export function dragEnd(e) {
     // 모든 dragging 클래스 제거
@@ -1763,6 +293,26 @@ export function moveTimelineItem(fromIndex, targetIndex, dayIndex = currentDayIn
 
     // [Step 2] 순서 변경 후 재정렬 (시간 계산 안 함, reorderTimeline에서 이동수단 삭제만 처리)
     reorderTimeline(dayIndex);
+}
+
+export function reorderTimeline(dayIndex, sortByTime = false) {
+    if (dayIndex === null || dayIndex === -1) return;
+    const day = travelData.days[dayIndex];
+    if (!day || !day.timeline) return;
+
+    if (sortByTime) {
+        day.timeline.sort((a, b) => {
+            const ta = parseTimeStr(a.time);
+            const tb = parseTimeStr(b.time);
+            if (ta === null && tb === null) return 0;
+            if (ta === null) return 1;
+            if (tb === null) return -1;
+            return ta - tb;
+        });
+    }
+    
+    renderItinerary();
+    autoSave();
 }
 
 // 날짜 탭 변경
@@ -1882,7 +432,9 @@ export function viewTimelineItem(index, dayIndex = currentDayIndex) {
     // 이동수단이 아니고 위치 정보가 있을 때만 지도 표시
     if (item.location && item.location.length > 1 && item.location !== "위치" && !item.isTransit) {
         mapSection.classList.remove('hidden');
-        mapFrame.src = `https://www.google.com/maps/embed/v1/place?key=${GOOGLE_MAPS_API_KEY}&q=${encodeURIComponent(item.title + "," + item.location)}`;
+        getMapsApiKey().then(key => {
+            mapFrame.src = `https://www.google.com/maps/embed/v1/place?key=${key}&q=${encodeURIComponent(item.title + "," + item.location)}`;
+        });
     } else {
         mapSection.classList.add('hidden');
         mapFrame.src = "";
@@ -1891,10 +443,16 @@ export function viewTimelineItem(index, dayIndex = currentDayIndex) {
     document.getElementById('item-detail-modal').classList.remove('hidden');
 }
 
+export function openAddModal(index, dayIndex) {
+    return Modals.openAddModal(index, dayIndex);
+}
+
+export function closeAddModal() {
+    return Modals.closeAddModal();
+}
+
 export function closeDetailModal() {
-    document.getElementById('item-detail-modal').classList.add('hidden');
-    document.getElementById('detail-map-frame').src = "";
-    setViewingItemIndex(null);
+    return Modals.closeDetailModal();
 }
 
 export function editCurrentItem() {
@@ -1949,60 +507,6 @@ export function openMemoModal(item) {
 export function closeMemoModal() {
     document.getElementById('memo-detail-modal').classList.add('hidden');
     setViewingItemIndex(null);
-}
-
-// 이동수단 아이템 저장 함수
-function saveTransitItem(index, dayIndex) {
-    const timeline = travelData.days[dayIndex].timeline;
-    const item = timeline[index];
-    
-    if (!item || !item.isTransit) return;
-    
-    const isAirplane = item.transitType === 'airplane';
-    
-    if (isAirplane) {
-        // 비행기 정보 저장
-        const departure = document.getElementById(`transit-departure-${index}`)?.value || '';
-        const arrival = document.getElementById(`transit-arrival-${index}`)?.value || '';
-        const time = document.getElementById(`transit-time-${index}`)?.value || '';
-        const duration = document.getElementById(`transit-duration-${index}`)?.value || '';
-        const flightNumber = document.getElementById(`transit-flight-number-${index}`)?.value || '';
-        const bookingRef = document.getElementById(`transit-booking-ref-${index}`)?.value || '';
-        const terminal = document.getElementById(`transit-terminal-${index}`)?.value || '';
-        const gate = document.getElementById(`transit-gate-${index}`)?.value || '';
-        const note = document.getElementById(`transit-note-${index}`)?.value || '';
-        
-        item.title = `${departure} → ${arrival}`;
-        item.time = time;
-        item.duration = duration;
-        item.note = note;
-        item.flightInfo = {
-            departure,
-            arrival,
-            flightNumber,
-            bookingRef,
-            terminal,
-            gate
-        };
-    } else {
-        // 일반 이동수단 정보 저장
-        const title = document.getElementById(`transit-title-${index}`)?.value || '';
-        const time = document.getElementById(`transit-time-${index}`)?.value || '';
-        const duration = document.getElementById(`transit-duration-${index}`)?.value || '';
-        const note = document.getElementById(`transit-note-${index}`)?.value || '';
-        
-        item.title = title;
-        item.time = time;
-        item.duration = duration;
-        item.note = note;
-    }
-    
-    // 편집 모드 해제
-    item.isEditing = false;
-    
-    // 저장 및 UI 업데이트
-    autoSave();
-    renderItinerary();
 }
 
 export function editCurrentMemo() {
@@ -2150,185 +654,15 @@ export async function checkInviteLink() {
 
 // [Sharing Logic]
 export async function openShareModal(tripId = null) {
-    // 메뉴 닫기
-    document.querySelectorAll('[id^="trip-menu-"]').forEach(el => el.classList.add('hidden'));
-
-    const memberListEl = document.getElementById('member-list');
-    memberListEl.innerHTML = '로딩 중...';
-    document.getElementById('share-modal').classList.remove('hidden');
-
-    let targetTripId = tripId || currentTripId;
-    let members = {};
-
-    // 메인 리스트에서 호출된 경우 데이터 fetch
-    if (tripId) {
-        try {
-            const docRef = doc(db, "plans", tripId);
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists()) {
-                members = docSnap.data().members || {};
-            }
-        } catch (e) {
-            console.error("Error fetching trip members:", e);
-        }
-    } else {
-        // 상세 페이지에서 호출된 경우 현재 데이터 사용
-        members = travelData.members || {};
-    }
-
-    const memberUIDs = Object.keys(members).sort((a, b) => {
-        if (members[a] === 'owner') return -1;
-        if (members[b] === 'owner') return 1;
-        return 0;
-    });
-    
-    // Generate Link
-    const link = `${window.location.origin}${window.location.pathname}?invite=${targetTripId}`;
-    document.getElementById('share-link-input').value = link;
-
-    let html = '';
-
-    for (const uid of memberUIDs) {
-        const userRef = doc(db, "users", uid);
-        const userSnap = await getDoc(userRef);
-        if (userSnap.exists()) {
-            const userData = userSnap.data();
-            const role = members[uid];
-            const isMe = currentUser && currentUser.uid === uid;
-            const displayName = isMe ? `${userData.displayName} (나)` : userData.displayName;
-            html += `
-                <div class="flex justify-between items-center bg-gray-50 dark:bg-gray-800 p-2 rounded-lg">
-                    <div class="flex items-center gap-3">
-                        <img src="${userData.photoURL}" class="w-8 h-8 rounded-full">
-                        <div>
-                            <p class="text-sm font-bold">${displayName}</p>
-                            <p class="text-xs text-gray-500">${userData.email}</p>
-                        </div>
-                    </div>
-                    <span class="text-xs font-semibold text-gray-500">${role}</span>
-                </div>
-            `;
-        }
-    }
-    memberListEl.innerHTML = html;
+    return Header.openShareModal(tripId);
 }
 
 export function closeShareModal() {
-    document.getElementById('share-modal').classList.add('hidden');
+    return Header.closeShareModal();
 }
 
 export async function downloadTripAsPDF() {
-    try {
-        console.log('PDF 다운로드 시작');
-        
-        showLoading();
-        
-        // PDF용 HTML 생성
-        const pdfContent = generatePDFContent();
-        console.log('생성된 HTML 길이:', pdfContent.length);
-        
-        // 임시 컨테이너 생성
-        const container = document.createElement('div');
-        container.innerHTML = pdfContent;
-        container.style.cssText = `
-            position: fixed;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            width: 210mm;
-            min-height: 297mm;
-            background: white;
-            padding: 20mm;
-            z-index: 99999;
-            box-shadow: 0 0 0 9999px rgba(0,0,0,0.8);
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
-        `;
-        document.body.appendChild(container);
-        
-        console.log('컨테이너 추가됨');
-        
-        // 폰트 로드 대기
-        await document.fonts.ready;
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        console.log('html2canvas 시작');
-        
-        // html2canvas로 이미지 생성
-        const canvas = await html2canvas(container, {
-            scale: 3,
-            useCORS: true,
-            allowTaint: false,
-            logging: true,
-            backgroundColor: '#ffffff',
-            windowWidth: container.scrollWidth,
-            windowHeight: container.scrollHeight
-        });
-        
-        console.log('Canvas 생성 완료:', canvas.width, 'x', canvas.height);
-        
-        const imgData = canvas.toDataURL('image/png', 1.0);
-        console.log('이미지 데이터 길이:', imgData.length);
-        
-        if (imgData.length < 10000) {
-            throw new Error('이미지가 제대로 생성되지 않았습니다.');
-        }
-        
-        // 컨테이너 제거
-        document.body.removeChild(container);
-        
-        // jsPDF로 PDF 생성
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF({
-            orientation: 'portrait',
-            unit: 'mm',
-            format: 'a4',
-            compress: true
-        });
-        
-        const pageWidth = 210;
-        const pageHeight = 297;
-        const imgWidth = pageWidth;
-        const imgHeight = (canvas.height * pageWidth) / canvas.width;
-        
-        console.log('PDF 이미지 크기:', imgWidth, 'x', imgHeight);
-        
-        if (imgHeight <= pageHeight) {
-            // 한 페이지에 들어감
-            pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
-        } else {
-            // 여러 페이지 필요
-            let heightLeft = imgHeight;
-            let position = 0;
-            
-            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-            heightLeft -= pageHeight;
-            
-            while (heightLeft > 0) {
-                position = heightLeft - imgHeight;
-                pdf.addPage();
-                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-                heightLeft -= pageHeight;
-            }
-        }
-        
-        console.log('PDF 저장 시작');
-        
-        // PDF 저장
-        const filename = `${travelData.meta.title || '여행계획'}.pdf`;
-        pdf.save(filename);
-        
-        console.log('PDF 저장 완료:', filename);
-        
-        hideLoading();
-    } catch (error) {
-        console.error('PDF 다운로드 실패:', error);
-        alert('PDF 다운로드에 실패했습니다: ' + error.message);
-        hideLoading();
-        // 컨테이너 정리
-        document.querySelectorAll('div[style*="z-index: 99999"]').forEach(el => {
-            try { document.body.removeChild(el); } catch (e) {}
-        });
-    }
+    return Header.downloadTripAsPDF();
 }
 
 function generatePDFContent() {
@@ -2452,39 +786,16 @@ function generatePDFContent() {
 }
 
 export function copyShareLink() {
-    const copyText = document.getElementById("share-link-input");
-    copyText.select();
-    copyText.setSelectionRange(0, 99999); 
-    navigator.clipboard.writeText(copyText.value).then(() => {
-        alert("링크가 복사되었습니다! 친구에게 공유하세요.");
-    });
+    return Header.copyShareLink();
 }
 
 export function enableNoteEdit() {
-    const noteEl = document.getElementById('detail-note');
-    noteEl.readOnly = false;
-    noteEl.focus();
+    return Header.enableNoteEdit();
 }
 
 // [Trip Info Edit Logic]
 export function openTripInfoModal() {
-    const titleInput = document.getElementById('edit-trip-title');
-    const startInput = document.getElementById('edit-trip-start');
-    const endInput = document.getElementById('edit-trip-end');
-
-    titleInput.value = travelData.meta.title;
-    
-    // 날짜 설정
-    if (travelData.days && travelData.days.length > 0) {
-        startInput.value = travelData.days[0].date;
-        endInput.value = travelData.days[travelData.days.length - 1].date;
-    } else {
-        const today = new Date().toISOString().split('T')[0];
-        startInput.value = today;
-        endInput.value = today;
-    }
-
-    document.getElementById('trip-info-modal').classList.remove('hidden');
+    return Header.openTripInfoModal();
 }
 
 export function closeTripInfoModal() {
@@ -2767,17 +1078,26 @@ export function openGoogleMapsExternal() {
 function handleTimeWheel(e) {
     e.preventDefault();
     const container = e.currentTarget;
-    const itemHeight = 40;
     const direction = Math.sign(e.deltaY);
     
-    // 현재 스크롤 위치에서 가장 가까운 아이템 위치 계산
-    const currentScroll = container.scrollTop;
-    const targetScroll = Math.round((currentScroll + direction * itemHeight) / itemHeight) * itemHeight;
-
-    container.scrollTo({
-        top: targetScroll,
-        behavior: 'smooth'
-    });
+    // 현재 선택된 값 찾기
+    let currentVal = getPickerValue(container.id);
+    if (currentVal === null) return;
+    currentVal = parseInt(currentVal);
+    
+    // 값 증감 및 순환 (59 -> 0, 12 -> 1)
+    let nextVal = currentVal + direction;
+    
+    if (container.id === 'time-hour-list') {
+        if (nextVal > 12) nextVal = 1;
+        if (nextVal < 1) nextVal = 12;
+    } else {
+        if (nextVal > 59) nextVal = 0;
+        if (nextVal < 0) nextVal = 59;
+    }
+    
+    // 해당 값의 요소로 스크롤 이동
+    setPickerScroll(container.id, nextVal);
 }
 
 // 더블 클릭 핸들러 (직접 입력)
@@ -2800,6 +1120,8 @@ function handleTimeDblClick(e) {
     input.type = 'number';
     input.className = "w-full h-full text-center text-2xl font-bold bg-white dark:bg-card-dark border-2 border-primary rounded-xl outline-none z-20 absolute inset-0";
     input.value = currentVal;
+    // 클릭 이벤트 전파 방지 (모달 닫힘 방지)
+    input.onclick = (ev) => ev.stopPropagation();
     
     // 범위 설정
     if (container.id === 'time-hour-list') {
@@ -2808,7 +1130,11 @@ function handleTimeDblClick(e) {
         input.min = 0; input.max = 59;
     }
 
+    let isFinished = false;
     const finishEdit = () => {
+        if (isFinished) return;
+        isFinished = true;
+        
         let val = parseInt(input.value);
         
         // 유효성 검사 및 범위 보정
@@ -2917,12 +1243,9 @@ function setPickerScroll(elementId, value) {
     const el = document.getElementById(elementId);
     if (!el) return;
     const items = Array.from(el.children);
-    const index = items.findIndex(item => item.dataset.value == value);
+    const index = items.findIndex(item => parseInt(item.dataset.value) === parseInt(value));
     if (index !== -1) {
-        // setTimeout을 사용하여 모달이 렌더링된 후 스크롤 이동
-        setTimeout(() => {
-            el.scrollTop = index * 40; // h-10 = 40px
-        }, 10);
+        el.scrollTop = index * 40; // h-10 = 40px
     }
 }
 
@@ -2966,11 +1289,6 @@ export function confirmTimeSelection() {
     closeTimeModal();
 }
 
-// [Transit Input Modal Logic]
-let transitInputIndex = null;
-let transitInputType = null;
-let isTransitEditing = false;
-
 // 이동 수단 추가
 export function addTransitItem(index, type, dayIndex = currentDayIndex) {
     if (dayIndex !== null) {
@@ -3007,309 +1325,6 @@ export function addTransitItem(index, type, dayIndex = currentDayIndex) {
     setTimeout(() => {
         viewRouteDetail(index, dayIndex, true);
     }, 100);
-}
-
-export function openTransitInputModal(index, type = null) {
-    transitInputIndex = index;
-    transitInputType = type;
-    isTransitEditing = type === null; // type이 없으면 수정 모드
-    
-    const modal = document.getElementById('transit-input-modal');
-    const titleEl = document.getElementById('transit-modal-title');
-    const startEl = document.getElementById('transit-start-time');
-    const endEl = document.getElementById('transit-end-time');
-    const noteEl = document.getElementById('transit-note');
-    const warningEl = document.getElementById('transit-warning');
-    const fetchBtn = document.getElementById('btn-fetch-transit-time');
-    
-    // 초기화
-    startEl.value = "";
-    endEl.value = "";
-    noteEl.value = "";
-    document.getElementById('transit-duration-display').innerText = "--";
-    if (warningEl) {
-        warningEl.classList.add('hidden');
-        warningEl.innerText = "";
-    }
-
-    if (isTransitEditing) {
-        // 수정 모드: 기존 데이터 불러오기
-        const item = travelData.days[targetDayIndex].timeline[index];
-        titleEl.innerText = "이동 정보 수정";
-        noteEl.value = item.note || "";
-        
-        // 기존에 저장된 transitInfo가 있다면 사용
-        if (item.transitInfo) {
-            startEl.value = item.transitInfo.start;
-            endEl.value = item.transitInfo.end;
-            calculateTransitDuration();
-        } else {
-            // 없으면 현재 시간 등으로 대략 설정 (여기서는 비워둠)
-        }
-        
-        // [Modified] 수정 모드에서는 구글 맵 가져오기 버튼 숨김
-        if (fetchBtn) fetchBtn.classList.add('hidden');
-    } else {
-        // 추가 모드
-        titleEl.innerText = "이동 수단 추가";
-        
-        // 이전 일정의 시간을 출발 시간으로 자동 설정 시도
-        const timeline = travelData.days[targetDayIndex].timeline;
-        if (index >= 0 && timeline[index]) {
-            const prevItem = timeline[index];
-            const prevTimeMinutes = parseTimeStr(prevItem.time);
-            if (prevTimeMinutes !== null) {
-                const h = Math.floor(prevTimeMinutes / 60);
-                const m = prevTimeMinutes % 60;
-                startEl.value = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-            }
-        }
-        
-        // [Modified] 추가 모드에서는 버튼 표시
-        if (fetchBtn) fetchBtn.classList.remove('hidden');
-    }
-    
-    modal.classList.remove('hidden');
-}
-
-export function closeTransitInputModal() {
-    document.getElementById('transit-input-modal').classList.add('hidden');
-    transitInputIndex = null;
-    transitInputType = null;
-}
-
-export function calculateTransitDuration() {
-    const start = document.getElementById('transit-start-time').value;
-    const end = document.getElementById('transit-end-time').value;
-    const display = document.getElementById('transit-duration-display');
-    const warningEl = document.getElementById('transit-warning');
-    
-    // 경고 메시지 초기화
-    if (warningEl) {
-        warningEl.classList.add('hidden');
-        warningEl.innerText = "";
-    }
-    display.innerText = "--";
-    
-    if (start && end) {
-        const [h1, m1] = start.split(':').map(Number);
-        const [h2, m2] = end.split(':').map(Number);
-        const startMins = h1 * 60 + m1;
-        const endMins = h2 * 60 + m2;
-        
-        let diff = endMins - startMins;
-        let warningMsg = "";
-
-        // 1. 도착 < 출발 체크
-        if (diff < 0) {
-            diff += 24 * 60; // 다음날
-            warningMsg = "도착 시간이 출발 시간보다 빠릅니다. (다음날 도착)";
-        }
-
-        // 2. 이전 일정과 비교 (논리적 순서 체크)
-        let prevIndex = isTransitEditing ? transitInputIndex - 1 : transitInputIndex;
-        
-        if (prevIndex >= 0) {
-            const timeline = travelData.days[targetDayIndex].timeline;
-            if (timeline && timeline[prevIndex]) {
-                const prevItem = timeline[prevIndex];
-                let prevEndMins = null;
-
-                if (prevItem.transitInfo && prevItem.transitInfo.end) {
-                    // 이전이 이동수단이면 도착 시간 사용
-                    const [ph, pm] = prevItem.transitInfo.end.split(':').map(Number);
-                    prevEndMins = ph * 60 + pm;
-                } else if (prevItem.time) {
-                    // 일반 일정이면 시간 파싱
-                    prevEndMins = parseTimeStr(prevItem.time);
-                }
-
-                if (prevEndMins !== null && startMins < prevEndMins) {
-                    if (warningMsg) warningMsg += "\n";
-                    warningMsg += "출발 시간이 이전 일정보다 빠릅니다.";
-                }
-            }
-        }
-
-        if (warningMsg && warningEl) {
-            warningEl.innerText = warningMsg;
-            warningEl.classList.remove('hidden');
-        }
-        
-        const h = Math.floor(diff / 60);
-        const m = diff % 60;
-        
-        let str = "";
-        if (h > 0) str += `${h}시간 `;
-        str += `${m}분`;
-        display.innerText = str;
-        return str;
-    } else {
-        return null;
-    }
-}
-
-export function fetchTransitTime() {
-    if (!window.google || !window.google.maps) {
-        alert("Google Maps API가 로드되지 않았습니다.");
-        return;
-    }
-
-    // [Safety Check] targetDayIndex validity
-    if (targetDayIndex === null || targetDayIndex === -1 || !travelData.days[targetDayIndex]) {
-        alert("날짜 정보를 찾을 수 없습니다. (전체 보기에서는 사용할 수 없습니다)");
-        return;
-    }
-
-    const timeline = travelData.days[targetDayIndex].timeline;
-
-    // 유효한 위치 정보를 가진 아이템을 찾는 헬퍼 함수
-    const findLocationItem = (startIndex, direction) => {
-        let i = startIndex;
-        
-        // [Fix] 뒤로 검색할 때 시작 인덱스가 배열 범위를 벗어나면 조정 (맨 뒤에 추가하는 경우 대비)
-        if (direction === -1 && i >= timeline.length) {
-            i = timeline.length - 1;
-        }
-
-        while (i >= 0 && i < timeline.length) {
-            const item = timeline[i];
-            // [Modified] 조건 완화: lat/lng이 있거나, 이동수단/메모가 아니면 위치로 간주 (제목이라도 사용)
-            const hasCoords = item.lat && item.lng;
-            const isNotTransitOrMemo = !item.isTransit && item.tag !== '메모';
-            
-            if (hasCoords || isNotTransitOrMemo) {
-                return item;
-            }
-            i += direction;
-        }
-        return null;
-    };
-
-    let prevItem, nextItem;
-    const idx = Number(transitInputIndex); // Ensure number
-
-    if (isTransitEditing) {
-        // 수정 모드: 현재 아이템을 기준으로 앞뒤 검색
-        prevItem = findLocationItem(idx - 1, -1);
-        nextItem = findLocationItem(idx + 1, 1);
-    } else {
-        // 추가 모드: transitInputIndex는 "이 아이템 뒤에 추가"를 의미
-        prevItem = findLocationItem(idx, -1);
-        nextItem = findLocationItem(idx + 1, 1);
-    }
-
-    if (!prevItem || !nextItem) {
-        // 도착지가 없는 경우(맨 뒤에 추가)는 출발지만 있어도 검색 시도 가능하게 할지 결정 필요하지만,
-        // 구글 경로 검색은 도착지가 필수이므로 에러 메시지 표시
-        alert("출발지 또는 도착지 정보를 찾을 수 없어 경로를 검색할 수 없습니다.\n(앞뒤에 위치 정보가 있는 일정이 있어야 합니다. 마지막에 추가하는 경우 도착지가 없어 계산할 수 없습니다.)");
-        return;
-    }
-
-    const getLoc = (item) => {
-        // 1. Google Maps Geometry 우선 확인
-        if (item.geometry && item.geometry.location) {
-            const loc = item.geometry.location;
-            const lat = typeof loc.lat === 'function' ? loc.lat() : loc.lat;
-            const lng = typeof loc.lng === 'function' ? loc.lng() : loc.lng;
-            return { lat, lng };
-        }
-
-        // 2. 텍스트 좌표보다 lat/lng 속성 우선 확인 (함수 여부 체크 포함)
-        if (item.lat !== undefined && item.lng !== undefined) {
-            const lat = typeof item.lat === 'function' ? item.lat() : Number(item.lat);
-            const lng = typeof item.lng === 'function' ? item.lng() : Number(item.lng);
-            // NaN 체크: 좌표가 유효한 숫자인지 확인
-            if (!isNaN(lat) && !isNaN(lng)) {
-                return { lat, lng };
-            }
-        }
-
-        // 3. 텍스트 반환
-        const locStr = (item.location && item.location !== '위치') ? item.location : '';
-        if (locStr) return locStr;
-        if (item.title) return item.title;
-        
-        return '';
-    };
-
-    const origin = getLoc(prevItem);
-    const destination = getLoc(nextItem);
-
-    if (!origin || !destination) {
-        alert("출발지 또는 도착지의 위치 정보가 부족합니다.");
-        return;
-    }
-
-    const startTimeInput = document.getElementById('transit-start-time');
-    if (!startTimeInput.value) {
-        alert("정확한 검색을 위해 출발 시간을 먼저 입력해주세요.");
-        startTimeInput.focus();
-        return;
-    }
-
-    // 이동 수단 타입에 따른 모드 설정
-    let mode = 'transit';
-    if (isTransitEditing) {
-        const item = travelData.days[targetDayIndex].timeline[transitInputIndex];
-        if (item.tag === '도보') mode = 'walking';
-        else if (item.tag === '차량') mode = 'driving';
-    } else if (transitInputType) {
-         if (transitInputType === 'walk') mode = 'walking';
-         else if (transitInputType === 'car') mode = 'driving';
-    }
-
-    const [h, m] = startTimeInput.value.split(':').map(Number);
-    
-    // 오늘 날짜 기준으로 시간 설정 (과거 시간이면 API가 동작하지 않을 수 있으므로 현재 시간 이후로 보정하거나 날짜 지정 필요)
-    // Mapbox Driving은 departure_time을 지원하지 않지만, 로직 유지를 위해 남겨둠
-    const now = new Date();
-    const departureTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
-    if (departureTime < now) {
-        departureTime.setDate(departureTime.getDate() + 1); // 시간이 지났으면 내일로 설정
-    }
-
-    // [Modified] Use Google Maps DirectionsService directly
-    const directionsService = new google.maps.DirectionsService();
-
-    const request = {
-        origin: origin,
-        destination: destination,
-        travelMode: mode.toUpperCase(),
-        transitOptions: mode === 'transit' ? { departureTime: departureTime } : undefined
-    };
-
-    directionsService.route(request, (result, status) => {
-        if (status === 'OK') {
-            const route = result.routes[0];
-            const leg = route.legs[0];
-            
-            const durationSec = leg.duration.value;
-            const durationText = leg.duration.text;
-
-            // 도착 시간 계산 및 입력
-            const startMins = h * 60 + m;
-            const durationMins = Math.ceil(durationSec / 60);
-            const endMins = startMins + durationMins;
-            
-            const eh = Math.floor(endMins / 60) % 24;
-            const em = endMins % 60;
-            
-            document.getElementById('transit-end-time').value = `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
-            
-            // 메모에 경로 정보가 없으면 추가
-            const noteInput = document.getElementById('transit-note');
-            if (!noteInput.value) {
-                noteInput.value = `구글맵 경로: ${durationText}`;
-            }
-
-            calculateTransitDuration(); // UI 갱신
-            alert(`경로를 찾았습니다!\n소요시간: ${durationText}`);
-        } else {
-            console.error('Directions request failed:', status);
-            alert("경로를 찾을 수 없습니다. (Status: " + status + ")");
-        }
-    });
 }
 
 // [Transit Detail Modal Logic]
@@ -3563,52 +1578,6 @@ export function openTransitDetailModal(item, index, dayIndex) {
     renderAttachments(item, 'transit-attachment-list');
 
     modal.classList.remove('hidden');
-}
-
-export function closeTransitDetailModal(fromHistory = false) {
-    document.getElementById('transit-detail-modal').classList.add('hidden');
-    setViewingItemIndex(null);
-}
-
-export function editCurrentTransitItem() {
-    if (viewingItemIndex !== null) {
-        const idx = viewingItemIndex;
-        
-        // 저장해둔 시간 값을 가져옵니다.
-        const savedStart = document.getElementById('transit-detail-start-val').value;
-        const savedEnd = document.getElementById('transit-detail-end-val').value;
-
-        isEditingFromDetail = true;
-        closeTransitDetailModal();
-        // 모달 닫힘 애니메이션 등을 고려해 약간 지연 후 열기
-        setTimeout(() => {
-            editTimelineItem(idx, targetDayIndex);
-            // 수정 모달의 입력창에 값을 설정하고 소요 시간을 갱신합니다.
-            if (savedStart) document.getElementById('transit-start-time').value = savedStart;
-            if (savedEnd) document.getElementById('transit-end-time').value = savedEnd;
-            calculateTransitDuration();
-        }, 50);
-    }
-}
-
-export function deleteCurrentTransitItem() {
-    if (viewingItemIndex !== null) {
-        // 모달 표시
-        document.getElementById('delete-transit-modal').classList.remove('hidden');
-    }
-}
-
-export function closeDeleteTransitModal() {
-    document.getElementById('delete-transit-modal').classList.add('hidden');
-}
-
-export function confirmDeleteTransit() {
-    if (viewingItemIndex !== null) {
-        travelData.days[targetDayIndex].timeline.splice(viewingItemIndex, 1);
-        reorderTimeline(targetDayIndex);
-        closeDeleteTransitModal();
-        closeTransitDetailModal();
-    }
 }
 
 // [Flight Input Modal Logic]
@@ -4069,7 +2038,7 @@ export function renderItinerary() {
                 day.timeline.forEach((item, index) => {
                     const isLast = index === day.timeline.length - 1;
                     const isFirst = index === 0;
-                    html += renderTimelineItemHtml(item, index, dayIdx, isLast, isFirst);
+                    html += Renderers.renderTimelineItemHtml(item, index, dayIdx, isLast, isFirst);
                 });
             } else {
                 html += `<div class="text-center py-4 text-gray-400 text-sm">일정이 없습니다.</div>`;
@@ -4114,7 +2083,7 @@ export function renderItinerary() {
         currentTimeline.forEach((item, index) => {
             const isLast = index === currentTimeline.length - 1;
         const isFirst = index === 0;
-            html += renderTimelineItemHtml(item, index, currentDayIndex, isLast, isFirst);
+            html += Renderers.renderTimelineItemHtml(item, index, currentDayIndex, isLast, isFirst);
         });
         
         // [Added] 마지막 위치 드롭 영역 (드래그앤드롭 마지막 아이템 지원)
@@ -4226,326 +2195,8 @@ function updateLocalTimeWidget() {
     timeUpdateInterval = setInterval(update, 60000); // 1분마다 갱신
 }
 
-// 타임라인 아이템 HTML 생성 헬퍼 함수
-function renderTimelineItemHtml(item, index, dayIndex, isLast, isFirst) {
-    // 아이콘 및 라인 스타일
-    const lineStyle = isLast 
-        ? `bg-gradient-to-b from-gray-200 to-transparent dark:from-gray-700` 
-            : `bg-gray-200 dark:bg-gray-700`;
-        
-        const linePosition = isFirst ? 'top-6 -bottom-8' : 'top-0 -bottom-8';
-        let iconBg = item.isTransit ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-white dark:bg-card-dark';
-        let iconColor = item.isTransit ? 'text-primary/70' : 'text-primary';
-        let iconStyle = '';
-
-        if (item.tag === '메모') {
-            iconBg = 'bg-yellow-50 dark:bg-yellow-900/20';
-            iconColor = 'text-yellow-600 dark:text-yellow-400';
-        } else if (item.color) {
-            // [Added] 구글맵 노선 색상 적용
-            iconBg = ''; // 기본 배경 클래스 제거
-            iconColor = ''; // 기본 아이콘 색상 클래스 제거
-            const fgColor = item.textColor || '#ffffff';
-            // 배경색, 테두리색, 아이콘색(상속) 설정
-            iconStyle = `background-color: ${item.color}; color: ${fgColor}; border-color: ${item.color};`;
-        }
-
-        // 편집 모드일 때 스타일 및 이벤트
-        const editClass = isEditing ? "edit-mode-active ring-2 ring-primary/50 ring-offset-2" : "cursor-pointer hover:shadow-lg transform transition-all hover:-translate-y-1";
-        const clickHandler = isEditing ? `onclick="editTimelineItem(${index}, ${dayIndex})"` : `onclick="viewTimelineItem(${index}, ${dayIndex})"`;
-
-        // 컨텍스트 메뉴 이벤트 (우클릭)
-        const contextHandler = `oncontextmenu="openContextMenu(event, 'item', ${index}, ${dayIndex})"`;
-        
-        // 추억 잠금 상태 확인
-        const isMemoryLocked = travelData.meta.memoryLocked || false;
-        
-        // 드래그 속성: memoryLocked이면 비활성화, 전체 보기에서도 활성화
-        const draggableAttr = isMemoryLocked ? 'draggable="false"' : `draggable="true" ondragstart="dragStart(event, ${index}, ${dayIndex})" ondragend="dragEnd(event)" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event, ${index})" data-drop-index="${index}"`;
-        // z-index 설정: 위쪽 아이템이 아래쪽 아이템보다 위에 오도록 하여 하단 버튼 클릭 가능하게 함
-    // 전체 보기일 때는 dayIndex도 고려해야 하지만, 간단히 100 - index로 처리 (같은 날짜 내에서만 겹침 발생하므로)
-    const zIndex = 100 - index;
-
-    let html = `
-        <div 
-            ${draggableAttr}
-            ontouchstart="touchStart(event, ${index}, 'item')"
-            ontouchmove="touchMove(event)"
-            ontouchend="touchEnd(event)"
-            data-index="${index}"
-            style="z-index: ${zIndex};"
-            class="relative grid grid-cols-[auto_1fr] gap-x-3 md:gap-x-6 group/timeline-item pb-8 timeline-item-transition rounded-xl"
-            ${contextHandler}
-        >
-        <!-- 드래그 인디케이터 (카드 사이 중앙 선) -->
-        <div class="drag-indicator absolute -top-3 left-0 right-0 h-1 bg-primary rounded-full hidden z-50 shadow-sm pointer-events-none"></div>
-
-        <div class="relative flex flex-col items-center" data-timeline-icon="true">
-            <div class="absolute ${linePosition} w-0.5 ${lineStyle} timeline-vertical-line"></div>
-            <div class="w-10 h-10 rounded-full ${iconBg} border-2 border-primary/30 flex items-center justify-center z-10 shadow-sm relative shrink-0 mt-1" style="${iconStyle}">
-                <span class="material-symbols-outlined ${iconColor} text-xl" style="${item.color ? 'color: inherit' : ''}">${item.icon}</span>
-            </div>
-            
-            ${!isMemoryLocked ? `<div class="absolute -bottom-8 left-1/2 -translate-x-1/2 z-20 add-item-btn-container transition-opacity duration-200">
-                <button type="button" onclick="openAddModal(${index}, ${dayIndex})" class="w-8 h-8 rounded-full bg-white dark:bg-card-dark border border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-400 hover:text-primary hover:border-primary transition-colors shadow-sm cursor-pointer transform hover:scale-110" title="일정 추가">
-                    <span class="material-symbols-outlined text-lg">add</span>
-                </button>
-            </div>` : ''}
-        </div>
-        <div class="pb-2 pt-1 flex flex-col justify-center min-w-0">
-        `;
-
-        if (item.image) {
-            // 이미지 카드
-            html += `
-            <div class="bg-card-light dark:bg-card-dark rounded-xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-800 ${editClass}" ${clickHandler}>
-                <div class="h-32 w-full bg-cover bg-center relative" style="background-image: url('${item.image}');">
-                    <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-                    <div class="absolute bottom-3 left-4 right-4 text-white">
-                        <h3 class="text-lg font-bold truncate">${item.title}</h3>
-                        <div class="flex items-center gap-1 text-xs opacity-90">
-                            <span class="material-symbols-outlined text-[14px] flex-shrink-0">location_on</span>
-                            <span class="truncate flex-1">${item.location}</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="p-3 md:p-4 flex justify-between items-center">
-                    <div class="flex items-center gap-1 bg-gray-100 dark:bg-gray-700/50 px-2 py-1 rounded text-sm font-medium text-text-main dark:text-gray-300">
-                        <span class="material-symbols-outlined text-[18px]">schedule</span>
-                        ${item.time}
-                    </div>
-                </div>
-            </div>`;
-        } else if (item.tag === '메모') {
-            // 메모 카드 (포스트잇 스타일)
-            html += `
-            <div class="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-700/30 rounded-lg p-3 flex items-center gap-3 justify-between ${editClass}" ${clickHandler}>
-                <div class="flex-1 min-w-0">
-                    <p class="text-sm font-medium text-gray-800 dark:text-gray-200 break-words whitespace-pre-wrap leading-relaxed font-body">${item.title}</p>
-                </div>
-                ${isEditing ? `<button type="button" onclick="event.stopPropagation(); deleteTimelineItem(${index}, ${dayIndex})" class="text-red-500 hover:bg-red-50 p-2 rounded-full flex-shrink-0"><span class="material-symbols-outlined text-lg">delete</span></button>` : ''}
-            </div>`;
-        } else if (item.isTransit) {
-            // 이동(Transit) 카드 - 모든 이동 수단을 클릭하면 경로 상세 모달 표시
-            const hasDetailedSteps = item.isCollapsed && item.detailedSteps && item.detailedSteps.length > 0;
-            const isAirplane = item.transitType === 'airplane';
-            
-            // 대중교통 노선 정보 추출 (도보 제외)
-            let transitLinesHTML = '';
-            if (hasDetailedSteps) {
-                const transitSteps = item.detailedSteps.filter(step => step.tag !== '도보' && step.transitInfo);
-                if (transitSteps.length > 0) {
-                    transitLinesHTML = transitSteps.map((step, idx) => {
-                        // step.tag에 노선명이 있음 (예: "7호선", "6019", "미도스지선 M")
-                        const lineName = step.tag || step.title.match(/\(([^)]+)\)/)?.[1] || '대중교통';
-                        let icon = 'directions_bus';
-                        if (step.icon === 'subway') icon = 'subway';
-                        else if (step.icon === 'train') icon = 'train';
-                        
-                        // 색상 처리: step.color 우선, 없으면 기본 색상
-                        const bgColor = step.color || '#3b82f6';
-                        const textColor = step.textColor || '#ffffff';
-                        const arrow = idx < transitSteps.length - 1 ? '<span class="text-gray-400 mx-1">→</span>' : '';
-                        
-                        return `<div class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold shadow-sm" style="background-color: ${bgColor}; color: ${textColor}">
-                            <span class="material-symbols-outlined text-sm">${icon}</span>
-                            <span>${lineName}</span>
-                        </div>${arrow}`;
-                    }).join('');
-                }
-            }
-            
-            if (isAirplane && item.flightInfo) {
-                // 비행기 카드
-                const departureDisplay = item.flightInfo.departure || '출발';
-                const arrivalDisplay = item.flightInfo.arrival || '도착';
-                
-                html += `
-                <div class="bg-blue-50/50 dark:bg-card-dark/40 border border-blue-100 dark:border-gray-800 rounded-lg p-3 ${editClass}" onclick="viewRouteDetail(${index}, ${dayIndex})">
-                    <div class="flex items-center gap-3 mb-2">
-                        <span class="material-symbols-outlined text-primary text-2xl">flight</span>
-                        <div class="flex-1">
-                            <div class="font-bold text-sm">${departureDisplay} ✈️ ${arrivalDisplay}</div>
-                            <div class="text-xs text-gray-500">${item.flightInfo.flightNumber || ''} ${item.flightInfo.bookingRef ? '· ' + item.flightInfo.bookingRef : ''}</div>
-                        </div>
-                        <div class="text-sm font-bold bg-white dark:bg-card-dark rounded px-3 py-1">${item.time || '--:--'}</div>
-                    </div>
-                    ${item.flightInfo.departureTime && item.flightInfo.arrivalTime ? `
-                    <div class="text-xs text-gray-500 pl-9">
-                        ${item.flightInfo.departureTime} → ${item.flightInfo.arrivalTime} · ${item.flightInfo.duration || ''}
-                    </div>
-                    ` : item.flightInfo.terminal || item.flightInfo.gate ? `
-                    <div class="text-xs text-gray-500 pl-9">
-                        ${item.flightInfo.terminal ? '터미널 ' + item.flightInfo.terminal : ''} 
-                        ${item.flightInfo.gate ? ' · 게이트 ' + item.flightInfo.gate : ''}
-                    </div>
-                    ` : ''}
-                </div>`;
-            } else {
-                // 일반 이동수단 카드
-                html += `
-                <div class="bg-blue-50/50 dark:bg-card-dark/40 border border-blue-100 dark:border-gray-800 rounded-lg p-3 flex flex-col gap-2 ${editClass}" onclick="viewRouteDetail(${index}, ${dayIndex})">
-                    <div class="flex items-center gap-2 md:gap-4 justify-between">
-                        <div class="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
-                            <div class="flex flex-col items-center justify-center bg-white dark:bg-card-dark rounded px-2 md:px-3 py-1 shadow-sm text-xs font-bold text-text-main dark:text-white min-w-[60px] md:min-w-[70px]">
-                                <span>${item.duration || item.time || '30분'}</span>
-                            </div>
-                            ${transitLinesHTML ? `<div class="flex items-center flex-wrap gap-1 flex-1 min-w-0">${transitLinesHTML}</div>` : 
-                            `<div class="flex items-center gap-2 flex-1 min-w-0">
-                                <div class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold shadow-sm bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200">
-                                    <span class="material-symbols-outlined text-sm">${item.icon}</span>
-                                    <span>${item.tag}</span>
-                                </div>
-                                <p class="text-sm font-bold text-text-main dark:text-white truncate">${item.title || ''}</p>
-                            </div>`}
-                        </div>
-                        <div class="flex items-center gap-1">
-                            ${hasDetailedSteps ? `<button type="button" onclick="event.stopPropagation(); viewRouteDetail(${index}, ${dayIndex})" class="text-primary hover:bg-orange-100 dark:hover:bg-orange-900/30 p-1 rounded-full flex-shrink-0"><span class="material-symbols-outlined text-lg">info</span></button>` : ''}
-                        </div>
-                    </div>
-                    ${item.transitInfo?.summary ? `<p class="text-xs text-text-muted dark:text-gray-400 pl-[76px] md:pl-[86px]">${item.transitInfo.summary}</p>` : ''}
-                </div>`;
-            }
-        } else {
-            // 일반 카드
-            html += `
-            <div class="bg-card-light dark:bg-card-dark rounded-xl p-3 md:p-5 shadow-sm border border-gray-100 dark:border-gray-800 ${editClass}" ${clickHandler}>
-                <div class="flex justify-between items-start mb-2 gap-2">
-                    <div class="flex-1 min-w-0">
-                        <h3 class="text-lg font-bold text-text-main dark:text-white break-words">${item.title}</h3>
-                        <p class="text-sm text-text-muted dark:text-gray-400 flex items-center gap-1 mt-1 min-w-0">
-                            <span class="material-symbols-outlined text-[16px] flex-shrink-0">location_on</span>
-                            <span class="truncate flex-1">${item.location}</span>
-                        </p>
-                    </div>
-                    ${item.tag ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 flex-shrink-0 whitespace-nowrap">${item.tag}</span>` : ''}
-                    ${isEditing ? `<button type="button" onclick="event.stopPropagation(); deleteTimelineItem(${index}, ${dayIndex})" class="text-red-500 hover:bg-red-50 p-1 rounded flex-shrink-0"><span class="material-symbols-outlined text-lg">delete</span></button>` : ''}
-                </div>
-                <div class="flex items-center gap-2 text-sm font-medium text-text-main dark:text-gray-300 flex-wrap">
-                    <div class="flex items-center gap-1 bg-gray-100 dark:bg-gray-700/50 px-2 py-1 rounded flex-shrink-0">
-                        <span class="material-symbols-outlined text-[18px]">schedule</span>
-                        ${item.time}
-                    </div>
-                    ${item.duration !== undefined && item.duration !== null ? `
-                    <div class="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-2 py-1 rounded text-xs font-bold flex-shrink-0">
-                        <span class="material-symbols-outlined text-[14px]">timer</span>
-                        ${item.duration}분
-                    </div>` : ''}
-                    ${item.note ? `
-                    <div class="text-xs text-gray-500 flex items-center gap-1 min-w-0">
-                        <span class="material-symbols-outlined text-[14px] flex-shrink-0">info</span> 
-                        <span class="truncate">${item.note}</span>
-                    </div>` : ''}
-                </div>
-            </div>`;
-        }
-        
-        // 메모리 섹션 추가 (여행 완료 상태일 때만)
-        if (getTripStatus(travelData) === 'completed' && item.memories && item.memories.length > 0) {
-            html += `
-            <div class="mt-4 flex flex-col gap-3">
-                ${item.memories.map((memory, memIdx) => {
-                    const date = new Date(memory.createdAt).toLocaleDateString('ko-KR', {
-                        month: 'short',
-                        day: 'numeric'
-                    });
-                    return `
-                    <div class="bg-white dark:bg-gray-800 rounded-lg overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700 relative transform hover:shadow-md transition-shadow" style="transform: rotate(-${(memIdx % 2) ? '2deg' : '2deg'}); margin-left: ${memIdx % 2 ? '10px' : '0px'}">
-                        ${memory.photoUrl ? `<img src="${memory.photoUrl}" alt="Memory" class="w-full h-40 object-cover">` : ''}
-                        <div class="p-3">
-                            <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words font-body leading-relaxed">${memory.comment}</p>
-                            <div class="flex justify-between items-center mt-3 pt-2 border-t border-gray-100 dark:border-gray-700">
-                                <span class="text-xs text-gray-400">${date}</span>
-                                ${isEditing ? `<button type="button" onclick="event.stopPropagation(); deleteMemory(${index}, ${dayIndex}, ${memIdx})" class="text-red-400 hover:text-red-600 transition-colors"><span class="material-symbols-outlined text-sm">delete</span></button>` : ''}
-                            </div>
-                        </div>
-                    </div>
-                    `;
-                }).join('')}
-            </div>
-            `;
-        }
-
-        // 추가 메모리 버튼 (여행 완료 상태이고 memoryLocked가 아닐 때만)
-        if (getTripStatus(travelData) === 'completed' && !isMemoryLocked) {
-            html += `
-            <div class="mt-3">
-                <button type="button" onclick="addMemoryItem(${index}, ${dayIndex})" class="w-full py-2 px-3 rounded-lg border border-dashed border-primary/30 hover:border-primary hover:bg-orange-50 dark:hover:bg-orange-900/10 text-primary dark:text-blue-400 text-sm font-medium transition-all flex items-center justify-center gap-2">
-                    <span class="material-symbols-outlined text-lg">add_a_photo</span>
-                    추억 추가
-                </button>
-            </div>
-            `;
-        }
-        
-        html += `</div></div>`; // Close Right Col and Draggable Item Wrapper
-
-    return html;
-}
-
 export function renderLists() {
-    const shoppingContainer = document.getElementById('shopping-list-container');
-    const checkContainer = document.getElementById('checklist-container');
-    
-    // 스크롤 위치 저장
-    const scrollPosition = window.scrollY || document.documentElement.scrollTop;
-    
-    const renderItem = (item, index, type, shouldSparkle = false) => `
-        <div class="bg-white dark:bg-card-dark border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2.5 flex items-center gap-2 group hover:shadow-sm transition-shadow ${shouldSparkle ? 'sparkle-item' : ''}">
-            <button onclick="toggleListCheck('${type}', ${index})" class="flex-shrink-0 text-gray-400 hover:text-primary transition-colors">
-                <span class="material-symbols-outlined text-xl">${item.checked ? 'check_box' : 'check_box_outline_blank'}</span>
-            </button>
-            <div class="flex-1 min-w-0">
-                <span class="text-sm block ${item.checked ? 'text-gray-400 line-through' : 'text-gray-700 dark:text-gray-300'}">${item.text}</span>
-                ${item.location ? `<span class="text-xs text-gray-500 block truncate"><span class="material-symbols-outlined text-xs align-middle">location_on</span> ${item.location}</span>` : ''}
-            </div>
-            <button onclick="deleteListItem('${type}', ${index})" class="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                <span class="material-symbols-outlined text-lg">close</span>
-            </button>
-        </div>
-    `;
-
-    if (travelData.shoppingList && travelData.shoppingList.length > 0) {
-        // 장소별로 정렬: lastExpenseLocation과 일치하는 항목을 상단에
-        const lastLocation = window.lastExpenseLocation;
-        const sorted = [...travelData.shoppingList];
-        
-        if (lastLocation) {
-            sorted.sort((a, b) => {
-                const aMatches = a.location === lastLocation;
-                const bMatches = b.location === lastLocation;
-                if (aMatches && !bMatches) return -1;
-                if (!aMatches && bMatches) return 1;
-                return 0;
-            });
-        }
-        
-        shoppingContainer.innerHTML = sorted.map((item, i) => {
-            const originalIndex = travelData.shoppingList.indexOf(item);
-            const shouldSparkle = lastLocation && item.location === lastLocation;
-            return renderItem(item, originalIndex, 'shopping', shouldSparkle);
-        }).join('');
-        
-        // 반짝임 효과 후 lastExpenseLocation 초기화 (3초 후)
-        if (lastLocation) {
-            setTimeout(() => {
-                window.lastExpenseLocation = null;
-            }, 3000);
-        }
-    } else {
-        shoppingContainer.innerHTML = '<p class="text-xs text-gray-400 text-center py-2">리스트가 비어있습니다.</p>';
-    }
-
-    if (travelData.checklist && travelData.checklist.length > 0) {
-        checkContainer.innerHTML = travelData.checklist.map((item, i) => renderItem(item, i, 'check')).join('');
-    } else {
-        checkContainer.innerHTML = '<p class="text-xs text-gray-400 text-center py-2">리스트가 비어있습니다.</p>';
-    }
-    
-    // 스크롤 위치 복원
-    requestAnimationFrame(() => {
-        window.scrollTo(0, scrollPosition);
-    });
+    return Renderers.renderLists();
 }
 
 export function addListItem(type) {
@@ -4800,7 +2451,6 @@ export function addTimelineItem(insertIndex = null, dayIndex = currentDayIndex) 
     const modal = document.getElementById('item-modal');
     
     // UI 복구: 모든 필드 표시
-    const gridChildren = modal.querySelectorAll('.grid > div');
     gridChildren.forEach(el => el.classList.remove('hidden'));
     document.getElementById('save-item-btn').classList.remove('hidden');
 
@@ -4855,12 +2505,12 @@ export function editTimelineItem(index, dayIndex = currentDayIndex) {
     // 이동 수단(Transit)인 경우 전용 모달 호출
     if (item.isTransit) {
         if (item.tag === '비행기') {
-            openFlightInputModal(index, true);
-            Transit.openFlightInputModal(index, true);
+            // ui-transit.js의 함수를 호출 (window 객체에 할당된 경우)
+            if (window.openFlightInputModal) window.openFlightInputModal(index, true);
             return;
         }
-        openTransitInputModal(index, null); // null type means editing
-        Transit.openTransitInputModal(index, null); // null type means editing
+        // ui-transit.js의 함수를 호출
+        if (window.openTransitInputModal) window.openTransitInputModal(index, null);
         return;
     }
     
@@ -4964,708 +2614,6 @@ export function openGoogleMapsRouteFromPrev() {
 
     const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=transit`;
     window.open(url, '_blank');
-}
-
-export async function addFastestTransitItem() {
-    // 1. 데이터 유효성 검사
-    if (targetDayIndex === null || targetDayIndex === -1 || !travelData.days[targetDayIndex]) {
-        alert("날짜 정보를 찾을 수 없습니다.");
-        return;
-    }
-
-    const timeline = travelData.days[targetDayIndex].timeline;
-    const insertIdx = (insertingItemIndex !== null) ? Number(insertingItemIndex) : -1;
-
-    // 2. 출발지/도착지 탐색 (좌표 우선, 없으면 텍스트)
-    let prevItem = null;
-    let nextItem = null;
-
-    // 이전 아이템 찾기
-    for (let i = (insertIdx >= 0 ? Math.min(insertIdx, timeline.length - 1) : timeline.length - 1); i >= 0; i--) {
-        const item = timeline[i];
-        if ((item.lat && item.lng) || (!item.isTransit && item.tag !== '메모' && (item.location || item.title))) {
-            prevItem = item;
-            break;
-        }
-    }
-
-    // 다음 아이템 찾기
-    if (insertIdx >= 0) {
-        for (let i = insertIdx + 1; i < timeline.length; i++) {
-            const item = timeline[i];
-            if ((item.lat && item.lng) || (!item.isTransit && item.tag !== '메모' && (item.location || item.title))) {
-                nextItem = item;
-                break;
-            }
-        }
-    }
-
-    if (!prevItem || !nextItem) {
-        alert("경로를 계산할 출발지 또는 도착지 정보가 부족합니다.\n(일정 사이에 추가할 때 사용해주세요)");
-        return;
-    }
-
-    // 3. UI 로딩 표시
-    const btn = document.querySelector('#add-selection-modal button[onclick="addFastestTransitItem()"]');
-    const originalContent = btn ? btn.innerHTML : '';
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = `<div class="flex items-center justify-center gap-2"><span class="material-symbols-outlined animate-spin">refresh</span> 경로 탐색 중...</div>`;
-    }
-
-    try {
-        // 위치 객체 생성 헬퍼 (좌표 -> 텍스트 순)
-        const getPoint = (item) => {
-            // 1. Google Maps Geometry 객체인 경우 (함수 실행 필요)
-            if (item.geometry && item.geometry.location) {
-                const loc = item.geometry.location;
-                return {
-                    lat: typeof loc.lat === 'function' ? loc.lat() : loc.lat,
-                    lng: typeof loc.lng === 'function' ? loc.lng() : loc.lng
-                };
-            }
-            
-            // 2. 이미 저장된 lat/lng 속성이 있는 경우 (숫자 변환 및 함수 체크)
-            if (item.lat !== undefined && item.lng !== undefined) {
-                return {
-                    lat: typeof item.lat === 'function' ? item.lat() : Number(item.lat),
-                    lng: typeof item.lng === 'function' ? item.lng() : Number(item.lng)
-                };
-            }
-
-            // 3. 텍스트 주소 사용
-            return item.location || item.title;
-        };
-
-        const origin = getPoint(prevItem);
-        const destination = getPoint(nextItem);
-        
-        // [Custom Logic] 일본/인도 지역 직선거리 기반 자동 처리
-        // 국가 코드 추출 헬퍼 함수
-        const getCountryCode = async (item) => {
-            // 이미 국가 정보가 있으면 반환
-            if (item.countryCode) return item.countryCode;
-            
-            // address_components가 있으면 추출
-            if (item.address_components) {
-                const country = item.address_components.find(c => c.types.includes('country'));
-                if (country) return country.short_name;
-            }
-            
-            // Geocoding으로 국가 정보 추출 (좌표가 있는 경우)
-            if (item.lat && item.lng) {
-                try {
-                    const geocoder = new google.maps.Geocoder();
-                    const result = await new Promise((resolve, reject) => {
-                        geocoder.geocode({ 
-                            location: { 
-                                lat: typeof item.lat === 'function' ? item.lat() : Number(item.lat),
-                                lng: typeof item.lng === 'function' ? item.lng() : Number(item.lng)
-                            }
-                        }, (results, status) => {
-                            if (status === 'OK' && results[0]) {
-                                resolve(results[0]);
-                            } else {
-                                resolve(null);
-                            }
-                        });
-                    });
-                    
-                    if (result && result.address_components) {
-                        const country = result.address_components.find(c => c.types.includes('country'));
-                        if (country) {
-                            // 캐싱
-                            item.countryCode = country.short_name;
-                            return country.short_name;
-                        }
-                    }
-                } catch (e) {
-                    console.warn('Geocoding failed:', e);
-                }
-            }
-            
-            return null;
-        };
-        
-        // 앞뒤 장소의 국가 확인
-        const prevCountry = await getCountryCode(prevItem);
-        const nextCountry = await getCountryCode(nextItem);
-        
-        // 양쪽 모두 일본(JP) 또는 인도(IN)인 경우만 직선거리 계산
-        const isTargetRegion = (prevCountry === 'JP' && nextCountry === 'JP') || 
-                               (prevCountry === 'IN' && nextCountry === 'IN');
-
-        if (isTargetRegion && typeof origin === 'object' && typeof destination === 'object') {
-            const dist = calculateStraightDistance(origin, destination);
-            if (dist !== null) {
-                let title, icon, tag, durationMins;
-                
-                if (dist <= 1000) {
-                    // 1000m 이하: 도보 (분당 80m 기준)
-                    title = "도보로 이동";
-                    icon = "directions_walk";
-                    tag = "도보";
-                    durationMins = Math.max(1, Math.ceil(dist / 80));
-                } else {
-                    // 1000m 초과: 대중교통 (거리별 속도 차등 적용)
-                    title = "대중교통으로 이동";
-                    icon = "directions_bus";
-                    tag = "대중교통";
-                    
-                    if (dist <= 5000) {
-                        durationMins = Math.ceil(dist / 120); // 1~5km: 120m/min
-                    } else if (dist <= 15000) {
-                        durationMins = Math.ceil(dist / (9000 / 60)); // 5~15km: 9km/h
-                    } else if (dist <= 40000) {
-                        durationMins = Math.ceil(dist / (13000 / 60)); // 15~40km: 13km/h
-                    } else {
-                        durationMins = Math.ceil(dist / (50000 / 60)); // 40km 이상: 50km/h
-                    }
-                    durationMins = Math.max(5, durationMins);
-                }
-
-                const h = Math.floor(durationMins / 60);
-                const m = durationMins % 60;
-                const durationStr = (h > 0 ? `${h}시간 ` : "") + `${m}분`;
-
-                const newItem = {
-                    time: durationStr,
-                    title: title,
-                    location: "",
-                    icon: icon,
-                    tag: tag,
-                    isTransit: true,
-                    image: null,
-                    note: `직선거리: ${Math.round(dist)}m (자동 계산됨)`,
-                    fixedDuration: true,
-                    transitInfo: { start: "", end: "" }
-                };
-
-                timeline.splice(insertIdx + 1, 0, newItem);
-                reorderTimeline(targetDayIndex);
-                closeAddModal();
-                return; // Google API 호출을 건너뜁니다.
-            }
-        }
-
-        // 출발 시간 설정 (여행 날짜 반영)
-        let departureTime = new Date();
-        const tripDateStr = travelData.days[targetDayIndex].date; 
-        if (tripDateStr) {
-            const [y, m, d] = tripDateStr.split('-').map(Number);
-            departureTime = new Date(y, m - 1, d);
-            
-            // 이전 일정 시간이 있으면 반영
-            // insertIdx 기준 바로 앞 아이템(prevItem과 다를 수 있음, 시간 기준용)
-            let timeRefItem = null;
-            let searchIdx = (insertIdx >= 0) ? Math.min(insertIdx, timeline.length - 1) : timeline.length - 1;
-            if (searchIdx >= 0) timeRefItem = timeline[searchIdx];
-
-            const refItem = timeRefItem || prevItem;
-            if (refItem) {
-                let mins = null;
-                if (refItem.isTransit && refItem.transitInfo?.end) {
-                    const [h, m] = refItem.transitInfo.end.split(':').map(Number);
-                    mins = h * 60 + m;
-                } else {
-                    mins = parseTimeStr(refItem.time);
-                }
-                
-                if (mins !== null) {
-                    departureTime.setHours(Math.floor(mins / 60), mins % 60, 0, 0);
-                } else {
-                    departureTime.setHours(9, 0, 0, 0); // 기본 9시
-                }
-            }
-        }
-
-        // 과거 시간이면 현재 시간으로 보정
-        if (departureTime < new Date()) departureTime = new Date();
-
-        // 4. 경로 요청 래퍼 함수 (Promise)
-        const fetchRoute = async (params) => {
-            return new Promise((resolve) => {
-                const directionsService = new google.maps.DirectionsService();
-                const request = {
-                    origin: params.origin,
-                    destination: params.destination,
-                    travelMode: params.travelMode.toUpperCase(),
-                    provideRouteAlternatives: params.provideRouteAlternatives
-                };
-                if (params.transitOptions) {
-                    request.transitOptions = params.transitOptions;
-                }
-                
-                directionsService.route(request, (result, status) => {
-                    if (status === 'OK') {
-                        resolve(result);
-                    } else {
-                        console.warn("Directions request failed: " + status);
-                        resolve(null);
-                    }
-                });
-            });
-        };
-
-        // 5. 단계별 탐색 전략 (1 -> 3 -> 2 -> 4 순서)
-        let result = null;
-        let searchMode = null; // [Added] 성공한 탐색 모드 추적
-
-        // [전략 1] 대중교통 + 지정된 시간 (좌표 우선)
-        if (!result) {
-            result = await fetchRoute({
-                origin, destination,
-                travelMode: 'transit',
-                transitOptions: { departureTime },
-                provideRouteAlternatives: true
-            });
-            if (result) searchMode = 'transit';
-        }
-
-        // [Modified] Mapbox는 텍스트 검색(Geocoding)을 Directions API에서 직접 지원하지 않으므로 전략 3 제거
-        // [전략 2] 대중교통 + 현재 시간 (미래 데이터 부재 시 대응)
-        if (!result) {
-            console.log("🕒 지정 시간 실패, 현재 시간으로 재시도");
-            result = await fetchRoute({
-                origin, destination,
-                travelMode: 'transit',
-                transitOptions: { departureTime: new Date() },
-                provideRouteAlternatives: true
-            });
-            if (result) searchMode = 'transit';
-        }
-
-        // [전략 4] 도보 경로
-        if (!result) {
-            console.log("🚶 대중교통 실패, 도보 경로 탐색 시도");
-            result = await fetchRoute({
-                origin, destination,
-                travelMode: 'walking',
-                provideRouteAlternatives: true
-            });
-            if (result) searchMode = 'walking';
-        }
-
-        // 6. 결과 처리
-        if (result) {
-            closeAddModal();
-            setTimeout(() => openRouteSelectionModal(result.routes, insertIdx, searchMode), 50);
-        } else {
-            let msg = "경로를 찾을 수 없습니다.";
-            msg += "\n\n[가능한 원인]";
-            msg += "\n1. 대중교통 운행 정보가 없는 지역";
-            msg += "\n2. 너무 먼 미래의 날짜 (시간표 미확정)";
-            msg += "\n3. 바다 건너기 등 육로 이동 불가";
-            alert(msg);
-        }
-
-    } catch (error) {
-        console.error(error);
-        alert("오류 발생: " + error.message);
-    } finally {
-        if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = originalContent;
-        }
-    }
-}
-
-// [Route Selection Modal Logic]
-let pendingRouteInsertIndex = null;
-
-export function openRouteSelectionModal(routes, insertIdx, searchMode = null) {
-    pendingRouteInsertIndex = insertIdx;
-    
-    let modal = document.getElementById('route-selection-modal');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'route-selection-modal';
-        modal.className = 'fixed inset-0 bg-black/50 z-[99999] hidden flex items-center justify-center p-4';
-        modal.innerHTML = `
-            <div class="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[80vh] animate-fade-in-up">
-                <div class="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50">
-                    <h3 class="font-bold text-lg text-gray-800 dark:text-white flex items-center gap-2">
-                        <span class="material-symbols-outlined text-primary">alt_route</span> 경로 선택
-                    </h3>
-                    <button onclick="closeRouteSelectionModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
-                        <span class="material-symbols-outlined">close</span>
-                    </button>
-                </div>
-                <div class="p-2 bg-blue-50 dark:bg-blue-900/20 text-xs text-blue-600 dark:text-blue-300 text-center">
-                    가장 적합한 경로를 선택해주세요.
-                </div>
-                <div id="route-selection-list" class="overflow-y-auto p-3 space-y-3 bg-gray-50/50 dark:bg-gray-900/50">
-                    <!-- Routes injected here -->
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-    } else {
-        // [Fix] 기존 모달이 있다면 z-index 및 클래스 강제 업데이트
-        modal.className = 'fixed inset-0 bg-black/50 z-[99999] hidden flex items-center justify-center p-4';
-    }
-    
-    const list = document.getElementById('route-selection-list');
-    list.innerHTML = '';
-    
-    // [Helper] 시간/거리 포맷팅 (Mapbox 숫자 vs Google 텍스트 호환)
-    const formatDuration = (valObj) => {
-        return valObj ? valObj.text : "";
-    };
-
-    const formatDistance = (valObj) => {
-        return valObj ? valObj.text : "";
-    };
-
-    routes.forEach((route, idx) => {
-        const leg = route.legs[0];
-        
-        // [Fix] 도보 모드인데 소요시간이 비정상적으로 짧으면(운전으로 추정) 거리 기반으로 재계산
-        // 시속 4km = 분당 약 67m
-        if (searchMode === 'walking') {
-            let distVal = 0;
-            if (typeof leg.distance === 'number') distVal = leg.distance;
-            else if (leg.distance?.value) distVal = leg.distance.value;
-            
-            if (distVal > 0) {
-                const walkMins = Math.ceil(distVal / 67);
-                const h = Math.floor(walkMins / 60);
-                const m = walkMins % 60;
-                const newText = h > 0 ? `${h}시간 ${m}분` : `${m}분`;
-                
-                // 객체 원본 수정 (저장 시 processSelectedRoute에서도 반영되도록)
-                leg.duration = { text: newText, value: walkMins * 60 };
-            }
-        }
-
-        const duration = formatDuration(leg.duration);
-        const distance = formatDistance(leg.distance);
-        
-        let iconsHtml = '';
-        const transitSteps = leg.steps.filter(s => s.travel_mode === 'TRANSIT');
-        
-        if (transitSteps.length > 0) {
-            transitSteps.forEach(step => {
-                // [Fix] 데이터가 불완전할 경우를 대비해 Optional Chaining 사용
-                const vehicle = step.transit?.line?.vehicle || { type: 'BUS' };
-                let icon = 'directions_bus';
-                let colorClass = 'text-gray-600 dark:text-gray-300';
-                
-                if (vehicle.type === 'SUBWAY' || vehicle.type === 'METRO') {
-                    icon = 'subway';
-                    colorClass = 'text-orange-500';
-                } else if (vehicle.type === 'HEAVY_RAIL' || vehicle.type === 'TRAIN') {
-                    icon = 'train';
-                    colorClass = 'text-blue-500';
-                }
-                
-                const lineName = step.transit?.line?.short_name || step.transit?.line?.name || '';
-                const lineColor = step.transit?.line?.color ? `style="color: ${step.transit.line.color}"` : '';
-                
-                iconsHtml += `
-                    <div class="flex items-center gap-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-2 py-1 rounded-md text-xs shadow-sm">
-                        <span class="material-symbols-outlined text-[16px] ${!lineColor ? colorClass : ''}" ${lineColor}>${icon}</span>
-                        <span class="font-bold text-gray-700 dark:text-gray-200">${lineName}</span>
-                    </div>`;
-            });
-        } else {
-             iconsHtml += `
-                <div class="flex items-center gap-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-2 py-1 rounded-md text-xs shadow-sm">
-                    <span class="material-symbols-outlined text-[16px] text-green-600">directions_walk</span>
-                    <span class="font-bold text-gray-700 dark:text-gray-200">도보</span>
-                </div>`;
-        }
-        
-        const btn = document.createElement('button');
-        btn.className = "w-full text-left p-4 rounded-xl bg-white dark:bg-card-dark border border-gray-200 dark:border-gray-700 hover:border-primary hover:ring-1 hover:ring-primary hover:shadow-md transition-all group relative overflow-hidden";
-        
-        const badge = idx === 0 ? `<div class="absolute top-0 right-0 bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-bl-lg">추천</div>` : '';
-
-        const formatAddr = (addr) => {
-            if (!addr) return "";
-            const parts = addr.split(' ');
-            return parts.length > 1 ? parts.slice(1).join(' ') : addr;
-        };
-        const startAddr = formatAddr(leg.start_address) || '출발지';
-        const endAddr = formatAddr(leg.end_address) || '도착지';
-
-        btn.innerHTML = `
-            ${badge}
-            <div class="flex justify-between items-end mb-3">
-                <span class="font-bold text-2xl text-gray-800 dark:text-white tracking-tight">${duration}</span>
-                <span class="text-xs font-medium text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-full">${distance}</span>
-            </div>
-            <div class="flex flex-wrap gap-2 mb-3">
-                ${iconsHtml}
-            </div>
-            <div class="flex items-center gap-1 text-xs text-gray-400 mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
-                <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
-                <span class="truncate flex-1">${startAddr} → ${endAddr}</span>
-            </div>
-        `;
-        
-        btn.onclick = () => {
-            processSelectedRoute(route, pendingRouteInsertIndex);
-            closeRouteSelectionModal();
-        };
-        list.appendChild(btn);
-    });
-    
-    modal.classList.remove('hidden');
-}
-
-export function closeRouteSelectionModal() {
-    const modal = document.getElementById('route-selection-modal');
-    if (modal) modal.classList.add('hidden');
-    pendingRouteInsertIndex = null;
-}
-
-function processSelectedRoute(route, insertIdx) {
-    const leg = route.legs[0];
-    const steps = leg.steps;
-    
-    // [헬퍼] 값이 없으면 무조건 빈 문자열("")로 반환. undefined 절대 금지.
-    const safe = (val) => (val === undefined || val === null) ? "" : val;
-    
-    const formatDuration = (valObj) => {
-        return valObj ? valObj.text : "";
-    };
-
-    const formatDistance = (valObj) => {
-        return valObj ? valObj.text : "";
-    };
-
-    const detailedSteps = [];
-    
-    // 대중교통 포함 여부 확인
-    const hasTransit = steps.some(step => step.travel_mode === 'TRANSIT');
-
-    // 전체 구간 시간/거리 계산
-    const totalDuration = formatDuration(leg.duration);
-    const totalDistance = formatDistance(leg.distance);
-    
-    // 그룹 ID 생성 (타임스탬프 기반)
-    const routeGroupId = `route_${Date.now()}`;
-
-    // 상세 경로 정보 생성 (펼쳐질 내용)
-    if (!hasTransit) {
-        // [순수 도보]
-        detailedSteps.push({
-            time: totalDuration || "시간 미정",
-            title: "도보로 이동",
-            location: "",
-            icon: "directions_walk",
-            tag: "도보",
-            isTransit: true,
-            image: null,
-            note: `총 거리: ${totalDistance}`,
-            fixedDuration: true,
-            transitInfo: { start: "", end: "" },
-            routeGroupId: routeGroupId
-        });
-    } else {
-      // [대중교통 포함]
-      for (const step of steps) {
-        if (step.travel_mode === 'TRANSIT' && step.transit) {
-            // 안전한 데이터 추출
-            const line = step.transit.line || {};
-            const vehicle = line.vehicle || { type: 'BUS' };
-            
-            // 이름이 없으면 '대중교통'이라도 넣음
-            const lineName = safe(line.short_name) || safe(line.name) || "대중교통";
-            
-            let icon = "directions_bus";
-            let tag = "버스";
-            let titleBase = "버스로 이동";
-
-            const vType = vehicle.type || 'BUS';
-            if (vType === 'SUBWAY' || vType === 'METRO') {
-                icon = "subway"; tag = "전철"; titleBase = "전철로 이동";
-            } else if (vType === 'HEAVY_RAIL' || vType === 'TRAIN') {
-                icon = "train"; tag = "기차"; titleBase = "기차로 이동";
-            }
-
-            const title = `${titleBase} (${lineName})`;
-            
-            // 색상은 없으면 null (null은 Firestore 저장 가능)
-            const lineColor = line.color ? line.color : null; 
-            const textColor = line.text_color ? line.text_color : null;
-            
-            const stepDuration = formatDuration(step.duration); // 호환성 적용
-
-            detailedSteps.push({
-                time: stepDuration,
-                title: safe(title),
-                location: "",
-                icon: icon,
-                tag: tag,
-                isTransit: true,
-                image: null,
-                note: step.transit.num_stops ? `${step.transit.num_stops}개 정류장` : "",
-                color: lineColor, 
-                textColor: textColor, 
-                fixedDuration: true,
-                transitInfo: { 
-                    start: safe(step.transit.departure_time?.text),
-                    end: safe(step.transit.arrival_time?.text),
-                    headsign: safe(step.transit.headsign),
-                    depStop: safe(step.transit.departure_stop?.name),
-                    arrStop: safe(step.transit.arrival_stop?.name)
-                },
-                routeGroupId: routeGroupId
-            });
-        } else if (step.travel_mode === 'WALKING') {
-            const stepDuration = formatDuration(step.duration); // 호환성 적용
-            // HTML 태그 제거 및 안전한 텍스트 추출
-            let instructions = safe(step.instructions) || "도보로 이동";
-            const div = document.createElement("div");
-            div.innerHTML = instructions;
-            instructions = div.textContent || div.innerText || "도보로 이동";
-
-            detailedSteps.push({
-                time: stepDuration,
-                title: "도보로 이동",
-                location: "",
-                icon: "directions_walk",
-                tag: "도보",
-                isTransit: true,
-                image: null,
-                note: instructions,
-                fixedDuration: true,
-                transitInfo: { start: "", end: "" },
-                routeGroupId: routeGroupId
-            });
-        }
-      }
-    }
-
-    if (detailedSteps.length === 0) {
-        detailedSteps.push({
-            time: totalDuration || "이동",
-            title: "이동",
-            location: "",
-            icon: "commute",
-            tag: "이동",
-            isTransit: true,
-            image: null,
-            note: "경로 상세 정보 없음",
-            fixedDuration: true,
-            transitInfo: { start: "", end: "" },
-            routeGroupId: routeGroupId
-        });
-    }
-
-    // 대표 경로 아이템 생성 (요약본)
-    const transitSteps = steps.filter(s => s.travel_mode === 'TRANSIT');
-    let summaryTitle = "";
-    let summaryIcon = "commute";
-    let summaryTag = "이동";
-    
-    if (!hasTransit) {
-        // 순수 도보
-        summaryTitle = "도보로 이동";
-        summaryIcon = "directions_walk";
-        summaryTag = "도보";
-    } else {
-        // 대중교통 포함
-        // 대중교통 종류별 카운트
-        const vehicleTypes = {};
-        transitSteps.forEach(step => {
-            const vType = step.transit?.line?.vehicle?.type || 'BUS';
-            vehicleTypes[vType] = (vehicleTypes[vType] || 0) + 1;
-        });
-        
-        if (Object.keys(vehicleTypes).length > 0) {
-            // 가장 많이 사용된 교통수단
-            const mainType = Object.keys(vehicleTypes).reduce((a, b) => 
-                vehicleTypes[a] > vehicleTypes[b] ? a : b
-            );
-            
-            if (mainType === 'SUBWAY' || mainType === 'METRO') {
-                summaryIcon = "subway";
-                summaryTag = "전철";
-                summaryTitle = detailedSteps.length > 1 ? `전철 등 ${detailedSteps.length}개 구간` : "전철로 이동";
-            } else if (mainType === 'HEAVY_RAIL' || mainType === 'TRAIN') {
-                summaryIcon = "train";
-                summaryTag = "기차";
-                summaryTitle = detailedSteps.length > 1 ? `기차 등 ${detailedSteps.length}개 구간` : "기차로 이동";
-            } else {
-                summaryIcon = "directions_bus";
-                summaryTag = "버스";
-                summaryTitle = detailedSteps.length > 1 ? `버스 등 ${detailedSteps.length}개 구간` : "버스로 이동";
-            }
-        } else {
-            // 대중교통이 있다고 했는데 vehicleTypes가 비어있는 경우 (fallback)
-            summaryTitle = detailedSteps.length > 1 ? `대중교통 ${detailedSteps.length}개 구간` : "대중교통으로 이동";
-            summaryIcon = "commute";
-            summaryTag = "대중교통";
-        }
-    }
-
-    // 타임라인 배열 가져오기
-    const timelineArr = travelData.days[targetDayIndex].timeline;
-    
-    const summaryItem = {
-        time: totalDuration || "시간 미정",
-        title: summaryTitle,
-        location: "",
-        icon: summaryIcon,
-        tag: summaryTag,
-        isTransit: true,
-        image: null,
-        note: "",
-        fixedDuration: true,
-        transitInfo: { 
-            start: "", 
-            end: "",
-            summary: detailedSteps.length > 1 ? `총 거리: ${totalDistance}` : `총 거리: ${totalDistance}`
-        },
-        routeGroupId: routeGroupId,
-        isCollapsed: detailedSteps.length > 1,
-        detailedSteps: detailedSteps.length > 1 ? detailedSteps : null,
-        // 메모, 지출, 첨부파일을 위한 빈 필드들
-        expenses: [],
-        attachments: []
-    };
-
-    // 다음 장소 시간 자동 조정 로직
-    
-    if (insertIdx >= 0 && insertIdx < timelineArr.length) {
-        const prevItem = timelineArr[insertIdx];
-        const nextItem = (insertIdx + 1 < timelineArr.length) ? timelineArr[insertIdx + 1] : null;
-        
-        if (prevItem && nextItem && !prevItem.isTransit && !nextItem.isTransit) {
-            const prevTimeMins = parseTimeStr(prevItem.time);
-            const nextTimeMins = parseTimeStr(nextItem.time);
-            
-            if (prevTimeMins !== null) {
-                // leg.duration 처리 시에도 호환성 체크
-                let durVal = 0;
-                if (typeof leg.duration === 'number') durVal = leg.duration;
-                else if (leg.duration?.value) durVal = leg.duration.value;
-
-                const durationMins = Math.ceil(durVal / 60);
-                const arrivalTimeMins = prevTimeMins + durationMins;
-                
-                // 다음 장소 시간이 도착 시간보다 이르면 조정
-                let effectiveNextTime = nextTimeMins;
-                // 단순 비교를 위해 다음 시간이 이전 시간보다 작으면 다음날로 간주 (00:00 vs 23:00)
-                if (effectiveNextTime !== null && effectiveNextTime < prevTimeMins) {
-                    effectiveNextTime += 24 * 60;
-                }
-                
-                if (effectiveNextTime === null || arrivalTimeMins > effectiveNextTime) {
-                    let newTime = arrivalTimeMins >= 24 * 60 ? arrivalTimeMins - 24 * 60 : arrivalTimeMins;
-                    nextItem.time = formatTimeStr(newTime);
-                }
-            }
-        }
-    }
-
-    timelineArr.splice(insertIdx + 1, 0, summaryItem);
-    
-    reorderTimeline(targetDayIndex);
-    closeAddModal();
 }
 
 // [Manual Input Modal Logic]
@@ -6096,42 +3044,7 @@ export async function handleAttachmentUpload(input, type) {
 }
 
 export function renderAttachments(item, containerId) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    
-    if (!item.attachments || item.attachments.length === 0) {
-        container.innerHTML = '<p class="col-span-full text-xs text-gray-400 text-center py-2">첨부된 파일이 없습니다.</p>';
-        return;
-    }
-
-    let html = '';
-    item.attachments.forEach((att, index) => {
-        const isImage = att.type.startsWith('image/');
-        const icon = isImage ? 'image' : 'description';
-        const bgClass = isImage ? '' : 'bg-gray-100 dark:bg-gray-700';
-        
-        // URL 또는 Base64 데이터 처리 (하위 호환성)
-        const fileData = att.url || att.data;
-        
-        const content = isImage 
-            ? `<div class="w-full h-full bg-cover bg-center" style="background-image: url('${fileData}')"></div>` 
-            : `<div class="w-full h-full flex flex-col items-center justify-center text-gray-500"><span class="material-symbols-outlined text-2xl mb-1">picture_as_pdf</span><span class="text-[10px] px-2 truncate w-full text-center">${att.name}</span></div>`;
-
-        html += `
-            <div class="relative group aspect-square rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 ${bgClass}">
-                ${content}
-                <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                    <button onclick="openAttachment('${fileData}', '${att.type}')" class="text-white hover:text-primary p-1" title="열기">
-                        <span class="material-symbols-outlined">visibility</span>
-                    </button>
-                    <button onclick="deleteAttachment(${index}, '${containerId}')" class="text-white hover:text-red-500 p-1" title="삭제">
-                        <span class="material-symbols-outlined">delete</span>
-                    </button>
-                </div>
-            </div>
-        `;
-    });
-    container.innerHTML = html;
+    return Renderers.renderAttachments(item, containerId);
 }
 
 export async function deleteAttachment(index, containerId) {
@@ -6150,6 +3063,60 @@ export function openAttachment(data, type) {
     } else {
         // PDF의 경우 iframe으로 열기
         win.document.write(`<iframe src="${data}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
+    }
+}
+
+export async function handleImageUpload(input) {
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        
+        if (file.size > 5 * 1024 * 1024) {
+            alert("파일 크기는 5MB 이하여야 합니다.");
+            input.value = "";
+            return;
+        }
+
+        try {
+            Modals.showLoading();
+            
+            const reader = new FileReader();
+            
+            reader.onload = async function(e) {
+                try {
+                    const timestamp = Date.now();
+                    const fileExtension = file.name.split('.').pop();
+                    const fileName = `hero_${currentTripId}_${timestamp}.${fileExtension}`;
+                    
+                    const response = await fetch(`${BACKEND_URL}/upload-attachment`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            base64Data: e.target.result,
+                            fileName: fileName,
+                            tripId: currentTripId,
+                            fileType: file.type
+                        })
+                    });
+
+                    if (!response.ok) throw new Error('Upload failed');
+                    
+                    const result = await response.json();
+                    updateMeta('mapImage', result.url);
+                    
+                    input.value = "";
+                } catch (error) {
+                    console.error("Image upload failed:", error);
+                    alert("이미지 업로드에 실패했습니다.");
+                } finally {
+                    Modals.hideLoading();
+                }
+            };
+            
+            reader.readAsDataURL(file);
+        } catch (e) {
+            console.error(e);
+            Modals.hideLoading();
+        }
     }
 }
 
@@ -6335,9 +3302,230 @@ window.addEventListener('click', (e) => {
     }
 });
 
+// [State & UI Sync Functions]
+export function updateMeta(key, value) {
+    updateMetaState(key, value);
+    renderItinerary();
+    autoSave();
+}
+
+export function updateTripDate(dayIndex, newDate) {
+    updateTripDateState(dayIndex, newDate);
+    // 날씨 업데이트 (map.js의 fetchWeather가 window에 있다면 호출)
+    if (window.fetchWeather && travelData.meta.lat && travelData.meta.lng) {
+        window.fetchWeather(travelData.meta.lat, travelData.meta.lng, newDate);
+    }
+    renderItinerary();
+    autoSave();
+}
+
+export function updateTimeline(dayIndex, itemIndex, key, value) {
+    updateTimelineItemState(dayIndex, itemIndex, key, value);
+    renderItinerary();
+    autoSave();
+}
+
+export function updateDateRange() {
+    const startStr = document.getElementById('edit-start-date').value;
+    const endStr = document.getElementById('edit-end-date').value;
+    
+    if (!startStr || !endStr) return;
+    
+    const start = new Date(startStr);
+    const end = new Date(endStr);
+    
+    if (end < start) {
+        alert("종료일은 시작일보다 빠를 수 없습니다.");
+        return;
+    }
+
+    // 기간 업데이트
+    const diffTime = Math.abs(end - start);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const durationText = (diffDays === 0) ? "당일치기" : `${diffDays}박 ${diffDays + 1}일`;
+    updateMetaState('dayCount', durationText);
+    
+    // 날짜 텍스트 업데이트
+    const format = d => `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
+    let dateStr = format(start);
+    if (durationText !== "당일치기") {
+        dateStr += ` - ${end.getMonth() + 1}월 ${end.getDate()}일`;
+    }
+    
+    // 기존 subInfo의 앞부분(위치 등) 유지
+    let prefix = "";
+    if (travelData.meta.subInfo && travelData.meta.subInfo.includes('•')) {
+        prefix = travelData.meta.subInfo.split('•')[0].trim();
+    }
+    updateMetaState('subInfo', prefix ? `${prefix} • ${dateStr}` : dateStr);
+
+    // Days 배열 재구성
+    const totalDays = diffDays + 1;
+    const currentTotalDays = travelData.days.length;
+    
+    if (totalDays > currentTotalDays) {
+        for (let i = currentTotalDays; i < totalDays; i++) {
+            travelData.days.push({ date: "", timeline: [] });
+        }
+    } else if (totalDays < currentTotalDays) {
+        if(!confirm("기간을 줄이면 일부 일정이 삭제될 수 있습니다. 계속하시겠습니까?")) {
+            renderItinerary(); // 입력값 원복을 위해 재렌더링
+            return;
+        }
+        travelData.days.splice(totalDays);
+    }
+
+    // 날짜 값 갱신
+    travelData.days.forEach((day, i) => {
+        const d = new Date(start);
+        d.setDate(d.getDate() + i);
+        day.date = d.toISOString().split('T')[0];
+    });
+
+    renderItinerary();
+    autoSave();
+}
+
+// [Memory Logic]
+export function getTripStatus(data) {
+    if (!data || !data.days || data.days.length === 0) return 'planning';
+    
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    
+    const lastDay = new Date(data.days[data.days.length - 1].date);
+    lastDay.setHours(0,0,0,0);
+    
+    if (today > lastDay) return 'completed';
+    return 'planning';
+}
+
+export function addMemoryItem(index, dayIndex) {
+    setViewingItemIndex(index);
+    setTargetDayIndex(dayIndex);
+    
+    const modal = document.getElementById('memory-input-modal');
+    if (modal) {
+        const preview = document.getElementById('memory-photo-preview');
+        const input = document.getElementById('memory-photo-input');
+        const comment = document.getElementById('memory-comment');
+        const placeholder = document.getElementById('memory-photo-placeholder');
+        
+        if (preview) {
+            preview.src = "https://placehold.co/400x300?text=No+Image";
+            preview.classList.add('hidden');
+        }
+        if (placeholder) placeholder.classList.remove('hidden');
+        if (input) input.value = "";
+        if (comment) comment.value = "";
+        
+        modal.classList.remove('hidden');
+    }
+}
+
+export function closeMemoryModal() {
+    const modal = document.getElementById('memory-input-modal');
+    if (modal) modal.classList.add('hidden');
+    setViewingItemIndex(null);
+}
+
+export function handleMemoryPhotoChange(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const preview = document.getElementById('memory-photo-preview');
+            const placeholder = document.getElementById('memory-photo-placeholder');
+            if (preview) {
+                preview.src = e.target.result;
+                preview.classList.remove('hidden');
+            }
+            if (placeholder) placeholder.classList.add('hidden');
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+export async function saveMemoryItem() {
+    const input = document.getElementById('memory-photo-input');
+    const commentEl = document.getElementById('memory-comment');
+    const comment = commentEl ? commentEl.value : "";
+    
+    if ((!input || !input.files || !input.files[0]) && !comment) {
+        alert("사진이나 코멘트 중 하나는 입력해야 합니다.");
+        return;
+    }
+    
+    try {
+        Modals.showLoading();
+        
+        let photoUrl = null;
+        if (input && input.files && input.files[0]) {
+            const file = input.files[0];
+            const timestamp = Date.now();
+            const fileName = `memory_${targetDayIndex}_${viewingItemIndex}_${timestamp}.jpg`;
+            
+            const reader = new FileReader();
+            const base64Data = await new Promise((resolve) => {
+                reader.onload = (e) => resolve(e.target.result);
+                reader.readAsDataURL(file);
+            });
+            
+            const response = await fetch(`${BACKEND_URL}/upload-memory`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    base64Data: base64Data,
+                    fileName: fileName,
+                    tripId: currentTripId
+                })
+            });
+            
+            if (!response.ok) throw new Error('Upload failed');
+            const result = await response.json();
+            photoUrl = result.url;
+        }
+        
+        const item = travelData.days[targetDayIndex].timeline[viewingItemIndex];
+        if (!item.memories) item.memories = [];
+        
+        item.memories.push({
+            photoUrl: photoUrl,
+            comment: comment,
+            createdAt: new Date().toISOString()
+        });
+        
+        await autoSave();
+        renderItinerary();
+        closeMemoryModal();
+    } catch (e) {
+        console.error("Error saving memory:", e);
+        alert("추억 저장 중 오류가 발생했습니다.");
+    } finally {
+        Modals.hideLoading();
+    }
+}
+
+export function deleteMemory(itemIndex, dayIndex, memoryIndex) {
+    if (confirm("이 추억을 삭제하시겠습니까?")) {
+        const item = travelData.days[dayIndex].timeline[itemIndex];
+        if (item && item.memories) {
+            item.memories.splice(memoryIndex, 1);
+            autoSave();
+            renderItinerary();
+        }
+    }
+}
+
+export function toggleMemoryLock() {
+    travelData.meta.memoryLocked = !travelData.meta.memoryLocked;
+    autoSave();
+    renderItinerary();
+}
+
 // Window assignments
 window.loadTripList = loadTripList;
 window.openTrip = openTrip;
+window.checkInviteLink = checkInviteLink;
 window.createNewTrip = createNewTrip;
 window.closeNewTripModal = closeNewTripModal;
 window.nextWizardStep = nextWizardStep;
@@ -6353,11 +3541,12 @@ window.handleMemoryPhotoChange = handleMemoryPhotoChange;
 window.saveMemoryItem = saveMemoryItem;
 window.deleteMemory = deleteMemory;
 window.toggleMemoryLock = toggleMemoryLock;
-window.login = login;
-window.logout = logout;
-window.openLogoutModal = openLogoutModal;
-window.closeLogoutModal = closeLogoutModal;
-window.confirmLogout = confirmLogout;
+window.login = Auth.login;
+window.logout = Auth.logout;
+window.openLogoutModal = Auth.openLogoutModal;
+window.closeLogoutModal = Auth.closeLogoutModal;
+window.confirmLogout = Auth.confirmLogout;
+window.initAuthStateObserver = Auth.initAuthStateObserver;
 window.updateMeta = updateMeta;
 window.updateTimeline = updateTimeline;
 window.updateTripDate = updateTripDate;
@@ -6370,12 +3559,15 @@ window.drop = drop;
 window.selectDay = selectDay;
 window.viewTimelineItem = viewTimelineItem;
 window.closeDetailModal = closeDetailModal;
+window.renderItinerary = renderItinerary;
+window.renderLists = renderLists;
+window.renderAttachments = renderAttachments;
 window.updateItemNote = updateItemNote;
-window.openShareModal = openShareModal;
-window.closeShareModal = closeShareModal;
-window.downloadTripAsPDF = downloadTripAsPDF;
-window.copyShareLink = copyShareLink;
-window.enableNoteEdit = enableNoteEdit;
+window.openShareModal = Header.openShareModal;
+window.closeShareModal = Header.closeShareModal;
+window.downloadTripAsPDF = Header.downloadTripAsPDF;
+window.copyShareLink = Header.copyShareLink;
+window.enableNoteEdit = Header.enableNoteEdit;
 window.addListItem = addListItem;
 window.toggleListCheck = toggleListCheck;
 window.deleteListItem = deleteListItem;
@@ -6400,35 +3592,6 @@ window.confirmTimeSelection = confirmTimeSelection;
 window.openCategoryModal = openCategoryModal;
 window.closeCategoryModal = closeCategoryModal;
 window.selectCategory = selectCategory;
-window.addTransitItem = addTransitItem;
-window.openTransitInputModal = openTransitInputModal;
-window.closeTransitInputModal = closeTransitInputModal;
-window.saveTransitItem = saveTransitItem;
-window.calculateTransitDuration = calculateTransitDuration;
-window.addTransitItem = Transit.addTransitItem;
-window.openTransitInputModal = Transit.openTransitInputModal;
-window.closeTransitInputModal = Transit.closeTransitInputModal;
-window.saveTransitItem = Transit.saveTransitItem;
-window.calculateTransitDuration = Transit.calculateTransitDuration;
-window.openLocationSearch = openLocationSearch;
-window.addTimelineItem = addTimelineItem;
-window.editTimelineItem = editTimelineItem;
-window.closeModal = closeModal;
-window.setDuration = setDuration;
-window.addNoteItem = addNoteItem;
-window.saveNewItem = saveNewItem;
-window.deleteTimelineItem = deleteTimelineItem;
-window.saveTransitItem = saveTransitItem;
-window.closeDeleteConfirmModal = closeDeleteConfirmModal;
-window.showTransitRecalculateModal = showTransitRecalculateModal;
-window.closeTransitRecalculateModal = closeTransitRecalculateModal;
-window.openUserMenu = openUserMenu;
-window.openUserSettings = openUserSettings;
-window.openUserProfile = openUserProfile;
-window.closeProfileView = closeProfileView;
-window.handleProfilePhotoChange = handleProfilePhotoChange;
-window.saveProfileChanges = saveProfileChanges;
-window.useManualInput = useManualInput;
 window.openManualInputModal = openManualInputModal;
 window.closeManualInputModal = closeManualInputModal;
 window.confirmManualInput = confirmManualInput;
@@ -6440,24 +3603,30 @@ window.touchEnd = touchEnd;
 window.openAddModal = openAddModal;
 window.closeAddModal = closeAddModal;
 window.reorderTimeline = reorderTimeline;
-window.selectAddType = selectAddType;
-window.openFlightInputModal = openFlightInputModal;
-window.closeFlightInputModal = closeFlightInputModal;
-window.saveFlightItem = saveFlightItem;
-window.searchFlightNumber = searchFlightNumber;
-window.openFlightInputModal = Transit.openFlightInputModal;
-window.closeFlightInputModal = Transit.closeFlightInputModal;
-window.saveFlightItem = Transit.saveFlightItem;
-window.searchFlightNumber = Transit.searchFlightNumber;
-window.openTripInfoModal = openTripInfoModal;
+window.selectAddType = Modals.selectAddType;
+window.openLocationSearch = openLocationSearch;
+window.addTimelineItem = addTimelineItem;
+window.editTimelineItem = editTimelineItem;
+window.closeModal = closeModal;
+window.setDuration = setDuration;
+window.addNoteItem = addNoteItem;
+window.saveNewItem = saveNewItem;
+window.deleteTimelineItem = deleteTimelineItem;
+window.closeDeleteConfirmModal = closeDeleteConfirmModal;
+window.useManualInput = useManualInput;
+window.openUserMenu = Profile.openUserMenu;
+window.openUserSettings = Profile.openUserSettings;
+window.openUserProfile = Profile.openUserProfile;
+window.closeProfileView = Profile.closeProfileView;
+window.handleProfilePhotoChange = Profile.handleProfilePhotoChange;
+window.saveProfileChanges = Profile.saveProfileChanges;
+window.openTripInfoModal = Header.openTripInfoModal;
 window.closeTripInfoModal = closeTripInfoModal;
 window.saveTripInfo = saveTripInfo;
 window.resetHeroImage = resetHeroImage;
 window.deleteHeroImage = deleteHeroImage;
 window.openRouteModal = openRouteModal;
 window.closeRouteModal = closeRouteModal;
-window.openRouteModal = Transit.openRouteModal;
-window.closeRouteModal = Transit.closeRouteModal;
 window.closeMemoModal = closeMemoModal;
 window.editCurrentMemo = editCurrentMemo;
 window.editCurrentItem = editCurrentItem;
@@ -6469,8 +3638,6 @@ window.copyItemToCurrent = copyItemToCurrent;
 window.handleAttachmentUpload = handleAttachmentUpload;
 window.deleteAttachment = deleteAttachment;
 window.openAttachment = openAttachment;
-window.closeRouteSelectionModal = closeRouteSelectionModal;
-window.closeRouteSelectionModal = Transit.closeRouteSelectionModal;
 window.openExpenseDetailModal = openExpenseDetailModal;
 window.closeExpenseDetailModal = closeExpenseDetailModal;
 
@@ -6570,8 +3737,12 @@ export function openExpenseDetailModal() {
     }
     
     // N분의 1 결과 숨기기
-    document.getElementById('split-result').classList.add('hidden');
-    document.getElementById('split-people-count').value = '1';
+    const splitResult = document.getElementById('split-result');
+    const splitInput = document.getElementById('split-people-count');
+    if (splitResult && splitInput) {
+        splitResult.classList.add('hidden');
+        splitInput.value = '1';
+    }
     
     modal.classList.remove('hidden');
 }
@@ -6691,22 +3862,6 @@ window.addEventListener('click', (e) => {
 
 window.openContextMenu = openContextMenu;
 window.handleContextAction = handleContextAction;
-window.closeTransitDetailModal = closeTransitDetailModal;
-window.editCurrentTransitItem = editCurrentTransitItem;
-window.deleteCurrentTransitItem = deleteCurrentTransitItem;
-window.closeDeleteTransitModal = closeDeleteTransitModal;
-window.confirmDeleteTransit = confirmDeleteTransit;
-window.fetchTransitTime = fetchTransitTime;
-window.openGoogleMapsRouteFromPrev = openGoogleMapsRouteFromPrev;
-window.addFastestTransitItem = addFastestTransitItem;
-window.closeTransitDetailModal = Transit.closeTransitDetailModal;
-window.editCurrentTransitItem = Transit.editCurrentTransitItem;
-window.deleteCurrentTransitItem = Transit.deleteCurrentTransitItem;
-window.closeDeleteTransitModal = Transit.closeDeleteTransitModal;
-window.confirmDeleteTransit = Transit.confirmDeleteTransit;
-window.fetchTransitTime = Transit.fetchTransitTime;
-window.openGoogleMapsRouteFromPrev = Transit.openGoogleMapsRouteFromPrev;
-window.addFastestTransitItem = Transit.addFastestTransitItem;
 
 // [Weather Detail Modal - 주간 날씨 캘린더]
 let currentWeatherWeekStart = null;
@@ -6908,6 +4063,10 @@ export async function selectWeatherDate(dateStr) {
     renderWeeklyWeather();
     await loadAndRenderHourlyWeather(dateStr);
 }
+
+export function openCopyItemModal(...args) { return Modals.openCopyItemModal(...args); }
+export function closeCopyItemModal(...args) { return Modals.closeCopyItemModal(...args); }
+export function copyItemToCurrent(...args) { return Modals.copyItemToCurrent(...args); }
 
 export async function navigateWeatherWeek(direction) {
     const weekStart = new Date(currentWeatherWeekStart);

@@ -106,3 +106,26 @@ export const setIsEditing = (val) => isEditing = val;
 export const setCurrentUser = (val) => currentUser = val;
 export const setInsertingItemIndex = (val) => insertingItemIndex = val;
 export const setIsEditingFromDetail = (val) => isEditingFromDetail = val;
+
+// [Added] State Manipulators (Logic only)
+export const updateMetaState = (key, value) => {
+    const keys = key.split('.');
+    if (keys.length === 2) {
+        if (!travelData.meta[keys[0]]) travelData.meta[keys[0]] = {};
+        travelData.meta[keys[0]][keys[1]] = value;
+    } else {
+        travelData.meta[key] = value;
+    }
+};
+
+export const updateTripDateState = (dayIndex, newDate) => {
+    if (travelData.days[dayIndex]) {
+        travelData.days[dayIndex].date = newDate;
+    }
+};
+
+export const updateTimelineItemState = (dayIndex, itemIndex, key, value) => {
+    if (travelData.days[dayIndex] && travelData.days[dayIndex].timeline[itemIndex]) {
+        travelData.days[dayIndex].timeline[itemIndex][key] = value;
+    }
+};

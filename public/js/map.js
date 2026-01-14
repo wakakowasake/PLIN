@@ -1,9 +1,9 @@
 import { travelData, newTripDataTemp, currentDayIndex } from './state.js';
-import { updateMeta, renderItinerary, closeModal } from './ui.js';
 
 export let map;
 export let mapMarker;
 let autocomplete;
+let wizardAutocomplete;
 
 // [Mapbox Configuration]
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24시간 캐시 유지
@@ -47,7 +47,6 @@ async function fetchUnsplashImage(query) {
     return null;
 }
 
-let wizardAutocomplete;
 export let searchMode = 'item'; // 'item' or 'trip'
 
 export function setSearchMode(mode) {
@@ -198,27 +197,32 @@ export function setupWizardAutocomplete() {
 export async function initMap() {
     const mapEl = document.getElementById("map-bg");
     if (mapEl && window.google) {
-        // 초기 좌표: 서울 (37.5665, 126.9780) 또는 저장된 좌표
         const lat = Number(travelData.meta.lat) || 37.5665;
         const lng = Number(travelData.meta.lng) || 126.9780;
 
+        // [Fix] AdvancedMarkerElement 사용을 위해 mapId 추가 (필수)
+        // DEMO_MAP_ID는 테스트용이며, 실제 배포 시 Google Cloud Console에서 생성한 Map ID로 교체 권장
         map = new google.maps.Map(mapEl, {
             center: { lat, lng },
             zoom: 13,
             disableDefaultUI: true,
-            styles: [
-                {
-                    featureType: "poi",
-                    elementType: "labels",
-                    stylers: [{ visibility: "off" }]
-                }
-            ]
+            mapId: "4504f8b37365c3d0" // Vector Map 활성화를 위한 Map ID (styles 속성 제거)
         });
 
-        mapMarker = new google.maps.Marker({
-            position: { lat, lng },
-            map: map
-        });
+        // [Fix] AdvancedMarkerElement 사용 (Marker Deprecation 대응)
+        try {
+            const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
+            mapMarker = new AdvancedMarkerElement({
+                map: map,
+                position: { lat, lng },
+            });
+        } catch (e) {
+            console.warn("AdvancedMarkerElement load failed, falling back to legacy Marker", e);
+            mapMarker = new google.maps.Marker({
+                position: { lat, lng },
+                map: map
+            });
+        }
     }
     setupAutocomplete(); // 지도가 로드되면 검색 기능도 바로 준비
 }
@@ -229,12 +233,12 @@ function fillInAddress() {
 
     if (searchMode === 'trip') {
         // 메인 여행지 설정
-        updateMeta('title', place.name);
-        updateMeta('subInfo', place.formatted_address);
+        if (window.updateMeta) window.updateMeta('title', place.name);
+        if (window.updateMeta) window.updateMeta('subInfo', place.formatted_address);
         if (place.photos && place.photos.length > 0) {
             const photoUrl = place.photos[0].getUrl({ maxWidth: 4000, maxHeight: 3000 });
-            updateMeta('mapImage', photoUrl);
-            updateMeta('defaultMapImage', photoUrl);
+            if (window.updateMeta) window.updateMeta('mapImage', photoUrl);
+            if (window.updateMeta) window.updateMeta('defaultMapImage', photoUrl);
         }
 
         // 랜드마크 검색으로 더 좋은 사진 찾기
@@ -263,8 +267,8 @@ function fillInAddress() {
         // Unsplash에서 고화질 배경 검색
         fetchUnsplashImage(searchQuery).then(url => {
             if (url) {
-                updateMeta('mapImage', url);
-                updateMeta('defaultMapImage', url);
+                if (window.updateMeta) window.updateMeta('mapImage', url);
+                if (window.updateMeta) window.updateMeta('defaultMapImage', url);
                 // UI 업데이트
                 const mapBg = document.getElementById('map-bg');
                 if (mapBg) mapBg.style.backgroundImage = `url('${url}')`;
@@ -285,8 +289,8 @@ function fillInAddress() {
         
         const currentDate = travelData.days && travelData.days[currentDayIndex] ? travelData.days[currentDayIndex].date : null;
         fetchWeather(lat, lng, currentDate);
-        renderItinerary();
-        closeModal();
+        if (window.renderItinerary) window.renderItinerary();
+        if (window.closeModal) window.closeModal();
     } else {
         // 타임라인 아이템 설정
         document.getElementById('item-title').value = place.name;
@@ -365,7 +369,7 @@ export async function fetchWeather(lat, lng, date = null) {
         
         // 타임존 정보 업데이트
         if (data.timezone) {
-            updateMeta('timezone', data.timezone);
+            if (window.updateMeta) window.updateMeta('timezone', data.timezone);
         }
 
         let temp, minTemp, maxTemp, desc;
@@ -394,12 +398,12 @@ export async function fetchWeather(lat, lng, date = null) {
         }
 
         // 데이터 업데이트
-        if (temp) updateMeta('weather.temp', temp);
-        if (minTemp) updateMeta('weather.minTemp', minTemp);
-        if (maxTemp) updateMeta('weather.maxTemp', maxTemp);
-        if (desc) updateMeta('weather.desc', desc);
+        if (temp && window.updateMeta) window.updateMeta('weather.temp', temp);
+        if (minTemp && window.updateMeta) window.updateMeta('weather.minTemp', minTemp);
+        if (maxTemp && window.updateMeta) window.updateMeta('weather.maxTemp', maxTemp);
+        if (desc && window.updateMeta) window.updateMeta('weather.desc', desc);
         
-        renderItinerary();
+        if (window.renderItinerary) window.renderItinerary();
     } catch (e) {
         console.warn("Weather fetch failed for date", date, ":", e.message);
     }
@@ -444,6 +448,7 @@ function translateWeatherCode(code) {
 // 전역 객체 할당 (HTML 콜백용)
 window.initMap = initMap;
 window.gm_authFailure = gm_authFailure;
+window.fetchWeather = fetchWeather;
 
 // Google Maps API 동적 로드 (서버에서 키를 가져온 후 실행)
 async function loadGoogleMapsAPI() {

@@ -1330,54 +1330,6 @@
         </div>
     </div>
 
-    <!-- New Trip Wizard Modal -->
-    <div id="new-trip-modal" class="hidden fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-        <div class="bg-white dark:bg-card-dark rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
-            <div class="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
-                <h3 class="text-xl font-bold text-text-main dark:text-white">새로운 여행 계획하기</h3>
-                <button type="button" onclick="closeNewTripModal()" class="text-gray-400 hover:text-gray-600"><span class="material-symbols-outlined">close</span></button>
-            </div>
-            
-            <!-- Step 1: Location -->
-            <div id="wizard-step-1" class="p-6 flex flex-col gap-4">
-                <div class="text-center mb-2">
-                    <span class="material-symbols-outlined text-4xl text-primary mb-2">grain</span>
-                    <h4 class="text-lg font-bold">어디로 떠나시나요?</h4>
-                    <p class="text-sm text-gray-500">여행할 도시나 장소를 검색해보세요.</p>
-                </div>
-                <div class="relative">
-                    <span class="absolute left-3 top-2.5 text-gray-400 material-symbols-outlined text-lg">search</span>
-                    <input id="new-trip-location" type="text" class="w-full pl-10 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800 focus:ring-2 focus:ring-primary outline-none" placeholder="예: 도쿄, 파리, 제주도...">
-                </div>
-                <div class="text-right mt-1">
-                    <button type="button" onclick="useManualInput('new-trip')" class="text-xs text-gray-500 hover:text-primary underline">제가 직접 입력 할래요</button>
-                </div>
-                <button type="button" onclick="nextWizardStep(2)" class="mt-2 w-full bg-primary text-white py-3 rounded-2xl font-bold hover:bg-orange-500 transition-colors">다음</button>
-            </div>
-
-            <!-- Step 2: Date -->
-            <div id="wizard-step-2" class="hidden p-6 flex flex-col gap-4">
-                <div class="text-center mb-2">
-                    <span class="material-symbols-outlined text-4xl text-primary mb-2">calendar_month</span>
-                    <h4 class="text-lg font-bold">언제 떠나시나요?</h4>
-                    <p class="text-sm text-gray-500">여행 기간을 선택해주세요.</p>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">시작일</label>
-                    <input id="new-trip-start" type="date" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">종료일</label>
-                    <input id="new-trip-end" type="date" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800">
-                </div>
-                <div class="flex gap-3 mt-2">
-                    <button type="button" onclick="nextWizardStep(1)" class="flex-1 bg-gray-100 text-gray-600 py-3 rounded-2xl font-bold hover:bg-gray-200 transition-colors">이전</button>
-                    <button type="button" onclick="finishNewTripWizard()" class="flex-1 bg-primary text-white py-3 rounded-2xl font-bold hover:bg-orange-500 transition-colors">여행 시작하기!</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Route View Modal -->
     <div id="route-modal" class="hidden fixed inset-0 z-[150] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
         <div class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-5xl h-[80vh] overflow-hidden flex flex-col">
@@ -1514,6 +1466,25 @@
                     </h4>
                     <div id="expense-by-day-list" class="space-y-3">
                         <!-- JS로 채워짐 -->
+                    </div>
+                </div>
+
+                <!-- N분의 1 정산 -->
+                <div class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                    <h4 class="text-md font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+                        <span class="material-symbols-outlined">calculate</span>
+                        N분의 1 정산
+                    </h4>
+                    <div class="flex items-end gap-3">
+                        <div class="flex-1">
+                            <label class="block text-xs font-bold text-gray-500 mb-1">인원 수</label>
+                            <input type="number" id="split-people-count" min="1" value="1" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800">
+                        </div>
+                        <button onclick="calculateSplit()" class="bg-primary text-white font-bold px-4 py-2 rounded-lg hover:bg-orange-500 transition-colors h-[42px]">계산</button>
+                    </div>
+                    <div id="split-result" class="hidden mt-4 bg-primary/5 rounded-xl p-4 text-center border border-primary/10">
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">1인당 부담금</p>
+                        <p id="per-person-amount" class="text-2xl font-bold text-primary">₩0</p>
                     </div>
                 </div>
             </div>
