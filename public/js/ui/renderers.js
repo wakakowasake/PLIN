@@ -36,38 +36,47 @@ function buildMemoCard(item, index, dayIndex, editClass) {
 }
 
 function buildTransitCard(item, index, dayIndex, editClass) {
-    let tagsHtml = '';
+    let contentHtml;
     
-    // 상세 경로(detailedSteps)가 있고 대중교통 스텝이 있다면 각 노선 태그 생성
-    if (item.detailedSteps && item.detailedSteps.length > 0) {
-        const transitSteps = item.detailedSteps.filter(s => s.type !== 'walk' && s.tag);
-        if (transitSteps.length > 0) {
-            tagsHtml = transitSteps.map(s => {
-                const style = s.color ? `style="background-color: ${s.color}; color: ${s.textColor || '#ffffff'}; border-color: ${s.color}"` : '';
-                const cls = s.color ? 'border' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200';
-                return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold shadow-sm whitespace-nowrap ${cls}" ${style}>${s.tag}</span>`;
-            }).join('');
+    // Google Maps 경로 등: item.title에 이미 완성된 HTML 태그가 포함된 경우
+    if (item.title && item.title.includes('<span')) {
+        contentHtml = item.title;
+    } else {
+        // Ekispert 또는 수동 추가 경로: 태그를 생성하고 제목을 텍스트로 추가
+        let tagsHtml = '';
+        let hasDetailedTransit = false;
+        if (item.detailedSteps && item.detailedSteps.length > 0) {
+            const transitSteps = item.detailedSteps.filter(s => s.type !== 'walk' && s.tag);
+            if (transitSteps.length > 0) {
+                hasDetailedTransit = true;
+                tagsHtml = transitSteps.map(s => {
+                    const style = s.color ? `style="background-color: ${s.color}; color: ${s.textColor || '#ffffff'};"` : '';
+                    const cls = s.color ? 'border border-transparent' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200';
+                    return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold shadow-sm whitespace-nowrap ${cls}" ${style}>${s.tag}</span>`;
+                }).join('<span class="material-symbols-outlined text-gray-400 text-sm mx-1">arrow_forward</span>');
+            }
+        } else if (item.tag) { // 상세 경로는 없지만 태그는 있는 경우
+            tagsHtml = `<div class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold shadow-sm bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200">
+                            <span class="material-symbols-outlined text-sm">${item.icon}</span>
+                            <span>${item.tag}</span>
+                        </div>`;
         }
-    }
-    
-    // 상세 태그가 없으면 기존 대표 태그 표시
-    if (!tagsHtml && item.tag) {
-        tagsHtml = `<div class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold shadow-sm bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200">
-                        <span class="material-symbols-outlined text-sm">${item.icon}</span>
-                        <span>${item.tag}</span>
-                    </div>`;
+        
+        // 상세 경로가 있는 경우(태그가 여러 개일 수 있음)에는 제목(역 정보/중복 노선명)을 숨기고 태그만 표시
+        const showTitle = !hasDetailedTransit;
+        const titleText = (showTitle && item.title) ? `<p class="text-sm font-bold text-text-main dark:text-white truncate ml-2">${item.title}</p>` : '';
+        contentHtml = `${tagsHtml} ${titleText}`;
     }
 
     return `
             <div class="bg-blue-50/50 dark:bg-card-dark/40 border border-blue-100 dark:border-gray-800 rounded-lg p-3 flex flex-col gap-2 ${editClass}" onclick="viewRouteDetail(${index}, ${dayIndex})">
                 <div class="flex items-center gap-2 md:gap-4 justify-between">
                     <div class="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
-                        <div class="flex flex-col items-center justify-center bg-white dark:bg-card-dark rounded px-2 md:px-3 py-1 shadow-sm text-xs font-bold text-text-main dark:text-white min-w-[60px] md:min-w-[70px]">
+                        <div class="flex flex-col items-center justify-center bg-white dark:bg-card-dark rounded px-2 md:px-3 py-1 shadow-sm text-xs font-bold text-gray-900 dark:text-white min-w-[60px] md:min-w-[70px] flex-shrink-0 whitespace-nowrap">
                             <span>${item.duration || item.time || '30분'}</span>
                         </div>
                         <div class="flex items-center gap-2 flex-1 min-w-0 flex-wrap">
-                            ${tagsHtml}
-                            <p class="text-sm font-bold text-text-main dark:text-white truncate">${item.title || ''}</p>
+                            ${contentHtml}
                         </div>
                     </div>
                 </div>

@@ -457,7 +457,7 @@ export function openTransitDetailModal(item, index, dayIndex) {
     const modal = document.getElementById('transit-detail-modal');
     
     document.getElementById('transit-detail-icon').innerText = item.icon;
-    document.getElementById('transit-detail-title').innerText = item.title;
+    document.getElementById('transit-detail-title').innerHTML = item.title;
     document.getElementById('transit-detail-time').innerText = item.time;
     
     const tInfo = item.transitInfo || {};
@@ -1171,11 +1171,11 @@ export async function addFastestTransitItem() {
                 if (ekispertResult) {
                     // Ekispert API로 성공적으로 경로를 가져온 경우
                     const day = travelData.days[targetDayIndex];
-                    ekispertResult.forEach(routeItem => {
-                        day.timeline.splice(insertingItemIndex + 1, 0, routeItem);
+                    ekispertResult.forEach((routeItem, i) => {
+                        day.timeline.splice(insertIdx + 1 + i, 0, routeItem);
                     });
-                    autoSave();
-                    renderItinerary();
+                    reorderTimeline(targetDayIndex);
+                    closeAddModal();
                     return; // 성공했으면 여기서 종료
                 }
             } catch (error) {
@@ -1654,18 +1654,38 @@ function processSelectedRoute(route, insertIdx) {
         summaryIcon = "directions_walk";
         summaryTag = "도보";
     } else {
-        // 도보를 제외한 대중교통 노선명 추출
-        const transitLines = [];
+        // 도보를 제외한 대중교통 노선명 추출 (HTML 태그로 변환)
+        const transitTags = [];
         transitSteps.forEach(step => {
-            const lineName = step.transit?.line?.short_name || step.transit?.line?.name || '';
+            const line = step.transit?.line || {};
+            const vehicle = line.vehicle || {};
+            const lineName = line.short_name || line.name || vehicle.name || '';
+            
             if (lineName) {
-                transitLines.push(lineName);
+                let bgColor = '#3b82f6'; // 기본 파란색
+                let txtColor = '#ffffff';
+                
+                if (line.color) {
+                    bgColor = line.color.startsWith('#') ? line.color : `#${line.color}`;
+                    // 밝기 계산하여 텍스트 색상 자동 결정
+                    const hex = bgColor.replace('#', '');
+                    const r = parseInt(hex.substring(0, 2), 16);
+                    const g = parseInt(hex.substring(2, 4), 16);
+                    const b = parseInt(hex.substring(4, 6), 16);
+                    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+                    if (brightness > 128) txtColor = '#000000';
+                }
+                if (line.text_color) {
+                    txtColor = line.text_color.startsWith('#') ? line.text_color : `#${line.text_color}`;
+                }
+
+                transitTags.push(`<span style="background-color:${bgColor};color:${txtColor};padding:2px 6px;border-radius:4px;font-size:0.9em;display:inline-block;vertical-align:middle;font-weight:bold;">${lineName}</span>`);
             }
         });
         
         // 노선명이 있으면 화살표로 연결, 없으면 기본 표시
-        if (transitLines.length > 0) {
-            summaryTitle = transitLines.join(' → ');
+        if (transitTags.length > 0) {
+            summaryTitle = transitTags.join(' <span style="color:#9ca3af;font-size:0.8em;">➜</span> ');
             
             // 아이콘과 태그는 첫 번째 대중교통 타입으로 설정
             const firstVehicle = transitSteps[0]?.transit?.line?.vehicle?.type || 'BUS';
