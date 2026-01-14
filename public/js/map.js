@@ -301,30 +301,33 @@ function fillInAddress() {
         document.getElementById('item-notes').value = notes;
         
         // 일본 장소인 경우 일본어 주소도 함께 저장
-        const country = place.address_components?.find(c => c.types.includes('country'));
-        if (country && country.short_name === 'JP') {
+        const countryComponent = place.address_components?.find(c => c.types.includes('country'));
+        if (countryComponent && countryComponent.short_name === 'JP') {
             const lat = place.geometry.location.lat();
             const lng = place.geometry.location.lng();
             
             // Geocoding API로 일본어 주소 가져오기
-            fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&language=ja&key=${GOOGLE_MAPS_API_KEY}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.results && data.results[0]) {
-                        const japaneseAddress = data.results[0].formatted_address;
-                        // 일본어 주소를 hidden field에 저장
-                        let jaField = document.getElementById('item-location-ja');
-                        if (!jaField) {
-                            jaField = document.createElement('input');
-                            jaField.type = 'hidden';
-                            jaField.id = 'item-location-ja';
-                            document.getElementById('item-location').parentNode.appendChild(jaField);
-                        }
-                        jaField.value = japaneseAddress;
-                        console.log('Japanese address saved:', japaneseAddress);
-                    }
-                })
-                .catch(error => console.warn('Failed to fetch Japanese address:', error));
+            if (window.getMapsApiKey) {
+                window.getMapsApiKey().then(key => {
+                    fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&language=ja&key=${key}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.results && data.results[0]) {
+                                const japaneseAddress = data.results[0].formatted_address;
+                                let jaField = document.getElementById('item-location-ja');
+                                if (!jaField) {
+                                    jaField = document.createElement('input');
+                                    jaField.type = 'hidden';
+                                    jaField.id = 'item-location-ja';
+                                    document.getElementById('item-location').parentNode.appendChild(jaField);
+                                }
+                                jaField.value = japaneseAddress;
+                                console.log('Japanese address saved:', japaneseAddress);
+                            }
+                        })
+                        .catch(error => console.warn('Failed to fetch Japanese address:', error));
+                });
+            }
         }
     }
 }
@@ -637,6 +640,7 @@ export async function fetchHourlyWeatherForDate(lat, lng, dateStr) {
             throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         }
         
+           
         const data = await res.json();
         
         if (data.hourly && data.hourly.time && data.hourly.time.length > 0) {
@@ -682,3 +686,4 @@ function formatDateStr(date) {
 
 // API 로드 시작
 loadGoogleMapsAPI();
+            

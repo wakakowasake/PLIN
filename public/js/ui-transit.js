@@ -2,16 +2,23 @@
 
 import { 
     travelData, targetDayIndex, setTargetDayIndex, setViewingItemIndex, viewingItemIndex, currentDayIndex,
-    insertingItemIndex, setInsertingItemIndex, isEditingFromDetail, setIsEditingFromDetail
+    insertingItemIndex, setInsertingItemIndex, isEditingFromDetail, setIsEditingFromDetail, setTravelData
 } from './state.js';
-import { 
-    renderItinerary, reorderTimeline, closeAddModal, viewTimelineItem, editTimelineItem, 
-    renderAttachments, GOOGLE_MAPS_API_KEY, autoSave, updateTotalBudget
-} from './ui.js';
 import { parseTimeStr, formatTimeStr, calculateStraightDistance, minutesTo24Hour } from './ui-utils.js';
 import { airports, searchAirports, getAirportByCode, formatAirport } from './airports.js';
 import { translateStation, translateLine } from './station-translations.js';
 import { openUserProfile } from './ui/profile.js';
+
+// Break circular dependency by using window functions
+const renderItinerary = (...args) => window.renderItinerary && window.renderItinerary(...args);
+const reorderTimeline = (...args) => window.reorderTimeline && window.reorderTimeline(...args);
+const closeAddModal = (...args) => window.closeAddModal && window.closeAddModal(...args);
+const viewTimelineItem = (...args) => window.viewTimelineItem && window.viewTimelineItem(...args);
+const editTimelineItem = (...args) => window.editTimelineItem && window.editTimelineItem(...args);
+const renderAttachments = (...args) => window.renderAttachments && window.renderAttachments(...args);
+const getMapsApiKey = (...args) => window.getMapsApiKey && window.getMapsApiKey(...args);
+const autoSave = (...args) => window.autoSave && window.autoSave(...args);
+const updateTotalBudget = (...args) => window.updateTotalBudget && window.updateTotalBudget(...args);
 
 // 현재 보고 있는 경로 아이템 인덱스
 let currentRouteItemIndex = null;
@@ -2871,7 +2878,8 @@ window.closeRouteDetailModal = closeRouteDetailModal;
 // 좌표로 일본어 주소 가져오기
 async function getJapaneseAddress(lat, lng) {
     try {
-        const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&language=ja&key=${GOOGLE_MAPS_API_KEY}`);
+        const key = await getMapsApiKey();
+        const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&language=ja&key=${key}`);
         const data = await response.json();
         
         if (data.results && data.results[0]) {

@@ -1,0 +1,8 @@
+{
+  "appId": "com.plin.app",
+  "appName": "PLIN",
+  "webDir": "public",
+  "server": {
+    "androidScheme": "https"
+  }
+}
