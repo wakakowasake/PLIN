@@ -2,10 +2,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { getAuth, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { BACKEND_URL } from './config.js';
 
 // API 키를 서버에서 가져오기
 let firebaseApiKey = null;
-const BACKEND_URL = "https://us-central1-plin-db93d.cloudfunctions.net/api";
 
 async function loadConfig() {
     try {

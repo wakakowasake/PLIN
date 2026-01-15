@@ -1,4 +1,5 @@
 import { travelData, newTripDataTemp, currentDayIndex } from './state.js';
+import { BACKEND_URL } from './config.js';
 
 export let map;
 export let mapMarker;
@@ -7,7 +8,6 @@ let wizardAutocomplete;
 
 // [Mapbox Configuration]
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24시간 캐시 유지
-const BACKEND_URL = "https://us-central1-plin-db93d.cloudfunctions.net/api";
 
 async function fetchUnsplashImage(query) {
     const cacheKey = `unsplash_img_${query}`;

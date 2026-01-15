@@ -10,6 +10,8 @@ const ekispertApiKey = defineSecret('EKISPERT_API_KEY');
 
 const app = express();
 app.use(cors);
+app.use(express.json({ limit: '50mb' })); // Express 레벨 제한 해제
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // [Polyfill] Node.js 버전이 낮아 fetch가 없는 경우를 대비
 if (!global.fetch) {

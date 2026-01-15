@@ -20,12 +20,10 @@ import * as Renderers from './ui/renderers.js';
 import * as Auth from './ui/auth.js';
 import * as Profile from './ui/profile.js';
 import * as Trips from './ui/trips.js';
+import * as Memories from './ui/memories.js';
 import { fetchWeeklyWeather, fetchHourlyWeatherForDate } from './map.js';
+import { BACKEND_URL } from './config.js';
 
-// Expose a maps API key placeholder so modules that import it won't fail at module-load time.
-// The real key is loaded dynamically by `map.js` from the backend; this placeholder
-// prevents import errors until the key is available.
-const BACKEND_URL = "https://us-central1-plin-db93d.cloudfunctions.net/api";
 
 let cachedMapsApiKey = null;
 export async function getMapsApiKey() {
@@ -399,31 +397,8 @@ export function viewTimelineItem(index, dayIndex = currentDayIndex) {
     // Attachments
     renderAttachments(item, 'detail-attachment-list');
 
-    // Memories (여행 완료 후에만 표시)
-    const memoriesSection = document.getElementById('detail-memories-section');
-    const memoriesList = document.getElementById('detail-memories-list');
-    if (getTripStatus(travelData) === 'completed' && item.memories && item.memories.length > 0) {
-        memoriesSection.classList.remove('hidden');
-        memoriesList.innerHTML = item.memories.map((memory, memIdx) => {
-            const date = new Date(memory.createdAt).toLocaleDateString('ko-KR', {
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-            return `
-                <div class="bg-white dark:bg-gray-800 rounded-lg overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700">
-                    ${memory.photoUrl ? `<img src="${memory.photoUrl}" alt="Memory" class="w-full h-48 object-cover">` : ''}
-                    <div class="p-3">
-                        <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words font-body leading-relaxed mb-2">${memory.comment}</p>
-                        <span class="text-xs text-gray-400">${date}</span>
-                    </div>
-                </div>
-            `;
-        }).join('');
-    } else {
-        memoriesSection.classList.add('hidden');
-    }
+    // Memories 섹션 숨김 (타임라인 카드로 이동됨)
+    document.getElementById('detail-memories-section')?.classList.add('hidden');
 
     // Map Logic - 맨 밑으로 이동
     const mapSection = document.getElementById('detail-map-section');
@@ -1826,14 +1801,9 @@ export function saveFlightItem() {
 // AutoSave debouncing
 let autoSaveTimeout = null;
 
-export async function autoSave() {
+export async function autoSave(immediate = false) {
     if (!isEditing && currentUser && currentTripId) {
-        // Debounce: 500ms 대기 후 저장 (연속 호출 시 마지막 것만 실행)
-        if (autoSaveTimeout) {
-            clearTimeout(autoSaveTimeout);
-        }
-        
-        autoSaveTimeout = setTimeout(async () => {
+        const saveTask = async () => {
             try {
                 // [핵심] JSON 변환을 통해 undefined 값을 가진 필드를 자동으로 제거함
                 const cleanData = JSON.parse(JSON.stringify(travelData));
@@ -1841,7 +1811,19 @@ export async function autoSave() {
             } catch (e) {
                 console.error("Auto-save failed", e);
             }
-        }, 500);
+        };
+
+        if (autoSaveTimeout) {
+            clearTimeout(autoSaveTimeout);
+            autoSaveTimeout = null;
+        }
+        
+        if (immediate) {
+            await saveTask();
+        } else {
+            // Debounce: 500ms 대기 후 저장 (연속 호출 시 마지막 것만 실행)
+            autoSaveTimeout = setTimeout(saveTask, 500);
+        }
     }
 }
 
@@ -3387,140 +3369,14 @@ export function updateDateRange() {
 }
 
 // [Memory Logic]
-export function getTripStatus(data) {
-    if (!data || !data.days || data.days.length === 0) return 'planning';
-    
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    
-    const lastDay = new Date(data.days[data.days.length - 1].date);
-    lastDay.setHours(0,0,0,0);
-    
-    if (today > lastDay) return 'completed';
-    return 'planning';
-}
-
-export function addMemoryItem(index, dayIndex) {
-    setViewingItemIndex(index);
-    setTargetDayIndex(dayIndex);
-    
-    const modal = document.getElementById('memory-input-modal');
-    if (modal) {
-        const preview = document.getElementById('memory-photo-preview');
-        const input = document.getElementById('memory-photo-input');
-        const comment = document.getElementById('memory-comment');
-        const placeholder = document.getElementById('memory-photo-placeholder');
-        
-        if (preview) {
-            preview.src = "https://placehold.co/400x300?text=No+Image";
-            preview.classList.add('hidden');
-        }
-        if (placeholder) placeholder.classList.remove('hidden');
-        if (input) input.value = "";
-        if (comment) comment.value = "";
-        
-        modal.classList.remove('hidden');
-    }
-}
-
-export function closeMemoryModal() {
-    const modal = document.getElementById('memory-input-modal');
-    if (modal) modal.classList.add('hidden');
-    setViewingItemIndex(null);
-}
-
-export function handleMemoryPhotoChange(input) {
-    if (input.files && input.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const preview = document.getElementById('memory-photo-preview');
-            const placeholder = document.getElementById('memory-photo-placeholder');
-            if (preview) {
-                preview.src = e.target.result;
-                preview.classList.remove('hidden');
-            }
-            if (placeholder) placeholder.classList.add('hidden');
-        };
-        reader.readAsDataURL(input.files[0]);
-    }
-}
-
-export async function saveMemoryItem() {
-    const input = document.getElementById('memory-photo-input');
-    const commentEl = document.getElementById('memory-comment');
-    const comment = commentEl ? commentEl.value : "";
-    
-    if ((!input || !input.files || !input.files[0]) && !comment) {
-        alert("사진이나 코멘트 중 하나는 입력해야 합니다.");
-        return;
-    }
-    
-    try {
-        Modals.showLoading();
-        
-        let photoUrl = null;
-        if (input && input.files && input.files[0]) {
-            const file = input.files[0];
-            const timestamp = Date.now();
-            const fileName = `memory_${targetDayIndex}_${viewingItemIndex}_${timestamp}.jpg`;
-            
-            const reader = new FileReader();
-            const base64Data = await new Promise((resolve) => {
-                reader.onload = (e) => resolve(e.target.result);
-                reader.readAsDataURL(file);
-            });
-            
-            const response = await fetch(`${BACKEND_URL}/upload-memory`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    base64Data: base64Data,
-                    fileName: fileName,
-                    tripId: currentTripId
-                })
-            });
-            
-            if (!response.ok) throw new Error('Upload failed');
-            const result = await response.json();
-            photoUrl = result.url;
-        }
-        
-        const item = travelData.days[targetDayIndex].timeline[viewingItemIndex];
-        if (!item.memories) item.memories = [];
-        
-        item.memories.push({
-            photoUrl: photoUrl,
-            comment: comment,
-            createdAt: new Date().toISOString()
-        });
-        
-        await autoSave();
-        renderItinerary();
-        closeMemoryModal();
-    } catch (e) {
-        console.error("Error saving memory:", e);
-        alert("추억 저장 중 오류가 발생했습니다.");
-    } finally {
-        Modals.hideLoading();
-    }
-}
-
-export function deleteMemory(itemIndex, dayIndex, memoryIndex) {
-    if (confirm("이 추억을 삭제하시겠습니까?")) {
-        const item = travelData.days[dayIndex].timeline[itemIndex];
-        if (item && item.memories) {
-            item.memories.splice(memoryIndex, 1);
-            autoSave();
-            renderItinerary();
-        }
-    }
-}
-
-export function toggleMemoryLock() {
-    travelData.meta.memoryLocked = !travelData.meta.memoryLocked;
-    autoSave();
-    renderItinerary();
-}
+export const getTripStatus = Memories.getTripStatus;
+export const addMemoryItem = Memories.addMemoryItem;
+export const closeMemoryModal = Memories.closeMemoryModal;
+export const handleMemoryPhotoChange = Memories.handleMemoryPhotoChange;
+export const clearMemoryPhoto = Memories.clearMemoryPhoto;
+export const saveMemoryItem = Memories.saveMemoryItem;
+export const deleteMemory = Memories.deleteMemory;
+export const toggleMemoryLock = Memories.toggleMemoryLock;
 
 // Window assignments
 window.loadTripList = loadTripList;
@@ -3538,6 +3394,7 @@ window.backToMain = backToMain;
 window.addMemoryItem = addMemoryItem;
 window.closeMemoryModal = closeMemoryModal;
 window.handleMemoryPhotoChange = handleMemoryPhotoChange;
+window.clearMemoryPhoto = clearMemoryPhoto;
 window.saveMemoryItem = saveMemoryItem;
 window.deleteMemory = deleteMemory;
 window.toggleMemoryLock = toggleMemoryLock;
@@ -3640,6 +3497,9 @@ window.deleteAttachment = deleteAttachment;
 window.openAttachment = openAttachment;
 window.openExpenseDetailModal = openExpenseDetailModal;
 window.closeExpenseDetailModal = closeExpenseDetailModal;
+window.openLightbox = Modals.openLightbox;
+window.closeLightbox = Modals.closeLightbox;
+window.autoSave = autoSave; // [Fix] 순환 참조 해결을 위한 전역 할당 추가
 
 // 지출 상세 모달
 export function openExpenseDetailModal() {

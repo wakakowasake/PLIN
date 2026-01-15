@@ -2,8 +2,40 @@ import { travelData, currentDayIndex, isEditing } from '../state.js';
 
 function safeGet(id) { return document.getElementById(id); }
 
+// [Helper] 여행 완료 여부 확인
+function isTripCompleted() {
+    if (!travelData || !travelData.days || travelData.days.length === 0) return false;
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const lastDayStr = travelData.days[travelData.days.length - 1].date;
+    if (!lastDayStr) return false;
+    const lastDay = new Date(lastDayStr);
+    lastDay.setHours(0,0,0,0);
+    return today > lastDay;
+}
+
+// [Helper] 추억(사진) 렌더링 HTML 생성
+function renderMemoriesHtml(item, dayIndex, itemIndex) {
+    if (!item.memories || item.memories.length === 0) return '';
+    
+    let html = '<div class="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex gap-2 overflow-x-auto pb-1 no-scrollbar">';
+    item.memories.forEach((mem, memIdx) => {
+        html += `
+            <div class="relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden cursor-pointer group border border-gray-200 dark:border-gray-700" onclick="event.stopPropagation(); window.openLightbox(${dayIndex}, ${itemIndex}, ${memIdx})">
+                <img src="${mem.photoUrl}" class="w-full h-full object-cover transition-transform group-hover:scale-110" loading="lazy">
+            </div>
+        `;
+    });
+    html += '</div>';
+    return html;
+}
+
 // Helper builders for timeline item variants to improve readability
-function buildImageCard(item, editClass, clickHandler) {
+function buildImageCard(item, editClass, clickHandler, index, dayIndex) {
+    const isCompleted = isTripCompleted();
+    const isMemoryLocked = travelData.meta?.memoryLocked || false;
+    const showMemoryBtn = isCompleted && !isMemoryLocked && !isEditing;
+
     return `
             <div class="bg-card-light dark:bg-card-dark rounded-xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-800 ${editClass}" ${clickHandler}>
                 <div class="h-32 w-full bg-cover bg-center relative" style="background-image: url('${item.image}');">
@@ -15,27 +47,47 @@ function buildImageCard(item, editClass, clickHandler) {
                             <span class="truncate flex-1">${item.location}</span>
                         </div>
                     </div>
+                    ${showMemoryBtn ? `<button type="button" onclick="event.stopPropagation(); addMemoryItem(${index}, ${dayIndex})" class="absolute top-2 right-2 bg-black/30 hover:bg-black/50 text-white p-1.5 rounded-full backdrop-blur-sm transition-colors z-10">
+                        <span class="material-symbols-outlined text-lg">photo_camera</span>
+                    </button>` : ''}
                 </div>
-                <div class="p-3 md:p-4 flex justify-between items-center">
-                    <div class="flex items-center gap-1 bg-gray-100 dark:bg-gray-700/50 px-2 py-1 rounded text-sm font-medium text-text-main dark:text-gray-300">
-                        <span class="material-symbols-outlined text-[18px]">schedule</span>
-                        ${item.time}
+                <div class="p-3 md:p-4">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center gap-1 bg-gray-100 dark:bg-gray-700/50 px-2 py-1 rounded text-sm font-medium text-text-main dark:text-gray-300">
+                            <span class="material-symbols-outlined text-[18px]">schedule</span>
+                            ${item.time}
+                        </div>
                     </div>
+                    ${renderMemoriesHtml(item, dayIndex, index)}
                 </div>
             </div>`;
 }
 
 function buildMemoCard(item, index, dayIndex, editClass) {
+    const isCompleted = isTripCompleted();
+    const isMemoryLocked = travelData.meta?.memoryLocked || false;
+    const showMemoryBtn = isCompleted && !isMemoryLocked && !isEditing;
+
     return `
-            <div class="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-700/30 rounded-lg p-3 flex items-center gap-3 justify-between ${editClass}" onclick="viewTimelineItem(${index}, ${dayIndex})">
-                <div class="flex-1 min-w-0">
-                    <p class="text-sm font-medium text-gray-800 dark:text-gray-200 break-words whitespace-pre-wrap leading-relaxed font-body">${item.title}</p>
+            <div class="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-700/30 rounded-lg p-3 ${editClass}" onclick="viewTimelineItem(${index}, ${dayIndex})">
+                <div class="flex items-center gap-3 justify-between">
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium text-gray-800 dark:text-gray-200 break-words whitespace-pre-wrap leading-relaxed font-body">${item.title}</p>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        ${showMemoryBtn ? `<button type="button" onclick="event.stopPropagation(); addMemoryItem(${index}, ${dayIndex})" class="text-yellow-600/70 hover:text-yellow-800 dark:text-yellow-500 dark:hover:text-yellow-300 p-1 rounded-full flex-shrink-0"><span class="material-symbols-outlined text-lg">photo_camera</span></button>` : ''}
+                        ${isEditing ? `<button type="button" onclick="event.stopPropagation(); deleteTimelineItem(${index}, ${dayIndex})" class="text-red-500 hover:bg-red-50 p-2 rounded-full flex-shrink-0"><span class="material-symbols-outlined text-lg">delete</span></button>` : ''}
+                    </div>
                 </div>
-                ${isEditing ? `<button type="button" onclick="event.stopPropagation(); deleteTimelineItem(${index}, ${dayIndex})" class="text-red-500 hover:bg-red-50 p-2 rounded-full flex-shrink-0"><span class="material-symbols-outlined text-lg">delete</span></button>` : ''}
+                ${renderMemoriesHtml(item, dayIndex, index)}
             </div>`;
 }
 
 function buildTransitCard(item, index, dayIndex, editClass) {
+    const isCompleted = isTripCompleted();
+    const isMemoryLocked = travelData.meta?.memoryLocked || false;
+    const showMemoryBtn = isCompleted && !isMemoryLocked && !isEditing;
+
     let contentHtml;
     
     // Google Maps 경로 등: item.title에 이미 완성된 HTML 태그가 포함된 경우
@@ -79,12 +131,18 @@ function buildTransitCard(item, index, dayIndex, editClass) {
                             ${contentHtml}
                         </div>
                     </div>
+                    ${showMemoryBtn ? `<button type="button" onclick="event.stopPropagation(); addMemoryItem(${index}, ${dayIndex})" class="text-gray-400 hover:text-primary p-1 rounded-full flex-shrink-0"><span class="material-symbols-outlined text-lg">photo_camera</span></button>` : ''}
                 </div>
                 ${item.transitInfo?.summary ? `<p class="text-xs text-text-muted dark:text-gray-400 pl-[76px] md:pl-[86px]">${item.transitInfo.summary}</p>` : ''}
+                ${renderMemoriesHtml(item, dayIndex, index)}
             </div>`;
 }
 
 function buildDefaultCard(item, index, dayIndex, editClass, clickHandler) {
+    const isCompleted = isTripCompleted();
+    const isMemoryLocked = travelData.meta?.memoryLocked || false;
+    const showMemoryBtn = isCompleted && !isMemoryLocked && !isEditing;
+
     return `
             <div class="bg-card-light dark:bg-card-dark rounded-xl p-3 md:p-5 shadow-sm border border-gray-100 dark:border-gray-800 ${editClass}" ${clickHandler}>
                 <div class="flex justify-between items-start mb-2 gap-2">
@@ -96,6 +154,7 @@ function buildDefaultCard(item, index, dayIndex, editClass, clickHandler) {
                         </p>
                     </div>
                     ${item.tag ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 flex-shrink-0 whitespace-nowrap">${item.tag}</span>` : ''}
+                    ${showMemoryBtn ? `<button type="button" onclick="event.stopPropagation(); addMemoryItem(${index}, ${dayIndex})" class="text-gray-400 hover:text-primary p-1 rounded-full flex-shrink-0"><span class="material-symbols-outlined text-lg">photo_camera</span></button>` : ''}
                     ${isEditing ? `<button type="button" onclick="event.stopPropagation(); deleteTimelineItem(${index}, ${dayIndex})" class="text-red-500 hover:bg-red-50 p-1 rounded flex-shrink-0"><span class="material-symbols-outlined text-lg">delete</span></button>` : ''}
                 </div>
                 <div class="flex items-center gap-2 text-sm font-medium text-text-main dark:text-gray-300 flex-wrap">
@@ -114,6 +173,7 @@ function buildDefaultCard(item, index, dayIndex, editClass, clickHandler) {
                         <span class="truncate">${item.note}</span>
                     </div>` : ''}
                 </div>
+                ${renderMemoriesHtml(item, dayIndex, index)}
             </div>`;
 }
 export function renderTimelineItemHtml(item, index, dayIndex, isLast, isFirst) {
@@ -160,7 +220,7 @@ export function renderTimelineItemHtml(item, index, dayIndex, isLast, isFirst) {
 
     // Content variants (delegated to builder helpers)
     if (item.image) {
-        html += buildImageCard(item, editClass, clickHandler);
+        html += buildImageCard(item, editClass, clickHandler, index, dayIndex);
     } else if (item.tag === '메모') {
         html += buildMemoCard(item, index, dayIndex, editClass);
     } else if (item.isTransit) {
