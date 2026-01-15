@@ -2,7 +2,7 @@ import {
     travelData, targetDayIndex, setTargetDayIndex, 
     viewingItemIndex, setViewingItemIndex, currentTripId 
 } from '../state.js';
-import { showLoading, hideLoading } from './modals.js';
+import { showLoading, hideLoading, ensureMemoryModal } from './modals.js';
 import { BACKEND_URL } from '../config.js';
 
 // 순환 참조 방지를 위해 window 객체 함수 사용
@@ -13,35 +13,64 @@ const autoSave = (immediate = false) => {
 const renderItinerary = () => window.renderItinerary && window.renderItinerary();
 
 // [Helper] 이미지 압축 함수
-async function compressImage(file, maxWidth = 1280, quality = 0.8) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = (event) => {
+async function compressImage(file, maxWidth = 1024, quality = 0.7) {
+    let objectUrl = null;
+    let sourceFile = file;
+
+    try {
+        // [HEIC Conversion] 아이폰 HEIC 포맷을 JPG로 변환
+        if ((file.type === 'image/heic' || file.type === 'image/heif' || file.name.toLowerCase().endsWith('.heic')) && window.heic2any) {
+            try {
+                const convertedBlob = await window.heic2any({
+                    blob: file,
+                    toType: "image/jpeg",
+                    quality: 0.8
+                });
+                sourceFile = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+            } catch (e) {
+                console.warn("HEIC conversion failed, trying original:", e);
+            }
+        }
+
+        // [Stable Fix] 모바일 호환성을 위해 createImageBitmap 대신 표준 Image 객체 사용
+        objectUrl = URL.createObjectURL(sourceFile);
+        const imageSource = await new Promise((resolve, reject) => {
             const img = new Image();
-            img.src = event.target.result;
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                let width = img.width;
-                let height = img.height;
+            img.onload = () => resolve(img);
+            img.onerror = (e) => reject(new Error("이미지 로드 실패 (Image load error)"));
+            img.src = objectUrl;
+        });
 
-                if (width > maxWidth) {
-                    height = Math.round((height * maxWidth) / width);
-                    width = maxWidth;
-                }
+        const canvas = document.createElement('canvas');
+        let width = imageSource.width;
+        let height = imageSource.height;
 
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
-                
-                // Returns data URL (Base64)
-                resolve(canvas.toDataURL('image/jpeg', quality));
-            };
-            img.onerror = (err) => reject(err);
-        };
-        reader.onerror = (err) => reject(err);
-    });
+        if (width > maxWidth) {
+            const ratio = maxWidth / width;
+            width = maxWidth;
+            height = Math.round(height * ratio);
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        
+        // [Fix] 투명 배경(PNG)이 검은색으로 나오는 문제 해결을 위해 흰색 배경 채우기
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, width, height);
+        
+        ctx.drawImage(imageSource, 0, 0, width, height);
+        
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        
+        // [Safety Check] 데이터가 너무 작으면(빈 이미지/손상) 에러 처리
+        if (dataUrl.length < 1000) throw new Error("압축 결과가 비정상적입니다 (Canvas Error).");
+        return dataUrl;
+
+    } finally {
+        // 메모리 해제 (중요)
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
+    }
 }
 
 export function getTripStatus(data) {
@@ -64,13 +93,15 @@ export function addMemoryItem(index, dayIndex) {
     setViewingItemIndex(index);
     setTargetDayIndex(dayIndex);
     
+    ensureMemoryModal(); // [Added] 모달 DOM이 없으면 생성
     const modal = document.getElementById('memory-modal');
     if (modal) {
-        const imgPreview = document.getElementById('memory-photo-img');
-        const input = document.getElementById('memory-photo-input');
-        const comment = document.getElementById('memory-comment');
-        const placeholder = document.getElementById('memory-photo-placeholder');
-        const clearBtn = document.getElementById('memory-photo-clear');
+        // [Fix] 모달 내부에서 요소를 찾아 엉뚱한 요소를 조작하는 문제 방지
+        const imgPreview = modal.querySelector('#memory-photo-img');
+        const input = modal.querySelector('#memory-photo-input');
+        const comment = modal.querySelector('#memory-comment');
+        const placeholder = modal.querySelector('#memory-photo-placeholder');
+        const clearBtn = modal.querySelector('#memory-photo-clear');
         
         if (imgPreview) {
             imgPreview.src = "";
@@ -91,16 +122,34 @@ export function closeMemoryModal() {
     setViewingItemIndex(null);
 }
 
-export function handleMemoryPhotoChange(arg) {
+export async function handleMemoryPhotoChange(arg) {
     // 이벤트 객체(e)가 넘어오면 e.target을, 요소 자체가 넘어오면 요소를 사용
     const input = arg.target ? arg.target : arg;
 
+    // [Fix] 현재 활성화된 모달 내부의 요소 찾기
+    const modal = document.getElementById('memory-modal');
     if (input.files && input.files[0]) {
+        let file = input.files[0];
+
+        // [HEIC Preview] 미리보기를 위해 HEIC 변환
+        if ((file.type === 'image/heic' || file.type === 'image/heif' || file.name.toLowerCase().endsWith('.heic')) && window.heic2any) {
+            try {
+                const convertedBlob = await window.heic2any({
+                    blob: file,
+                    toType: "image/jpeg",
+                    quality: 0.5 // 미리보기용이라 화질 낮춤
+                });
+                file = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+            } catch (e) {
+                console.warn("HEIC preview conversion failed:", e);
+            }
+        }
+
         const reader = new FileReader();
         reader.onload = function(e) {
-            const imgPreview = document.getElementById('memory-photo-img');
-            const placeholder = document.getElementById('memory-photo-placeholder');
-            const clearBtn = document.getElementById('memory-photo-clear');
+            const imgPreview = modal.querySelector('#memory-photo-img');
+            const placeholder = modal.querySelector('#memory-photo-placeholder');
+            const clearBtn = modal.querySelector('#memory-photo-clear');
 
             if (imgPreview) {
                 imgPreview.src = e.target.result;
@@ -109,15 +158,16 @@ export function handleMemoryPhotoChange(arg) {
             if (placeholder) placeholder.classList.add('hidden');
             if (clearBtn) clearBtn.classList.remove('hidden');
         };
-        reader.readAsDataURL(input.files[0]);
+        reader.readAsDataURL(file);
     }
 }
 
 export function clearMemoryPhoto() {
-    const input = document.getElementById('memory-photo-input');
-    const imgPreview = document.getElementById('memory-photo-img');
-    const placeholder = document.getElementById('memory-photo-placeholder');
-    const clearBtn = document.getElementById('memory-photo-clear');
+    const modal = document.getElementById('memory-modal');
+    const input = modal.querySelector('#memory-photo-input');
+    const imgPreview = modal.querySelector('#memory-photo-img');
+    const placeholder = modal.querySelector('#memory-photo-placeholder');
+    const clearBtn = modal.querySelector('#memory-photo-clear');
 
     if (input) input.value = "";
     if (imgPreview) {
@@ -129,8 +179,11 @@ export function clearMemoryPhoto() {
 }
 
 export async function saveMemoryItem() {
-    const input = document.getElementById('memory-photo-input');
-    const commentEl = document.getElementById('memory-comment');
+    const modal = document.getElementById('memory-modal');
+    if (!modal) return;
+
+    const input = modal.querySelector('#memory-photo-input');
+    const commentEl = modal.querySelector('#memory-comment');
     const comment = commentEl ? commentEl.value : "";
     
     // 사진도 없고 코멘트도 없으면 경고
@@ -161,22 +214,44 @@ export async function saveMemoryItem() {
             
             let base64Data;
             try {
-                // 이미지 압축 시도
-                base64Data = await compressImage(file);
+                // 1차 시도: 1024px, 0.7 (모바일 메모리 고려하여 하향 조정)
+                base64Data = await compressImage(file, 1024, 0.7);
             } catch (err) {
-                console.warn("Image compression failed, using original file:", err);
-                // 압축 실패 시 원본 파일 사용
-                base64Data = await new Promise((resolve) => {
-                    const reader = new FileReader();
-                    reader.onload = (e) => resolve(e.target.result);
-                    reader.readAsDataURL(file);
-                });
+                console.warn("1st compression failed:", err);
+                
+                try {
+                    // 2차 시도: 600px, 0.6 (강력한 압축)
+                    base64Data = await compressImage(file, 600, 0.6);
+                } catch (err2) {
+                    console.warn("2nd compression failed:", err2);
+                    
+                    try {
+                        // 3차 시도: 400px, 0.5 (최후의 수단)
+                        base64Data = await compressImage(file, 400, 0.5);
+                    } catch (err3) {
+                        console.warn("All compression attempts failed:", err3);
+                        
+                        // 원본 파일 크기 체크 (7MB 초과 시 업로드 불가)
+                        if (file.size > 7 * 1024 * 1024) {
+                            throw new Error(`이미지 압축에 실패했습니다. 원본 용량(${Math.round(file.size/1024/1024)}MB)이 너무 커서 업로드할 수 없습니다.`);
+                        }
+                        
+                        // 원본 사용
+                        base64Data = await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = (e) => resolve(e.target.result);
+                            reader.onerror = (e) => reject(new Error("파일 읽기 실패"));
+                            reader.readAsDataURL(file);
+                        });
+                    }
+                }
             }
 
             // [Safety Check] Cloud Functions (Gen 1) 10MB 제한 체크
             // Base64 문자열 길이가 약 10,485,760 (10MB)를 넘으면 서버 도달 전 차단됨
-            if (base64Data.length > 10 * 1024 * 1024) {
-                throw new Error("이미지 용량이 너무 큽니다 (10MB 제한). 더 작은 사진을 선택해주세요.");
+            // 여유를 두어 9.5MB로 설정하여 네트워크 낭비 방지
+            if (base64Data.length > 9.5 * 1024 * 1024) {
+                throw new Error("이미지 용량이 너무 큽니다 (압축 실패). 더 작은 사진을 선택해주세요.");
             }
             
             const response = await fetch(`${BACKEND_URL}/upload-memory`, {

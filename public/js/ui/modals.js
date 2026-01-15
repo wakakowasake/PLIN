@@ -1,4 +1,4 @@
-import { setIsEditingFromDetail, setViewingItemIndex, setTargetDayIndex, setInsertingItemIndex, insertingItemIndex, targetDayIndex } from '../state.js';
+import { setIsEditingFromDetail, setViewingItemIndex, setTargetDayIndex, setInsertingItemIndex, insertingItemIndex, targetDayIndex, viewingItemIndex } from '../state.js';
 import { travelData } from '../state.js';
 
 export function lockBodyScroll() {
@@ -118,7 +118,7 @@ export function closeDetailModal() {
 export function selectAddType(type) {
     closeAddModal();
     
-    if (type === 'place') {
+    if (type === 'place' || type === 'activity') {
         if (window.addTimelineItem) window.addTimelineItem(insertingItemIndex, targetDayIndex);
     } else if (type === 'memo') {
         if (window.addNoteItem) window.addNoteItem(insertingItemIndex);
@@ -128,6 +128,109 @@ export function selectAddType(type) {
         // Transit types: airplane, train, bus, car, walk
         if (window.addTransitItem) window.addTransitItem(insertingItemIndex, type, targetDayIndex);
     }
+}
+
+// [General Delete Modal Logic]
+let pendingGeneralDeleteIndex = null;
+let pendingGeneralDeleteDayIndex = null;
+
+function ensureGeneralDeleteModal() {
+    let modal = document.getElementById('general-delete-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'general-delete-modal';
+        modal.className = 'hidden fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
+        modal.innerHTML = `
+            <div class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden text-center p-8 modal-slide-in">
+                <div class="w-16 h-16 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center mx-auto mb-4">
+                    <span class="material-symbols-outlined text-4xl text-red-500">delete</span>
+                </div>
+                <h3 class="text-lg font-bold text-text-main dark:text-white mb-2">항목 삭제</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">정말 이 항목을 삭제하시겠습니까?</p>
+                <div class="flex gap-3">
+                    <button type="button" onclick="closeGeneralDeleteModal()" class="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-50 dark:hover:bg-gray-800 rounded-2xl transition-colors">취소</button>
+                    <button type="button" onclick="confirmGeneralDelete()" class="flex-1 py-3 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 shadow-lg transition-colors">삭제</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+}
+
+export function openGeneralDeleteModal(index, dayIndex) {
+    ensureGeneralDeleteModal();
+    pendingGeneralDeleteIndex = index;
+    pendingGeneralDeleteDayIndex = dayIndex;
+    document.getElementById('general-delete-modal').classList.remove('hidden');
+    lockBodyScroll();
+}
+
+export function closeGeneralDeleteModal() {
+    const modal = document.getElementById('general-delete-modal');
+    if (modal) modal.classList.add('hidden');
+    pendingGeneralDeleteIndex = null;
+    pendingGeneralDeleteDayIndex = null;
+    unlockBodyScroll();
+}
+
+export function confirmGeneralDelete() {
+    if (pendingGeneralDeleteIndex === null) return;
+    
+    const dayIndex = pendingGeneralDeleteDayIndex;
+    const itemIndex = pendingGeneralDeleteIndex;
+    const deletedItem = travelData.days[dayIndex].timeline[itemIndex];
+    
+    // 삭제 실행
+    travelData.days[dayIndex].timeline.splice(itemIndex, 1);
+    
+    // UI 업데이트
+    if (window.updateTotalBudget) window.updateTotalBudget();
+    if (window.renderItinerary) window.renderItinerary();
+    if (window.autoSave) window.autoSave();
+    
+    closeGeneralDeleteModal();
+    closeDetailModal();
+    
+    // 실행 취소 토스트 표시
+    showUndoToast("항목이 삭제되었습니다.", () => {
+        // 복구 로직
+        travelData.days[dayIndex].timeline.splice(itemIndex, 0, deletedItem);
+        if (window.updateTotalBudget) window.updateTotalBudget();
+        if (window.renderItinerary) window.renderItinerary();
+        if (window.autoSave) window.autoSave();
+    });
+}
+
+// [Undo Toast Logic]
+export function showUndoToast(message, onUndo) {
+    let toast = document.getElementById('undo-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'undo-toast';
+        toast.className = "fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-4 z-[10000] transition-all duration-300 transform translate-y-20 opacity-0";
+        toast.innerHTML = `
+            <span id="undo-toast-msg"></span>
+            <button id="undo-toast-btn" class="text-yellow-400 font-bold hover:text-yellow-300 transition-colors">실행 취소</button>
+        `;
+        document.body.appendChild(toast);
+    }
+    
+    document.getElementById('undo-toast-msg').innerText = message;
+    
+    const btn = document.getElementById('undo-toast-btn');
+    btn.onclick = () => {
+        onUndo();
+        toast.classList.add('translate-y-20', 'opacity-0');
+    };
+    
+    // 표시
+    toast.classList.remove('translate-y-20', 'opacity-0');
+    
+    // 기존 타이머 제거 후 재설정
+    if (window.undoToastTimeout) clearTimeout(window.undoToastTimeout);
+    window.undoToastTimeout = setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+    }, 4000); // 4초 후 사라짐
 }
 
 // [Enhanced] Lightbox Logic
@@ -247,9 +350,15 @@ function updateLightboxImage() {
     if (menu) menu.classList.add('hidden');
 
     // Update Image
-    img.src = mem.photoUrl;
-    img.classList.remove('scale-95');
-    img.classList.add('scale-100');
+    if (mem.photoUrl) {
+        img.src = mem.photoUrl;
+        img.classList.remove('hidden', 'scale-95');
+        img.classList.add('scale-100');
+    } else {
+        // 사진 없는 경우 (코멘트만)
+        img.src = "";
+        img.classList.add('hidden');
+    }
 
     // Update Caption
     if (mem.comment || mem.placeTitle) {
@@ -352,6 +461,398 @@ export function closeLightbox() {
     }
 }
 
+// [Memory Modal Logic]
+export function ensureMemoryModal() {
+    if (!document.getElementById('memory-modal')) {
+        const modal = document.createElement('div');
+        modal.id = 'memory-modal';
+        modal.className = 'hidden fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
+        modal.innerHTML = `
+            <div class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+                <div class="p-6 border-b border-gray-100 dark:border-gray-700">
+                    <h3 class="text-2xl font-bold text-text-main dark:text-white flex items-center gap-3">
+                        <span class="material-symbols-outlined text-3xl">note_add</span>
+                        추억 남기기
+                    </h3>
+                </div>
+                <div class="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                    <div>
+                        <label class="block text-sm font-bold text-text-muted dark:text-gray-400 mb-3 uppercase tracking-wider">사진 (선택사항)</label>
+                        <div id="memory-photo-preview" class="w-full h-32 bg-gray-100 dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors mb-3 overflow-hidden relative">
+                            <div id="memory-photo-placeholder" class="text-center">
+                                <span class="material-symbols-outlined text-4xl text-gray-400 block mb-2">image</span>
+                                <p class="text-sm text-gray-500">사진을 클릭하여 업로드</p>
+                            </div>
+                            <img id="memory-photo-img" src="" alt="Preview" class="hidden w-full h-full object-cover">
+                            <button type="button" id="memory-photo-clear" onclick="clearMemoryPhoto()" class="hidden absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600">
+                                <span class="material-symbols-outlined text-sm">close</span>
+                            </button>
+                        </div>
+                        <input id="memory-photo-input" type="file" accept="image/*" onchange="handleMemoryPhotoChange(event)" class="hidden">
+                    </div>
+                    <div>
+                        <label for="memory-comment" class="block text-sm font-bold text-text-muted dark:text-gray-400 mb-2 uppercase tracking-wider">코멘트</label>
+                        <textarea id="memory-comment" class="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-800 text-text-main dark:text-white focus:outline-none focus:ring-2 focus:ring-primary transition-all resize-none" placeholder="이 순간의 느낌을 남겨보세요..." rows="4"></textarea>
+                    </div>
+                </div>
+                <div class="p-6 border-t border-gray-100 dark:border-gray-700 flex gap-3">
+                    <button type="button" onclick="closeMemoryModal()" class="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 py-3 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">취소</button>
+                    <button type="button" onclick="saveMemoryItem()" class="flex-1 bg-primary text-white py-3 rounded-xl font-bold hover:bg-orange-500 transition-colors flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined">check</span>
+                        저장
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        // 이벤트 리스너 연결
+        document.getElementById('memory-photo-preview').addEventListener('click', () => {
+            const img = document.getElementById('memory-photo-img');
+            if (img.classList.contains('hidden')) {
+                document.getElementById('memory-photo-input').click();
+            }
+        });
+    }
+}
+
+// [Memo Detail Modal Logic]
+export function ensureMemoModal() {
+    if (!document.getElementById('memo-detail-modal')) {
+        const modal = document.createElement('div');
+        modal.id = 'memo-detail-modal';
+        modal.className = 'hidden fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
+        modal.innerHTML = `
+            <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700/30 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-100 p-6 relative">
+                <button type="button" onclick="closeMemoModal()" class="absolute top-4 right-4 text-yellow-700 dark:text-yellow-500 hover:bg-yellow-100 dark:hover:bg-yellow-900/40 p-1 rounded-full transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+                <div class="mt-2">
+                    <h3 class="text-lg font-bold text-yellow-800 dark:text-yellow-400 mb-4 flex items-center gap-2">
+                        <span class="material-symbols-outlined">sticky_note_2</span>
+                        메모
+                    </h3>
+                    <div id="memo-detail-content" class="text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed font-body text-lg min-h-[100px] max-h-[60vh] overflow-y-auto pr-2"></div>
+                    
+                    <div id="memo-bookmarks" class="mt-4 pt-4 border-t border-yellow-200 dark:border-yellow-700/30 hidden">
+                        <p class="text-xs font-bold text-yellow-700 dark:text-yellow-500 uppercase mb-2">관련 링크</p>
+                        <div id="memo-bookmarks-list" class="flex flex-col gap-2"></div>
+                    </div>
+                </div>
+                 <div class="mt-6 flex justify-end">
+                    <button type="button" onclick="editCurrentMemo()" class="text-sm bg-yellow-100 hover:bg-yellow-200 text-yellow-800 px-4 py-2 rounded-xl font-bold transition-colors flex items-center gap-1">
+                        <span class="material-symbols-outlined text-sm">edit</span> 수정
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+}
+
+export function openMemoModal(item) {
+    ensureMemoModal();
+    const modal = document.getElementById('memo-detail-modal');
+    const content = document.getElementById('memo-detail-content');
+    const bookmarksContainer = document.getElementById('memo-bookmarks');
+    const bookmarksList = document.getElementById('memo-bookmarks-list');
+    
+    content.innerHTML = ""; 
+    
+    const { html, links } = processMemoContent(item.title);
+    content.innerHTML = html;
+    renderBookmarks(links, bookmarksContainer, bookmarksList);
+
+    const btnContainer = modal.querySelector('.mt-6'); 
+    if (btnContainer) {
+        const btn = btnContainer.querySelector('button');
+        if (btn) {
+            btn.setAttribute('onclick', 'editCurrentMemo()');
+            btn.innerHTML = `<span class="material-symbols-outlined text-sm">edit</span> 수정`;
+            btn.className = "text-sm bg-yellow-100 hover:bg-yellow-200 text-yellow-800 px-4 py-2 rounded-xl font-bold transition-colors flex items-center gap-1";
+        }
+    }
+
+    modal.classList.remove('hidden');
+    lockBodyScroll();
+}
+
+export function closeMemoModal() {
+    const modal = document.getElementById('memo-detail-modal');
+    if (modal) modal.classList.add('hidden');
+    setViewingItemIndex(null);
+    unlockBodyScroll();
+}
+
+export function editCurrentMemo() {
+    if (viewingItemIndex === null) return;
+    
+    const contentEl = document.getElementById('memo-detail-content');
+    const currentText = contentEl.innerText;
+    
+    contentEl.innerHTML = `<textarea id="memo-edit-area" class="w-full h-60 bg-white/50 dark:bg-black/20 border-2 border-yellow-300 dark:border-yellow-600/50 rounded-lg p-3 text-gray-800 dark:text-gray-200 resize-none focus:ring-0 outline-none leading-relaxed font-body text-lg placeholder-gray-400" placeholder="메모를 입력하세요">${currentText}</textarea>`;
+    
+    const modal = document.getElementById('memo-detail-modal');
+    const btnContainer = modal.querySelector('.mt-6');
+    const btn = btnContainer.querySelector('button');
+    
+    btn.setAttribute('onclick', 'saveCurrentMemo()');
+    btn.innerHTML = `<span class="material-symbols-outlined text-sm">save</span> 저장`;
+    btn.className = "text-sm bg-primary text-white hover:bg-orange-500 px-6 py-2 rounded-xl font-bold transition-colors flex items-center gap-1 shadow-md";
+
+    setTimeout(() => document.getElementById('memo-edit-area').focus(), 50);
+}
+
+export function saveCurrentMemo() {
+    if (viewingItemIndex === null) return;
+    
+    const textarea = document.getElementById('memo-edit-area');
+    if (!textarea) return;
+
+    const newText = textarea.value;
+    
+    travelData.days[targetDayIndex].timeline[viewingItemIndex].title = newText;
+    
+    const { html, links } = processMemoContent(newText);
+
+    const contentEl = document.getElementById('memo-detail-content');
+    contentEl.innerHTML = html;
+    renderBookmarks(links, document.getElementById('memo-bookmarks'), document.getElementById('memo-bookmarks-list'));
+
+    const modal = document.getElementById('memo-detail-modal');
+    const btnContainer = modal.querySelector('.mt-6');
+    const btn = btnContainer.querySelector('button');
+    
+    btn.setAttribute('onclick', 'editCurrentMemo()');
+    btn.innerHTML = `<span class="material-symbols-outlined text-sm">edit</span> 수정`;
+    btn.className = "text-sm bg-yellow-100 hover:bg-yellow-200 text-yellow-800 px-4 py-2 rounded-xl font-bold transition-colors flex items-center gap-1";
+
+    if (window.renderItinerary) window.renderItinerary();
+    if (window.autoSave) window.autoSave();
+}
+
+// [Helpers for Memo]
+function processMemoContent(text) {
+    if (!text) return { html: '', links: [] };
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const links = [];
+    const safeText = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const html = safeText.replace(urlRegex, (url) => {
+        links.push(url);
+        return `<a href="${url}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline break-all" onclick="event.stopPropagation()">${url}</a>`;
+    });
+    return { html, links };
+}
+
+function renderBookmarks(links, container, list) {
+    if (!links || links.length === 0) {
+        container.classList.add('hidden');
+        list.innerHTML = '';
+        return;
+    }
+    let html = '';
+    const uniqueLinks = [...new Set(links)];
+    uniqueLinks.forEach(link => {
+        try {
+            const urlObj = new URL(link);
+            html += `
+                <a href="${link}" target="_blank" class="flex items-center gap-3 p-3 bg-white/50 dark:bg-black/20 border border-yellow-200 dark:border-yellow-700/30 rounded-xl hover:bg-yellow-100/50 dark:hover:bg-yellow-900/30 transition-colors group">
+                    <div class="w-10 h-10 rounded-lg bg-yellow-100 dark:bg-yellow-900/40 flex items-center justify-center text-yellow-700 dark:text-yellow-500 flex-shrink-0">
+                        <span class="material-symbols-outlined">public</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-bold text-gray-800 dark:text-gray-200 truncate group-hover:text-primary transition-colors">${urlObj.hostname}</p>
+                        <p class="text-xs text-gray-500 truncate opacity-70">${link}</p>
+                    </div>
+                    <span class="material-symbols-outlined text-gray-400 text-sm">open_in_new</span>
+                </a>
+            `;
+        } catch (e) {}
+    });
+    list.innerHTML = html;
+    container.classList.remove('hidden');
+}
+
+// [Expense Modal Logic]
+let selectedShoppingItemIndex = null;
+
+export function ensureExpenseModal() {
+    if (!document.getElementById('expense-modal')) {
+        const modal = document.createElement('div');
+        modal.id = 'expense-modal';
+        modal.className = 'hidden fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
+        modal.innerHTML = `
+            <div class="bg-white dark:bg-card-dark rounded-xl shadow-2xl w-full max-w-sm overflow-hidden">
+                <div class="p-5 border-b border-gray-100 dark:border-gray-700">
+                    <h3 class="text-lg font-bold text-text-main dark:text-white">지출 내역 추가</h3>
+                </div>
+                <div class="p-6 flex flex-col gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">사용 내역</label>
+                        <div class="flex gap-2">
+                            <input id="expense-desc" type="text" class="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800" placeholder="예: 입장료, 점심 식사">
+                            <button type="button" onclick="openShoppingListSelector()" class="px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors" title="쇼핑 리스트에서 선택">
+                                <span class="material-symbols-outlined text-gray-600 dark:text-gray-300">shopping_bag</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">금액 (원)</label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-2.5 text-gray-400 font-bold">₩</span>
+                            <input id="expense-cost" type="text" inputmode="numeric" class="w-full pl-8 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800 font-bold" placeholder="0">
+                        </div>
+                    </div>
+                </div>
+                <div class="p-5 border-t border-gray-100 dark:border-gray-700 flex gap-3">
+                    <button type="button" onclick="closeExpenseModal()" class="flex-1 py-2 text-gray-500 font-bold hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl">취소</button>
+                    <button type="button" id="expense-save-btn" onclick="if (typeof window.saveRouteExpense !== 'undefined' && window.currentRouteItemIndex !== null) window.saveRouteExpense(); else saveExpense();" class="flex-1 py-2 bg-primary text-white font-bold rounded-xl hover:bg-orange-500 shadow-lg">추가</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        // 금액 입력 시 천 단위 콤마 자동 포맷팅
+        const costInput = document.getElementById('expense-cost');
+        costInput.addEventListener('input', (e) => {
+            const value = e.target.value.replace(/[^0-9]/g, '');
+            if (value) {
+                e.target.value = Number(value).toLocaleString();
+            } else {
+                e.target.value = '';
+            }
+        });
+    }
+}
+
+export function openExpenseModal() {
+    ensureExpenseModal();
+    document.getElementById('expense-desc').value = "";
+    document.getElementById('expense-cost').value = "";
+    document.getElementById('expense-modal').classList.remove('hidden');
+    setTimeout(() => document.getElementById('expense-desc').focus(), 100);
+    lockBodyScroll();
+}
+
+export function closeExpenseModal() {
+    selectedShoppingItemIndex = null;
+    const modal = document.getElementById('expense-modal');
+    if (modal) modal.classList.add('hidden');
+    unlockBodyScroll();
+}
+
+export function saveExpense() {
+    const desc = document.getElementById('expense-desc').value;
+    const costRaw = document.getElementById('expense-cost').value;
+    const cost = costRaw.replace(/,/g, ''); // 콤마 제거
+    
+    if (!desc || !cost) {
+        alert("내역과 금액을 입력해주세요.");
+        return;
+    }
+
+    const item = travelData.days[targetDayIndex].timeline[viewingItemIndex];
+    if (!item.expenses) item.expenses = [];
+    
+    item.expenses.push({ 
+        description: desc, 
+        amount: Number(cost) 
+    });
+    
+    // 쇼핑 리스트 연동 처리
+    if (selectedShoppingItemIndex !== null && travelData.shoppingList && travelData.shoppingList[selectedShoppingItemIndex]) {
+        const shoppingItem = travelData.shoppingList[selectedShoppingItemIndex];
+        shoppingItem.checked = true;
+        
+        if (!shoppingItem.location && item.title) {
+            shoppingItem.location = item.title;
+            shoppingItem.locationDetail = item.location || '';
+        }
+        
+        window.lastExpenseLocation = item.title;
+        selectedShoppingItemIndex = null;
+        if (window.renderLists) window.renderLists();
+    }
+    
+    if (window.renderExpenseList) window.renderExpenseList(item);
+    closeExpenseModal();
+    if (window.updateTotalBudget) window.updateTotalBudget();
+    
+    const budgetEl = document.getElementById('budget-amount');
+    if (budgetEl) {
+        budgetEl.textContent = travelData.meta.budget || '₩0';
+    }
+    
+    if (window.renderItinerary) window.renderItinerary();
+    if (window.autoSave) window.autoSave();
+}
+
+// [Shopping Selector Modal Logic]
+export function ensureShoppingSelectorModal() {
+    if (!document.getElementById('shopping-selector-modal')) {
+        const modal = document.createElement('div');
+        modal.id = 'shopping-selector-modal';
+        modal.className = 'hidden fixed inset-0 z-[130] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
+        modal.innerHTML = `
+            <div class="bg-white dark:bg-card-dark rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+                <div class="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-text-main dark:text-white">쇼핑 리스트에서 선택</h3>
+                    <button type="button" onclick="closeShoppingListSelector()" class="text-gray-400 hover:text-gray-600">
+                        <span class="material-symbols-outlined">close</span>
+                    </button>
+                </div>
+                <div id="shopping-selector-list" class="p-4 max-h-96 overflow-y-auto"></div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+}
+
+export function openShoppingListSelector() {
+    ensureShoppingSelectorModal();
+    const modal = document.getElementById('shopping-selector-modal');
+    const listContainer = document.getElementById('shopping-selector-list');
+    
+    if (!travelData.shoppingList || travelData.shoppingList.length === 0) {
+        listContainer.innerHTML = '<p class="text-xs text-gray-400 text-center py-8">쇼핑 리스트가 비어있습니다.</p>';
+    } else {
+        listContainer.innerHTML = travelData.shoppingList.map((item, idx) => `
+            <button type="button" onclick="selectShoppingItem(${idx})" class="w-full text-left px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-primary hover:bg-primary/5 transition-colors mb-2">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1">
+                        <div class="font-medium text-sm text-gray-800 dark:text-white">${item.text}</div>
+                        ${item.location ? `<div class="text-xs text-gray-500 mt-1">${item.location}${item.locationDetail ? ` - ${item.locationDetail}` : ''}</div>` : ''}
+                    </div>
+                    <span class="material-symbols-outlined text-gray-400">chevron_right</span>
+                </div>
+            </button>
+        `).join('');
+    }
+    
+    modal.classList.remove('hidden');
+    lockBodyScroll();
+}
+
+export function closeShoppingListSelector() {
+    const modal = document.getElementById('shopping-selector-modal');
+    if (modal) modal.classList.add('hidden');
+    unlockBodyScroll();
+}
+
+export function selectShoppingItem(idx) {
+    const item = travelData.shoppingList[idx];
+    const descInput = document.getElementById('expense-desc');
+    
+    selectedShoppingItemIndex = idx;
+    if (descInput) descInput.value = item.text;
+    
+    closeShoppingListSelector();
+    setTimeout(() => {
+        const costInput = document.getElementById('expense-cost');
+        if (costInput) costInput.focus();
+    }, 100);
+}
+
 export default {
     lockBodyScroll,
     unlockBodyScroll,
@@ -364,6 +865,19 @@ export default {
     copyItemToCurrent,
     closeDetailModal,
     selectAddType,
+    ensureMemoryModal,
+    openMemoModal,
+    closeMemoModal,
+    editCurrentMemo,
+    saveCurrentMemo,
     openLightbox,
-    closeLightbox
+    closeLightbox,
+    ensureExpenseModal,
+    openExpenseModal,
+    closeExpenseModal,
+    saveExpense,
+    ensureShoppingSelectorModal,
+    openShoppingListSelector,
+    closeShoppingListSelector,
+    selectShoppingItem
 };

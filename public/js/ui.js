@@ -340,7 +340,7 @@ export function viewTimelineItem(index, dayIndex = currentDayIndex) {
     
     // [메모 아이템인 경우 전용 모달 호출]
     if (item.tag === '메모') {
-        openMemoModal(item);
+        Modals.openMemoModal(item);
         return;
     }
 
@@ -441,13 +441,7 @@ export function editCurrentItem() {
 
 export function deleteCurrentItem() {
     if (viewingItemIndex !== null) {
-        if (confirm("이 항목을 삭제하시겠습니까?")) {
-            travelData.days[targetDayIndex].timeline.splice(viewingItemIndex, 1);
-            updateTotalBudget();
-            renderItinerary();
-            autoSave();
-            closeDetailModal();
-        }
+        Modals.openGeneralDeleteModal(viewingItemIndex, targetDayIndex);
     }
 }
 
@@ -916,113 +910,6 @@ export function updateTotalBudget() {
         });
     }
     travelData.meta.budget = `₩${total.toLocaleString()}`;
-}
-
-export function openExpenseModal() {
-    document.getElementById('expense-desc').value = "";
-    document.getElementById('expense-cost').value = "";
-    document.getElementById('expense-modal').classList.remove('hidden');
-    setTimeout(() => document.getElementById('expense-desc').focus(), 100);
-}
-
-export function closeExpenseModal() {
-    window.selectedShoppingItemIndex = null; // 초기화
-    document.getElementById('expense-modal').classList.add('hidden');
-}
-
-export function saveExpense() {
-    const desc = document.getElementById('expense-desc').value;
-    const cost = document.getElementById('expense-cost').value;
-    
-    if (!desc || !cost) {
-        alert("내역과 금액을 입력해주세요.");
-        return;
-    }
-
-    const item = travelData.days[targetDayIndex].timeline[viewingItemIndex];
-    if (!item.expenses) item.expenses = [];
-    
-    item.expenses.push({ 
-        description: desc, 
-        amount: Number(cost) 
-    });
-    
-    // 쇼핑 리스트에서 선택한 항목이 있으면 체크 처리 및 장소 정보 추가
-    if (window.selectedShoppingItemIndex !== null && travelData.shoppingList && travelData.shoppingList[window.selectedShoppingItemIndex]) {
-        const shoppingItem = travelData.shoppingList[window.selectedShoppingItemIndex];
-        shoppingItem.checked = true;
-        
-        // 장소 정보가 없으면 현재 장소 정보 추가
-        if (!shoppingItem.location && item.title) {
-            shoppingItem.location = item.title;
-            shoppingItem.locationDetail = item.location || '';
-        }
-        
-        // 현재 장소를 저장하여 하이라이트 효과에 사용
-        window.lastExpenseLocation = item.title;
-        
-        window.selectedShoppingItemIndex = null; // 초기화
-        renderLists(); // 쇼핑 리스트 UI 업데이트
-    }
-    
-    renderExpenseList(item);
-    closeExpenseModal();
-    updateTotalBudget();
-    
-    // 예산 카드 업데이트
-    const budgetEl = document.getElementById('budget-amount');
-    if (budgetEl) {
-        budgetEl.textContent = travelData.meta.budget || '₩0';
-    }
-    
-    renderItinerary();
-    autoSave();
-}
-
-export function openShoppingListSelector() {
-    const modal = document.getElementById('shopping-selector-modal');
-    const listContainer = document.getElementById('shopping-selector-list');
-    
-    if (!travelData.shoppingList || travelData.shoppingList.length === 0) {
-        listContainer.innerHTML = '<p class="text-xs text-gray-400 text-center py-8">쇼핑 리스트가 비어있습니다.</p>';
-    } else {
-        listContainer.innerHTML = travelData.shoppingList.map((item, idx) => `
-            <button type="button" onclick="selectShoppingItem(${idx})" class="w-full text-left px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-primary hover:bg-primary/5 transition-colors mb-2">
-                <div class="flex items-center justify-between">
-                    <div class="flex-1">
-                        <div class="font-medium text-sm text-gray-800 dark:text-white">${item.text}</div>
-                        ${item.location ? `<div class="text-xs text-gray-500 mt-1">${item.location}${item.locationDetail ? ` - ${item.locationDetail}` : ''}</div>` : ''}
-                    </div>
-                    <span class="material-symbols-outlined text-gray-400">chevron_right</span>
-                </div>
-            </button>
-        `).join('');
-    }
-    
-    modal.classList.remove('hidden');
-}
-
-export function closeShoppingListSelector() {
-    document.getElementById('shopping-selector-modal').classList.add('hidden');
-}
-
-export function selectShoppingItem(idx) {
-    const item = travelData.shoppingList[idx];
-    const descInput = document.getElementById('expense-desc');
-    
-    // 선택한 쇼핑 리스트 인덱스 저장
-    window.selectedShoppingItemIndex = idx;
-    
-    // 쇼핑 리스트 항목을 지출 내역에 자동 입력
-    descInput.value = item.text;
-    
-    // 쇼핑 리스트 선택 모달 닫기
-    closeShoppingListSelector();
-    
-    // 금액 입력란에 포커스
-    setTimeout(() => {
-        document.getElementById('expense-cost').focus();
-    }, 100);
 }
 
 export function deleteExpense(expIndex) {
@@ -2433,6 +2320,7 @@ export function addTimelineItem(insertIndex = null, dayIndex = currentDayIndex) 
     const modal = document.getElementById('item-modal');
     
     // UI 복구: 모든 필드 표시
+    const gridChildren = modal.querySelectorAll('.grid > div');
     gridChildren.forEach(el => el.classList.remove('hidden'));
     document.getElementById('save-item-btn').classList.remove('hidden');
 
@@ -2835,24 +2723,12 @@ export function deleteTimelineItem(index, dayIndex = currentDayIndex) {
             return;
         } else {
             // 그룹에 1개만 있으면 일반 삭제
-            if (confirm("이 항목을 삭제하시겠습니까?")) {
-                timeline.splice(index, 1);
-            } else {
-                return;
-            }
+            Modals.openGeneralDeleteModal(index, dayIndex);
         }
     } else {
         // routeGroupId 없는 일반 항목
-        if (confirm("이 항목을 삭제하시겠습니까?")) {
-            timeline.splice(index, 1);
-        } else {
-            return; // 취소 시 함수 종료
-        }
+        Modals.openGeneralDeleteModal(index, dayIndex);
     }
-    
-    updateTotalBudget();
-    renderItinerary();
-    autoSave();
 }
 
 // 삭제 확인 모달 관련 함수
@@ -3433,14 +3309,14 @@ window.closeShoppingAddModal = closeShoppingAddModal;
 window.confirmShoppingAdd = confirmShoppingAdd;
 window.selectShoppingLocation = selectShoppingLocation;
 window.skipShoppingLocation = skipShoppingLocation;
-window.openExpenseModal = openExpenseModal;
-window.closeExpenseModal = closeExpenseModal;
-window.saveExpense = saveExpense;
+window.openExpenseModal = Modals.openExpenseModal;
+window.closeExpenseModal = Modals.closeExpenseModal;
+window.saveExpense = Modals.saveExpense;
 window.deleteExpense = deleteExpense;
-window.openShoppingListSelector = openShoppingListSelector;
-window.closeShoppingListSelector = closeShoppingListSelector;
-window.selectShoppingItem = selectShoppingItem;
-window.selectedShoppingItemIndex = null; // 전역 변수로 노출
+window.openShoppingListSelector = Modals.openShoppingListSelector;
+window.closeShoppingListSelector = Modals.closeShoppingListSelector;
+window.selectShoppingItem = Modals.selectShoppingItem;
+// window.selectedShoppingItemIndex = null; // Removed (Moved to modals.js)
 window.lastExpenseLocation = null; // 마지막 지출 장소 추적
 window.openGoogleMapsExternal = openGoogleMapsExternal;
 window.openTimeModal = openTimeModal;
@@ -3471,6 +3347,9 @@ window.saveNewItem = saveNewItem;
 window.deleteTimelineItem = deleteTimelineItem;
 window.closeDeleteConfirmModal = closeDeleteConfirmModal;
 window.useManualInput = useManualInput;
+window.openGeneralDeleteModal = Modals.openGeneralDeleteModal;
+window.closeGeneralDeleteModal = Modals.closeGeneralDeleteModal;
+window.confirmGeneralDelete = Modals.confirmGeneralDelete;
 window.openUserMenu = Profile.openUserMenu;
 window.openUserSettings = Profile.openUserSettings;
 window.openUserProfile = Profile.openUserProfile;
@@ -3484,15 +3363,16 @@ window.resetHeroImage = resetHeroImage;
 window.deleteHeroImage = deleteHeroImage;
 window.openRouteModal = openRouteModal;
 window.closeRouteModal = closeRouteModal;
-window.closeMemoModal = closeMemoModal;
-window.editCurrentMemo = editCurrentMemo;
+window.closeMemoModal = Modals.closeMemoModal;
+window.editCurrentMemo = Modals.editCurrentMemo;
 window.editCurrentItem = editCurrentItem;
 window.deleteCurrentItem = deleteCurrentItem;
-window.saveCurrentMemo = saveCurrentMemo;
+window.saveCurrentMemo = Modals.saveCurrentMemo;
 window.openCopyItemModal = openCopyItemModal;
 window.closeCopyItemModal = closeCopyItemModal;
 window.copyItemToCurrent = copyItemToCurrent;
 window.handleAttachmentUpload = handleAttachmentUpload;
+window.renderExpenseList = renderExpenseList; // [Added] modals.js에서 호출할 수 있도록 노출
 window.deleteAttachment = deleteAttachment;
 window.openAttachment = openAttachment;
 window.openExpenseDetailModal = openExpenseDetailModal;

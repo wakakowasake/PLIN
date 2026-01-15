@@ -20,9 +20,14 @@ function renderMemoriesHtml(item, dayIndex, itemIndex) {
     
     let html = '<div class="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex gap-2 overflow-x-auto pb-1 no-scrollbar">';
     item.memories.forEach((mem, memIdx) => {
+        // [Fix] 사진이 있는 경우와 없는 경우(코멘트만) 구분
+        const content = mem.photoUrl 
+            ? `<img src="${mem.photoUrl}" class="w-full h-full object-cover transition-transform group-hover:scale-110" loading="lazy" onerror="this.style.display='none'; this.parentElement.innerHTML='<span class=\\'material-symbols-outlined text-red-400\\'>broken_image</span>'">`
+            : `<div class="w-full h-full flex items-center justify-center bg-yellow-50 dark:bg-yellow-900/20"><span class="material-symbols-outlined text-yellow-600 dark:text-yellow-400">chat</span></div>`;
+            
         html += `
             <div class="relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden cursor-pointer group border border-gray-200 dark:border-gray-700" onclick="event.stopPropagation(); window.openLightbox(${dayIndex}, ${itemIndex}, ${memIdx})">
-                <img src="${mem.photoUrl}" class="w-full h-full object-cover transition-transform group-hover:scale-110" loading="lazy">
+                ${content}
             </div>
         `;
     });

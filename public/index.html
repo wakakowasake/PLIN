@@ -27,6 +27,7 @@
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
     <script>
         tailwind.config = {
             darkMode: "class",
@@ -1160,52 +1161,6 @@
         </div>
     </div>
 
-    <!-- Expense Add Modal -->
-    <div id="expense-modal" class="hidden fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-        <div class="bg-white dark:bg-card-dark rounded-xl shadow-2xl w-full max-w-sm overflow-hidden">
-            <div class="p-5 border-b border-gray-100 dark:border-gray-700">
-                <h3 class="text-lg font-bold text-text-main dark:text-white">지출 내역 추가</h3>
-            </div>
-            <div class="p-6 flex flex-col gap-4">
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">사용 내역</label>
-                    <div class="flex gap-2">
-                        <input id="expense-desc" type="text" class="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800" placeholder="예: 입장료, 점심 식사">
-                        <button type="button" onclick="openShoppingListSelector()" class="px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors" title="쇼핑 리스트에서 선택">
-                            <span class="material-symbols-outlined text-gray-600 dark:text-gray-300">shopping_bag</span>
-                        </button>
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">금액 (원)</label>
-                    <div class="relative">
-                        <span class="absolute left-3 top-2.5 text-gray-400 font-bold">₩</span>
-                        <input id="expense-cost" type="number" class="w-full pl-8 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800 font-bold" placeholder="0">
-                    </div>
-                </div>
-            </div>
-            <div class="p-5 border-t border-gray-100 dark:border-gray-700 flex gap-3">
-                <button type="button" onclick="closeExpenseModal()" class="flex-1 py-2 text-gray-500 font-bold hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl">취소</button>
-                <button type="button" id="expense-save-btn" onclick="if (typeof window.saveRouteExpense !== 'undefined' && window.currentRouteItemIndex !== null) window.saveRouteExpense(); else saveExpense();" class="flex-1 py-2 bg-primary text-white font-bold rounded-xl hover:bg-orange-500 shadow-lg">추가</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Shopping List Selector Modal -->
-    <div id="shopping-selector-modal" class="hidden fixed inset-0 z-[130] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-        <div class="bg-white dark:bg-card-dark rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
-            <div class="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
-                <h3 class="text-lg font-bold text-text-main dark:text-white">쇼핑 리스트에서 선택</h3>
-                <button type="button" onclick="closeShoppingListSelector()" class="text-gray-400 hover:text-gray-600">
-                    <span class="material-symbols-outlined">close</span>
-                </button>
-            </div>
-            <div id="shopping-selector-list" class="p-4 max-h-96 overflow-y-auto">
-                <!-- 쇼핑 리스트 항목들이 여기에 렌더링 -->
-            </div>
-        </div>
-    </div>
-
     <!-- Share Modal -->
     <div id="share-modal" class="hidden fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
         <div class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
@@ -1280,56 +1235,6 @@
         </div>
     </div>
 
-    <!-- Memory Item Modal -->
-    <div id="memory-modal" class="hidden fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-        <div class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-            <div class="p-6 border-b border-gray-100 dark:border-gray-700">
-                <h3 class="text-2xl font-bold text-text-main dark:text-white flex items-center gap-3">
-                    <span class="material-symbols-outlined text-3xl">note_add</span>
-                    추억 남기기
-                </h3>
-            </div>
-            <div class="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-                <!-- 사진 업로드 -->
-                <div>
-                    <label class="block text-sm font-bold text-text-muted dark:text-gray-400 mb-3 uppercase tracking-wider">사진 (선택사항)</label>
-                    <div id="memory-photo-preview" class="w-full h-32 bg-gray-100 dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors mb-3 overflow-hidden relative">
-                        <div id="memory-photo-placeholder" class="text-center">
-                            <span class="material-symbols-outlined text-4xl text-gray-400 block mb-2">image</span>
-                            <p class="text-sm text-gray-500">사진을 클릭하여 업로드</p>
-                        </div>
-                        <img id="memory-photo-img" src="" alt="Preview" class="hidden w-full h-full object-cover">
-                        <button type="button" id="memory-photo-clear" onclick="clearMemoryPhoto()" class="hidden absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600">
-                            <span class="material-symbols-outlined text-sm">close</span>
-                        </button>
-                    </div>
-                    <input id="memory-photo-input" type="file" accept="image/*" onchange="handleMemoryPhotoChange(event)" class="hidden">
-                    <script>
-                        document.getElementById('memory-photo-preview').addEventListener('click', () => {
-                            const img = document.getElementById('memory-photo-img');
-                            if (img.classList.contains('hidden')) {
-                                document.getElementById('memory-photo-input').click();
-                            }
-                        });
-                    </script>
-                </div>
-
-                <!-- 코멘트 -->
-                <div>
-                    <label for="memory-comment" class="block text-sm font-bold text-text-muted dark:text-gray-400 mb-2 uppercase tracking-wider">코멘트</label>
-                    <textarea id="memory-comment" class="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-800 text-text-main dark:text-white focus:outline-none focus:ring-2 focus:ring-primary transition-all resize-none" placeholder="이 순간의 느낌을 남겨보세요..." rows="4"></textarea>
-                </div>
-            </div>
-            <div class="p-6 border-t border-gray-100 dark:border-gray-700 flex gap-3">
-                <button type="button" onclick="closeMemoryModal()" class="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 py-3 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">취소</button>
-                <button type="button" onclick="saveMemoryItem()" class="flex-1 bg-primary text-white py-3 rounded-xl font-bold hover:bg-orange-500 transition-colors flex items-center justify-center gap-2">
-                    <span class="material-symbols-outlined">check</span>
-                    저장
-                </button>
-            </div>
-        </div>
-    </div>
-
     <!-- Route View Modal -->
     <div id="route-modal" class="hidden fixed inset-0 z-[150] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
         <div class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-5xl h-[80vh] overflow-hidden flex flex-col">
@@ -1342,33 +1247,6 @@
             </div>
             <div class="flex-1 relative bg-gray-100 dark:bg-gray-800">
                 <div id="route-map-container" class="w-full h-full"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Memo Detail Modal -->
-    <div id="memo-detail-modal" class="hidden fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-        <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700/30 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-100 p-6 relative">
-            <button type="button" onclick="closeMemoModal()" class="absolute top-4 right-4 text-yellow-700 dark:text-yellow-500 hover:bg-yellow-100 dark:hover:bg-yellow-900/40 p-1 rounded-full transition-colors">
-                <span class="material-symbols-outlined">close</span>
-            </button>
-            <div class="mt-2">
-                <h3 class="text-lg font-bold text-yellow-800 dark:text-yellow-400 mb-4 flex items-center gap-2">
-                    <span class="material-symbols-outlined">sticky_note_2</span>
-                    메모
-                </h3>
-                <div id="memo-detail-content" class="text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed font-body text-lg min-h-[100px] max-h-[60vh] overflow-y-auto pr-2"></div>
-                
-                <!-- Bookmarks Section -->
-                <div id="memo-bookmarks" class="mt-4 pt-4 border-t border-yellow-200 dark:border-yellow-700/30 hidden">
-                    <p class="text-xs font-bold text-yellow-700 dark:text-yellow-500 uppercase mb-2">관련 링크</p>
-                    <div id="memo-bookmarks-list" class="flex flex-col gap-2"></div>
-                </div>
-            </div>
-             <div class="mt-6 flex justify-end">
-                <button type="button" onclick="editCurrentMemo()" class="text-sm bg-yellow-100 hover:bg-yellow-200 text-yellow-800 px-4 py-2 rounded-xl font-bold transition-colors flex items-center gap-1">
-                    <span class="material-symbols-outlined text-sm">edit</span> 수정
-                </button>
             </div>
         </div>
     </div>
