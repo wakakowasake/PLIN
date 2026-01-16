@@ -1,5 +1,6 @@
 import { travelData, newTripDataTemp, currentDayIndex } from './state.js';
 import { BACKEND_URL } from './config.js';
+import logger from './logger.js';
 
 export let map;
 export let mapMarker;
@@ -26,7 +27,7 @@ async function fetchUnsplashImage(query) {
     try {
         // 백엔드 프록시 서버 호출 (API 키 노출 방지)
         const res = await fetch(`${BACKEND_URL}/unsplash-proxy?query=${encodeURIComponent(query)}`);
-        
+
         if (!res.ok) {
             const errorData = await res.json().catch(() => ({ error: res.statusText }));
             console.error("Unsplash Proxy Error:", errorData);
@@ -108,19 +109,19 @@ function handleEnterKey(e) {
 export function setupAutocomplete() {
     const input = document.getElementById("place-search");
     if (!input || !window.google || !window.google.maps || !window.google.maps.places) return;
-    
+
     if (!input.dataset.hasEnterListener) {
         input.addEventListener('keydown', handleEnterKey);
         input.dataset.hasEnterListener = "true";
     }
 
     if (autocomplete) return; // 이미 초기화됨
-    
+
     const options = {
         fields: ["formatted_address", "geometry", "name", "formatted_phone_number", "photos", "address_components"],
         strictBounds: false,
     };
-    
+
     try {
         autocomplete = new google.maps.places.Autocomplete(input, options);
         autocomplete.addListener("place_changed", fillInAddress);
@@ -132,24 +133,24 @@ export function setupAutocomplete() {
 export function setupWizardAutocomplete() {
     const input = document.getElementById("new-trip-location");
     if (!input || !window.google || !window.google.maps || !window.google.maps.places) return;
-    
+
     if (!input.dataset.hasEnterListener) {
         input.addEventListener('keydown', handleEnterKey);
         input.dataset.hasEnterListener = "true";
     }
 
     if (wizardAutocomplete) return;
-    
+
     const options = {
         fields: ["formatted_address", "geometry", "name", "photos", "address_components"],
         strictBounds: false
     };
-    
+
     wizardAutocomplete = new google.maps.places.Autocomplete(input, options);
     wizardAutocomplete.addListener("place_changed", () => {
         const place = wizardAutocomplete.getPlace();
         if (!place.geometry || !place.geometry.location) return;
-        
+
         newTripDataTemp.locationName = place.name;
         newTripDataTemp.address = place.formatted_address;
         newTripDataTemp.lat = place.geometry.location.lat();
@@ -161,11 +162,11 @@ export function setupWizardAutocomplete() {
 
         // 랜드마크 검색으로 더 좋은 사진 찾기
         let searchQuery = place.name;
-        
+
         // [Modified] 장소가 도시/국가 등 지역 그 자체라면 굳이 세부 행정구역명으로 덮어쓰지 않음
         const isRegion = place.types && (
-            place.types.includes('locality') || 
-            place.types.includes('administrative_area_level_1') || 
+            place.types.includes('locality') ||
+            place.types.includes('administrative_area_level_1') ||
             place.types.includes('country')
         );
 
@@ -182,8 +183,8 @@ export function setupWizardAutocomplete() {
         // 한국어 행정구역 접미사 제거 (Unsplash 검색 정확도 향상)
         // 예: "도쿄도" -> "도쿄", "오사카부" -> "오사카", "후쿠오카현" -> "후쿠오카"
         searchQuery = searchQuery.replace(/([가-힣]{2,})(특별시|광역시|특별자치시|특별자치도|도|시|군|구|부|현)$/, '$1');
-        
-        console.log(`Unsplash Search Query: ${searchQuery}`); // 디버깅용
+
+        logger.debug(`Unsplash Search Query: ${searchQuery}`);
 
         // Unsplash에서 고화질 배경 검색
         fetchUnsplashImage(searchQuery).then(url => {
@@ -243,10 +244,10 @@ function fillInAddress() {
 
         // 랜드마크 검색으로 더 좋은 사진 찾기
         let searchQuery = place.name;
-        
+
         const isRegion = place.types && (
-            place.types.includes('locality') || 
-            place.types.includes('administrative_area_level_1') || 
+            place.types.includes('locality') ||
+            place.types.includes('administrative_area_level_1') ||
             place.types.includes('country')
         );
 
@@ -262,7 +263,7 @@ function fillInAddress() {
 
         // 한국어 행정구역 접미사 제거
         searchQuery = searchQuery.replace(/([가-힣]{2,})(특별시|광역시|특별자치시|특별자치도|도|시|군|구|부|현)$/, '$1');
-        console.log(`Unsplash Search Query: ${searchQuery}`);
+        logger.debug(`Unsplash Search Query:${searchQuery}`);
 
         // Unsplash에서 고화질 배경 검색
         fetchUnsplashImage(searchQuery).then(url => {
@@ -282,11 +283,11 @@ function fillInAddress() {
 
         travelData.meta.lat = lat;
         travelData.meta.lng = lng;
-        
+
         // Google Maps 지도 이동 및 마커 업데이트
         if (map) map.setCenter({ lat, lng });
         if (mapMarker) mapMarker.setPosition({ lat, lng });
-        
+
         const currentDate = travelData.days && travelData.days[currentDayIndex] ? travelData.days[currentDayIndex].date : null;
         fetchWeather(lat, lng, currentDate);
         if (window.renderItinerary) window.renderItinerary();
@@ -295,17 +296,17 @@ function fillInAddress() {
         // 타임라인 아이템 설정
         document.getElementById('item-title').value = place.name;
         document.getElementById('item-location').value = place.formatted_address;
-        
+
         let notes = "";
         if (place.formatted_phone_number) notes += `전화: ${place.formatted_phone_number}\n`;
         document.getElementById('item-notes').value = notes;
-        
+
         // 일본 장소인 경우 일본어 주소도 함께 저장
         const countryComponent = place.address_components?.find(c => c.types.includes('country'));
         if (countryComponent && countryComponent.short_name === 'JP') {
             const lat = place.geometry.location.lat();
             const lng = place.geometry.location.lng();
-            
+
             // Geocoding API로 일본어 주소 가져오기
             if (window.getMapsApiKey) {
                 window.getMapsApiKey().then(key => {
@@ -322,7 +323,7 @@ function fillInAddress() {
                                     document.getElementById('item-location').parentNode.appendChild(jaField);
                                 }
                                 jaField.value = japaneseAddress;
-                                console.log('Japanese address saved:', japaneseAddress);
+                                logger.debug('Japanese address saved:', japaneseAddress);
                             }
                         })
                         .catch(error => console.warn('Failed to fetch Japanese address:', error));
@@ -340,13 +341,13 @@ export async function fetchWeather(lat, lng, date = null) {
             const requestDate = new Date(date);
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            
+
             // 과거 날짜 확인
             if (requestDate < today) {
                 console.warn(`Past date ${date} not supported, skipping request`);
                 return;
             }
-            
+
             // 16일 이상 미래 확인
             const diffDays = Math.floor((requestDate - today) / (1000 * 60 * 60 * 24));
             if (diffDays > 16) {
@@ -357,7 +358,7 @@ export async function fetchWeather(lat, lng, date = null) {
 
         // Open-Meteo API 사용 (무료, API 키 불필요)
         let url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto`;
-        
+
         if (date) {
             // 특정 날짜 예보
             url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&start_date=${date}&end_date=${date}`;
@@ -367,9 +368,9 @@ export async function fetchWeather(lat, lng, date = null) {
         if (!res.ok) {
             throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         }
-        
+
         const data = await res.json();
-        
+
         // 타임존 정보 업데이트
         if (data.timezone) {
             if (window.updateMeta) window.updateMeta('timezone', data.timezone);
@@ -385,7 +386,7 @@ export async function fetchWeather(lat, lng, date = null) {
                 maxTemp = `${Math.round(maxT)}°C`;
                 minTemp = `${Math.round(minT)}°C`;
                 temp = `${Math.round((maxT + minT) / 2)}°C`;
-                
+
                 const code = data.daily.weather_code[0];
                 desc = translateWeatherCode(code);
             }
@@ -393,7 +394,7 @@ export async function fetchWeather(lat, lng, date = null) {
             // 현재 날씨
             temp = `${Math.round(data.current.temperature_2m)}°C`;
             desc = translateWeatherCode(data.current.weather_code);
-            
+
             if (data.daily && data.daily.temperature_2m_max) {
                 maxTemp = `${Math.round(data.daily.temperature_2m_max[0])}°C`;
                 minTemp = `${Math.round(data.daily.temperature_2m_min[0])}°C`;
@@ -405,7 +406,7 @@ export async function fetchWeather(lat, lng, date = null) {
         if (minTemp && window.updateMeta) window.updateMeta('weather.minTemp', minTemp);
         if (maxTemp && window.updateMeta) window.updateMeta('weather.maxTemp', maxTemp);
         if (desc && window.updateMeta) window.updateMeta('weather.desc', desc);
-        
+
         if (window.renderItinerary) window.renderItinerary();
     } catch (e) {
         console.warn("Weather fetch failed for date", date, ":", e.message);
@@ -459,7 +460,7 @@ async function loadGoogleMapsAPI() {
         const response = await fetch(`${BACKEND_URL}/config`);
         const config = await response.json();
         const mapsApiKey = config.googleMapsApiKey;
-        
+
         if (!window.google || !window.google.maps) {
             const script = document.createElement('script');
             script.src = `https://maps.googleapis.com/maps/api/js?key=${mapsApiKey}&libraries=places,geometry&loading=async&language=ko&callback=initMap`;
@@ -476,21 +477,21 @@ async function loadGoogleMapsAPI() {
 // 시간별 날씨 예보 가져오기 (Open-Meteo API)
 export async function fetchHourlyWeather(lat, lng, hours = 24) {
     if (!lat || !lng) return null;
-    
+
     try {
         // Open-Meteo API - 시간별 예보
         const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,weather_code&timezone=auto&forecast_hours=${hours}`;
-        
+
         const res = await fetch(url);
         if (!res.ok) {
             throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         }
-        
+
         const data = await res.json();
-        
+
         if (data.hourly && data.hourly.time && data.hourly.time.length > 0) {
             const hourlyData = [];
-            
+
             for (let i = 0; i < Math.min(hours, data.hourly.time.length); i++) {
                 const timeStr = data.hourly.time[i];
                 const temp = data.hourly.temperature_2m[i];
@@ -498,7 +499,7 @@ export async function fetchHourlyWeather(lat, lng, hours = 24) {
                 const humidity = data.hourly.relative_humidity_2m[i];
                 const precipitation = data.hourly.precipitation_probability[i];
                 const weatherCode = data.hourly.weather_code[i];
-                
+
                 hourlyData.push({
                     time: formatHourlyTime(timeStr),
                     temp: temp !== null ? Math.round(temp) : null,
@@ -511,10 +512,10 @@ export async function fetchHourlyWeather(lat, lng, hours = 24) {
                     isDaytime: isDaytime(timeStr)
                 });
             }
-            
+
             return hourlyData;
         }
-        
+
         return null;
     } catch (e) {
         console.warn("Hourly weather fetch failed:", e.message);
@@ -525,13 +526,13 @@ export async function fetchHourlyWeather(lat, lng, hours = 24) {
 // 시간 포맷 헬퍼 (ISO 8601 형식에서 시간 추출)
 function formatHourlyTime(isoTimeStr) {
     if (!isoTimeStr) return '--:--';
-    
+
     try {
         const date = new Date(isoTimeStr);
         const hours = date.getHours();
         const ampm = hours < 12 ? '오전' : '오후';
         const displayHour = hours === 0 ? 12 : (hours > 12 ? hours - 12 : hours);
-        
+
         return `${ampm} ${displayHour}시`;
     } catch (e) {
         return '--:--';
@@ -566,28 +567,28 @@ function getWeatherIconFromCode(code) {
 // 주간 날씨 데이터 가져오기 (7일)
 export async function fetchWeeklyWeather(lat, lng, weekStartDate) {
     if (!lat || !lng) return null;
-    
+
     try {
         const startDate = new Date(weekStartDate);
         const endDate = new Date(startDate);
         endDate.setDate(endDate.getDate() + 6);
-        
+
         const startStr = formatDateStr(startDate);
         const endStr = formatDateStr(endDate);
-        
+
         const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&start_date=${startStr}&end_date=${endStr}`;
-        
+
         const res = await fetch(url);
         if (!res.ok) {
             throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         }
-        
+
         const data = await res.json();
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
+
         const weeklyData = [];
-        
+
         if (data.daily && data.daily.time && data.daily.time.length > 0) {
             for (let i = 0; i < data.daily.time.length; i++) {
                 const date = data.daily.time[i];
@@ -595,10 +596,10 @@ export async function fetchWeeklyWeather(lat, lng, weekStartDate) {
                 const maxTemp = data.daily.temperature_2m_max[i];
                 const minTemp = data.daily.temperature_2m_min[i];
                 const weatherCode = data.daily.weather_code[i];
-                
+
                 // 오늘 이전 날짜는 사용 불가 처리
                 const isAvailable = dateObj >= today;
-                
+
                 weeklyData.push({
                     date: date,
                     maxTemp: maxTemp !== null ? Math.round(maxTemp) : null,
@@ -610,7 +611,7 @@ export async function fetchWeeklyWeather(lat, lng, weekStartDate) {
                 });
             }
         }
-        
+
         return weeklyData;
     } catch (e) {
         console.warn("Weekly weather fetch failed:", e.message);
@@ -621,31 +622,31 @@ export async function fetchWeeklyWeather(lat, lng, weekStartDate) {
 // 특정 날짜의 시간별 날씨 가져오기
 export async function fetchHourlyWeatherForDate(lat, lng, dateStr) {
     if (!lat || !lng) return null;
-    
+
     try {
         const targetDate = new Date(dateStr);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
+
         // 과거 날짜는 데이터 없음
         if (targetDate < today) {
             return null;
         }
-        
+
         // Open-Meteo API - 특정 날짜의 시간별 예보
         const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,weather_code&timezone=auto&start_date=${dateStr}&end_date=${dateStr}`;
-        
+
         const res = await fetch(url);
         if (!res.ok) {
             throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         }
-        
-           
+
+
         const data = await res.json();
-        
+
         if (data.hourly && data.hourly.time && data.hourly.time.length > 0) {
             const hourlyData = [];
-            
+
             for (let i = 0; i < data.hourly.time.length; i++) {
                 const timeStr = data.hourly.time[i];
                 const temp = data.hourly.temperature_2m[i];
@@ -653,7 +654,7 @@ export async function fetchHourlyWeatherForDate(lat, lng, dateStr) {
                 const humidity = data.hourly.relative_humidity_2m[i];
                 const precipitation = data.hourly.precipitation_probability[i];
                 const weatherCode = data.hourly.weather_code[i];
-                
+
                 hourlyData.push({
                     time: formatHourlyTime(timeStr),
                     temp: temp !== null ? Math.round(temp) : null,
@@ -666,10 +667,10 @@ export async function fetchHourlyWeatherForDate(lat, lng, dateStr) {
                     isDaytime: isDaytime(timeStr)
                 });
             }
-            
+
             return hourlyData;
         }
-        
+
         return null;
     } catch (e) {
         console.warn("Hourly weather for date fetch failed:", e.message);
@@ -686,4 +687,3 @@ function formatDateStr(date) {
 
 // API 로드 시작
 loadGoogleMapsAPI();
-            

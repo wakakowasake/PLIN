@@ -126,39 +126,61 @@ export async function handleMemoryPhotoChange(arg) {
     // 이벤트 객체(e)가 넘어오면 e.target을, 요소 자체가 넘어오면 요소를 사용
     const input = arg.target ? arg.target : arg;
 
-    // [Fix] 현재 활성화된 모달 내부의 요소 찾기
     const modal = document.getElementById('memory-modal');
-    if (input.files && input.files[0]) {
-        let file = input.files[0];
+    const previewContainer = modal.querySelector('#memory-photo-preview');
+    const placeholder = modal.querySelector('#memory-photo-placeholder');
+    const singleImg = modal.querySelector('#memory-photo-img');
+    const clearBtn = modal.querySelector('#memory-photo-clear');
 
-        // [HEIC Preview] 미리보기를 위해 HEIC 변환
-        if ((file.type === 'image/heic' || file.type === 'image/heif' || file.name.toLowerCase().endsWith('.heic')) && window.heic2any) {
-            try {
-                const convertedBlob = await window.heic2any({
-                    blob: file,
-                    toType: "image/jpeg",
-                    quality: 0.5 // 미리보기용이라 화질 낮춤
-                });
-                file = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
-            } catch (e) {
-                console.warn("HEIC preview conversion failed:", e);
+    // Reset UI
+    if (placeholder) placeholder.classList.add('hidden');
+    if (singleImg) singleImg.classList.add('hidden');
+    if (clearBtn) clearBtn.classList.remove('hidden');
+    
+    // Remove existing grid if any
+    const existingGrid = previewContainer.querySelector('.preview-grid');
+    if (existingGrid) existingGrid.remove();
+
+    if (input.files && input.files.length > 0) {
+        if (input.files.length === 1) {
+            // Single image logic
+            let file = input.files[0];
+            // [HEIC Preview]
+            if ((file.type === 'image/heic' || file.type === 'image/heif' || file.name.toLowerCase().endsWith('.heic')) && window.heic2any) {
+                try {
+                    const convertedBlob = await window.heic2any({ blob: file, toType: "image/jpeg", quality: 0.5 });
+                    file = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+                } catch (e) { console.warn("HEIC preview conversion failed:", e); }
             }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                if (singleImg) {
+                    singleImg.src = e.target.result;
+                    singleImg.classList.remove('hidden');
+                }
+            };
+            reader.readAsDataURL(file);
+        } else {
+            // Multiple images - Grid view
+            const grid = document.createElement('div');
+            grid.className = 'preview-grid w-full h-full overflow-x-auto flex gap-2 p-2 items-center';
+            
+            Array.from(input.files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    img.className = 'h-full w-auto object-cover rounded-lg shadow-sm flex-shrink-0 aspect-square';
+                    grid.appendChild(img);
+                };
+                reader.readAsDataURL(file);
+            });
+            previewContainer.appendChild(grid);
         }
-
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const imgPreview = modal.querySelector('#memory-photo-img');
-            const placeholder = modal.querySelector('#memory-photo-placeholder');
-            const clearBtn = modal.querySelector('#memory-photo-clear');
-
-            if (imgPreview) {
-                imgPreview.src = e.target.result;
-                imgPreview.classList.remove('hidden');
-            }
-            if (placeholder) placeholder.classList.add('hidden');
-            if (clearBtn) clearBtn.classList.remove('hidden');
-        };
-        reader.readAsDataURL(file);
+    } else {
+        if (placeholder) placeholder.classList.remove('hidden');
+        if (clearBtn) clearBtn.classList.add('hidden');
     }
 }
 
@@ -168,6 +190,7 @@ export function clearMemoryPhoto() {
     const imgPreview = modal.querySelector('#memory-photo-img');
     const placeholder = modal.querySelector('#memory-photo-placeholder');
     const clearBtn = modal.querySelector('#memory-photo-clear');
+    const previewContainer = modal.querySelector('#memory-photo-preview');
 
     if (input) input.value = "";
     if (imgPreview) {
@@ -176,6 +199,9 @@ export function clearMemoryPhoto() {
     }
     if (placeholder) placeholder.classList.remove('hidden');
     if (clearBtn) clearBtn.classList.add('hidden');
+
+    const existingGrid = previewContainer.querySelector('.preview-grid');
+    if (existingGrid) existingGrid.remove();
 }
 
 export async function saveMemoryItem() {
@@ -187,7 +213,7 @@ export async function saveMemoryItem() {
     const comment = commentEl ? commentEl.value : "";
     
     // 사진도 없고 코멘트도 없으면 경고
-    if ((!input || !input.files || !input.files[0]) && !comment) {
+    if ((!input || !input.files || input.files.length === 0) && !comment) {
         alert("사진이나 코멘트 중 하나는 입력해야 합니다.");
         return;
     }
@@ -206,71 +232,65 @@ export async function saveMemoryItem() {
     try {
         showLoading();
         
-        let photoUrl = null;
-        if (input && input.files && input.files[0]) {
-            const file = input.files[0];
-            const timestamp = Date.now();
-            const fileName = `memory_${targetDayIndex}_${viewingItemIndex}_${timestamp}.jpg`;
-            
-            let base64Data;
-            try {
-                // 1차 시도: 1024px, 0.7 (모바일 메모리 고려하여 하향 조정)
-                base64Data = await compressImage(file, 1024, 0.7);
-            } catch (err) {
-                console.warn("1st compression failed:", err);
+        const files = input.files;
+        const uploadedUrls = [];
+
+        if (files && files.length > 0) {
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const timestamp = Date.now();
+                const fileName = `memory_${targetDayIndex}_${viewingItemIndex}_${timestamp}_${i}.jpg`;
                 
+                let base64Data;
                 try {
-                    // 2차 시도: 600px, 0.6 (강력한 압축)
-                    base64Data = await compressImage(file, 600, 0.6);
-                } catch (err2) {
-                    console.warn("2nd compression failed:", err2);
-                    
+                    // 1차 시도: 1024px, 0.7
+                    base64Data = await compressImage(file, 1024, 0.7);
+                } catch (err) {
+                    console.warn("1st compression failed:", err);
                     try {
-                        // 3차 시도: 400px, 0.5 (최후의 수단)
-                        base64Data = await compressImage(file, 400, 0.5);
-                    } catch (err3) {
-                        console.warn("All compression attempts failed:", err3);
-                        
-                        // 원본 파일 크기 체크 (7MB 초과 시 업로드 불가)
-                        if (file.size > 7 * 1024 * 1024) {
-                            throw new Error(`이미지 압축에 실패했습니다. 원본 용량(${Math.round(file.size/1024/1024)}MB)이 너무 커서 업로드할 수 없습니다.`);
+                        // 2차 시도: 600px, 0.6
+                        base64Data = await compressImage(file, 600, 0.6);
+                    } catch (err2) {
+                        console.warn("2nd compression failed:", err2);
+                        try {
+                            // 3차 시도: 400px, 0.5
+                            base64Data = await compressImage(file, 400, 0.5);
+                        } catch (err3) {
+                            console.warn("All compression attempts failed:", err3);
+                            if (file.size > 7 * 1024 * 1024) {
+                                throw new Error(`이미지 압축에 실패했습니다. 원본 용량(${Math.round(file.size/1024/1024)}MB)이 너무 커서 업로드할 수 없습니다.`);
+                            }
+                            base64Data = await new Promise((resolve, reject) => {
+                                const reader = new FileReader();
+                                reader.onload = (e) => resolve(e.target.result);
+                                reader.onerror = (e) => reject(new Error("파일 읽기 실패"));
+                                reader.readAsDataURL(file);
+                            });
                         }
-                        
-                        // 원본 사용
-                        base64Data = await new Promise((resolve, reject) => {
-                            const reader = new FileReader();
-                            reader.onload = (e) => resolve(e.target.result);
-                            reader.onerror = (e) => reject(new Error("파일 읽기 실패"));
-                            reader.readAsDataURL(file);
-                        });
                     }
                 }
-            }
 
-            // [Safety Check] Cloud Functions (Gen 1) 10MB 제한 체크
-            // Base64 문자열 길이가 약 10,485,760 (10MB)를 넘으면 서버 도달 전 차단됨
-            // 여유를 두어 9.5MB로 설정하여 네트워크 낭비 방지
-            if (base64Data.length > 9.5 * 1024 * 1024) {
-                throw new Error("이미지 용량이 너무 큽니다 (압축 실패). 더 작은 사진을 선택해주세요.");
+                if (base64Data.length > 9.5 * 1024 * 1024) {
+                    throw new Error("이미지 용량이 너무 큽니다 (압축 실패). 더 작은 사진을 선택해주세요.");
+                }
+                
+                const response = await fetch(`${BACKEND_URL}/upload-memory`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        base64Data: base64Data,
+                        fileName: fileName,
+                        tripId: currentTripId
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errData = await response.json().catch(() => ({}));
+                    throw new Error(errData.error || 'Upload failed');
+                }
+                const result = await response.json();
+                uploadedUrls.push(result.url);
             }
-            
-            const response = await fetch(`${BACKEND_URL}/upload-memory`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    base64Data: base64Data,
-                    fileName: fileName,
-                    tripId: currentTripId
-                })
-            });
-            
-            if (!response.ok) {
-                // 서버 에러 메시지 확인
-                const errData = await response.json().catch(() => ({}));
-                throw new Error(errData.error || 'Upload failed');
-            }
-            const result = await response.json();
-            photoUrl = result.url;
         }
         
         const day = travelData.days[targetDayIndex];
@@ -279,11 +299,23 @@ export async function saveMemoryItem() {
         if (!item) throw new Error("Timeline item not found.");
         if (!item.memories) item.memories = [];
         
-        item.memories.push({
-            photoUrl: photoUrl,
-            comment: comment,
-            createdAt: new Date().toISOString()
-        });
+        if (uploadedUrls.length > 0) {
+            uploadedUrls.forEach((url, idx) => {
+                // 코멘트는 첫 번째 사진에만 첨부 (중복 방지)
+                const memComment = (idx === 0) ? comment : "";
+                item.memories.push({
+                    photoUrl: url,
+                    comment: memComment,
+                    createdAt: new Date().toISOString()
+                });
+            });
+        } else if (comment) {
+            item.memories.push({
+                photoUrl: null,
+                comment: comment,
+                createdAt: new Date().toISOString()
+            });
+        }
         
         await autoSave(true); // 즉시 저장
         renderItinerary();

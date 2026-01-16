@@ -4,6 +4,7 @@ import { db } from '../firebase.js';
 import { collection, query, where, getDocs, addDoc, doc, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 import { currentUser, newTripDataTemp, defaultTravelData, setNewTripDataTemp } from '../state.js';
 import { showLoading, hideLoading } from './modals.js';
+import logger from '../logger.js';
 
 // [Helper] 여행 목록 컨테이너가 없으면 생성
 function ensureTripListContainer() {
@@ -15,13 +16,13 @@ function ensureTripListContainer() {
             const container = document.createElement('div');
             container.id = "trip-list";
             container.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20 animate-fade-in";
-            
+
             // 제목 뒤나 적절한 위치에 삽입
             const title = document.getElementById('main-view-title');
             // [Fix] UI 깨짐 방지를 위해 mainView의 마지막에 추가하거나 명시적인 위치 사용
             mainView.appendChild(container);
             listEl = container;
-            console.log("[Auto-Fix] Missing #trip-list element was created.");
+            logger.debug("[Auto-Fix] Missing #trip-list element was created.");
         }
     }
     return listEl;
@@ -33,7 +34,7 @@ function ensureNewTripModal() {
     // 모달이 없거나 내용이 비어있으면 새로 생성
     if (!modal || modal.innerHTML.trim() === "") {
         if (modal) modal.remove(); // 기존 껍데기가 있다면 제거
-        
+
         modal = document.createElement('div');
         modal.id = 'new-trip-modal';
         modal.className = 'fixed inset-0 bg-black/50 z-[9999] hidden flex items-center justify-center p-4 backdrop-blur-sm';
@@ -87,20 +88,20 @@ function ensureNewTripModal() {
             </div>
         `;
         document.body.appendChild(modal);
-        console.log("[Auto-Fix] Missing #new-trip-modal was created.");
+        logger.debug("[Auto-Fix] Missing #new-trip-modal was created.");
     }
     return modal;
 }
 
 export async function loadTripList(uid) {
     if (!uid) return;
-    
+
     const listEl = ensureTripListContainer();
     if (!listEl) {
         console.error("Critical: Could not find or create #trip-list element.");
         return;
     }
-    
+
     // [Fix] 기존에 정적으로 존재하는 '새 여행 만들기' 버튼이 있다면 숨김 처리 (중복 방지)
     const staticCreateBtn = document.querySelector('button[onclick="createNewTrip()"]:not(#trip-list *)');
     if (staticCreateBtn) staticCreateBtn.style.display = 'none';
@@ -110,7 +111,7 @@ export async function loadTripList(uid) {
     try {
         const q = query(collection(db, "plans"), where(`members.${uid}`, ">", ""));
         const querySnapshot = await getDocs(q);
-        
+
         if (querySnapshot.empty) {
             listEl.innerHTML = `
                 <div class="col-span-full flex flex-col items-center justify-center py-16 text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-700">
@@ -130,7 +131,7 @@ export async function loadTripList(uid) {
             const plan = doc.data();
             const id = doc.id;
             const title = plan.meta?.title || '제목 없음';
-            
+
             let dateDisplay = '날짜 미정';
             if (plan.days && plan.days.length > 0) {
                 const start = plan.days[0].date;
@@ -146,7 +147,7 @@ export async function loadTripList(uid) {
 
             const image = plan.meta?.mapImage || 'https://placehold.co/600x400';
             const memberCount = Object.keys(plan.members || {}).length;
-            
+
             html += `
                 <div class="group bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 dark:border-gray-700 relative cursor-pointer transform hover:-translate-y-1" onclick="openTrip('${id}')">
                     <div class="h-48 bg-gray-200 relative overflow-hidden">
@@ -199,14 +200,14 @@ export async function loadTripList(uid) {
 export function createNewTrip() {
     setNewTripDataTemp({});
     ensureNewTripModal(); // 모달이 없으면 생성
-    
+
     const modal = document.getElementById('new-trip-modal');
     if (modal) {
         modal.classList.remove('hidden');
         document.querySelectorAll('[id^="wizard-step-"]').forEach(el => el.classList.add('hidden'));
         const step1 = document.getElementById('wizard-step-1');
-        if(step1) step1.classList.remove('hidden');
-        
+        if (step1) step1.classList.remove('hidden');
+
         // 입력 필드 초기화
         const inputs = modal.querySelectorAll('input');
         inputs.forEach(input => input.value = '');
@@ -222,11 +223,11 @@ export function nextWizardStep(step) {
     document.querySelectorAll('[id^="wizard-step-"]').forEach(el => el.classList.add('hidden'));
     const nextStep = document.getElementById(`wizard-step-${step}`);
     if (nextStep) nextStep.classList.remove('hidden');
-    
+
     if (step === 2) {
         // map.js의 setupWizardAutocomplete 호출 (동적 import)
         import('../map.js').then(module => {
-            if(module.setupWizardAutocomplete) module.setupWizardAutocomplete();
+            if (module.setupWizardAutocomplete) module.setupWizardAutocomplete();
         });
     }
 }
@@ -253,7 +254,7 @@ export async function finishNewTripWizard() {
     const startDate = startInput.value;
     const endDate = endInput.value;
     const location = newTripDataTemp.locationName || (locationInput ? locationInput.value : "알 수 없는 여행지");
-    
+
     if (!title || !startDate || !endDate) {
         alert("여행 제목과 날짜를 모두 입력해주세요.");
         return;
@@ -265,9 +266,9 @@ export async function finishNewTripWizard() {
         const start = new Date(startDate);
         const end = new Date(endDate);
         const diffTime = Math.abs(end - start);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         const dayCountText = (diffDays === 0) ? "당일치기" : `${diffDays}박 ${diffDays + 1}일`;
-        
+
         const days = [];
         for (let i = 0; i <= diffDays; i++) {
             const d = new Date(start);
@@ -299,12 +300,12 @@ export async function finishNewTripWizard() {
         };
 
         const docRef = await addDoc(collection(db, "plans"), newTrip);
-        
+
         closeNewTripModal();
-        
+
         // 생성된 여행 열기
         if (window.openTrip) window.openTrip(docRef.id);
-        
+
     } catch (e) {
         console.error("Error creating trip:", e);
         alert("여행 생성 중 오류가 발생했습니다: " + e.message);
@@ -315,7 +316,7 @@ export async function finishNewTripWizard() {
 
 export async function deleteTrip(tripId) {
     if (!confirm("정말 이 여행 계획을 삭제하시겠습니까? 복구할 수 없습니다.")) return;
-    
+
     try {
         showLoading();
         await deleteDoc(doc(db, "plans", tripId));

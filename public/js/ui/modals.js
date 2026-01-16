@@ -115,18 +115,30 @@ export function closeDetailModal() {
     unlockBodyScroll();
 }
 
-export function selectAddType(type) {
+export function selectAddType(type, subtype) {
+    // 모달을 닫으면 insertingItemIndex가 null로 초기화되므로 미리 저장
+    const currentIndex = insertingItemIndex;
+    const currentDay = targetDayIndex;
+    
     closeAddModal();
     
+    // 상태 의존적인 함수들을 위해 값 복구 (필요한 경우)
+    setInsertingItemIndex(currentIndex);
+    
     if (type === 'place' || type === 'activity') {
-        if (window.addTimelineItem) window.addTimelineItem(insertingItemIndex, targetDayIndex);
+        if (window.addTimelineItem) window.addTimelineItem(currentIndex, currentDay);
     } else if (type === 'memo') {
-        if (window.addNoteItem) window.addNoteItem(insertingItemIndex);
+        if (window.addNoteItem) window.addNoteItem(currentIndex);
     } else if (type === 'fastest') {
         if (window.addFastestTransitItem) window.addFastestTransitItem();
-    } else {
+    } else if (type === 'copy') {
+        if (window.openCopyItemModal) window.openCopyItemModal();
+    } else if (type === 'transit') {
         // Transit types: airplane, train, bus, car, walk
-        if (window.addTransitItem) window.addTransitItem(insertingItemIndex, type, targetDayIndex);
+        if (window.addTransitItem) window.addTransitItem(currentIndex, subtype, currentDay);
+    } else {
+        // Fallback (기존 호환성)
+        if (window.addTransitItem) window.addTransitItem(currentIndex, type, currentDay);
     }
 }
 
@@ -488,7 +500,7 @@ export function ensureMemoryModal() {
                                 <span class="material-symbols-outlined text-sm">close</span>
                             </button>
                         </div>
-                        <input id="memory-photo-input" type="file" accept="image/*" onchange="handleMemoryPhotoChange(event)" class="hidden">
+                        <input id="memory-photo-input" type="file" accept="image/*" multiple onchange="handleMemoryPhotoChange(event)" class="hidden">
                     </div>
                     <div>
                         <label for="memory-comment" class="block text-sm font-bold text-text-muted dark:text-gray-400 mb-2 uppercase tracking-wider">코멘트</label>

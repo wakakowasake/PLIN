@@ -1,11 +1,12 @@
 // d:\SoongSil Univ\piln\public\js\ui-transit.js
 
-import { 
+import {
     travelData, targetDayIndex, setTargetDayIndex, setViewingItemIndex, viewingItemIndex, currentDayIndex,
     insertingItemIndex, setInsertingItemIndex, isEditingFromDetail, setIsEditingFromDetail, setTravelData
 } from './state.js';
 import { parseTimeStr, formatTimeStr, calculateStraightDistance, minutesTo24Hour } from './ui-utils.js';
 import { airports, searchAirports, getAirportByCode, formatAirport } from './airports.js';
+import logger from '../logger.js';
 import { translateStation, translateLine } from './station-translations.js';
 import { openUserProfile } from './ui/profile.js';
 
@@ -42,12 +43,20 @@ export function addTransitItem(index, type, dayIndex = currentDayIndex) {
         'walk': '도보'
     };
 
+    const iconMap = {
+        'airplane': 'flight',
+        'train': 'train',
+        'bus': 'directions_bus',
+        'car': 'directions_car',
+        'walk': 'directions_walk'
+    };
+
     // 빈 이동수단 아이템 생성
     const newItem = {
         time: "",
         title: "",
         location: "",
-        icon: type === 'airplane' ? 'flight' : 'directions_walk',
+        icon: iconMap[type] || 'directions_walk',
         tag: tagMap[type] || '도보',
         tagColor: "green",
         isTransit: true,
@@ -80,7 +89,7 @@ export function openTransitInputModal(index, type = null) {
     transitInputIndex = index;
     transitInputType = type;
     isTransitEditing = type === null;
-    
+
     const modal = document.getElementById('transit-input-modal');
     const titleEl = document.getElementById('transit-modal-title');
     const startEl = document.getElementById('transit-start-time');
@@ -88,7 +97,7 @@ export function openTransitInputModal(index, type = null) {
     const noteEl = document.getElementById('transit-note');
     const warningEl = document.getElementById('transit-warning');
     const fetchBtn = document.getElementById('btn-fetch-transit-time');
-    
+
     startEl.value = "";
     endEl.value = "";
     noteEl.value = "";
@@ -102,17 +111,17 @@ export function openTransitInputModal(index, type = null) {
         const item = travelData.days[targetDayIndex].timeline[index];
         titleEl.innerText = "이동 정보 수정";
         noteEl.value = item.note || "";
-        
+
         if (item.transitInfo) {
             startEl.value = item.transitInfo.start;
             endEl.value = item.transitInfo.end;
             calculateTransitDuration();
         }
-        
+
         if (fetchBtn) fetchBtn.classList.add('hidden');
     } else {
         titleEl.innerText = "이동 수단 추가";
-        
+
         const timeline = travelData.days[targetDayIndex].timeline;
         if (index >= 0 && timeline[index]) {
             const prevItem = timeline[index];
@@ -120,13 +129,13 @@ export function openTransitInputModal(index, type = null) {
             if (prevTimeMinutes !== null) {
                 const h = Math.floor(prevTimeMinutes / 60);
                 const m = prevTimeMinutes % 60;
-                startEl.value = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+                startEl.value = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
             }
         }
-        
+
         if (fetchBtn) fetchBtn.classList.remove('hidden');
     }
-    
+
     modal.classList.remove('hidden');
 }
 
@@ -141,19 +150,19 @@ export function calculateTransitDuration() {
     const end = document.getElementById('transit-end-time').value;
     const display = document.getElementById('transit-duration-display');
     const warningEl = document.getElementById('transit-warning');
-    
+
     if (warningEl) {
         warningEl.classList.add('hidden');
         warningEl.innerText = "";
     }
     display.innerText = "--";
-    
+
     if (start && end) {
         const [h1, m1] = start.split(':').map(Number);
         const [h2, m2] = end.split(':').map(Number);
         const startMins = h1 * 60 + m1;
         const endMins = h2 * 60 + m2;
-        
+
         let diff = endMins - startMins;
         let warningMsg = "";
 
@@ -163,7 +172,7 @@ export function calculateTransitDuration() {
         }
 
         let prevIndex = isTransitEditing ? transitInputIndex - 1 : transitInputIndex;
-        
+
         if (prevIndex >= 0) {
             const timeline = travelData.days[targetDayIndex].timeline;
             if (timeline && timeline[prevIndex]) {
@@ -188,10 +197,10 @@ export function calculateTransitDuration() {
             warningEl.innerText = warningMsg;
             warningEl.classList.remove('hidden');
         }
-        
+
         const h = Math.floor(diff / 60);
         const m = diff % 60;
-        
+
         let str = "";
         if (h > 0) str += `${h}시간 `;
         str += `${m}분`;
@@ -225,7 +234,7 @@ export function fetchTransitTime() {
             const item = timeline[i];
             const hasCoords = item.lat && item.lng;
             const isNotTransitOrMemo = !item.isTransit && item.tag !== '메모';
-            
+
             if (hasCoords || isNotTransitOrMemo) {
                 return item;
             }
@@ -269,7 +278,7 @@ export function fetchTransitTime() {
         const locStr = (item.location && item.location !== '위치') ? item.location : '';
         if (locStr) return locStr;
         if (item.title) return item.title;
-        
+
         return '';
     };
 
@@ -294,12 +303,12 @@ export function fetchTransitTime() {
         if (item.tag === '도보') mode = 'walking';
         else if (item.tag === '차량') mode = 'driving';
     } else if (transitInputType) {
-         if (transitInputType === 'walk') mode = 'walking';
-         else if (transitInputType === 'car') mode = 'driving';
+        if (transitInputType === 'walk') mode = 'walking';
+        else if (transitInputType === 'car') mode = 'driving';
     }
 
     const [h, m] = startTimeInput.value.split(':').map(Number);
-    
+
     const now = new Date();
     const departureTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
     if (departureTime < now) {
@@ -319,19 +328,19 @@ export function fetchTransitTime() {
         if (status === 'OK') {
             const route = result.routes[0];
             const leg = route.legs[0];
-            
+
             const durationSec = leg.duration.value;
             const durationText = leg.duration.text;
 
             const startMins = h * 60 + m;
             const durationMins = Math.ceil(durationSec / 60);
             const endMins = startMins + durationMins;
-            
+
             const eh = Math.floor(endMins / 60) % 24;
             const em = endMins % 60;
-            
+
             document.getElementById('transit-end-time').value = `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
-            
+
             const noteInput = document.getElementById('transit-note');
             if (!noteInput.value) {
                 noteInput.value = `구글맵 경로: ${durationText}`;
@@ -350,7 +359,7 @@ export function saveTransitItem() {
     const start = document.getElementById('transit-start-time').value;
     let end = document.getElementById('transit-end-time').value;
     const note = document.getElementById('transit-note').value;
-    
+
     if (!start) {
         alert("출발 시간을 입력해주세요.");
         return;
@@ -360,7 +369,7 @@ export function saveTransitItem() {
         const timeline = travelData.days[targetDayIndex].timeline;
         const nextIndex = transitInputIndex + 1;
         const nextItem = timeline[nextIndex];
-        
+
         let targetMins = null;
 
         if (nextItem) {
@@ -382,9 +391,9 @@ export function saveTransitItem() {
         end = `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
         document.getElementById('transit-end-time').value = end;
     }
-    
+
     const durationStr = calculateTransitDuration();
-    
+
     let modifiedItem = null;
 
     if (isTransitEditing) {
@@ -416,7 +425,7 @@ export function saveTransitItem() {
             walk: '도보',
             car: '차량'
         };
-        
+
         if (!transitInputType || !titles[transitInputType]) {
             console.error("Invalid transit type:", transitInputType);
             return;
@@ -433,10 +442,10 @@ export function saveTransitItem() {
             note: note,
             transitInfo: { start, end }
         };
-        
+
         travelData.days[targetDayIndex].timeline.splice(transitInputIndex + 1, 0, newItem);
     }
-    
+
     reorderTimeline(targetDayIndex);
     closeTransitInputModal();
 
@@ -451,19 +460,19 @@ export function saveTransitItem() {
 
 // [Transit Detail Modal Logic]
 export function openTransitDetailModal(item, index, dayIndex) {
-    
+
     setViewingItemIndex(index);
     setTargetDayIndex(dayIndex);
     const modal = document.getElementById('transit-detail-modal');
-    
+
     document.getElementById('transit-detail-icon').innerText = item.icon;
     document.getElementById('transit-detail-title').innerHTML = item.title;
     document.getElementById('transit-detail-time').innerText = item.time;
-    
+
     const tInfo = item.transitInfo || {};
     document.getElementById('transit-detail-start-val').value = tInfo.start || '';
     document.getElementById('transit-detail-end-val').value = tInfo.end || '';
-    
+
     let publicInfoEl = document.getElementById('transit-detail-public-info');
     if (!publicInfoEl) {
         publicInfoEl = document.createElement('div');
@@ -475,7 +484,7 @@ export function openTransitDetailModal(item, index, dayIndex) {
 
     if (['버스', '전철', '기차', '지하철'].some(t => item.tag && item.tag.includes(t)) && (tInfo.depStop || tInfo.arrStop)) {
         publicInfoEl.classList.remove('hidden');
-        
+
         let statusHtml = '';
         if (tInfo.start) {
             const dayDate = travelData.days[dayIndex].date;
@@ -484,7 +493,7 @@ export function openTransitDetailModal(item, index, dayIndex) {
                 const target = new Date(dayDate);
                 target.setHours(h, m, 0, 0);
                 const now = new Date();
-                
+
                 if (target.toDateString() === now.toDateString()) {
                     const diff = Math.floor((target - now) / 60000);
                     if (diff > 0) statusHtml = `<span class="text-red-500 font-bold animate-pulse">${diff}분 후 도착</span>`;
@@ -524,19 +533,19 @@ export function openTransitDetailModal(item, index, dayIndex) {
 
     const flightInfoEl = document.getElementById('transit-detail-flight-info');
     const searchBtnEl = document.getElementById('transit-detail-search-btn');
-    
+
     if (item.tag === '비행기') {
         const info = item.transitInfo || {};
-        
+
         document.getElementById('transit-detail-pnr').innerText = info.pnr ? info.pnr.toUpperCase() : '미정';
         document.getElementById('transit-detail-terminal').innerText = info.terminal ? info.terminal.toUpperCase() : '미정';
         document.getElementById('transit-detail-gate').innerText = info.gate ? info.gate.toUpperCase() : '미정';
-        
+
         flightInfoEl.classList.remove('hidden');
-        
+
         let flightNum = info.flightNum || (item.title.match(/\(([^)]+)\)/) ? item.title.match(/\(([^)]+)\)/)[1] : '');
         flightNum = flightNum.toUpperCase();
-        
+
         if (flightNum) {
             searchBtnEl.classList.remove('hidden');
             searchBtnEl.innerHTML = `<span class="material-symbols-outlined text-base">search</span> 항공편 검색`;
@@ -546,10 +555,10 @@ export function openTransitDetailModal(item, index, dayIndex) {
         }
     } else {
         if (flightInfoEl) flightInfoEl.classList.add('hidden');
-        
+
         if (searchBtnEl) {
             const timeline = travelData.days[dayIndex].timeline;
-            
+
             const findLocItem = (start, dir) => {
                 let i = start;
                 while (i >= 0 && i < timeline.length) {
@@ -583,11 +592,11 @@ export function openTransitDetailModal(item, index, dayIndex) {
                     };
                     const origin = encodeURIComponent(getLocStr(originItem));
                     const destination = encodeURIComponent(getLocStr(destItem));
-                    
+
                     let mode = 'transit';
                     if (item.tag === '도보') mode = 'walking';
                     else if (item.tag === '차량') mode = 'driving';
-                    
+
                     window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=${mode}`, '_blank');
                 };
             } else {
@@ -601,9 +610,9 @@ export function openTransitDetailModal(item, index, dayIndex) {
     const nextItem = index < timeline.length - 1 ? timeline[index + 1] : null;
     const prevLoc = prevItem ? (prevItem.title || "출발지") : "출발지";
     const nextLoc = nextItem ? (nextItem.title || "도착지") : "도착지";
-    
+
     let routeText = `${prevLoc} ➡️ ${nextLoc}`;
-    
+
     // 비행기인 경우 공항 정보 우선 표시
     if (item.tag === '비행기' && item.location && item.location.includes('✈️')) {
         routeText = item.location;
@@ -612,19 +621,19 @@ export function openTransitDetailModal(item, index, dayIndex) {
     else if (tInfo.depStop && tInfo.arrStop && ['버스', '전철', '기차', '지하철'].some(t => item.tag && item.tag.includes(t))) {
         routeText = `${tInfo.depStop} ➡️ ${tInfo.arrStop}`;
     }
-    
+
     document.getElementById('transit-detail-route').innerText = routeText;
-    
+
     document.getElementById('transit-detail-note').innerText = item.note || "메모가 없습니다.";
 
     // Detailed Steps (Ekispert 등 다단계 경로)
     const stepsContainer = document.getElementById('transit-detail-steps');
     const stepsList = document.getElementById('transit-detail-steps-list');
-    
+
     if (item.detailedSteps && item.detailedSteps.length > 0) {
         stepsContainer.classList.remove('hidden');
         stepsList.innerHTML = '';
-        
+
         item.detailedSteps.forEach((step, idx) => {
             const stepCard = document.createElement('div');
             stepCard.className = 'bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center gap-3';
@@ -706,7 +715,7 @@ export function closeTransitDetailModal(fromHistory = false) {
 export function editCurrentTransitItem() {
     if (viewingItemIndex !== null) {
         const idx = viewingItemIndex;
-        
+
         const savedStart = document.getElementById('transit-detail-start-val').value;
         const savedEnd = document.getElementById('transit-detail-end-val').value;
 
@@ -740,7 +749,7 @@ export function closeDeleteTransitModal() {
 
 export function confirmDeleteTransit() {
     const itemIndex = viewingItemIndex !== null ? viewingItemIndex : currentRouteItemIndex;
-    
+
     if (itemIndex !== null && targetDayIndex !== null) {
         travelData.days[targetDayIndex].timeline.splice(itemIndex, 1);
         reorderTimeline(targetDayIndex);
@@ -811,7 +820,7 @@ export function openFlightInputModal(index, isEdit = false) {
     terminalInput.value = "";
     gateInput.value = "";
     noteInput.value = "";
-    
+
     const datalist = document.getElementById('airport-list');
     if (datalist && datalist.children.length === 0) {
         majorAirports.forEach(ap => {
@@ -824,7 +833,7 @@ export function openFlightInputModal(index, isEdit = false) {
     if (isEdit) {
         modalTitle.innerText = "항공편 정보 수정";
         saveBtn.innerText = "수정 완료";
-        
+
         const item = travelData.days[targetDayIndex].timeline[index];
         const info = item.transitInfo || {};
 
@@ -861,8 +870,8 @@ export function openFlightInputModal(index, isEdit = false) {
         modalTitle.innerText = "항공편 정보 입력";
         saveBtn.innerText = "추가";
     }
-    
-    flightNumInput.onkeydown = function(e) {
+
+    flightNumInput.onkeydown = function (e) {
         if (e.key === 'Enter') {
             e.preventDefault();
             searchFlightNumber();
@@ -875,11 +884,11 @@ export function openFlightInputModal(index, isEdit = false) {
             const val = e.target.value.trim();
             if (!val) return;
 
-            const match = majorAirports.find(ap => 
-                ap.name.includes(val) || 
+            const match = majorAirports.find(ap =>
+                ap.name.includes(val) ||
                 ap.code.includes(val.toUpperCase())
             );
-            
+
             if (match) {
                 e.target.value = `${match.code} (${match.name})`;
                 if (e.target.id === 'flight-dep-airport') {
@@ -927,7 +936,7 @@ export function saveFlightItem() {
         const [h2, m2] = arrTime.split(':').map(Number);
         let diff = (h2 * 60 + m2) - (h1 * 60 + m1);
         if (diff < 0) diff += 24 * 60;
-        
+
         const h = Math.floor(diff / 60);
         const m = diff % 60;
         durationStr = (h > 0 ? `${h}시간 ` : "") + `${m}분`;
@@ -952,8 +961,8 @@ export function saveFlightItem() {
         isTransit: true,
         image: null,
         note: noteStr,
-        transitInfo: { 
-            terminal: terminal.toUpperCase(), 
+        transitInfo: {
+            terminal: terminal.toUpperCase(),
             gate: gate.toUpperCase(),
             flightNum: flightNum.toUpperCase(),
             pnr: pnr.toUpperCase(),
@@ -986,7 +995,7 @@ export function saveFlightItem() {
 export function openGoogleMapsRouteFromPrev() {
     const timeline = travelData.days[targetDayIndex].timeline;
     let prevItem = null;
-    
+
     let searchIdx = -1;
     if (viewingItemIndex !== null) {
         searchIdx = viewingItemIndex - 1;
@@ -1023,7 +1032,7 @@ export function openGoogleMapsRouteFromPrev() {
 
     let destination = "";
     const currentLocVal = document.getElementById('item-location').value;
-    
+
     if (currentLocVal) {
         destination = encodeURIComponent(currentLocVal);
     } else {
@@ -1099,7 +1108,7 @@ export async function addFastestTransitItem() {
                     lng: typeof loc.lng === 'function' ? loc.lng() : loc.lng
                 };
             }
-            
+
             if (item.lat !== undefined && item.lng !== undefined) {
                 return {
                     lat: typeof item.lat === 'function' ? item.lat() : Number(item.lat),
@@ -1112,26 +1121,26 @@ export async function addFastestTransitItem() {
 
         const origin = getPoint(prevItem);
         const destination = getPoint(nextItem);
-        
+
         // [Custom Logic] 일본/인도 지역 직선거리 기반 자동 처리
         // 국가 코드 추출 헬퍼 함수
         const getCountryCode = async (item) => {
             // 이미 국가 정보가 있으면 반환
             if (item.countryCode) return item.countryCode;
-            
+
             // address_components가 있으면 추출
             if (item.address_components) {
                 const country = item.address_components.find(c => c.types.includes('country'));
                 if (country) return country.short_name;
             }
-            
+
             // Geocoding으로 국가 정보 추출 (좌표가 있는 경우)
             if (item.lat && item.lng) {
                 try {
                     const geocoder = new google.maps.Geocoder();
                     const result = await new Promise((resolve, reject) => {
-                        geocoder.geocode({ 
-                            location: { 
+                        geocoder.geocode({
+                            location: {
                                 lat: typeof item.lat === 'function' ? item.lat() : Number(item.lat),
                                 lng: typeof item.lng === 'function' ? item.lng() : Number(item.lng)
                             }
@@ -1143,7 +1152,7 @@ export async function addFastestTransitItem() {
                             }
                         });
                     });
-                    
+
                     if (result && result.address_components) {
                         const country = result.address_components.find(c => c.types.includes('country'));
                         if (country) {
@@ -1156,14 +1165,14 @@ export async function addFastestTransitItem() {
                     console.warn('Geocoding failed:', e);
                 }
             }
-            
+
             return null;
         };
-        
+
         // 앞뒤 장소의 국가 확인
         const prevCountry = await getCountryCode(prevItem);
         const nextCountry = await getCountryCode(nextItem);
-        
+
         // 일본(JP)인 경우 Ekispert API 시도
         if (prevCountry === 'JP' && nextCountry === 'JP') {
             try {
@@ -1183,16 +1192,16 @@ export async function addFastestTransitItem() {
                 // 실패하면 아래 직선거리 계산으로 fallback
             }
         }
-        
+
         // 양쪽 모두 일본(JP) 또는 인도(IN)인 경우만 직선거리 계산
-        const isTargetRegion = (prevCountry === 'JP' && nextCountry === 'JP') || 
-                               (prevCountry === 'IN' && nextCountry === 'IN');
+        const isTargetRegion = (prevCountry === 'JP' && nextCountry === 'JP') ||
+            (prevCountry === 'IN' && nextCountry === 'IN');
 
         if (isTargetRegion && typeof origin === 'object' && typeof destination === 'object') {
             const dist = calculateStraightDistance(origin, destination);
             if (dist !== null) {
                 let title, icon, tag, durationMins;
-                
+
                 if (dist <= 1000) {
                     title = "도보로 이동";
                     icon = "directions_walk";
@@ -1202,7 +1211,7 @@ export async function addFastestTransitItem() {
                     title = "대중교통으로 이동";
                     icon = "directions_bus";
                     tag = "대중교통";
-                    
+
                     if (dist <= 5000) {
                         durationMins = Math.ceil(dist / 120);
                     } else if (dist <= 15000) {
@@ -1240,13 +1249,13 @@ export async function addFastestTransitItem() {
         }
 
         let departureTime = new Date();
-        const tripDateStr = travelData.days[targetDayIndex].date; 
+        const tripDateStr = travelData.days[targetDayIndex].date;
         if (tripDateStr) {
             const [y, m, d] = tripDateStr.split('-').map(Number);
             departureTime.setFullYear(y);
             departureTime.setMonth(m - 1);
             departureTime.setDate(d);
-            
+
             let timeRefItem = null;
             let searchIdx = (insertIdx >= 0) ? Math.min(insertIdx, timeline.length - 1) : timeline.length - 1;
             if (searchIdx >= 0) timeRefItem = timeline[searchIdx];
@@ -1260,7 +1269,7 @@ export async function addFastestTransitItem() {
                 } else {
                     mins = parseTimeStr(refItem.time);
                 }
-                
+
                 if (mins !== null) {
                     departureTime.setHours(Math.floor(mins / 60), mins % 60, 0, 0);
                 } else {
@@ -1283,7 +1292,7 @@ export async function addFastestTransitItem() {
                 if (params.transitOptions) {
                     request.transitOptions = params.transitOptions;
                 }
-                
+
                 directionsService.route(request, (result, status) => {
                     if (status === 'OK') {
                         resolve(result);
@@ -1309,7 +1318,7 @@ export async function addFastestTransitItem() {
         }
 
         if (!result) {
-            console.log("🕒 지정 시간 실패, 현재 시간으로 재시도");
+            logger.log("🕒 지정 시간 실패, 현재 시간으로 재시도");
             result = await fetchRoute({
                 origin, destination,
                 travelMode: 'transit',
@@ -1320,7 +1329,7 @@ export async function addFastestTransitItem() {
         }
 
         if (!result) {
-            console.log("🚶 대중교통 실패, 도보 경로 탐색 시도");
+            logger.log("🚶 대중교통 실패, 도보 경로 탐색 시도");
             result = await fetchRoute({
                 origin, destination,
                 travelMode: 'walking',
@@ -1356,7 +1365,7 @@ let pendingRouteInsertIndex = null;
 
 export function openRouteSelectionModal(routes, insertIdx, searchMode = null) {
     pendingRouteInsertIndex = insertIdx;
-    
+
     let modal = document.getElementById('route-selection-modal');
     if (!modal) {
         modal = document.createElement('div');
@@ -1384,10 +1393,10 @@ export function openRouteSelectionModal(routes, insertIdx, searchMode = null) {
     } else {
         modal.className = 'fixed inset-0 bg-black/50 z-[99999] hidden flex items-center justify-center p-4';
     }
-    
+
     const list = document.getElementById('route-selection-list');
     list.innerHTML = '';
-    
+
     const formatDuration = (valObj) => {
         return valObj ? valObj.text : "";
     };
@@ -1398,34 +1407,34 @@ export function openRouteSelectionModal(routes, insertIdx, searchMode = null) {
 
     routes.forEach((route, idx) => {
         const leg = route.legs[0];
-        
+
         if (searchMode === 'walking') {
             let distVal = 0;
             if (typeof leg.distance === 'number') distVal = leg.distance;
             else if (leg.distance?.value) distVal = leg.distance.value;
-            
+
             if (distVal > 0) {
                 const walkMins = Math.ceil(distVal / 67);
                 const h = Math.floor(walkMins / 60);
                 const m = walkMins % 60;
                 const newText = h > 0 ? `${h}시간 ${m}분` : `${m}분`;
-                
+
                 leg.duration = { text: newText, value: walkMins * 60 };
             }
         }
 
         const duration = formatDuration(leg.duration);
         const distance = formatDistance(leg.distance);
-        
+
         let iconsHtml = '';
         const transitSteps = leg.steps.filter(s => s.travel_mode === 'TRANSIT');
-        
+
         if (transitSteps.length > 0) {
             transitSteps.forEach(step => {
                 const vehicle = step.transit?.line?.vehicle || { type: 'BUS' };
                 let icon = 'directions_bus';
                 let colorClass = 'text-gray-600 dark:text-gray-300';
-                
+
                 if (vehicle.type === 'SUBWAY' || vehicle.type === 'METRO') {
                     icon = 'subway';
                     colorClass = 'text-orange-500';
@@ -1433,10 +1442,10 @@ export function openRouteSelectionModal(routes, insertIdx, searchMode = null) {
                     icon = 'train';
                     colorClass = 'text-blue-500';
                 }
-                
+
                 const lineName = step.transit?.line?.short_name || step.transit?.line?.name || '';
                 const lineColor = step.transit?.line?.color ? `style="color: ${step.transit.line.color}"` : '';
-                
+
                 iconsHtml += `
                     <div class="flex items-center gap-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-2 py-1 rounded-md text-xs shadow-sm">
                         <span class="material-symbols-outlined text-[16px] ${!lineColor ? colorClass : ''}" ${lineColor}>${icon}</span>
@@ -1444,16 +1453,16 @@ export function openRouteSelectionModal(routes, insertIdx, searchMode = null) {
                     </div>`;
             });
         } else {
-             iconsHtml += `
+            iconsHtml += `
                 <div class="flex items-center gap-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-2 py-1 rounded-md text-xs shadow-sm">
                     <span class="material-symbols-outlined text-[16px] text-green-600">directions_walk</span>
                     <span class="font-bold text-gray-700 dark:text-gray-200">도보</span>
                 </div>`;
         }
-        
+
         const btn = document.createElement('button');
         btn.className = "w-full text-left p-4 rounded-xl bg-white dark:bg-card-dark border border-gray-200 dark:border-gray-700 hover:border-primary hover:ring-1 hover:ring-primary hover:shadow-md transition-all group relative overflow-hidden";
-        
+
         const badge = idx === 0 ? `<div class="absolute top-0 right-0 bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-bl-lg">추천</div>` : '';
 
         const formatAddr = (addr) => {
@@ -1478,14 +1487,14 @@ export function openRouteSelectionModal(routes, insertIdx, searchMode = null) {
                 <span class="truncate flex-1">${startAddr} → ${endAddr}</span>
             </div>
         `;
-        
+
         btn.onclick = () => {
             processSelectedRoute(route, pendingRouteInsertIndex);
             closeRouteSelectionModal();
         };
         list.appendChild(btn);
     });
-    
+
     modal.classList.remove('hidden');
 }
 
@@ -1498,9 +1507,9 @@ export function closeRouteSelectionModal() {
 function processSelectedRoute(route, insertIdx) {
     const leg = route.legs[0];
     const steps = leg.steps;
-    
+
     const safe = (val) => (val === undefined || val === null) ? "" : val;
-    
+
     const formatDuration = (valObj) => {
         return valObj ? valObj.text : "";
     };
@@ -1510,7 +1519,7 @@ function processSelectedRoute(route, insertIdx) {
     };
 
     const detailedSteps = [];
-    
+
     const hasTransit = steps.some(step => step.travel_mode === 'TRANSIT');
 
     const totalDuration = formatDuration(leg.duration);
@@ -1532,100 +1541,100 @@ function processSelectedRoute(route, insertIdx) {
             transitInfo: { start: "", end: "" }
         });
     } else {
-      for (const step of steps) {
-        if (step.travel_mode === 'TRANSIT' && step.transit) {
-            const line = step.transit.line || {};
-            const vehicle = line.vehicle || { type: 'BUS' };
-            
-            // 노선명 추출 (short_name 우선, 없으면 name)
-            const lineName = safe(line.short_name) || safe(line.name) || "대중교통";
-            
-            let icon = "directions_bus";
-            let titleBase = "버스로 이동";
+        for (const step of steps) {
+            if (step.travel_mode === 'TRANSIT' && step.transit) {
+                const line = step.transit.line || {};
+                const vehicle = line.vehicle || { type: 'BUS' };
 
-            const vType = vehicle.type || 'BUS';
-            if (vType === 'SUBWAY' || vType === 'METRO') {
-                icon = "subway"; titleBase = "전철로 이동";
-            } else if (vType === 'HEAVY_RAIL' || vType === 'TRAIN') {
-                icon = "train"; titleBase = "기차로 이동";
-            }
+                // 노선명 추출 (short_name 우선, 없으면 name)
+                const lineName = safe(line.short_name) || safe(line.name) || "대중교통";
 
-            const title = `${titleBase} (${lineName})`;
-            
-            // Google Maps 색상 처리
-            let lineColor = null;
-            let textColor = '#ffffff';
-            // Google Maps API는 'color', Ekispert 등은 'Color'일 수 있음
-            const rawColor = line.color || line.Color;
-            
-            if (rawColor) {
-                // Google Maps는 #RRGGBB 형태로 제공
-                lineColor = rawColor.startsWith('#') ? rawColor : `#${rawColor}`;
-                
-                // 밝기 계산하여 텍스트 색상 결정
-                const hex = lineColor.replace('#', '');
-                const r = parseInt(hex.substring(0, 2), 16);
-                const g = parseInt(hex.substring(2, 4), 16);
-                const b = parseInt(hex.substring(4, 6), 16);
-                const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-                textColor = brightness > 128 ? '#000000' : '#ffffff';
-            }
-            
-            if (line.text_color) {
-                textColor = line.text_color.startsWith('#') ? line.text_color : `#${line.text_color}`;
-            }
-            
-            // 이동수단 타입 결정
-            let transitType = 'bus';
-            if (vType === 'SUBWAY' || vType === 'METRO') {
-                transitType = 'subway';
-            } else if (vType === 'HEAVY_RAIL' || vType === 'TRAIN') {
-                transitType = 'train';
-            }
-            
-            const stepDuration = formatDuration(step.duration);
+                let icon = "directions_bus";
+                let titleBase = "버스로 이동";
 
-            detailedSteps.push({
-                time: stepDuration,
-                title: safe(title),
-                location: "",
-                icon: icon,
-                tag: lineName,  // ★ 노선명을 tag에 넣기 (예: "7호선", "6019")
-                type: transitType,  // ★ 이동수단 타입 (bus, subway, train)
-                tagColor: lineColor || 'blue',
-                color: lineColor,  // ★ UI에서 인식하는 필드
-                textColor: textColor,  // ★ 텍스트 색상
-                transitInfo: {
-                    depStop: safe(step.transit.departure_stop?.name),
-                    arrStop: safe(step.transit.arrival_stop?.name),
-                    start: safe(step.transit.departure_time?.text),
-                    end: safe(step.transit.arrival_time?.text),
-                    headsign: safe(step.transit.headsign),
-                    numStops: step.transit.num_stops || 0
+                const vType = vehicle.type || 'BUS';
+                if (vType === 'SUBWAY' || vType === 'METRO') {
+                    icon = "subway"; titleBase = "전철로 이동";
+                } else if (vType === 'HEAVY_RAIL' || vType === 'TRAIN') {
+                    icon = "train"; titleBase = "기차로 이동";
                 }
-            });
-        } else if (step.travel_mode === 'WALKING') {
-            const stepDuration = formatDuration(step.duration);
-            let instructions = safe(step.instructions) || "도보로 이동";
-            const div = document.createElement("div");
-            div.innerHTML = instructions;
-            instructions = div.textContent || div.innerText || "도보로 이동";
 
-            detailedSteps.push({
-                time: stepDuration,
-                title: "도보로 이동",
-                location: "",
-                icon: "directions_walk",
-                tag: "도보",
-                type: "walk",
-                isTransit: true,
-                image: null,
-                note: instructions,
-                fixedDuration: true,
-                transitInfo: { start: "", end: "" }
-            });
+                const title = `${titleBase} (${lineName})`;
+
+                // Google Maps 색상 처리
+                let lineColor = null;
+                let textColor = '#ffffff';
+                // Google Maps API는 'color', Ekispert 등은 'Color'일 수 있음
+                const rawColor = line.color || line.Color;
+
+                if (rawColor) {
+                    // Google Maps는 #RRGGBB 형태로 제공
+                    lineColor = rawColor.startsWith('#') ? rawColor : `#${rawColor}`;
+
+                    // 밝기 계산하여 텍스트 색상 결정
+                    const hex = lineColor.replace('#', '');
+                    const r = parseInt(hex.substring(0, 2), 16);
+                    const g = parseInt(hex.substring(2, 4), 16);
+                    const b = parseInt(hex.substring(4, 6), 16);
+                    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+                    textColor = brightness > 128 ? '#000000' : '#ffffff';
+                }
+
+                if (line.text_color) {
+                    textColor = line.text_color.startsWith('#') ? line.text_color : `#${line.text_color}`;
+                }
+
+                // 이동수단 타입 결정
+                let transitType = 'bus';
+                if (vType === 'SUBWAY' || vType === 'METRO') {
+                    transitType = 'subway';
+                } else if (vType === 'HEAVY_RAIL' || vType === 'TRAIN') {
+                    transitType = 'train';
+                }
+
+                const stepDuration = formatDuration(step.duration);
+
+                detailedSteps.push({
+                    time: stepDuration,
+                    title: safe(title),
+                    location: "",
+                    icon: icon,
+                    tag: lineName,  // ★ 노선명을 tag에 넣기 (예: "7호선", "6019")
+                    type: transitType,  // ★ 이동수단 타입 (bus, subway, train)
+                    tagColor: lineColor || 'blue',
+                    color: lineColor,  // ★ UI에서 인식하는 필드
+                    textColor: textColor,  // ★ 텍스트 색상
+                    transitInfo: {
+                        depStop: safe(step.transit.departure_stop?.name),
+                        arrStop: safe(step.transit.arrival_stop?.name),
+                        start: safe(step.transit.departure_time?.text),
+                        end: safe(step.transit.arrival_time?.text),
+                        headsign: safe(step.transit.headsign),
+                        numStops: step.transit.num_stops || 0
+                    }
+                });
+            } else if (step.travel_mode === 'WALKING') {
+                const stepDuration = formatDuration(step.duration);
+                let instructions = safe(step.instructions) || "도보로 이동";
+                const div = document.createElement("div");
+                div.innerHTML = instructions;
+                instructions = div.textContent || div.innerText || "도보로 이동";
+
+                detailedSteps.push({
+                    time: stepDuration,
+                    title: "도보로 이동",
+                    location: "",
+                    icon: "directions_walk",
+                    tag: "도보",
+                    type: "walk",
+                    isTransit: true,
+                    image: null,
+                    note: instructions,
+                    fixedDuration: true,
+                    transitInfo: { start: "", end: "" }
+                });
+            }
         }
-      }
     }
 
     if (detailedSteps.length === 0) {
@@ -1648,7 +1657,7 @@ function processSelectedRoute(route, insertIdx) {
     let summaryTitle = "";
     let summaryIcon = "commute";
     let summaryTag = "이동";
-    
+
     if (!hasTransit) {
         summaryTitle = "도보로 이동";
         summaryIcon = "directions_walk";
@@ -1660,11 +1669,11 @@ function processSelectedRoute(route, insertIdx) {
             const line = step.transit?.line || {};
             const vehicle = line.vehicle || {};
             const lineName = line.short_name || line.name || vehicle.name || '';
-            
+
             if (lineName) {
                 let bgColor = '#3b82f6'; // 기본 파란색
                 let txtColor = '#ffffff';
-                
+
                 if (line.color) {
                     bgColor = line.color.startsWith('#') ? line.color : `#${line.color}`;
                     // 밝기 계산하여 텍스트 색상 자동 결정
@@ -1682,11 +1691,11 @@ function processSelectedRoute(route, insertIdx) {
                 transitTags.push(`<span style="background-color:${bgColor};color:${txtColor};padding:2px 6px;border-radius:4px;font-size:0.9em;display:inline-block;vertical-align:middle;font-weight:bold;">${lineName}</span>`);
             }
         });
-        
+
         // 노선명이 있으면 화살표로 연결, 없으면 기본 표시
         if (transitTags.length > 0) {
             summaryTitle = transitTags.join(' <span style="color:#9ca3af;font-size:0.8em;">➜</span> ');
-            
+
             // 아이콘과 태그는 첫 번째 대중교통 타입으로 설정
             const firstVehicle = transitSteps[0]?.transit?.line?.vehicle?.type || 'BUS';
             if (firstVehicle === 'SUBWAY' || firstVehicle === 'METRO') {
@@ -1706,12 +1715,12 @@ function processSelectedRoute(route, insertIdx) {
                 const vType = step.transit?.line?.vehicle?.type || 'BUS';
                 vehicleTypes[vType] = (vehicleTypes[vType] || 0) + 1;
             });
-            
+
             if (Object.keys(vehicleTypes).length > 0) {
-                const mainType = Object.keys(vehicleTypes).reduce((a, b) => 
+                const mainType = Object.keys(vehicleTypes).reduce((a, b) =>
                     vehicleTypes[a] > vehicleTypes[b] ? a : b
                 );
-                
+
                 if (mainType === 'SUBWAY' || mainType === 'METRO') {
                     summaryIcon = "subway";
                     summaryTag = "전철";
@@ -1735,7 +1744,7 @@ function processSelectedRoute(route, insertIdx) {
 
     // 타임라인 배열 가져오기
     const timelineArr = travelData.days[targetDayIndex].timeline;
-    
+
     const summaryItem = {
         time: totalDuration || "시간 미정",
         title: summaryTitle,
@@ -1746,10 +1755,10 @@ function processSelectedRoute(route, insertIdx) {
         image: null,
         note: "",
         fixedDuration: true,
-        transitInfo: { 
-            start: "", 
+        transitInfo: {
+            start: "",
             end: "",
-            summary: detailedSteps.length >     1 ? `총 거리: ${totalDistance}` : `총 거리: ${totalDistance}`
+            summary: detailedSteps.length > 1 ? `총 거리: ${totalDistance}` : `총 거리: ${totalDistance}`
         },
         isCollapsed: detailedSteps.length > 0,
         detailedSteps: detailedSteps.length > 0 ? detailedSteps : null,
@@ -1757,15 +1766,15 @@ function processSelectedRoute(route, insertIdx) {
         expenses: [],
         attachments: []
     };
-    
+
     if (insertIdx >= 0 && insertIdx < timelineArr.length) {
         const prevItem = timelineArr[insertIdx];
         const nextItem = (insertIdx + 1 < timelineArr.length) ? timelineArr[insertIdx + 1] : null;
-        
+
         if (prevItem && nextItem && !prevItem.isTransit && !nextItem.isTransit) {
             const prevTimeMins = parseTimeStr(prevItem.time);
             const nextTimeMins = parseTimeStr(nextItem.time);
-            
+
             if (prevTimeMins !== null) {
                 let durVal = 0;
                 if (typeof leg.duration === 'number') durVal = leg.duration;
@@ -1773,12 +1782,12 @@ function processSelectedRoute(route, insertIdx) {
 
                 const durationMins = Math.ceil(durVal / 60);
                 const arrivalTimeMins = prevTimeMins + durationMins;
-                
+
                 let effectiveNextTime = nextTimeMins;
                 if (effectiveNextTime !== null && effectiveNextTime < prevTimeMins) {
                     effectiveNextTime += 24 * 60;
                 }
-                
+
                 if (effectiveNextTime === null || arrivalTimeMins > effectiveNextTime) {
                     let newTime = arrivalTimeMins >= 24 * 60 ? arrivalTimeMins - 24 * 60 : arrivalTimeMins;
                     nextItem.time = formatTimeStr(newTime);
@@ -1788,7 +1797,7 @@ function processSelectedRoute(route, insertIdx) {
     }
 
     timelineArr.splice(insertIdx + 1, 0, summaryItem);
-    
+
     reorderTimeline(targetDayIndex);
     closeAddModal();
 }
@@ -1809,7 +1818,7 @@ export async function openRouteModal() {
     }
 
     const container = document.getElementById('route-map-container');
-    
+
     // Google Maps로 지도 초기화
     if (!routeMap) {
         routeMap = new google.maps.Map(container, {
@@ -1864,7 +1873,7 @@ export async function openRouteModal() {
 
     for (let i = 0; i < timeline.length; i++) {
         const item = timeline[i];
-        
+
         if (item.isTransit) {
             transitBuffer.push(item);
             continue;
@@ -1914,7 +1923,7 @@ export async function openRouteModal() {
                     for (let j = 0; j < count; j++) {
                         const tItem = transitBuffer[j];
                         const fraction = (j + 1) / (count + 1);
-                        
+
                         const transitPos = {
                             lat: lastPlacePos.lat + (pos.lat - lastPlacePos.lat) * fraction,
                             lng: lastPlacePos.lng + (pos.lng - lastPlacePos.lng) * fraction
@@ -1969,7 +1978,7 @@ export async function openRouteModal() {
             strokeWeight: 5,
             map: routeMap
         });
-        
+
         routeMap.fitBounds(bounds);
     } else if (travelData.meta.lat && travelData.meta.lng) {
         routeMap.setCenter({ lat: Number(travelData.meta.lat), lng: Number(travelData.meta.lng) });
@@ -2012,19 +2021,19 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
     if (dayIndex !== null) {
         setTargetDayIndex(dayIndex);
     }
-    
+
     // 현재 경로 아이템 인덱스 저장 및 window에 노출
     currentRouteItemIndex = index;
     setViewingItemIndex(index);
     window.currentRouteItemIndex = index;
     window.isRouteEditMode = isEditMode;
-    
+
     const timeline = travelData.days[targetDayIndex].timeline;
     const item = timeline[index];
-    
+
     // 이동 수단이 아니면 리턴
     if (!item.isTransit) return;
-    
+
     // detailedSteps가 없으면 단일 이동 수단으로 처리 (빈 배열로 초기화)
     if (!item.detailedSteps) {
         item.detailedSteps = [];
@@ -2035,7 +2044,7 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
     if (!item.attachments) {
         item.attachments = [];
     }
-    
+
     // 출발지와 목적지 찾기
     const prevItem = index > 0 ? timeline[index - 1] : null;
     const nextItem = index < timeline.length - 1 ? timeline[index + 1] : null;
@@ -2043,7 +2052,7 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
     const arrivalPlace = nextItem && !nextItem.isTransit ? nextItem.title : "도착지";
     const departureLocation = prevItem && !prevItem.isTransit ? prevItem.location : "";
     const arrivalLocation = nextItem && !nextItem.isTransit ? nextItem.location : "";
-    
+
     // 모달 생성
     let modal = document.getElementById('route-detail-modal');
     if (!modal) {
@@ -2071,13 +2080,13 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
         `;
         document.body.appendChild(modal);
     }
-    
+
     // 제목 설정 (출발지 → 도착지)
     document.getElementById('route-detail-title').textContent = `${departurePlace} → ${arrivalPlace}`;
-    
+
     // 최적 경로 여부 확인 (detailedSteps가 있으면 최적 경로)
     const hasDetailedSteps = item.detailedSteps && item.detailedSteps.length > 0;
-    
+
     // 버튼 설정
     const buttonsContainer = document.getElementById('route-detail-buttons');
     if (isEditMode) {
@@ -2118,15 +2127,15 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
             `;
         }
     }
-    
+
     // 내용 생성
     const content = document.getElementById('route-detail-content');
-    
+
     const isAirplane = item.transitType === 'airplane';
-    
+
     // 환승 정보 표시
     let stepsHTML = '';
-    
+
     if (isEditMode) {
         // 편집 모드 - 입력 필드
         if (isAirplane) {
@@ -2223,7 +2232,7 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
         stepsHTML = item.detailedSteps.map((step, idx) => {
             const isTransit = step.tag !== '도보';
             const transitInfo = step.transitInfo || {};
-            
+
             return `
                 <div class="bg-white dark:bg-card-dark rounded-xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-700">
                     <div class="p-4">
@@ -2234,9 +2243,9 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-2 mb-1 flex-wrap">
                                     <h4 class="font-bold text-text-main dark:text-white text-base">${step.title}</h4>
-                                    ${step.tag ? (step.color ? 
-                                        `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap flex-shrink-0" style="background-color: ${step.color}; color: ${step.textColor || '#ffffff'}">${step.tag}</span>` : 
-                                        `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200 whitespace-nowrap flex-shrink-0">${step.tag}</span>`) : ''}
+                                    ${step.tag ? (step.color ?
+                    `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap flex-shrink-0" style="background-color: ${step.color}; color: ${step.textColor || '#ffffff'}">${step.tag}</span>` :
+                    `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200 whitespace-nowrap flex-shrink-0">${step.tag}</span>`) : ''}
                                 </div>
                                 <div class="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
                                     <span class="material-symbols-outlined text-base">schedule</span>
@@ -2366,7 +2375,7 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
             `;
         }
     }
-    
+
     // 메모/지출/파일첨부 섹션 (장소 상세 모달에서 가져옴)
     const detailSectionsHTML = `
         <div class="flex-1 bg-white dark:bg-card-dark overflow-y-auto p-6 flex flex-col gap-6">
@@ -2417,8 +2426,8 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
                 </div>
                 <div id="route-attachment-list" class="grid grid-cols-2 md:grid-cols-3 gap-3">
                     ${(item.attachments || []).map((att, attIdx) => {
-                        const isPDF = att.url.toLowerCase().endsWith('.pdf') || att.type === 'application/pdf';
-                        return `
+        const isPDF = att.url.toLowerCase().endsWith('.pdf') || att.type === 'application/pdf';
+        return `
                             <div class="relative group">
                                 ${isPDF ? `
                                 <a href="${att.url}" target="_blank" class="block aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg flex flex-col items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
@@ -2433,12 +2442,12 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
                                 </button>
                             </div>
                         `;
-                    }).join('') || '<p class="col-span-full text-sm text-gray-400 text-center py-4">첨부 파일이 없습니다</p>'}
+    }).join('') || '<p class="col-span-full text-sm text-gray-400 text-center py-4">첨부 파일이 없습니다</p>'}
                 </div>
             </div>
         </div>
     `;
-    
+
     // 2단 레이아웃: 모바일(세로), PC(가로)
     // stepsHTML이 있을 때만 2단 레이아웃, 없으면 메모/지출만 표시
     if (stepsHTML) {
@@ -2465,7 +2474,7 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
         // 수동 입력 이동수단 - 메모/지출만 표시
         content.innerHTML = detailSectionsHTML;
     }
-    
+
     // 구글맵 버튼 이벤트 설정 (stepsHTML이 있을 때만)
     if (stepsHTML) {
         const mapsTopBtn = document.getElementById('route-maps-btn-top');
@@ -2473,16 +2482,16 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
             mapsTopBtn.onclick = () => {
                 let origin = departurePlace;
                 let destination = arrivalPlace;
-                
+
                 if (departureLocation) origin = departureLocation;
                 if (arrivalLocation) destination = arrivalLocation;
-                
+
                 const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=transit`;
                 window.open(url, '_blank');
             };
         }
     }
-    
+
     modal.classList.remove('hidden');
 }
 
@@ -2494,7 +2503,7 @@ export function closeRouteDetailModal() {
 }
 
 // 경로 아이템 메모 업데이트
-window.updateRouteItemNote = function(value) {
+window.updateRouteItemNote = function (value) {
     if (targetDayIndex === null) return;
     const timeline = travelData.days[targetDayIndex].timeline;
     const item = timeline.find(i => i.isTransit && i.isCollapsed);
@@ -2505,38 +2514,38 @@ window.updateRouteItemNote = function(value) {
 };
 
 // 경로 지출 관련 함수들
-window.openRouteExpenseModal = function() {
+window.openRouteExpenseModal = function () {
     document.getElementById('expense-desc').value = "";
     document.getElementById('expense-cost').value = "";
     document.getElementById('expense-modal').classList.remove('hidden');
     setTimeout(() => document.getElementById('expense-desc').focus(), 100);
 };
 
-window.saveRouteExpense = function() {
+window.saveRouteExpense = function () {
     const desc = document.getElementById('expense-desc').value;
     const cost = document.getElementById('expense-cost').value;
-    
+
     if (!desc || !cost) {
         alert("내역과 금액을 입력해주세요.");
         return;
     }
-    
+
     if (targetDayIndex === null || currentRouteItemIndex === null) return;
-    
+
     const timeline = travelData.days[targetDayIndex].timeline;
     const item = timeline[currentRouteItemIndex];
-    
+
     if (!item.expenses) item.expenses = [];
-    item.expenses.push({ 
-        description: desc, 
-        amount: Number(cost) 
+    item.expenses.push({
+        description: desc,
+        amount: Number(cost)
     });
-    
+
     // 쇼핑 리스트에서 선택한 항목이 있으면 체크 처리 및 장소 정보 추가
     if (window.selectedShoppingItemIndex !== null && travelData.shoppingList && travelData.shoppingList[window.selectedShoppingItemIndex]) {
         const shoppingItem = travelData.shoppingList[window.selectedShoppingItemIndex];
         shoppingItem.checked = true;
-        
+
         // 장소 정보가 없으면 현재 이동수단 정보 추가
         if (!shoppingItem.location && item.title) {
             // 이동수단의 경우 출발지->도착지 형식으로 저장
@@ -2544,11 +2553,11 @@ window.saveRouteExpense = function() {
             const nextItem = currentRouteItemIndex < timeline.length - 1 ? timeline[currentRouteItemIndex + 1] : null;
             const from = prevItem && !prevItem.isTransit ? prevItem.title : '출발지';
             const to = nextItem && !nextItem.isTransit ? nextItem.title : '도착지';
-            
+
             shoppingItem.location = `${from}→${to}`;
             shoppingItem.locationDetail = item.title; // 이동수단 종류
         }
-        
+
         // 현재 장소를 저장하여 하이라이트 효과에 사용
         if (item.title) {
             const prevItem = currentRouteItemIndex > 0 ? timeline[currentRouteItemIndex - 1] : null;
@@ -2557,30 +2566,30 @@ window.saveRouteExpense = function() {
             const to = nextItem && !nextItem.isTransit ? nextItem.title : '도착지';
             window.lastExpenseLocation = `${from}→${to}`;
         }
-        
+
         window.selectedShoppingItemIndex = null; // 초기화
         if (typeof renderLists === 'function') {
             renderLists(); // 쇼핑 리스트 UI 업데이트
         }
     }
-    
+
     document.getElementById('expense-modal').classList.add('hidden');
     updateTotalBudget();
-    
+
     // 예산 카드 업데이트
     const budgetEl = document.getElementById('budget-amount');
     if (budgetEl) {
         budgetEl.textContent = travelData.meta.budget || '₩0';
     }
-    
+
     renderItinerary();
     autoSave();
-    
+
     // 모달 재렌더링
     viewRouteDetail(currentRouteItemIndex, targetDayIndex);
 };
 
-window.deleteRouteExpense = function(expIdx) {
+window.deleteRouteExpense = function (expIdx) {
     if (targetDayIndex === null || currentRouteItemIndex === null) return;
     const timeline = travelData.days[targetDayIndex].timeline;
     const item = timeline[currentRouteItemIndex];
@@ -2595,16 +2604,16 @@ window.deleteRouteExpense = function(expIdx) {
 };
 
 // 경로 첨부파일 관련 함수들
-window.handleRouteAttachmentUpload = async function(input) {
+window.handleRouteAttachmentUpload = async function (input) {
     if (!input.files || !input.files[0]) return;
     if (targetDayIndex === null) return;
-    
+
     const file = input.files[0];
     const timeline = travelData.days[targetDayIndex].timeline;
     const item = timeline.find(i => i.isTransit && i.isCollapsed);
-    
+
     if (!item) return;
-    
+
     try {
         const url = await uploadFile(file, `attachments/${currentUser.uid}/${Date.now()}_${file.name}`);
         if (!item.attachments) item.attachments = [];
@@ -2614,7 +2623,7 @@ window.handleRouteAttachmentUpload = async function(input) {
             type: file.type
         });
         autoSave();
-        
+
         // 모달 재렌더링
         const index = timeline.indexOf(item);
         viewRouteDetail(index, targetDayIndex);
@@ -2622,11 +2631,11 @@ window.handleRouteAttachmentUpload = async function(input) {
         console.error('Error uploading attachment:', error);
         alert('파일 업로드 중 오류가 발생했습니다.');
     }
-    
+
     input.value = '';
 };
 
-window.deleteRouteAttachment = function(attIdx) {
+window.deleteRouteAttachment = function (attIdx) {
     if (targetDayIndex === null) return;
     const timeline = travelData.days[targetDayIndex].timeline;
     const item = timeline.find(i => i.isTransit && i.isCollapsed);
@@ -2640,16 +2649,16 @@ window.deleteRouteAttachment = function(attIdx) {
 };
 
 // 경로 아이템 저장 함수
-window.saveRouteItem = function() {
+window.saveRouteItem = function () {
     if (currentRouteItemIndex === null || targetDayIndex === null) return;
-    
+
     const timeline = travelData.days[targetDayIndex].timeline;
     const item = timeline[currentRouteItemIndex];
-    
+
     if (!item || !item.isTransit) return;
-    
+
     const isAirplane = item.transitType === 'airplane';
-    
+
     if (isAirplane) {
         // 비행기 정보 저장
         const departure = document.getElementById('route-edit-departure')?.value || '';
@@ -2661,7 +2670,7 @@ window.saveRouteItem = function() {
         const bookingRef = document.getElementById('route-edit-booking-ref')?.value || '';
         const terminal = document.getElementById('route-edit-terminal')?.value || '';
         const gate = document.getElementById('route-edit-gate')?.value || '';
-        
+
         item.title = `${departure} → ${arrival}`;
         item.time = departureTime;
         item.duration = duration;
@@ -2680,12 +2689,12 @@ window.saveRouteItem = function() {
         // 일반 이동수단 정보 저장
         const title = document.getElementById('route-edit-title')?.value || '';
         const duration = document.getElementById('route-edit-duration')?.value || '30분';
-        
+
         item.title = title;
         item.duration = duration;
         item.time = duration; // 타임라인 카드에 소요시간 표시
     }
-    
+
     // 편집 모드 해제하고 view 모드로 다시 열기
     window.isRouteEditMode = false;
     autoSave();
@@ -2694,7 +2703,7 @@ window.saveRouteItem = function() {
 };
 
 // 소요시간 설정 함수
-window.setTransitDuration = function(duration) {
+window.setTransitDuration = function (duration) {
     const durationInput = document.getElementById('route-edit-duration');
     if (durationInput) {
         durationInput.value = duration;
@@ -2708,23 +2717,23 @@ window.airportSuggestionState = {
 };
 
 // 공항 자동완성 필터링
-window.filterAirports = function(type, query) {
+window.filterAirports = function (type, query) {
     const results = searchAirports(query);
     const suggestionsDiv = document.getElementById(`airport-suggestions-${type}`);
-    
+
     if (!suggestionsDiv) return;
-    
+
     if (results.length === 0 || !query) {
         suggestionsDiv.classList.add('hidden');
         window.airportSuggestionState[type].results = [];
         window.airportSuggestionState[type].selectedIndex = 0;
         return;
     }
-    
+
     // 결과 저장
     window.airportSuggestionState[type].results = results.slice(0, 10);
     window.airportSuggestionState[type].selectedIndex = 0;
-    
+
     renderAirportSuggestions(type);
     suggestionsDiv.classList.remove('hidden');
 };
@@ -2733,9 +2742,9 @@ window.filterAirports = function(type, query) {
 function renderAirportSuggestions(type) {
     const suggestionsDiv = document.getElementById(`airport-suggestions-${type}`);
     const state = window.airportSuggestionState[type];
-    
+
     if (!suggestionsDiv || !state.results.length) return;
-    
+
     suggestionsDiv.innerHTML = state.results.map((airport, idx) => {
         const isSelected = idx === state.selectedIndex;
         return `
@@ -2749,7 +2758,7 @@ function renderAirportSuggestions(type) {
 }
 
 // 공항 자동완성 표시
-window.showAirportSuggestions = function(type) {
+window.showAirportSuggestions = function (type) {
     const input = document.getElementById(`route-edit-${type}`);
     if (input && input.value) {
         filterAirports(type, input.value);
@@ -2757,27 +2766,27 @@ window.showAirportSuggestions = function(type) {
 };
 
 // 공항 입력 키보드 이벤트 처리
-window.handleAirportKeydown = function(event, type) {
+window.handleAirportKeydown = function (event, type) {
     const suggestionsDiv = document.getElementById(`airport-suggestions-${type}`);
     const state = window.airportSuggestionState[type];
-    
+
     if (!suggestionsDiv || suggestionsDiv.classList.contains('hidden') || !state.results.length) {
         return;
     }
-    
-    switch(event.key) {
+
+    switch (event.key) {
         case 'ArrowDown':
             event.preventDefault();
             state.selectedIndex = Math.min(state.selectedIndex + 1, state.results.length - 1);
             renderAirportSuggestions(type);
             break;
-            
+
         case 'ArrowUp':
             event.preventDefault();
             state.selectedIndex = Math.max(state.selectedIndex - 1, 0);
             renderAirportSuggestions(type);
             break;
-            
+
         case 'Enter':
             event.preventDefault();
             const selected = state.results[state.selectedIndex];
@@ -2785,7 +2794,7 @@ window.handleAirportKeydown = function(event, type) {
                 selectAirport(type, selected.code, selected.name);
             }
             break;
-            
+
         case 'Escape':
             suggestionsDiv.classList.add('hidden');
             break;
@@ -2793,10 +2802,10 @@ window.handleAirportKeydown = function(event, type) {
 };
 
 // 공항 선택
-window.selectAirport = function(type, code, name) {
+window.selectAirport = function (type, code, name) {
     const input = document.getElementById(`route-edit-${type}`);
     const suggestionsDiv = document.getElementById(`airport-suggestions-${type}`);
-    
+
     if (input) {
         input.value = `${code} | ${name}`;
     }
@@ -2806,10 +2815,10 @@ window.selectAirport = function(type, code, name) {
 };
 
 // 공항 자동완성 닫기
-window.closeAirportSuggestions = function() {
+window.closeAirportSuggestions = function () {
     const departureSuggestions = document.getElementById('airport-suggestions-departure');
     const arrivalSuggestions = document.getElementById('airport-suggestions-arrival');
-    
+
     if (departureSuggestions) departureSuggestions.classList.add('hidden');
     if (arrivalSuggestions) arrivalSuggestions.classList.add('hidden');
 };
@@ -2820,7 +2829,7 @@ document.addEventListener('click', (e) => {
     const arrivalSuggestions = document.getElementById('airport-suggestions-arrival');
     const departureInput = document.getElementById('route-edit-departure');
     const arrivalInput = document.getElementById('route-edit-arrival');
-    
+
     if (departureSuggestions && !departureSuggestions.contains(e.target) && e.target !== departureInput) {
         departureSuggestions.classList.add('hidden');
     }
@@ -2830,56 +2839,56 @@ document.addEventListener('click', (e) => {
 });
 
 // 도착 시간 자동 계산 (출발시간 입력 시)
-window.calculateArrivalTime = function() {
+window.calculateArrivalTime = function () {
     const departureTime = document.getElementById('route-edit-departure-time')?.value;
     const duration = document.getElementById('route-edit-duration')?.value;
     const arrivalTimeInput = document.getElementById('route-edit-arrival-time');
-    
+
     if (!departureTime || !duration || !arrivalTimeInput) return;
-    
+
     // 소요시간 파싱 (예: "2시간 30분", "1시간", "30분")
     const hourMatch = duration.match(/(\d+)\s*시간/);
     const minuteMatch = duration.match(/(\d+)\s*분/);
-    
+
     const hours = hourMatch ? parseInt(hourMatch[1]) : 0;
     const minutes = minuteMatch ? parseInt(minuteMatch[1]) : 0;
     const totalMinutes = hours * 60 + minutes;
-    
+
     // 출발시간 파싱
     const [depHour, depMin] = departureTime.split(':').map(Number);
     const depTotalMinutes = depHour * 60 + depMin;
-    
+
     // 도착시간 계산
     const arrTotalMinutes = depTotalMinutes + totalMinutes;
     const arrHour = Math.floor(arrTotalMinutes / 60) % 24;
     const arrMin = arrTotalMinutes % 60;
-    
+
     arrivalTimeInput.value = `${String(arrHour).padStart(2, '0')}:${String(arrMin).padStart(2, '0')}`;
 };
 
 // 소요시간 자동 계산 (도착시간 입력 시)
-window.calculateFlightDuration = function() {
+window.calculateFlightDuration = function () {
     const departureTime = document.getElementById('route-edit-departure-time')?.value;
     const arrivalTime = document.getElementById('route-edit-arrival-time')?.value;
     const durationInput = document.getElementById('route-edit-duration');
-    
+
     if (!departureTime || !arrivalTime || !durationInput) return;
-    
+
     const [depHour, depMin] = departureTime.split(':').map(Number);
     const [arrHour, arrMin] = arrivalTime.split(':').map(Number);
-    
+
     let depTotalMinutes = depHour * 60 + depMin;
     let arrTotalMinutes = arrHour * 60 + arrMin;
-    
+
     // 자정 넘는 경우 처리
     if (arrTotalMinutes < depTotalMinutes) {
         arrTotalMinutes += 24 * 60;
     }
-    
+
     const durationMinutes = arrTotalMinutes - depTotalMinutes;
     const hours = Math.floor(durationMinutes / 60);
     const minutes = durationMinutes % 60;
-    
+
     if (hours > 0 && minutes > 0) {
         durationInput.value = `${hours}시간 ${minutes}분`;
     } else if (hours > 0) {
@@ -2901,7 +2910,7 @@ async function getJapaneseAddress(lat, lng) {
         const key = await getMapsApiKey();
         const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&language=ja&key=${key}`);
         const data = await response.json();
-        
+
         if (data.results && data.results[0]) {
             return data.results[0].formatted_address;
         }
@@ -2920,24 +2929,24 @@ async function getEkispertRoute(fromItem, toItem) {
         const fromLng = typeof fromItem.lng === 'function' ? fromItem.lng() : Number(fromItem.lng);
         const toLat = typeof toItem.lat === 'function' ? toItem.lat() : Number(toItem.lat);
         const toLng = typeof toItem.lng === 'function' ? toItem.lng() : Number(toItem.lng);
-        
+
         // 일본어 주소 가져오기 (없으면 실시간으로 Geocoding API 호출)
         let fromName = fromItem.locationJa;
         let toName = toItem.locationJa;
-        
+
         // 일본어 주소가 없으면 좌표로 일본어 주소 가져오기
         if (!fromName && fromLat && fromLng) {
             fromName = await getJapaneseAddress(fromLat, fromLng);
             // 캐싱
             if (fromName) fromItem.locationJa = fromName;
         }
-        
+
         if (!toName && toLat && toLng) {
             toName = await getJapaneseAddress(toLat, toLng);
             // 캐싱
             if (toName) toItem.locationJa = toName;
         }
-        
+
         // 좌표 우선, 없으면 이름 사용
         let url;
         if (fromLat && fromLng && toLat && toLng) {
@@ -2948,54 +2957,54 @@ async function getEkispertRoute(fromItem, toItem) {
             console.warn('Missing both coordinates and names for Ekispert API');
             return null;
         }
-        
+
         // Firebase Functions 프록시를 통해 Ekispert API 호출 (CORS 우회)
         const response = await fetch(url);
         if (!response.ok) {
             console.warn('Ekispert API request failed:', response.status);
             return null;
         }
-        
+
         const data = await response.json();
-        
+
         // API 응답 구조 확인
         if (!data.ResultSet || !data.ResultSet.Course || data.ResultSet.Course.length === 0) {
             console.warn('No route found from Ekispert API');
             return null;
         }
-        
+
         // 첫 번째 경로 선택 (가장 빠른 경로)
         const course = data.ResultSet.Course[0];
         const route = course.Route;
-        
+
         if (!route || !route.Line || !route.Point) {
             console.warn('Invalid route structure from Ekispert');
             return null;
         }
-        
+
         // 경로를 한 장의 카드로 통합
         const lines = Array.isArray(route.Line) ? route.Line : [route.Line];
         const points = Array.isArray(route.Point) ? route.Point : [route.Point];
-        
+
         // 경로 상세 정보 구성 (상세 모달용)
         const detailedSteps = [];
         const routeSteps = [];
         let currentPointIndex = 0;
-        
+
         lines.forEach((line, idx) => {
             const lineType = line.Type;
             const lineName = line.Name || '';
             const timeOnBoard = parseInt(line.timeOnBoard) || 0;
-            
+
             // 출발역 (일본어 → 한국어 번역)
             const fromStationJa = points[currentPointIndex]?.Station?.Name || '';
             const fromStation = translateStation(fromStationJa);
-            
+
             if (lineType === 'walk') {
                 // 도보
                 const toStationJa = points[currentPointIndex + 1]?.Station?.Name || '';
                 const toStation = translateStation(toStationJa);
-                
+
                 routeSteps.push(`🚶 도보 ${timeOnBoard}분`);
                 detailedSteps.push({
                     title: `도보 이동`,
@@ -3019,7 +3028,7 @@ async function getEkispertRoute(fromItem, toItem) {
                 const toStationJa = points[currentPointIndex]?.Station?.Name || '';
                 const toStation = translateStation(toStationJa);
                 const emoji = lineType === 'train' ? '🚇' : '🚌';
-                
+
                 // 노선 색상 정보 파싱
                 let lineColor = null;
                 let textColor = '#ffffff';
@@ -3030,20 +3039,20 @@ async function getEkispertRoute(fromItem, toItem) {
                     const g = parseInt(colorStr.substring(3, 6));
                     const b = parseInt(colorStr.substring(6, 9));
                     lineColor = `rgb(${r}, ${g}, ${b})`;
-                    
+
                     // 밝기 계산하여 텍스트 색상 결정
                     const brightness = (r * 299 + g * 587 + b * 114) / 1000;
                     textColor = brightness > 128 ? '#000000' : '#ffffff';
                 } else if (line.text_color) {
                     textColor = line.text_color.startsWith('#') ? line.text_color : `#${line.text_color}`;
                 }
-                
+
                 // 노선 기호와 이름 번역
                 const lineSymbolJa = line.LineSymbol?.Name || '';
                 const lineCode = line.LineSymbol?.code || '';
                 const translatedLineName = translateLine(lineName);
-                
-                
+
+
                 // 태그: 노선명 + 노선 기호 (예: "미도스지선 M")
                 // code가 숫자면 Name 사용, 아니면 code 사용
                 let tagText = translatedLineName;
@@ -3053,8 +3062,8 @@ async function getEkispertRoute(fromItem, toItem) {
                     // code가 숫자면 Name 사용 (예: code=226, Name=M)
                     tagText += ` ${lineSymbolJa}`;
                 }
-                
-                
+
+
                 routeSteps.push(`${emoji} ${translatedLineName}: ${fromStation} → ${toStation} (${timeOnBoard}분)`);
                 detailedSteps.push({
                     title: translatedLineName,
@@ -3078,7 +3087,7 @@ async function getEkispertRoute(fromItem, toItem) {
                 });
             }
         });
-        
+
         // 총 소요시간 (모든 구간의 timeOnBoard 합산 - 도보 포함)
         let totalMinutes = 0;
         lines.forEach((line) => {
@@ -3087,16 +3096,16 @@ async function getEkispertRoute(fromItem, toItem) {
         const hours = Math.floor(totalMinutes / 60);
         const minutes = totalMinutes % 60;
         const durationStr = hours > 0 ? `${hours}시간 ${minutes}분` : `${minutes}분`;
-        
+
         // 환승 횟수
         const transferCount = parseInt(route.transferCount) || 0;
-        
+
         // 출발역과 도착역 (일본어 → 한국어 번역)
         const startStationJa = points[0]?.Station?.Name || fromItem.location || fromItem.title;
         const endStationJa = points[points.length - 1]?.Station?.Name || toItem.location || toItem.title;
         const startStation = translateStation(startStationJa);
         const endStation = translateStation(endStationJa);
-        
+
         // 통합 카드 생성
         return [{
             time: durationStr,
@@ -3110,8 +3119,8 @@ async function getEkispertRoute(fromItem, toItem) {
             image: null,
             note: `환승 ${transferCount}회\n\n${routeSteps.join('\n')}`,
             fixedDuration: true,
-            transitInfo: { 
-                start: startStation, 
+            transitInfo: {
+                start: startStation,
                 end: endStation,
                 steps: routeSteps,
                 transferCount: transferCount

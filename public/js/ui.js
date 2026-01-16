@@ -1,5 +1,6 @@
 // Entry point for UI modules: re-export state and expose functions on window
 import { db, auth, provider, firebaseReady } from './firebase.js';
+import logger from './logger.js';
 import {
     travelData, currentDayIndex, currentTripId, newTripDataTemp, pendingTransitCallback,
     editingItemIndex, viewingItemIndex, currentTripUnsubscribe, isEditing, currentUser,
@@ -21,8 +22,22 @@ import * as Auth from './ui/auth.js';
 import * as Profile from './ui/profile.js';
 import * as Trips from './ui/trips.js';
 import * as Memories from './ui/memories.js';
-import { fetchWeeklyWeather, fetchHourlyWeatherForDate } from './map.js';
+import { fetchWeeklyWeather, fetchHourlyWeatherForDate, searchMode, setSearchMode } from './map.js';
 import { BACKEND_URL } from './config.js';
+
+// ========================================
+// Newly Extracted Modules
+// ========================================
+import * as CategoryPicker from './ui/category-picker.js';
+import * as TimePicker from './ui/time-picker.js';
+import * as Weather from './ui/weather.js';
+import * as ExpenseManager from './ui/expense-manager.js';
+import * as TripInfo from './ui/trip-info.js';
+import * as TimelineDetail from './ui/timeline-detail.js';
+import * as FlightManager from './ui/flight-manager.js';
+import * as DnD from './ui/dnd.js';
+import { categoryList, majorAirports } from './ui/constants.js';
+
 
 
 let cachedMapsApiKey = null;
@@ -55,6 +70,7 @@ export async function openTrip(tripId) {
             document.getElementById('main-view').classList.add('hidden');
             document.getElementById('detail-view').classList.remove('hidden');
             document.getElementById('back-btn').classList.remove('hidden');
+            document.getElementById('share-btn').classList.remove('hidden');
 
             selectDay(0); // 첫째날로 초기화
         } else {
@@ -75,6 +91,7 @@ export function backToMain() {
     document.getElementById('detail-view').classList.add('hidden');
     document.getElementById('main-view').classList.remove('hidden');
     document.getElementById('back-btn').classList.add('hidden');
+    document.getElementById('share-btn').classList.add('hidden');
     setCurrentTripId(null);
     // 현재 사용자 정보가 있으면 여행 목록을 다시 로드합니다.
     if (currentUser) {
@@ -82,16 +99,11 @@ export function backToMain() {
     }
 }
 
-export const createNewTrip = Trips.createNewTrip;
-export const closeNewTripModal = Trips.closeNewTripModal;
-export const nextWizardStep = Trips.nextWizardStep;
+// Note: Trips functions are re-exported in the exports section below
 
-export const loadTripList = Trips.loadTripList;
-export const finishNewTripWizard = Trips.finishNewTripWizard;
-export const deleteTrip = Trips.deleteTrip;
 
-export function closeDeleteTripModal() {}
-export function confirmDeleteTrip() {}
+export function closeDeleteTripModal() { }
+export function confirmDeleteTrip() { }
 
 export function toggleTripMenu(tripId) {
     const menu = document.getElementById(`trip-menu-${tripId}`);
@@ -102,194 +114,34 @@ export function toggleTripMenu(tripId) {
     }
 }
 
-// [Touch Drag Logic]
-let touchLongPressTimer = null;
-let longPressTimer = null; // touchEnd에서 사용됨
-let isTouchDragging = false;
-let touchStartIndex = null;
-let draggingIndex = null;
+// ===================================================================================
+// 앱 초기화
+// ===================================================================================
 
-export function touchStart(e, index, type) {
-    if (isEditing) return;
-    
-    // 롱프레스 감지 타이머 시작
-    touchLongPressTimer = setTimeout(() => {
-        isTouchDragging = true;
-        touchStartIndex = index;
-        
-        // 드래그 시작 시각적 피드백
-        const target = e.currentTarget;
-        if (target) target.style.opacity = '0.5';
-        
-        // 햅틱 피드백 (지원 기기)
-        if (navigator.vibrate) navigator.vibrate(50);
-    }, 500);
-}
+// 페이지 로드 시 다크모드 초기화
+Profile.initDarkMode();
 
-export function touchMove(e) {
-    // 스크롤이 발생하면 롱프레스 취소
-    if (touchLongPressTimer) {
-        clearTimeout(touchLongPressTimer);
-        touchLongPressTimer = null;
-    }
-    
-    if (isTouchDragging) {
-        e.preventDefault(); // 드래그 중 스크롤 방지
-        
-        // 터치 위치에 따른 드래그 효과 로직 (필요 시 추가 구현)
-        // 현재는 touchEnd에서 elementFromPoint로 드롭 처리
-    }
-}
+// 바디 페이드인 애니메이션
+document.body.style.opacity = '1';
 
-export function touchEnd(e) {
-    clearTimeout(touchLongPressTimer);
-    if (longPressTimer) {
-        clearTimeout(longPressTimer);
-        longPressTimer = null;
-        longPressStartIndex = null;
-    }
-    
-    if (isTouchDragging) {
-        isTouchDragging = false;
-        e.currentTarget.style.opacity = '1';
-        clearDragStyles();
+// ========================================
+// Drag & Drop Logic (Re-exported from module)
+// ========================================
+export const touchStart = (e, index, type) => DnD.touchStart(e, index, type, isEditing);
+export const touchMove = DnD.touchMove;
+export const touchEnd = (e) => DnD.touchEnd(e, targetDayIndex, moveTimelineItem);
 
-        const touch = e.changedTouches[0];
-        const element = document.elementFromPoint(touch.clientX, touch.clientY);
-        const targetItem = element?.closest('.group\\/timeline-item');
-        
-        if (targetItem && targetItem.dataset.index) {
-            const targetIndex = parseInt(targetItem.dataset.index);
-            moveTimelineItem(touchStartIndex, targetIndex, targetDayIndex);
-        }
-        
-        draggingIndex = null;
-    }
-}
+export const dragStart = DnD.dragStart;
+export const dragEnd = DnD.dragEnd;
+export const dragOver = DnD.dragOver;
+export const dragLeave = DnD.dragLeave;
+export const drop = (e, targetIndex) => DnD.drop(e, targetIndex, targetDayIndex, moveTimelineItem);
+export const timelineContainerDrop = (e, dayIndex) => DnD.timelineContainerDrop(e, dayIndex, moveTimelineItem);
 
-// ==========================================
-// [Drag & Drop Logic]
-// ==========================================
-
-export function dragStart(e, index, dayIndex) {
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'single', index: index, dayIndex: dayIndex }));
-    e.currentTarget.classList.add('dragging');
-    draggingIndex = index; // 드래그 중인 인덱스 저장
-}
-
-export function dragEnd(e) {
-    // 모든 dragging 클래스 제거
-    document.querySelectorAll('.dragging').forEach(el => {
-        el.classList.remove('dragging');
-    });
-    draggingIndex = null;
-    clearDragStyles();
-}
-
-export function dragOver(e) {
-    e.preventDefault(); // 필수: 드롭 허용
-    e.dataTransfer.dropEffect = 'move';
-    
-    const target = e.currentTarget;
-    
-    // 이미 활성화된 상태면 패스
-    const indicator = target.querySelector('.drag-indicator');
-    if (indicator && !indicator.classList.contains('hidden')) return;
-
-    // 다른 요소들 스타일 초기화 (하나만 활성화)
-    clearDragStyles();
-
-    // 시각적 피드백: 인디케이터 표시
-    if (indicator) indicator.classList.remove('hidden');
-}
-
-export function dragLeave(e) {
-    const target = e.currentTarget;
-    // 자식 요소로 들어갈 때는 무시 (relatedTarget이 target 내부에 있으면 리턴)
-    if (target.contains(e.relatedTarget)) return;
-
-    const indicator = target.querySelector('.drag-indicator');
-    if (indicator) indicator.classList.add('hidden');
-}
-
-function clearDragStyles() {
-    document.querySelectorAll('.group\\/timeline-item').forEach(el => {
-        const indicator = el.querySelector('.drag-indicator');
-        if (indicator) indicator.classList.add('hidden');
-    });
-}
-
-export async function drop(e, targetIndex) {
-    e.preventDefault();
-    e.stopPropagation();
-    clearDragStyles();
-
-    const data = JSON.parse(e.dataTransfer.getData('text/plain') || '{}');
-    const dropIndex = parseInt(e.currentTarget?.getAttribute('data-drop-index') || targetIndex);
-    
-    // 드래그한 아이템의 dayIndex 사용 (전달되지 않았으면 targetDayIndex 사용)
-    const sourceDayIndex = data.dayIndex !== undefined ? data.dayIndex : targetDayIndex;
-    
-    if (data.type === 'group' && data.indices && data.indices.length > 0) {
-        // 그룹 이동
-        moveTransitGroup(data.indices, dropIndex);
-    } else if (data.type === 'single' && data.index !== undefined) {
-        // 단일 이동
-        moveTimelineItem(data.index, dropIndex, sourceDayIndex);
-    } else {
-        // 호환성 지원 (기존 포맷)
-        const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
-        if (!isNaN(fromIndex)) {
-            moveTimelineItem(fromIndex, dropIndex, targetDayIndex);
-        }
-    }
-}
-
-// 타임라인 컨테이너에 드롭 이벤트 추가 (마지막 위치 해결)
-export function timelineContainerDrop(e, dayIndex) {
-    e.preventDefault();
-    e.stopPropagation();
-    clearDragStyles();
-    
-    const data = JSON.parse(e.dataTransfer.getData('text/plain') || '{}');
-    const timeline = travelData.days[dayIndex]?.timeline;
-    if (!timeline) return;
-    
-    if (data.type === 'single' && data.index !== undefined) {
-        moveTimelineItem(data.index, timeline.length, dayIndex);
-    } else {
-        // 호환성 지원
-        const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
-        if (!isNaN(fromIndex)) {
-            moveTimelineItem(fromIndex, timeline.length, dayIndex);
-        }
-    }
-}
-
-// 순서 변경 공통 로직
+// Timeline item movement
 export function moveTimelineItem(fromIndex, targetIndex, dayIndex = currentDayIndex) {
-    const timeline = travelData.days[dayIndex].timeline;
-    
-    // 같은 위치면 무시
-    if (fromIndex === targetIndex || fromIndex === targetIndex - 1) return;
-
-    const movedItem = timeline[fromIndex];
-    const isTransitItem = movedItem.isTransit;
-    const originalTime = movedItem.time; // 이동 수단의 기존 시간 저장
-
-    // [Step 1] 순서 변경
-    timeline.splice(fromIndex, 1);
-    
-    // 인덱스 조정 (remove 후 insert 위치 계산)
-    let insertIndex = targetIndex;
-    if (fromIndex < targetIndex) {
-        insertIndex = targetIndex - 1; // 뒤로 옮길 때는 -1
-    }
-    
-    timeline.splice(insertIndex, 0, movedItem);
-
-    // [Step 2] 순서 변경 후 재정렬 (시간 계산 안 함, reorderTimeline에서 이동수단 삭제만 처리)
+    DnD.moveTimelineItem(fromIndex, targetIndex, dayIndex, travelData);
+    // Re-render after move
     reorderTimeline(dayIndex);
 }
 
@@ -308,7 +160,7 @@ export function reorderTimeline(dayIndex, sortByTime = false) {
             return ta - tb;
         });
     }
-    
+
     renderItinerary();
     autoSave();
 }
@@ -319,25 +171,25 @@ export function selectDay(index) {
     if (index !== -1) {
         setTargetDayIndex(index);
     }
-    
+
     // 날짜에 맞는 날씨 업데이트
     const day = index !== -1 ? travelData.days[index] : travelData.days[0];
     if (day && day.date && travelData.meta.lat && travelData.meta.lng) {
         fetchWeather(travelData.meta.lat, travelData.meta.lng, day.date);
     }
-    
+
     renderItinerary();
 }
 
 // [Detail Modal Logic]
 export function viewTimelineItem(index, dayIndex = currentDayIndex) {
     if (isEditing) return;
-    
+
     setTargetDayIndex(dayIndex);
     setViewingItemIndex(index);
     const timeline = travelData.days[dayIndex].timeline;
     const item = timeline[index];
-    
+
     // [메모 아이템인 경우 전용 모달 호출]
     if (item.tag === '메모') {
         Modals.openMemoModal(item);
@@ -372,7 +224,7 @@ export function viewTimelineItem(index, dayIndex = currentDayIndex) {
     const durationText = item.duration !== undefined ? ` (${item.duration}분 체류)` : '';
     document.getElementById('detail-time').innerText = item.time + durationText;
     document.getElementById('detail-title').innerText = item.title;
-    
+
     // [수정] 이동수단일 경우 위치 텍스트를 "출발지 -> 도착지"로 표시
     if (item.isTransit) {
         if (item.tag === '비행기' && item.location && item.location.includes('✈️')) {
@@ -390,7 +242,7 @@ export function viewTimelineItem(index, dayIndex = currentDayIndex) {
 
     document.getElementById('detail-note').value = item.note || '';
     document.getElementById('detail-note').readOnly = true; // 초기엔 읽기 전용
-    
+
     document.getElementById('detail-total-budget').value = item.budget || 0;
     renderExpenseList(item);
 
@@ -403,7 +255,7 @@ export function viewTimelineItem(index, dayIndex = currentDayIndex) {
     // Map Logic - 맨 밑으로 이동
     const mapSection = document.getElementById('detail-map-section');
     const mapFrame = document.getElementById('detail-map-frame');
-    
+
     // 이동수단이 아니고 위치 정보가 있을 때만 지도 표시
     if (item.location && item.location.length > 1 && item.location !== "위치" && !item.isTransit) {
         mapSection.classList.remove('hidden');
@@ -414,7 +266,7 @@ export function viewTimelineItem(index, dayIndex = currentDayIndex) {
         mapSection.classList.add('hidden');
         mapFrame.src = "";
     }
-    
+
     document.getElementById('item-detail-modal').classList.remove('hidden');
 }
 
@@ -450,17 +302,17 @@ export function openMemoModal(item) {
     const content = document.getElementById('memo-detail-content');
     const bookmarksContainer = document.getElementById('memo-bookmarks');
     const bookmarksList = document.getElementById('memo-bookmarks-list');
-    
+
     // 내용 초기화 (textarea가 남아있을 경우 대비)
-    content.innerHTML = ""; 
-    
+    content.innerHTML = "";
+
     // 링크 파싱 및 렌더링
     const { html, links } = processMemoContent(item.title);
     content.innerHTML = html;
     renderBookmarks(links, bookmarksContainer, bookmarksList);
 
     // 버튼 초기화 (저장 상태에서 닫았다가 다시 열 경우 대비)
-    const btnContainer = modal.querySelector('.mt-6'); 
+    const btnContainer = modal.querySelector('.mt-6');
     if (btnContainer) {
         const btn = btnContainer.querySelector('button');
         if (btn) {
@@ -480,18 +332,18 @@ export function closeMemoModal() {
 
 export function editCurrentMemo() {
     if (viewingItemIndex === null) return;
-    
+
     const contentEl = document.getElementById('memo-detail-content');
     const currentText = contentEl.innerText;
-    
+
     // 텍스트 영역으로 변환 (인라인 편집)
     contentEl.innerHTML = `<textarea id="memo-edit-area" class="w-full h-60 bg-white/50 dark:bg-black/20 border-2 border-yellow-300 dark:border-yellow-600/50 rounded-lg p-3 text-gray-800 dark:text-gray-200 resize-none focus:ring-0 outline-none leading-relaxed font-body text-lg placeholder-gray-400" placeholder="메모를 입력하세요">${currentText}</textarea>`;
-    
+
     // 버튼 변경 (수정 -> 저장)
     const modal = document.getElementById('memo-detail-modal');
     const btnContainer = modal.querySelector('.mt-6');
     const btn = btnContainer.querySelector('button');
-    
+
     btn.setAttribute('onclick', 'saveCurrentMemo()');
     btn.innerHTML = `<span class="material-symbols-outlined text-sm">save</span> 저장`;
     btn.className = "text-sm bg-primary text-white hover:bg-orange-500 px-6 py-2 rounded-xl font-bold transition-colors flex items-center gap-1 shadow-md";
@@ -501,15 +353,15 @@ export function editCurrentMemo() {
 
 export function saveCurrentMemo() {
     if (viewingItemIndex === null) return;
-    
+
     const textarea = document.getElementById('memo-edit-area');
     if (!textarea) return;
 
     const newText = textarea.value;
-    
+
     // 데이터 업데이트
     travelData.days[targetDayIndex].timeline[viewingItemIndex].title = newText;
-    
+
     const { html, links } = processMemoContent(newText);
 
     // UI 복구 (보기 모드)
@@ -521,7 +373,7 @@ export function saveCurrentMemo() {
     const modal = document.getElementById('memo-detail-modal');
     const btnContainer = modal.querySelector('.mt-6');
     const btn = btnContainer.querySelector('button');
-    
+
     btn.setAttribute('onclick', 'editCurrentMemo()');
     btn.innerHTML = `<span class="material-symbols-outlined text-sm">edit</span> 수정`;
     btn.className = "text-sm bg-yellow-100 hover:bg-yellow-200 text-yellow-800 px-4 py-2 rounded-xl font-bold transition-colors flex items-center gap-1";
@@ -533,14 +385,14 @@ export function saveCurrentMemo() {
 // [Memo Link & Bookmark Logic]
 function processMemoContent(text) {
     if (!text) return { html: '', links: [] };
-    
+
     // URL 정규식
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const links = [];
-    
+
     // HTML 이스케이프 (보안)
     const safeText = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    
+
     const html = safeText.replace(urlRegex, (url) => {
         links.push(url);
         return `<a href="${url}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline break-all" onclick="event.stopPropagation()">${url}</a>`;
@@ -594,19 +446,19 @@ export function updateItemNote(value) {
 export async function checkInviteLink() {
     const urlParams = new URLSearchParams(window.location.search);
     const inviteId = urlParams.get('invite');
-    
+
     if (inviteId && currentUser) {
         try {
             const planRef = doc(db, "plans", inviteId);
             const planSnap = await getDoc(planRef);
-            
+
             if (planSnap.exists()) {
                 const data = planSnap.data();
                 if (data.members && data.members[currentUser.uid]) {
                     // 이미 멤버임
                     openTrip(inviteId);
                 } else {
-                    if(confirm(`'${data.meta.title}' 여행 계획에 참여하시겠습니까?`)) {
+                    if (confirm(`'${data.meta.title}' 여행 계획에 참여하시겠습니까?`)) {
                         await updateDoc(planRef, { [`members.${currentUser.uid}`]: 'editor' });
                         alert("여행 계획에 참여했습니다!");
                         openTrip(inviteId);
@@ -638,11 +490,11 @@ function generatePDFContent() {
     if (!travelData || !travelData.days || travelData.days.length === 0) {
         return '<div style="padding: 20px;"><h1>여행 데이터가 없습니다.</h1></div>';
     }
-    
+
     const title = travelData.meta.title || '여행 계획';
     const subInfo = travelData.meta.subInfo || '';
     const dayCount = travelData.meta.dayCount || '';
-    
+
     let html = `
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -675,14 +527,14 @@ function generatePDFContent() {
             <p style="color: #999; font-size: 12px;">${dayCount}</p>
         </div>
     `;
-    
+
     // 날짜별 일정
     travelData.days.forEach((day, dayIndex) => {
         const dayDate = new Date(day.date);
         const dayLabel = `Day ${dayIndex + 1} - ${dayDate.getMonth() + 1}월 ${dayDate.getDate()}일`;
-        
+
         html += `<div class="day-section"><div class="day-title">${dayLabel}</div>`;
-        
+
         if (day.timeline && day.timeline.length > 0) {
             day.timeline.forEach((item) => {
                 const isTransit = item.isTransit || false;
@@ -692,7 +544,7 @@ function generatePDFContent() {
                 const location = item.location || '';
                 const tag = item.tag || '';
                 const memo = item.memo || '';
-                
+
                 html += `<div class="timeline-item">`;
                 html += `<div class="item-header">`;
                 html += `<span class="item-icon">${icon}</span>`;
@@ -702,37 +554,37 @@ function generatePDFContent() {
                     html += `<span class="item-tag">${tag}</span>`;
                 }
                 html += `</div>`;
-                
+
                 if (location) {
                     html += `<div class="item-location">📌 ${location}</div>`;
                 }
-                
+
                 if (memo) {
                     html += `<div class="item-memo">${memo}</div>`;
                 }
-                
+
                 // 추억
                 if (item.memories && item.memories.length > 0) {
                     html += `<div class="memories">`;
                     html += `<div class="memory-title">💭 추억</div>`;
-                    
+
                     item.memories.forEach((memory) => {
                         if (memory.comment) {
                             const comment = memory.comment.replace(/</g, '&lt;').replace(/>/g, '&gt;');
                             html += `<div class="memory-item">${comment}</div>`;
                         }
                     });
-                    
+
                     html += `</div>`;
                 }
-                
+
                 html += `</div>`;
             });
         }
-        
+
         html += `</div>`;
     });
-    
+
     // 여행 메모
     if (travelData.meta.note) {
         const note = travelData.meta.note.replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -743,14 +595,14 @@ function generatePDFContent() {
             </div>
         `;
     }
-    
+
     // 푸터
     html += `
         <div class="footer">
             <p>Made with ♥ by PLIN</p>
         </div>
     `;
-    
+
     return html;
 }
 
@@ -762,171 +614,52 @@ export function enableNoteEdit() {
     return Header.enableNoteEdit();
 }
 
-// [Trip Info Edit Logic]
+// ========================================
+// Trip Info Edit Logic (Re-exported from module)
+// ========================================
 export function openTripInfoModal() {
     return Header.openTripInfoModal();
 }
 
-export function closeTripInfoModal() {
-    document.getElementById('trip-info-modal').classList.add('hidden');
-}
+export const closeTripInfoModal = TripInfo.closeTripInfoModal;
 
 export function saveTripInfo() {
-    const title = document.getElementById('edit-trip-title').value.trim();
-    const startStr = document.getElementById('edit-trip-start').value;
-    const endStr = document.getElementById('edit-trip-end').value;
-
-    if (!title) return alert("여행 제목을 입력해주세요.");
-    if (!startStr || !endStr) return alert("날짜를 선택해주세요.");
-
-    const start = new Date(startStr);
-    const end = new Date(endStr);
-
-    if (end < start) return alert("종료일은 시작일보다 빠를 수 없습니다.");
-
-    // 제목 업데이트
-    updateMeta('title', title);
-
-    // 날짜 및 기간 업데이트
-    const diffTime = Math.abs(end - start);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    const durationText = (diffDays === 0) ? "당일치기" : `${diffDays}박 ${diffDays + 1}일`;
-    updateMeta('dayCount', durationText);
-
-    // 서브 정보(날짜 텍스트) 업데이트
-    const format = d => `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
-    let dateStr = format(start);
-    if (durationText !== "당일치기") {
-        dateStr += ` - ${end.getMonth() + 1}월 ${end.getDate()}일`;
-    }
-    let prefix = travelData.meta.subInfo && travelData.meta.subInfo.includes('•') ? travelData.meta.subInfo.split('•')[0].trim() : "";
-    updateMeta('subInfo', prefix ? `${prefix} • ${dateStr}` : dateStr);
-
-    // Days 배열 재구성
-    const totalDays = diffDays + 1;
-    const currentTotalDays = travelData.days.length;
-    
-    // 날짜가 늘어난 경우
-    if (totalDays > currentTotalDays) {
-        for (let i = currentTotalDays; i < totalDays; i++) {
-            travelData.days.push({ date: "", timeline: [] });
-        }
-    } else if (totalDays < currentTotalDays) {
-        // 날짜가 줄어든 경우 뒤에서부터 삭제
-        travelData.days.splice(totalDays);
-    }
-
-    // 날짜 값 갱신
-    travelData.days.forEach((day, i) => {
-        const d = new Date(start);
-        d.setDate(d.getDate() + i);
-        day.date = d.toISOString().split('T')[0];
-    });
-
-    // 현재 인덱스가 범위를 벗어나지 않도록 조정
-    if (currentDayIndex >= travelData.days.length) {
-        selectDay(travelData.days.length - 1);
-    }
-
-    renderItinerary();
-    autoSave();
-    closeTripInfoModal();
+    TripInfo.saveTripInfo(
+        travelData,
+        currentDayIndex,
+        updateMeta,
+        selectDay,
+        renderItinerary,
+        autoSave
+    );
 }
 
 export function resetHeroImage() {
-    if (confirm("배경 이미지를 초기 설정된 이미지로 되돌리시겠습니까?")) {
-        const defaultImg = travelData.meta.defaultMapImage || "https://placehold.co/600x400";
-        updateMeta('mapImage', defaultImg);
-        renderItinerary();
-        autoSave();
-    }
+    TripInfo.resetHeroImage(travelData, updateMeta, renderItinerary, autoSave);
 }
 
 export function deleteHeroImage() {
-    if (confirm("배경 이미지를 삭제하시겠습니까?")) {
-        updateMeta('mapImage', "");
-        renderItinerary();
-        autoSave();
-    }
+    TripInfo.deleteHeroImage(updateMeta, renderItinerary, autoSave);
 }
 
-// [Expense Logic]
+// ========================================
+// Expense Logic (Re-exported from module)
+// ========================================
 export function renderExpenseList(item) {
-    const listEl = document.getElementById('detail-expense-list');
-    const totalEl = document.getElementById('detail-total-budget');
-    
-    if (!item.expenses) item.expenses = [];
-    
-    let html = '';
-    let total = 0;
-
-    item.expenses.forEach((exp, idx) => {
-        // 두 형식 모두 지원 (마이그레이션 기간)
-        const description = exp.description || exp.desc || '내역 없음';
-        const amount = exp.amount || exp.cost || 0;
-        
-        total += Number(amount);
-        html += `
-        <div class="flex justify-between items-center bg-gray-50 dark:bg-gray-800 p-2 rounded-lg group">
-            <div class="flex items-center gap-2">
-                <span class="text-sm text-gray-700 dark:text-gray-300">${description}</span>
-            </div>
-            <div class="flex items-center gap-3">
-                <span class="text-sm font-bold text-text-main dark:text-white">₩${Number(amount).toLocaleString()}</span>
-                <button type="button" onclick="deleteExpense(${idx})" class="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><span class="material-symbols-outlined text-sm">delete</span></button>
-            </div>
-        </div>`;
-    });
-
-    if (item.expenses.length === 0) {
-        html = '<p class="text-xs text-gray-400 text-center py-2">지출 내역이 없습니다.</p>';
-    }
-
-    listEl.innerHTML = html;
-    
-    // 총 예산 업데이트 (지출 내역 합계)
-    totalEl.value = total;
-    item.budget = total;
+    ExpenseManager.renderExpenseList(item);
 }
 
 export function updateTotalBudget() {
-    let total = 0;
-    if (travelData.days) {
-        travelData.days.forEach(day => {
-            if (day.timeline) {
-                day.timeline.forEach(item => {
-                    // 기존 budget 필드
-                    if (item.budget) {
-                        total += Number(item.budget);
-                    }
-                    // expenses 배열 합산
-                    if (item.expenses && Array.isArray(item.expenses)) {
-                        item.expenses.forEach(exp => {
-                            total += Number(exp.amount || 0);
-                        });
-                    }
-                });
-            }
-        });
-    }
-    travelData.meta.budget = `₩${total.toLocaleString()}`;
+    ExpenseManager.updateTotalBudget(travelData);
 }
 
 export function deleteExpense(expIndex) {
     const item = travelData.days[targetDayIndex].timeline[viewingItemIndex];
-    item.expenses.splice(expIndex, 1);
-    
-    renderExpenseList(item);
-    updateTotalBudget();
-    
-    // 예산 카드 업데이트
-    const budgetEl = document.getElementById('budget-amount');
-    if (budgetEl) {
-        budgetEl.textContent = travelData.meta.budget || '₩0';
-    }
-    
-    renderItinerary(); // 전체 예산 갱신
-    autoSave();
+    ExpenseManager.deleteExpense(expIndex, item, travelData, () => {
+        renderExpenseList(item);
+        renderItinerary();
+        autoSave();
+    });
 }
 
 export function openGoogleMapsExternal() {
@@ -936,220 +669,23 @@ export function openGoogleMapsExternal() {
     }
 }
 
-// 휠 이벤트 핸들러 (한 칸씩 이동)
-function handleTimeWheel(e) {
-    e.preventDefault();
-    const container = e.currentTarget;
-    const direction = Math.sign(e.deltaY);
-    
-    // 현재 선택된 값 찾기
-    let currentVal = getPickerValue(container.id);
-    if (currentVal === null) return;
-    currentVal = parseInt(currentVal);
-    
-    // 값 증감 및 순환 (59 -> 0, 12 -> 1)
-    let nextVal = currentVal + direction;
-    
-    if (container.id === 'time-hour-list') {
-        if (nextVal > 12) nextVal = 1;
-        if (nextVal < 1) nextVal = 12;
-    } else {
-        if (nextVal > 59) nextVal = 0;
-        if (nextVal < 0) nextVal = 59;
-    }
-    
-    // 해당 값의 요소로 스크롤 이동
-    setPickerScroll(container.id, nextVal);
-}
+// ========================================
+// Time Picker Logic (Re-exported from module)
+// ========================================
+// Removed: handleTimeWheel and handleTimeDblClick are now internal to time-picker.js
 
-// 더블 클릭 핸들러 (직접 입력)
-function handleTimeDblClick(e) {
-    const container = e.currentTarget; // ul
-    const parent = container.parentElement; // div.relative...
-    
-    // 이미 입력 모드면 무시
-    if (parent.querySelector('input')) return;
+// ========================================
+// Category Picker (Re-exported from module)
+// ========================================
+export const initCategoryModal = CategoryPicker.initCategoryModal;
+export const openCategoryModal = CategoryPicker.openCategoryModal;
+export const closeCategoryModal = CategoryPicker.closeCategoryModal;
+export const selectCategory = CategoryPicker.selectCategory;
 
-    const currentVal = getPickerValue(container.id);
-    
-    // UI 전환
-    container.classList.add('hidden');
-    // 중앙 강조선 숨기기
-    const highlight = parent.querySelector('.absolute.inset-x-0');
-    if(highlight) highlight.classList.add('hidden');
-
-    const input = document.createElement('input');
-    input.type = 'number';
-    input.className = "w-full h-full text-center text-2xl font-bold bg-white dark:bg-card-dark border-2 border-primary rounded-xl outline-none z-20 absolute inset-0";
-    input.value = currentVal;
-    // 클릭 이벤트 전파 방지 (모달 닫힘 방지)
-    input.onclick = (ev) => ev.stopPropagation();
-    
-    // 범위 설정
-    if (container.id === 'time-hour-list') {
-        input.min = 1; input.max = 12;
-    } else {
-        input.min = 0; input.max = 59;
-    }
-
-    let isFinished = false;
-    const finishEdit = () => {
-        if (isFinished) return;
-        isFinished = true;
-        
-        let val = parseInt(input.value);
-        
-        // 유효성 검사 및 범위 보정
-        if (!isNaN(val)) {
-            if (container.id === 'time-hour-list') {
-                if (val < 1) val = 1;
-                if (val > 12) val = 12;
-            } else {
-                if (val < 0) val = 0;
-                if (val > 59) val = 59;
-            }
-            
-            // 값 적용 (스크롤 이동)
-            const items = Array.from(container.children);
-            const index = items.findIndex(item => parseInt(item.dataset.value) === val);
-            if (index !== -1) {
-                container.scrollTop = index * 40;
-            }
-        }
-
-        // UI 복구
-        input.remove();
-        container.classList.remove('hidden');
-        if(highlight) highlight.classList.remove('hidden');
-    };
-
-    input.onblur = finishEdit;
-    input.onkeydown = (ev) => {
-        if (ev.key === 'Enter') {
-            input.blur();
-        }
-    };
-
-    parent.appendChild(input);
-    input.focus();
-}
-
-// 카테고리 선택 모달
-export function initCategoryModal() {
-    const list = document.getElementById('category-grid');
-    if (list.children.length === 0) {
-        categoryList.forEach(cat => {
-            const btn = document.createElement('button');
-            btn.className = "flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-gray-50 dark:bg-gray-800 hover:bg-primary/10 hover:text-primary border border-transparent hover:border-primary/30 transition-all aspect-square group";
-            btn.onclick = () => selectCategory(cat);
-            btn.innerHTML = `
-                <div class="w-12 h-12 rounded-full bg-white dark:bg-gray-700 flex items-center justify-center shadow-sm text-gray-500 dark:text-gray-300 group-hover:text-primary group-hover:scale-110 transition-all">
-                    <span class="material-symbols-outlined text-2xl">${cat.icon}</span>
-                </div>
-                <span class="font-bold text-sm">${cat.name}</span>
-            `;
-            list.appendChild(btn);
-        });
-    }
-}
-
-export function openCategoryModal() {
-    initCategoryModal();
-    document.getElementById('category-selection-modal').classList.remove('hidden');
-}
-
-export function closeCategoryModal() {
-    document.getElementById('category-selection-modal').classList.add('hidden');
-}
-
-export function selectCategory(cat) {
-    const input = document.getElementById('item-category');
-    input.value = cat.name;
-    input.dataset.value = cat.code;
-    closeCategoryModal();
-}
-
-// 시간 선택 모달 (일정 시간용)
-export function initTimeModal() {
-    const hList = document.getElementById('time-hour-list');
-    const mList = document.getElementById('time-minute-list');
-    
-    if (hList.children.length === 0) {
-        for(let i=1; i<=12; i++) {
-            const li = document.createElement('li');
-            li.className = "h-10 flex items-center justify-center snap-center text-lg font-bold text-gray-600 dark:text-gray-300 cursor-pointer transition-colors";
-            li.innerText = String(i).padStart(2, '0');
-            li.dataset.value = i;
-            hList.appendChild(li);
-        }
-        // 1분 단위로 변경
-        for(let i=0; i<60; i++) {
-            const li = document.createElement('li');
-            li.className = "h-10 flex items-center justify-center snap-center text-lg font-bold text-gray-600 dark:text-gray-300 cursor-pointer transition-colors";
-            li.innerText = String(i).padStart(2, '0');
-            li.dataset.value = i;
-            mList.appendChild(li);
-        }
-
-        // 이벤트 리스너 추가 (휠 & 더블클릭)
-        hList.addEventListener('wheel', handleTimeWheel, { passive: false });
-        mList.addEventListener('wheel', handleTimeWheel, { passive: false });
-        
-        hList.addEventListener('dblclick', handleTimeDblClick);
-        mList.addEventListener('dblclick', handleTimeDblClick);
-    }
-}
-
-// 휠 피커 값 설정 헬퍼
-function setPickerScroll(elementId, value) {
-    const el = document.getElementById(elementId);
-    if (!el) return;
-    const items = Array.from(el.children);
-    const index = items.findIndex(item => parseInt(item.dataset.value) === parseInt(value));
-    if (index !== -1) {
-        el.scrollTop = index * 40; // h-10 = 40px
-    }
-}
-
-// 휠 피커 값 가져오기 헬퍼
-function getPickerValue(elementId) {
-    const el = document.getElementById(elementId);
-    if (!el) return null;
-    const index = Math.round(el.scrollTop / 40);
-    const items = el.children;
-    // 범위 체크
-    const safeIndex = Math.max(0, Math.min(index, items.length - 1));
-    return items[safeIndex] ? items[safeIndex].dataset.value : null;
-}
-
-export function openTimeModal() {
-    initTimeModal();
-    document.getElementById('time-selection-modal').classList.remove('hidden');
-    
-    // 현재 입력된 값 파싱해서 기본값 설정
-    const currentVal = document.getElementById('item-time').value;
-    if (currentVal) {
-        const isPM = currentVal.includes('오후');
-        const timeParts = currentVal.replace(/[^0-9:]/g, '').split(':');
-        if (timeParts.length >= 2) {
-            setPickerScroll('time-ampm-list', isPM ? '오후' : '오전');
-            setPickerScroll('time-hour-list', parseInt(timeParts[0]));
-            setPickerScroll('time-minute-list', parseInt(timeParts[1]));
-        }
-    }
-}
-
-export function closeTimeModal() {
-    document.getElementById('time-selection-modal').classList.add('hidden');
-}
-
-export function confirmTimeSelection() {
-    const ampm = getPickerValue('time-ampm-list') || '오전';
-    const h = getPickerValue('time-hour-list') || 12;
-    const m = getPickerValue('time-minute-list') || 0;
-    document.getElementById('item-time').value = `${ampm} ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-    closeTimeModal();
-}
+export const initTimeModal = TimePicker.initTimeModal;
+export const openTimeModal = TimePicker.openTimeModal;
+export const closeTimeModal = TimePicker.closeTimeModal;
+export const confirmTimeSelection = TimePicker.confirmTimeSelection;
 
 // 이동 수단 추가
 export function addTransitItem(index, type, dayIndex = currentDayIndex) {
@@ -1193,16 +729,16 @@ export function addTransitItem(index, type, dayIndex = currentDayIndex) {
 export function openTransitDetailModal(item, index, dayIndex) {
     setViewingItemIndex(index);
     const modal = document.getElementById('transit-detail-modal');
-    
+
     document.getElementById('transit-detail-icon').innerText = item.icon;
     document.getElementById('transit-detail-title').innerText = item.title;
     document.getElementById('transit-detail-time').innerText = item.time;
-    
+
     // 시간 정보 저장을 위한 hidden input 값 설정
     const tInfo = item.transitInfo || {};
     document.getElementById('transit-detail-start-val').value = tInfo.start || '';
     document.getElementById('transit-detail-end-val').value = tInfo.end || '';
-    
+
     // [Added] 대중교통 상세 정보 (정류장, 방향, 실시간 현황) 표시
     let publicInfoEl = document.getElementById('transit-detail-public-info');
     if (!publicInfoEl) {
@@ -1215,7 +751,7 @@ export function openTransitDetailModal(item, index, dayIndex) {
 
     if (['버스', '전철', '기차', '지하철'].some(t => item.tag && item.tag.includes(t)) && (tInfo.depStop || tInfo.arrStop)) {
         publicInfoEl.classList.remove('hidden');
-        
+
         // 실시간 남은 시간 계산 (여행 당일인 경우)
         let statusHtml = '';
         if (tInfo.start) {
@@ -1225,7 +761,7 @@ export function openTransitDetailModal(item, index, dayIndex) {
                 const target = new Date(dayDate);
                 target.setHours(h, m, 0, 0);
                 const now = new Date();
-                
+
                 if (target.toDateString() === now.toDateString()) {
                     const diff = Math.floor((target - now) / 60000);
                     if (diff > 0) statusHtml = `<span class="text-red-500 font-bold animate-pulse">${diff}분 후 도착</span>`;
@@ -1266,20 +802,20 @@ export function openTransitDetailModal(item, index, dayIndex) {
     // [비행기 상세 정보 및 검색 버튼 처리]
     const flightInfoEl = document.getElementById('transit-detail-flight-info');
     const searchBtnEl = document.getElementById('transit-detail-search-btn');
-    
+
     if (item.tag === '비행기') {
         const info = item.transitInfo || {};
-        
+
         document.getElementById('transit-detail-pnr').innerText = info.pnr ? info.pnr.toUpperCase() : '미정';
         document.getElementById('transit-detail-terminal').innerText = info.terminal ? info.terminal.toUpperCase() : '미정';
         document.getElementById('transit-detail-gate').innerText = info.gate ? info.gate.toUpperCase() : '미정';
-        
+
         flightInfoEl.classList.remove('hidden');
-        
+
         // 항공편명 추출 (transitInfo에 없으면 title에서 파싱 시도)
         let flightNum = info.flightNum || (item.title.match(/\(([^)]+)\)/) ? item.title.match(/\(([^)]+)\)/)[1] : '');
         flightNum = flightNum.toUpperCase();
-        
+
         if (flightNum) {
             searchBtnEl.classList.remove('hidden');
             searchBtnEl.innerHTML = `<span class="material-symbols-outlined text-base">search</span> 항공편 검색`;
@@ -1289,10 +825,10 @@ export function openTransitDetailModal(item, index, dayIndex) {
         }
     } else {
         if (flightInfoEl) flightInfoEl.classList.add('hidden');
-        
+
         if (searchBtnEl) {
             const timeline = travelData.days[dayIndex].timeline;
-            
+
             // 유효한 위치 정보를 가진 아이템을 찾는 헬퍼 (앞뒤로 검색)
             const findLocItem = (start, dir) => {
                 let i = start;
@@ -1330,11 +866,11 @@ export function openTransitDetailModal(item, index, dayIndex) {
                     };
                     const origin = encodeURIComponent(getLocStr(originItem));
                     const destination = encodeURIComponent(getLocStr(destItem));
-                    
+
                     let mode = 'transit';
                     if (item.tag === '도보') mode = 'walking';
                     else if (item.tag === '차량') mode = 'driving';
-                    
+
                     window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=${mode}`, '_blank');
                 };
             } else {
@@ -1349,29 +885,29 @@ export function openTransitDetailModal(item, index, dayIndex) {
     const nextItem = index < timeline.length - 1 ? timeline[index + 1] : null;
     const prevLoc = prevItem ? (prevItem.title || "출발지") : "출발지";
     const nextLoc = nextItem ? (nextItem.title || "도착지") : "도착지";
-    
+
     let routeText = `${prevLoc} ➡️ ${nextLoc}`;
     if (item.tag === '비행기' && item.location && item.location.includes('✈️')) {
         routeText = item.location;
     }
     document.getElementById('transit-detail-route').innerText = routeText;
-    
+
     document.getElementById('transit-detail-note').innerText = item.note || "메모가 없습니다.";
 
     // Detailed Steps (Ekispert 등 다단계 경로)
     const stepsContainer = document.getElementById('transit-detail-steps');
     const stepsList = document.getElementById('transit-detail-steps-list');
-    
+
     if (item.detailedSteps && item.detailedSteps.length > 0) {
-        console.log('[TransitDetail] detailedSteps:', item.detailedSteps);
+        logger.debug('[TransitDetail] detailedSteps:', item.detailedSteps);
         stepsContainer.classList.remove('hidden');
         stepsList.innerHTML = '';
-        
+
         item.detailedSteps.forEach((step, idx) => {
-            console.log(`[TransitDetail] step[${idx}]`, step, 'type:', step.type);
+            logger.debug(`[TransitDetail] step[${idx}]`, step, 'type:', step.type);
             const stepCard = document.createElement('div');
             stepCard.className = 'bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center gap-3';
-            
+
             // 태그 색상 처리 (노선명/번호)
             let tagHtml = '';
             if (step.color && step.color.startsWith('rgb')) {
@@ -1395,7 +931,7 @@ export function openTransitDetailModal(item, index, dayIndex) {
                 const tagClass = colorMap[step.tagColor] || 'bg-blue-500 text-white';
                 tagHtml = `<span class="px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap ${tagClass}">${step.tag}</span>`;
             }
-            
+
             // 이동수단 타입 태그 생성 (오른쪽)
             let typeTagHtml = '';
             if (step.type) {
@@ -1411,7 +947,7 @@ export function openTransitDetailModal(item, index, dayIndex) {
                 const typeInfo = typeMap[step.type] || { label: step.type, class: 'bg-gray-100 text-gray-700' };
                 typeTagHtml = `<span class="px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap ${typeInfo.class}">${typeInfo.label}</span>`;
             }
-            
+
             stepCard.innerHTML = `
                 <span class="material-symbols-outlined text-gray-600 dark:text-gray-300">${step.icon}</span>
                 <div class="flex-1 min-w-0">
@@ -1429,7 +965,7 @@ export function openTransitDetailModal(item, index, dayIndex) {
                 </div>
                 ${typeTagHtml ? `<div class="flex-shrink-0">${typeTagHtml}</div>` : ''}
             `;
-            
+
             stepsList.appendChild(stepCard);
         });
     } else {
@@ -1446,38 +982,8 @@ export function openTransitDetailModal(item, index, dayIndex) {
 let flightInputIndex = null;
 let isFlightEditing = false;
 
-// 주요 공항 데이터 (자동완성용)
-const majorAirports = [
-    { code: "ICN", name: "인천국제공항" },
-    { code: "GMP", name: "김포국제공항" },
-    { code: "CJU", name: "제주국제공항" },
-    { code: "PUS", name: "김해국제공항" },
-    { code: "NRT", name: "나리타 국제공항" },
-    { code: "HND", name: "하네다 공항" },
-    { code: "KIX", name: "간사이 국제공항" },
-    { code: "FUK", name: "후쿠오카 공항" },
-    { code: "CTS", name: "신치토세 공항" },
-    { code: "OKA", name: "나하 공항" },
-    { code: "TPE", name: "타오위안 국제공항" },
-    { code: "TSA", name: "송산 공항" },
-    { code: "DAD", name: "다낭 국제공항" },
-    { code: "HAN", name: "노이바이 국제공항" },
-    { code: "SGN", name: "탄손누트 국제공항" },
-    { code: "BKK", name: "수완나품 공항" },
-    { code: "DMK", name: "돈므앙 국제공항" },
-    { code: "HKG", name: "홍콩 국제공항" },
-    { code: "SIN", name: "창이 공항" },
-    { code: "MNL", name: "니노이 아키노 국제공항" },
-    { code: "CEB", name: "막탄 세부 국제공항" },
-    { code: "JFK", name: "존 F. 케네디 국제공항" },
-    { code: "LAX", name: "로스앤젤레스 국제공항" },
-    { code: "SFO", name: "샌프란시스코 국제공항" },
-    { code: "LHR", name: "히드로 공항" },
-    { code: "CDG", name: "샤를 드 골 공항" },
-    { code: "FRA", name: "프랑크푸르트 공항" },
-    { code: "FCO", name: "레오나르도 다 빈치 국제공항" },
-    { code: "DXB", name: "두바이 국제공항" },
-];
+// Note: majorAirports is now imported from ./ui/constants.js
+
 
 export function openFlightInputModal(index, isEdit = false) {
     flightInputIndex = index;
@@ -1505,7 +1011,7 @@ export function openFlightInputModal(index, isEdit = false) {
     terminalInput.value = "";
     gateInput.value = "";
     noteInput.value = "";
-    
+
     // 공항 자동완성 리스트 채우기 (최초 1회)
     const datalist = document.getElementById('airport-list');
     if (datalist && datalist.children.length === 0) {
@@ -1519,7 +1025,7 @@ export function openFlightInputModal(index, isEdit = false) {
     if (isEdit) {
         modalTitle.innerText = "항공편 정보 수정";
         saveBtn.innerText = "수정 완료";
-        
+
         const item = travelData.days[targetDayIndex].timeline[index];
         const info = item.transitInfo || {};
 
@@ -1556,9 +1062,9 @@ export function openFlightInputModal(index, isEdit = false) {
         modalTitle.innerText = "항공편 정보 입력";
         saveBtn.innerText = "추가";
     }
-    
+
     // 엔터 키로 검색 가능하게 설정
-    flightNumInput.onkeydown = function(e) {
+    flightNumInput.onkeydown = function (e) {
         if (e.key === 'Enter') {
             e.preventDefault();
             searchFlightNumber();
@@ -1573,11 +1079,11 @@ export function openFlightInputModal(index, isEdit = false) {
             if (!val) return;
 
             // 매칭되는 공항 찾기 (코드 또는 이름)
-            const match = majorAirports.find(ap => 
-                ap.name.includes(val) || 
+            const match = majorAirports.find(ap =>
+                ap.name.includes(val) ||
                 ap.code.includes(val.toUpperCase())
             );
-            
+
             if (match) {
                 e.target.value = `${match.code} (${match.name})`;
                 // 다음 필드로 포커스 이동
@@ -1628,7 +1134,7 @@ export function saveFlightItem() {
         const [h2, m2] = arrTime.split(':').map(Number);
         let diff = (h2 * 60 + m2) - (h1 * 60 + m1);
         if (diff < 0) diff += 24 * 60; // 다음날 도착 가정
-        
+
         const h = Math.floor(diff / 60);
         const m = diff % 60;
         durationStr = (h > 0 ? `${h}시간 ` : "") + `${m}분`;
@@ -1653,8 +1159,8 @@ export function saveFlightItem() {
         isTransit: true,
         image: null,
         note: noteStr,
-        transitInfo: { 
-            terminal: terminal.toUpperCase(), 
+        transitInfo: {
+            terminal: terminal.toUpperCase(),
             gate: gate.toUpperCase(),
             flightNum: flightNum.toUpperCase(),
             pnr: pnr.toUpperCase(),
@@ -1704,7 +1210,7 @@ export async function autoSave(immediate = false) {
             clearTimeout(autoSaveTimeout);
             autoSaveTimeout = null;
         }
-        
+
         if (immediate) {
             await saveTask();
         } else {
@@ -1714,307 +1220,8 @@ export async function autoSave(immediate = false) {
     }
 }
 
-export function renderItinerary() {    
-    // 일일 총 지출 계산
-    let dailyTotal = 0;
-    const calcTimeline = (currentDayIndex === -1) ? [] : (travelData.days[currentDayIndex] ? travelData.days[currentDayIndex].timeline : []);
-    if (currentDayIndex !== -1) {
-        calcTimeline.forEach(item => { if (item.budget) dailyTotal += Number(item.budget); });
-    }
-
-    // 1. 메타 정보 채우기 - 사용자 아이콘 캐싱 적용
-    let userImg = travelData.meta.userImage || localStorage.getItem('cachedUserPhotoURL') || "https://placehold.co/100";
-    if (userImg.includes('via.placeholder.com')) userImg = localStorage.getItem('cachedUserPhotoURL') || "https://placehold.co/100";
-    
-    const userAvatarEl = document.getElementById('user-avatar');
-    if (userAvatarEl) {
-        userAvatarEl.style.backgroundImage = `url('${userImg}')`;
-        // 이미지 로드 실패 시 대비
-        const testImg = new Image();
-        testImg.onload = () => { /* 정상 로드 */ };
-        testImg.onerror = () => {
-            // 로드 실패 시 캐싱된 이미지 사용
-            const cached = localStorage.getItem('cachedUserPhotoURL');
-            if (cached && cached !== userImg) {
-                userAvatarEl.style.backgroundImage = `url('${cached}')`;
-            }
-        };
-        testImg.src = userImg;
-    }
-    
-    // 지도 로드 여부와 상관없이 배경 이미지 설정 (지도가 로드되지 않았거나 투명할 때 대비)
-    let bgImg = travelData.meta.mapImage || "https://placehold.co/600x400";
-    if (bgImg.includes('via.placeholder.com')) bgImg = "https://placehold.co/600x400";
-    document.getElementById('map-bg').style.backgroundImage = `url('${bgImg}')`;
-    const heroEl = document.getElementById('trip-hero');
-    if (heroEl) heroEl.style.backgroundImage = `url('${bgImg}')`;
-
-    // Google Map 위치 업데이트 (초기화 확인)
-    try {
-        if (googleMap && mapMarker) {
-            const lat = Number(travelData.meta.lat);
-            const lng = Number(travelData.meta.lng);
-            if (!isNaN(lat) && !isNaN(lng)) {
-                const pos = { lat, lng };
-                if (googleMap.panTo) googleMap.panTo(pos);
-                if (mapMarker.setPosition) mapMarker.setPosition(pos);
-            }
-        }
-    } catch (e) {
-        // googleMap이 아직 초기화되지 않았을 수 있음
-        console.debug('Map not initialized yet');
-    }
-
-    if (isEditing) {
-        // Edit Mode: Meta Inputs
-        
-        // Hero Image Upload Overlay
-        if (heroEl) {
-            heroEl.innerHTML = `
-                <div class="absolute inset-0 bg-black/40 flex items-center justify-center cursor-pointer hover:bg-black/50 transition-colors" onclick="document.getElementById('hero-image-upload').click()">
-                    <div class="text-white flex flex-col items-center gap-2">
-                        <span class="material-symbols-outlined text-4xl">add_a_photo</span>
-                        <span class="font-bold text-sm">배경 이미지 변경</span>
-                    </div>
-                </div>
-            `;
-        }
-
-        // 기간 입력 (N박 M일)
-        document.getElementById('trip-day-count').innerText = travelData.meta.dayCount;
-        
-        document.getElementById('trip-title').innerHTML = `<input type="text" class="bg-gray-50 border border-gray-300 rounded px-2 py-1 text-2xl font-bold w-full" value="${travelData.meta.title}" onchange="updateMeta('title', this.value)">`;
-        
-        // 날짜 범위 수정 UI
-        const startDate = travelData.days[0]?.date || new Date().toISOString().split('T')[0];
-        const endDate = travelData.days[travelData.days.length - 1]?.date || new Date().toISOString().split('T')[0];
-        document.getElementById('trip-date-info').innerHTML = `
-            <div class="flex items-center gap-2"><input type="date" id="edit-start-date" class="bg-gray-50 border border-gray-300 rounded px-2 py-1 text-sm" value="${startDate}" onchange="updateDateRange()"><span class="text-gray-400">~</span><input type="date" id="edit-end-date" class="bg-gray-50 border border-gray-300 rounded px-2 py-1 text-sm" value="${endDate}" onchange="updateDateRange()"></div>`;
-        
-        // 날씨는 자동 업데이트되므로 편집 모드에서도 수정 불가 (텍스트로 표시)
-        document.getElementById('weather-temp').innerText = travelData.meta.weather.temp;
-        document.getElementById('weather-range').innerText = `${travelData.meta.weather.minTemp || '-'} / ${travelData.meta.weather.maxTemp || '-'}`;
-        document.getElementById('weather-desc').innerText = travelData.meta.weather.desc;
-        
-        document.getElementById('budget-amount').innerText = `₩${dailyTotal.toLocaleString()}`;
-    } else {
-        // View Mode: Text
-        
-        // Reset Hero Overlay
-        if (heroEl) {
-            heroEl.innerHTML = '<div class="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors"></div>';
-        }
-
-        // "1일" 또는 "당일"이 포함되면 "당일치기"로 표시
-        let durationText = travelData.meta.dayCount;
-        if (durationText === "1일" || durationText === "당일") {
-            durationText = "당일치기";
-        }
-        document.getElementById('trip-day-count').innerText = durationText;
-        
-        document.getElementById('trip-title').innerText = travelData.meta.title;
-        
-        // 날짜 범위 표시 로직 (시작일 - 종료일)
-        let dateDisplay = travelData.meta.subInfo;
-        if (travelData.days && travelData.days.length > 0) {
-            const start = new Date(travelData.days[0].date);
-            const end = new Date(travelData.days[travelData.days.length - 1].date);
-            const format = d => `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
-            
-            let dateStr = format(start);
-            if (travelData.meta.dayCount !== "당일치기" && start.getTime() !== end.getTime()) {
-                dateStr += ` - ${end.getMonth() + 1}월 ${end.getDate()}일`;
-            }
-            
-            const parts = travelData.meta.subInfo.split('•');
-            dateDisplay = parts.length > 1 ? `${parts[0].trim()} • ${dateStr}` : dateStr;
-        }
-        document.getElementById('trip-date-info').innerText = dateDisplay;
-
-        document.getElementById('weather-temp').innerText = travelData.meta.weather.temp;
-        document.getElementById('weather-range').innerText = `${travelData.meta.weather.minTemp || '-'} / ${travelData.meta.weather.maxTemp || '-'}`;
-        document.getElementById('weather-desc').innerText = travelData.meta.weather.desc;
-        if (currentDayIndex === -1) {
-            document.getElementById('budget-amount').innerText = travelData.meta.budget; // 전체 예산
-        } else {
-            document.getElementById('budget-amount').innerText = `₩${dailyTotal.toLocaleString()}`;
-        }
-        
-    }
-
-    renderLists();
-    updateLocalTimeWidget(); // [Added] 시간 위젯 업데이트
-
-    // 2. 날짜 탭 만들기
-    const tabsEl = document.getElementById('day-tabs');
-    let tabsHtml = '';
-
-    if (!travelData.days) travelData.days = [];
-    const isSingleDay = travelData.days.length === 1;
-
-    // 전체 보기 탭 추가
-    const isAllActive = currentDayIndex === -1 || isSingleDay;
-    const allActiveClass = isAllActive 
-        ? "border-b-2 border-primary text-primary bg-primary/5 dark:bg-primary/10" 
-        : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800";
-    tabsHtml += `
-        <button type="button" onclick="selectDay(-1)" class="flex flex-col items-center justify-center px-6 py-3 rounded-t-lg transition-colors ${allActiveClass}">
-            <span class="text-xs font-semibold uppercase">전체</span>
-        </button>`;
-    
-    if (!isSingleDay) {
-        travelData.days.forEach((day, index) => {
-            const isActive = index === currentDayIndex;
-            const activeClass = isActive 
-                ? "border-b-2 border-primary text-primary bg-primary/5 dark:bg-primary/10" 
-                : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800";
-            
-            tabsHtml += `
-            <button type="button" onclick="selectDay(${index})" class="flex flex-col items-center justify-center px-6 py-3 rounded-t-lg transition-colors ${activeClass}">
-                <span class="text-xs font-semibold uppercase">${index + 1}일차</span>
-            </button>
-            `;
-        });
-    }
-
-    tabsEl.innerHTML = tabsHtml;
-
-    // 3. 타임라인 리스트 만들기
-    const listEl = document.getElementById('timeline-list');
-    let html = '';
-    
-    if (currentDayIndex === -1 || isSingleDay) {
-        // 전체 보기 모드
-        travelData.days.forEach((day, dayIdx) => {
-            // [Modified] 당일치기인 경우 '1일차' 배지 숨김
-            const dayBadge = isSingleDay ? '' : `<div class="bg-primary/10 text-primary px-3 py-1 rounded-lg font-bold text-sm">${dayIdx + 1}일차</div>`;
-
-            html += `
-                <div class="mb-8">
-                    <div class="flex items-center gap-4 mb-4 pl-2">
-                        ${dayBadge}
-                        <div class="h-px bg-gray-200 dark:bg-gray-700 flex-1"></div>
-                        <button type="button" onclick="reorderTimeline(${dayIdx}, true)" class="text-xs text-primary hover:bg-primary/10 px-2 py-1 rounded-lg transition-colors flex items-center gap-1" title="시간순 재정렬">
-                            <span class="material-symbols-outlined text-sm">sort</span>
-                            <span class="hidden sm:inline">시간순 정렬</span>
-                        </button>
-                        <div class="text-xs text-gray-400">${day.date}</div>
-                    </div>
-                    <div class="flex flex-col">
-            `;
-            
-            if (day.timeline && day.timeline.length > 0) {
-                day.timeline.forEach((item, index) => {
-                    const isLast = index === day.timeline.length - 1;
-                    const isFirst = index === 0;
-                    html += Renderers.renderTimelineItemHtml(item, index, dayIdx, isLast, isFirst);
-                });
-            } else {
-                html += `<div class="text-center py-4 text-gray-400 text-sm">일정이 없습니다.</div>`;
-            }
-            
-            // 날짜별 일정 추가 버튼 (전체 보기에서도 추가 가능하도록, memoryLocked가 아닐 때만)
-            const isMemoryLocked = travelData.meta.memoryLocked || false;
-            if (!isMemoryLocked) {
-                html += `
-                    <div class="flex justify-center mt-2">
-                        <button type="button" onclick="openAddModal(${day.timeline.length}, ${dayIdx})" class="text-xs text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1">
-                            <span class="material-symbols-outlined text-sm">add</span> 일정 추가
-                        </button>
-                    </div>`;
-            }
-            html += `
-                </div>
-            </div>`;
-        });
-    } else {
-        // 단일 날짜 보기 모드
-        const currentTimeline = travelData.days[currentDayIndex] ? travelData.days[currentDayIndex].timeline : [];
-        const day = travelData.days[currentDayIndex];
-        
-        // 전체 보기와 동일한 헤더 추가 (날짜 태그 + 정렬 버튼 + 날짜)
-        if (currentTimeline.length > 0 && day) {
-            html += `
-                <div class="mb-8">
-                    <div class="flex items-center gap-4 mb-4 pl-2">
-                        <div class="bg-primary/10 text-primary px-3 py-1 rounded-lg font-bold text-sm">${currentDayIndex + 1}일차</div>
-                        <div class="h-px bg-gray-200 dark:bg-gray-700 flex-1"></div>
-                        <button type="button" onclick="reorderTimeline(${currentDayIndex}, true)" class="text-xs text-primary hover:bg-primary/10 px-2 py-1 rounded-lg transition-colors flex items-center gap-1" title="시간순 재정렬">
-                            <span class="material-symbols-outlined text-sm">sort</span>
-                            <span class="hidden sm:inline">시간순 정렬</span>
-                        </button>
-                        <div class="text-xs text-gray-400">${day.date}</div>
-                    </div>
-                    <div class="flex flex-col">
-            `;
-        }
-        
-        currentTimeline.forEach((item, index) => {
-            const isLast = index === currentTimeline.length - 1;
-        const isFirst = index === 0;
-            html += Renderers.renderTimelineItemHtml(item, index, currentDayIndex, isLast, isFirst);
-        });
-        
-        // [Added] 마지막 위치 드롭 영역 (드래그앤드롭 마지막 아이템 지원)
-        if (currentTimeline.length > 0) {
-            html += `
-                <div 
-                    ondragover="dragOver(event)" 
-                    ondragleave="dragLeave(event)" 
-                    ondrop="timelineContainerDrop(event, ${currentDayIndex})"
-                    class="h-8 relative mx-6"
-                    style="z-index: 1;"
-                >
-                    <div class="drag-indicator absolute -top-3 left-0 right-0 h-1 bg-primary rounded-full hidden z-50 shadow-sm pointer-events-none"></div>
-                </div>
-            `;
-        }
-        
-        // 헤더 닫기 (헤더가 열렸다면)
-        if (currentTimeline.length > 0 && day) {
-            html += `
-                </div>
-            </div>`;
-        }
-        
-        // 타임라인이 비어있을 때 안내 메시지
-        if (currentTimeline.length === 0) {
-            html += `
-            <div class="col-span-2 flex flex-col items-center justify-center py-10 text-gray-400">
-                <span class="material-symbols-outlined text-4xl mb-2">edit_calendar</span>
-                <p class="text-sm">아직 일정이 없습니다. 첫 일정을 추가해보세요!</p>
-                <button type="button" onclick="openAddModal(-1, ${currentDayIndex})" class="mt-4 flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-full font-bold shadow-lg hover:bg-orange-500 transition-colors transform hover:scale-105">
-                    <span class="material-symbols-outlined">add</span> 일정 시작하기
-                </button>
-            </div>`;
-        }
-    }
-
-    listEl.innerHTML = html;
-    
-    // 추억 잠금 버튼 업데이트 (여행 완료 상태일 때만 표시)
-    const memoryLockBtnContainer = document.getElementById('memory-lock-btn-container');
-    const memoryLockBtn = document.getElementById('memory-lock-btn');
-    if (memoryLockBtnContainer && memoryLockBtn && getTripStatus(travelData) === 'completed') {
-        memoryLockBtnContainer.classList.remove('hidden');
-        const isLocked = travelData.meta.memoryLocked || false;
-        const icon = memoryLockBtn.querySelector('.material-symbols-outlined');
-        const text = memoryLockBtn.querySelector('span:last-child');
-        
-        if (isLocked) {
-            // 잠금 상태
-            memoryLockBtn.className = 'px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600';
-            icon.textContent = 'lock';
-            text.textContent = '추억 고치기';
-        } else {
-            // 해제 상태
-            memoryLockBtn.className = 'px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm bg-primary text-white hover:bg-orange-500';
-            icon.textContent = 'check_circle';
-            text.textContent = '추억 저장 완료';
-        }
-    } else if (memoryLockBtnContainer) {
-        memoryLockBtnContainer.classList.add('hidden');
-    }
+export function renderItinerary() {
+    Renderers.renderItinerary();
 }
 
 // [Added] 현지 시간 및 시차 계산 위젯 업데이트 함수
@@ -2024,12 +1231,12 @@ function updateLocalTimeWidget() {
     const timezone = travelData.meta.timezone;
     const displayEl = document.getElementById('local-time-display');
     const diffEl = document.getElementById('time-diff-display');
-    
+
     if (!displayEl || !timezone) return;
 
     const update = () => {
         const now = new Date();
-        
+
         // 1. 현지 시간 표시
         const localTimeStr = now.toLocaleTimeString('ko-KR', {
             timeZone: timezone,
@@ -2043,13 +1250,13 @@ function updateLocalTimeWidget() {
         // 현재 브라우저 시간과 타겟 타임존의 시간을 비교
         const targetDateStr = new Intl.DateTimeFormat('en-US', { timeZone: timezone, hour12: false, year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' }).format(now);
         const myDateStr = new Intl.DateTimeFormat('en-US', { hour12: false, year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' }).format(now);
-        
+
         const targetDate = new Date(targetDateStr);
         const myDate = new Date(myDateStr);
-        
+
         const diffMs = targetDate - myDate;
         const diffHours = Math.round(diffMs / (1000 * 60 * 60));
-        
+
         let diffText = "시차 없음";
         if (diffHours > 0) {
             diffText = `내 위치보다 ${Math.abs(diffHours)}시간 빠름`;
@@ -2103,10 +1310,10 @@ export function openShoppingAddModal() {
     const modal = document.getElementById('shopping-add-modal');
     const nameInput = document.getElementById('shopping-item-name');
     const locationList = document.getElementById('shopping-location-list');
-    
+
     nameInput.value = '';
     locationList.innerHTML = '';
-    
+
     // 타임라인에서 모든 장소 추출
     const locations = [];
     if (travelData.days) {
@@ -2128,7 +1335,7 @@ export function openShoppingAddModal() {
             }
         });
     }
-    
+
     if (locations.length > 0) {
         locations.forEach((loc, idx) => {
             const btn = document.createElement('button');
@@ -2145,10 +1352,10 @@ export function openShoppingAddModal() {
     } else {
         locationList.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">등록된 장소가 없습니다.</p>';
     }
-    
+
     modal.classList.remove('hidden');
     setTimeout(() => nameInput.focus(), 100);
-    
+
     nameInput.onkeydown = (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -2163,14 +1370,14 @@ export function selectShoppingLocation(idx, loc) {
         btn.classList.remove('border-primary', 'bg-primary/10');
         btn.classList.add('border-gray-200', 'dark:border-gray-600');
     });
-    
+
     // 새 선택
     const btn = document.getElementById(`shopping-loc-${idx}`);
     if (btn) {
         btn.classList.add('border-primary', 'bg-primary/10');
         btn.classList.remove('border-gray-200', 'dark:border-gray-600');
     }
-    
+
     selectedShoppingLocation = loc;
 }
 
@@ -2190,23 +1397,23 @@ export function closeShoppingAddModal() {
 export function confirmShoppingAdd() {
     const nameInput = document.getElementById('shopping-item-name');
     const name = nameInput.value.trim();
-    
+
     if (!name) {
         nameInput.classList.add('shake');
         setTimeout(() => nameInput.classList.remove('shake'), 300);
         return;
     }
-    
+
     const item = {
         text: name,
         checked: false
     };
-    
+
     if (selectedShoppingLocation) {
         item.location = selectedShoppingLocation.title;
         item.locationDetail = selectedShoppingLocation.location;
     }
-    
+
     travelData.shoppingList.push(item);
     renderLists();
     autoSave();
@@ -2256,9 +1463,9 @@ function setupItemAutocomplete() {
             updateMeta('subInfo', place.formatted_address);
             updateMeta('lat', lat);
             updateMeta('lng', lng);
-            
+
             if (travelData.days && travelData.days.length > 0) {
-                 fetchWeather(lat, lng, travelData.days[0].date);
+                fetchWeather(lat, lng, travelData.days[0].date);
             }
             renderItinerary();
             closeModal();
@@ -2279,7 +1486,7 @@ export function openLocationSearch() {
         console.debug('setSearchMode not available yet');
     }
     const modal = document.getElementById('item-modal');
-    
+
     // 위치 설정 모드: 검색창 외 다른 입력 필드 숨기기
     const gridChildren = modal.querySelectorAll('.grid > div');
     gridChildren.forEach((el, index) => {
@@ -2294,15 +1501,8 @@ export function openLocationSearch() {
     setupItemAutocomplete();
 }
 
-// 카테고리 데이터
-const categoryList = [
-    { code: 'meal', name: '식사', icon: 'restaurant' },
-    { code: 'culture', name: '문화', icon: 'museum' },
-    { code: 'sightseeing', name: '관광', icon: 'photo_camera' },
-    { code: 'shopping', name: '쇼핑', icon: 'shopping_bag' },
-    { code: 'accommodation', name: '숙소', icon: 'hotel' },
-    { code: 'custom', name: '기타', icon: 'star' }
-];
+// Note: categoryList is now imported from ./ui/constants.js
+
 
 export function addTimelineItem(insertIndex = null, dayIndex = currentDayIndex) {
     setIsEditingFromDetail(false);
@@ -2318,7 +1518,7 @@ export function addTimelineItem(insertIndex = null, dayIndex = currentDayIndex) 
         console.debug('setSearchMode not available yet');
     }
     const modal = document.getElementById('item-modal');
-    
+
     // UI 복구: 모든 필드 표시
     const gridChildren = modal.querySelectorAll('.grid > div');
     gridChildren.forEach(el => el.classList.remove('hidden'));
@@ -2329,7 +1529,7 @@ export function addTimelineItem(insertIndex = null, dayIndex = currentDayIndex) 
     document.getElementById('place-search').value = "";
     document.getElementById('item-title').value = "";
     document.getElementById('item-location').value = "";
-    
+
     // 이전 항목 시간 + 10분 자동 설정
     let defaultTime = "오후 12:00";
     const timeline = travelData.days[targetDayIndex].timeline;
@@ -2344,20 +1544,20 @@ export function addTimelineItem(insertIndex = null, dayIndex = currentDayIndex) 
             }
         }
     }
-    
+
     document.getElementById('item-time').value = defaultTime;
     document.getElementById('item-notes').value = "";
     // 카테고리 초기값 설정
     document.getElementById('item-category').value = categoryList[5].name; // 기타
     document.getElementById('item-category').dataset.value = categoryList[5].code;
-    
+
     // 모달 UI 설정 (추가 모드)
     document.querySelector('#item-modal h3').innerText = "새 장소 추가";
     document.getElementById('save-item-btn').innerText = "일정에 추가";
-    
+
     modal.classList.remove('hidden');
     setupItemAutocomplete();
-    
+
     // 장소 검색 입력란에 자동 포커스
     setTimeout(() => {
         const placeSearchInput = document.getElementById('place-search');
@@ -2371,7 +1571,7 @@ export function editTimelineItem(index, dayIndex = currentDayIndex) {
     }
 
     const item = travelData.days[targetDayIndex].timeline[index];
-    
+
     // 이동 수단(Transit)인 경우 전용 모달 호출
     if (item.isTransit) {
         if (item.tag === '비행기') {
@@ -2383,20 +1583,20 @@ export function editTimelineItem(index, dayIndex = currentDayIndex) {
         if (window.openTransitInputModal) window.openTransitInputModal(index, null);
         return;
     }
-    
+
     setEditingItemIndex(index);
     try {
         setSearchMode('item');
     } catch (e) {
         console.debug('setSearchMode not available yet');
     }
-    
+
     const modal = document.getElementById('item-modal');
     // UI 복구: 모든 필드 표시
     const gridChildren = modal.querySelectorAll('.grid > div');
     gridChildren.forEach(el => el.classList.remove('hidden'));
     document.getElementById('save-item-btn').classList.remove('hidden');
-    
+
     // 데이터 채우기
     tempItemCoords = { lat: item.lat || null, lng: item.lng || null };
     document.getElementById('place-search').value = ""; // 검색창은 초기화
@@ -2405,7 +1605,7 @@ export function editTimelineItem(index, dayIndex = currentDayIndex) {
     document.getElementById('item-time').value = item.time;
     document.getElementById('item-duration').value = item.duration !== undefined && item.duration !== null ? item.duration : 30;
     document.getElementById('item-notes').value = item.note || "";
-    
+
     const tagToCategory = {
         "식사": "meal",
         "문화": "culture",
@@ -2417,15 +1617,15 @@ export function editTimelineItem(index, dayIndex = currentDayIndex) {
 
     let categoryValue = 'custom';
     if (item.tag) categoryValue = tagToCategory[item.tag] || item.tag.toLowerCase();
-    
+
     const categoryObj = categoryList.find(c => c.code === categoryValue) || categoryList[5];
     document.getElementById('item-category').value = categoryObj.name;
     document.getElementById('item-category').dataset.value = categoryObj.code;
-    
+
     // 모달 UI 설정 (수정 모드)
     document.querySelector('#item-modal h3').innerText = "활동 수정";
     document.getElementById('save-item-btn').innerText = "수정 완료";
-    
+
     modal.classList.remove('hidden');
     setupItemAutocomplete();
 }
@@ -2433,7 +1633,7 @@ export function editTimelineItem(index, dayIndex = currentDayIndex) {
 export function openGoogleMapsRouteFromPrev() {
     const timeline = travelData.days[targetDayIndex].timeline;
     let prevItem = null;
-    
+
     // 유효한 이전 장소 찾기 (메모나 이동수단이 아닌 실제 장소)
     let searchIdx = -1;
     if (editingItemIndex !== null) {
@@ -2472,7 +1672,7 @@ export function openGoogleMapsRouteFromPrev() {
 
     let destination = "";
     const currentLocVal = document.getElementById('item-location').value;
-    
+
     if (tempItemCoords && tempItemCoords.lat && tempItemCoords.lng) {
         destination = `${tempItemCoords.lat},${tempItemCoords.lng}`;
     } else if (currentLocVal) {
@@ -2493,7 +1693,7 @@ export function openManualInputModal(initialValue, callback, title = "직접 입
     manualInputCallback = callback;
     const input = document.getElementById('manual-input-value');
     input.value = initialValue || "";
-    
+
     // 엔터 키 처리
     input.onkeydown = (e) => {
         if (e.key === 'Enter') {
@@ -2517,7 +1717,7 @@ export function closeManualInputModal() {
 export function confirmManualInput() {
     const input = document.getElementById('manual-input-value');
     const val = input.value.trim();
-    
+
     if (!val) {
         input.classList.add('shake');
         setTimeout(() => input.classList.remove('shake'), 300);
@@ -2565,7 +1765,7 @@ export function useManualInput(type) {
 export function addNoteItem(insertIndex) {
     let defaultTime = "오후 12:00";
     const timeline = travelData.days[targetDayIndex].timeline;
-    
+
     let prevItem = null;
     if (insertIndex !== null && insertIndex !== -1) {
         prevItem = timeline[insertIndex];
@@ -2591,13 +1791,13 @@ export function addNoteItem(insertIndex) {
             isTransit: false,
             note: ""
         };
-        
+
         if (insertIndex !== null && insertIndex !== -1) {
             timeline.splice(insertIndex + 1, 0, newItem);
         } else {
             timeline.push(newItem);
         }
-        
+
         renderItinerary();
         autoSave();
     }, "메모 추가", "메모 내용");
@@ -2619,7 +1819,7 @@ export function setDuration(minutes) {
 export async function saveNewItem() {
     const category = document.getElementById('item-category').dataset.value || 'custom';
     let icon = "place";
-    
+
     // 카테고리별 아이콘 매핑
     const icons = {
         meal: "restaurant",
@@ -2643,7 +1843,7 @@ export async function saveNewItem() {
 
     const durationValue = document.getElementById('item-duration').value;
     const parsedDuration = parseInt(durationValue);
-    
+
     const newItem = {
         time: document.getElementById('item-time').value,
         title: document.getElementById('item-title').value || "새 활동",
@@ -2657,12 +1857,12 @@ export async function saveNewItem() {
         note: document.getElementById('item-notes').value,
         duration: (!isNaN(parsedDuration) && durationValue !== '') ? parsedDuration : 30 // 잔류 시간 (분)
     };
-    
+
     // 일본어 주소가 있으면 함께 저장
     const jaLocationField = document.getElementById('item-location-ja');
     if (jaLocationField && jaLocationField.value) {
         newItem.locationJa = jaLocationField.value;
-        
+
         // 국가 코드도 저장
         newItem.countryCode = 'JP';
         newItem.address_components = [{
@@ -2712,11 +1912,11 @@ export function deleteTimelineItem(index, dayIndex = currentDayIndex) {
 
     const timeline = travelData.days[targetDayIndex].timeline;
     const item = timeline[index];
-    
+
     // routeGroupId가 있는 경우 그룹 삭제 옵션 제공
     if (item.routeGroupId) {
         const groupItems = timeline.filter(t => t.routeGroupId === item.routeGroupId);
-        
+
         if (groupItems.length > 1) {
             // 커스텀 모달 열기
             openDeleteConfirmModal(index, dayIndex, groupItems.length);
@@ -2738,26 +1938,26 @@ let pendingDeleteDayIndex = null;
 export function openDeleteConfirmModal(index, dayIndex, groupCount) {
     pendingDeleteIndex = index;
     pendingDeleteDayIndex = dayIndex;
-    
+
     const modal = document.getElementById('delete-confirm-modal');
     const message = document.getElementById('delete-confirm-message');
     const deleteSingleBtn = document.getElementById('delete-single-btn');
     const deleteGroupBtn = document.getElementById('delete-group-btn');
-    
+
     message.textContent = `이 항목은 최적경로 검색으로 생성된 ${groupCount}개 이동 경로의 일부입니다. 전체 경로를 함께 삭제하시겠습니까?`;
     deleteGroupBtn.textContent = `전체 경로 삭제 (${groupCount}개)`;
-    
+
     // 버튼 이벤트 리스너 설정
     deleteSingleBtn.onclick = () => {
         executeDelete(false);
         closeDeleteConfirmModal();
     };
-    
+
     deleteGroupBtn.onclick = () => {
         executeDelete(true);
         closeDeleteConfirmModal();
     };
-    
+
     modal.classList.remove('hidden');
 }
 
@@ -2775,35 +1975,35 @@ let transitRecalculateCancelCallback = null;
 export function showTransitRecalculateModal(time, onConfirm, onCancel) {
     const modal = document.getElementById('transit-recalculate-modal');
     const timeDisplay = document.getElementById('transit-time-display');
-    
+
     timeDisplay.innerText = time;
     transitRecalculateConfirmCallback = onConfirm;
     transitRecalculateCancelCallback = onCancel;
-    
+
     modal.classList.remove('hidden');
 }
 
 export function closeTransitRecalculateModal(shouldRecalculate) {
     const modal = document.getElementById('transit-recalculate-modal');
     modal.classList.add('hidden');
-    
+
     if (shouldRecalculate && transitRecalculateConfirmCallback) {
         transitRecalculateConfirmCallback();
     } else if (!shouldRecalculate && transitRecalculateCancelCallback) {
         transitRecalculateCancelCallback();
     }
-    
+
     transitRecalculateConfirmCallback = null;
     transitRecalculateCancelCallback = null;
 }
 
 function executeDelete(deleteGroup) {
     if (pendingDeleteIndex === null) return;
-    
+
     setTargetDayIndex(pendingDeleteDayIndex);
     const timeline = travelData.days[targetDayIndex].timeline;
     const item = timeline[pendingDeleteIndex];
-    
+
     if (deleteGroup && item.routeGroupId) {
         // 그룹 전체 삭제 (뒤에서부터 삭제하여 인덱스 꼬임 방지)
         for (let i = timeline.length - 1; i >= 0; i--) {
@@ -2815,7 +2015,7 @@ function executeDelete(deleteGroup) {
         // 이 항목만 삭제
         timeline.splice(pendingDeleteIndex, 1);
     }
-    
+
     updateTotalBudget();
     renderItinerary();
     autoSave();
@@ -2825,7 +2025,7 @@ function executeDelete(deleteGroup) {
 export async function handleAttachmentUpload(input, type) {
     if (input.files && input.files[0]) {
         const file = input.files[0];
-        
+
         // 파일 크기 제한: 이미지 5MB, PDF 10MB
         const maxSize = file.type.startsWith('image/') ? 5 * 1024 * 1024 : 10 * 1024 * 1024;
         if (file.size > maxSize) {
@@ -2836,21 +2036,21 @@ export async function handleAttachmentUpload(input, type) {
 
         try {
             showLoading();
-            
+
             const reader = new FileReader();
-            
-            reader.onload = async function(e) {
+
+            reader.onload = async function (e) {
                 try {
                     const item = travelData.days[targetDayIndex].timeline[viewingItemIndex];
                     if (!item.attachments) item.attachments = [];
-                    
+
                     let fileUrl = null;
-                    
+
                     // Cloud Functions를 통해 Storage에 업로드
                     const timestamp = Date.now();
                     const fileExtension = file.name.split('.').pop();
                     const fileName = `attachment_${targetDayIndex}_${viewingItemIndex}_${timestamp}.${fileExtension}`;
-                    
+
                     const response = await fetch(`${BACKEND_URL}/upload-attachment`, {
                         method: 'POST',
                         headers: {
@@ -2871,18 +2071,18 @@ export async function handleAttachmentUpload(input, type) {
 
                     const result = await response.json();
                     fileUrl = result.url;
-                    
+
                     item.attachments.push({
                         name: file.name,
                         type: file.type,
                         url: fileUrl // URL로 저장
                     });
-                    
+
                     const containerId = type === 'transit' ? 'transit-attachment-list' : 'detail-attachment-list';
                     renderAttachments(item, containerId);
                     await autoSave();
                     input.value = ""; // Reset input
-                    
+
                     hideLoading();
                 } catch (error) {
                     console.error("첨부파일 업로드 실패:", error);
@@ -2890,7 +2090,7 @@ export async function handleAttachmentUpload(input, type) {
                     hideLoading();
                 }
             };
-            
+
             reader.readAsDataURL(file);
         } catch (error) {
             console.error("파일 읽기 실패:", error);
@@ -2927,7 +2127,7 @@ export function openAttachment(data, type) {
 export async function handleImageUpload(input) {
     if (input.files && input.files[0]) {
         const file = input.files[0];
-        
+
         if (file.size > 5 * 1024 * 1024) {
             alert("파일 크기는 5MB 이하여야 합니다.");
             input.value = "";
@@ -2936,15 +2136,15 @@ export async function handleImageUpload(input) {
 
         try {
             Modals.showLoading();
-            
+
             const reader = new FileReader();
-            
-            reader.onload = async function(e) {
+
+            reader.onload = async function (e) {
                 try {
                     const timestamp = Date.now();
                     const fileExtension = file.name.split('.').pop();
                     const fileName = `hero_${currentTripId}_${timestamp}.${fileExtension}`;
-                    
+
                     const response = await fetch(`${BACKEND_URL}/upload-attachment`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -2957,10 +2157,10 @@ export async function handleImageUpload(input) {
                     });
 
                     if (!response.ok) throw new Error('Upload failed');
-                    
+
                     const result = await response.json();
                     updateMeta('mapImage', result.url);
-                    
+
                     input.value = "";
                 } catch (error) {
                     console.error("Image upload failed:", error);
@@ -2969,7 +2169,7 @@ export async function handleImageUpload(input) {
                     Modals.hideLoading();
                 }
             };
-            
+
             reader.readAsDataURL(file);
         } catch (e) {
             console.error(e);
@@ -2989,7 +2189,7 @@ export async function openRouteModal() {
     modal.classList.remove('hidden');
 
     const container = document.getElementById('route-map-container');
-    
+
     // 지도 초기화 (최초 1회)
     if (!routeMap && window.mapboxgl) {
         routeMap = new mapboxgl.Map({
@@ -3051,7 +2251,7 @@ export async function openRouteModal() {
     // 순차적으로 좌표 처리 및 마커 생성
     for (let i = 0; i < timeline.length; i++) {
         const item = timeline[i];
-        
+
         if (item.isTransit) {
             transitBuffer.push(item);
             continue;
@@ -3088,7 +2288,7 @@ export async function openRouteModal() {
                     for (let j = 0; j < count; j++) {
                         const tItem = transitBuffer[j];
                         const fraction = (j + 1) / (count + 1);
-                        
+
                         // 선형 보간 (Linear Interpolation)
                         const lat = lastPlacePos.lat + (pos.lat - lastPlacePos.lat) * fraction;
                         const lng = lastPlacePos.lng + (pos.lng - lastPlacePos.lng) * fraction;
@@ -3186,12 +2386,12 @@ export function updateTimeline(dayIndex, itemIndex, key, value) {
 export function updateDateRange() {
     const startStr = document.getElementById('edit-start-date').value;
     const endStr = document.getElementById('edit-end-date').value;
-    
+
     if (!startStr || !endStr) return;
-    
+
     const start = new Date(startStr);
     const end = new Date(endStr);
-    
+
     if (end < start) {
         alert("종료일은 시작일보다 빠를 수 없습니다.");
         return;
@@ -3202,14 +2402,14 @@ export function updateDateRange() {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     const durationText = (diffDays === 0) ? "당일치기" : `${diffDays}박 ${diffDays + 1}일`;
     updateMetaState('dayCount', durationText);
-    
+
     // 날짜 텍스트 업데이트
     const format = d => `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
     let dateStr = format(start);
     if (durationText !== "당일치기") {
         dateStr += ` - ${end.getMonth() + 1}월 ${end.getDate()}일`;
     }
-    
+
     // 기존 subInfo의 앞부분(위치 등) 유지
     let prefix = "";
     if (travelData.meta.subInfo && travelData.meta.subInfo.includes('•')) {
@@ -3220,13 +2420,13 @@ export function updateDateRange() {
     // Days 배열 재구성
     const totalDays = diffDays + 1;
     const currentTotalDays = travelData.days.length;
-    
+
     if (totalDays > currentTotalDays) {
         for (let i = currentTotalDays; i < totalDays; i++) {
             travelData.days.push({ date: "", timeline: [] });
         }
     } else if (totalDays < currentTotalDays) {
-        if(!confirm("기간을 줄이면 일부 일정이 삭제될 수 있습니다. 계속하시겠습니까?")) {
+        if (!confirm("기간을 줄이면 일부 일정이 삭제될 수 있습니다. 계속하시겠습니까?")) {
             renderItinerary(); // 입력값 원복을 위해 재렌더링
             return;
         }
@@ -3243,6 +2443,16 @@ export function updateDateRange() {
     renderItinerary();
     autoSave();
 }
+
+// [Trips Logic]
+export const loadTripList = Trips.loadTripList;
+// Note: openTrip and checkInviteLink are defined in this file, not in Trips module
+export const createNewTrip = Trips.createNewTrip;
+export const closeNewTripModal = Trips.closeNewTripModal;
+export const nextWizardStep = Trips.nextWizardStep;
+export const finishNewTripWizard = Trips.finishNewTripWizard;
+export const deleteTrip = Trips.deleteTrip;
+
 
 // [Memory Logic]
 export const getTripStatus = Memories.getTripStatus;
@@ -3352,6 +2562,8 @@ window.closeGeneralDeleteModal = Modals.closeGeneralDeleteModal;
 window.confirmGeneralDelete = Modals.confirmGeneralDelete;
 window.openUserMenu = Profile.openUserMenu;
 window.openUserSettings = Profile.openUserSettings;
+window.closeUserSettings = Profile.closeUserSettings;
+window.toggleDarkMode = Profile.toggleDarkMode;
 window.openUserProfile = Profile.openUserProfile;
 window.closeProfileView = Profile.closeProfileView;
 window.handleProfilePhotoChange = Profile.handleProfilePhotoChange;
@@ -3384,16 +2596,16 @@ window.autoSave = autoSave; // [Fix] 순환 참조 해결을 위한 전역 할�
 // 지출 상세 모달
 export function openExpenseDetailModal() {
     const modal = document.getElementById('expense-detail-modal');
-    
+
     // 전체 지출 계산
     let totalExpense = 0;
     const expensesByDay = [];
-    
+
     if (travelData.days) {
         travelData.days.forEach((day, dayIdx) => {
             let dayTotal = 0;
             const dayExpenses = [];
-            
+
             if (day.timeline) {
                 day.timeline.forEach((item, itemIdx) => {
                     // budget 필드
@@ -3406,14 +2618,14 @@ export function openExpenseDetailModal() {
                             amount: amount
                         });
                     }
-                    
+
                     // expenses 배열
                     if (item.expenses && Array.isArray(item.expenses)) {
                         item.expenses.forEach(exp => {
                             const amount = Number(exp.amount || 0);
                             if (amount > 0) { // 0원 더미 데이터 제외
                                 dayTotal += amount;
-                                
+
                                 // 이동수단인 경우 출발지->도착지 붙이기
                                 let displayTitle = item.title;
                                 if (item.isTransit) {
@@ -3423,7 +2635,7 @@ export function openExpenseDetailModal() {
                                     const to = nextItem && !nextItem.isTransit ? nextItem.title : '도착지';
                                     displayTitle = `${item.title} (${from}→${to})`;
                                 }
-                                
+
                                 dayExpenses.push({
                                     title: displayTitle,
                                     description: exp.description,
@@ -3434,7 +2646,7 @@ export function openExpenseDetailModal() {
                     }
                 });
             }
-            
+
             if (dayTotal > 0) {
                 expensesByDay.push({
                     date: day.date,
@@ -3442,14 +2654,14 @@ export function openExpenseDetailModal() {
                     expenses: dayExpenses
                 });
             }
-            
+
             totalExpense += dayTotal;
         });
     }
-    
+
     // 전체 금액 표시
     document.getElementById('total-expense-amount').textContent = `₩${totalExpense.toLocaleString()}`;
-    
+
     // 일자별 지출 표시
     const dayListEl = document.getElementById('expense-by-day-list');
     if (expensesByDay.length === 0) {
@@ -3475,7 +2687,7 @@ export function openExpenseDetailModal() {
             </div>
         `).join('');
     }
-    
+
     // N분의 1 결과 숨기기
     const splitResult = document.getElementById('split-result');
     const splitInput = document.getElementById('split-people-count');
@@ -3483,7 +2695,7 @@ export function openExpenseDetailModal() {
         splitResult.classList.add('hidden');
         splitInput.value = '1';
     }
-    
+
     modal.classList.remove('hidden');
 }
 
@@ -3497,11 +2709,11 @@ export function calculateSplit() {
         alert('인원 수를 입력해주세요.');
         return;
     }
-    
+
     const totalText = document.getElementById('total-expense-amount').textContent;
     const total = Number(totalText.replace(/[^0-9]/g, ''));
     const perPerson = Math.ceil(total / peopleCount);
-    
+
     document.getElementById('per-person-amount').textContent = `₩${perPerson.toLocaleString()}`;
     document.getElementById('split-result').classList.remove('hidden');
 }
@@ -3552,11 +2764,11 @@ export function openContextMenu(e, type, index, dayIndex = currentDayIndex) {
 
     menu.innerHTML = html;
     menu.classList.remove('hidden');
-    
+
     // 위치 계산 (화면 밖으로 나가지 않도록)
     let x = e.clientX;
     let y = e.clientY;
-    
+
     const menuWidth = 160;
     const menuHeight = type === 'item' ? 88 : 88; // 대략적인 높이
 
@@ -3576,7 +2788,7 @@ export function closeContextMenu() {
 
 export function handleContextAction(action) {
     closeContextMenu();
-    
+
     if (action === 'edit') {
         setIsEditingFromDetail(false);
         editTimelineItem(contextMenuTargetIndex, targetDayIndex);
@@ -3611,9 +2823,9 @@ let weeklyWeatherData = null;
 export async function openWeatherDetailModal() {
     const modal = document.getElementById('weather-detail-modal');
     if (!modal) return;
-    
+
     modal.classList.remove('hidden');
-    
+
     // 여행 시작일 기준으로 주 시작일 설정
     if (travelData.days && travelData.days.length > 0) {
         const firstDate = new Date(travelData.days[0].date);
@@ -3625,7 +2837,7 @@ export async function openWeatherDetailModal() {
         currentWeatherWeekStart = getWeekStart(today);
         selectedWeatherDate = formatDate(today);
     }
-    
+
     // 주간 날씨 데이터 로드 및 렌더링
     await loadAndRenderWeeklyWeather();
 }
@@ -3633,7 +2845,7 @@ export async function openWeatherDetailModal() {
 async function loadAndRenderWeeklyWeather() {
     const location = travelData.meta.title || '위치 정보 없음';
     document.getElementById('weather-location-title').textContent = location;
-    
+
     if (!travelData.meta.lat || !travelData.meta.lng) {
         document.getElementById('weekly-weather-container').innerHTML = `
             <div class="text-center py-8 text-gray-400">
@@ -3642,12 +2854,12 @@ async function loadAndRenderWeeklyWeather() {
         `;
         return;
     }
-    
+
     // 주간 날씨 데이터 가져오기 (7일)
     try {
         weeklyWeatherData = await fetchWeeklyWeather(travelData.meta.lat, travelData.meta.lng, currentWeatherWeekStart);
         renderWeeklyWeather();
-        
+
         // 선택된 날짜의 시간별 예보 표시
         await loadAndRenderHourlyWeather(selectedWeatherDate);
     } catch (e) {
@@ -3663,11 +2875,11 @@ async function loadAndRenderWeeklyWeather() {
 function renderWeeklyWeather() {
     const container = document.getElementById('weekly-weather-container');
     if (!container || !weeklyWeatherData) return;
-    
+
     // 주 헤더 (년월 + 네비게이션)
     const weekStartDate = new Date(currentWeatherWeekStart);
     const yearMonth = `${weekStartDate.getFullYear()}년 ${weekStartDate.getMonth() + 1}월`;
-    
+
     let html = `
         <div class="flex items-center justify-between mb-6">
             <button onclick="navigateWeatherWeek(-1)" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
@@ -3681,39 +2893,39 @@ function renderWeeklyWeather() {
         
         <div class="grid grid-cols-7 gap-2">
     `;
-    
+
     // 여행 기간 확인
     const tripDates = new Set();
     if (travelData.days) {
         travelData.days.forEach(day => tripDates.add(day.date));
     }
-    
+
     // 7일 날씨 카드
     const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
-    
+
     for (let i = 0; i < 7; i++) {
         const date = new Date(currentWeatherWeekStart);
         date.setDate(date.getDate() + i);
         const dateStr = formatDate(date);
         const dayName = dayNames[date.getDay()];
-        
+
         const dayData = weeklyWeatherData.find(d => d.date === dateStr);
         const isTripDay = tripDates.has(dateStr);
         const isSelected = dateStr === selectedWeatherDate;
         const isAvailable = dayData && dayData.available;
-        
-        const cardClass = isSelected 
-            ? 'bg-primary text-white' 
-            : (isTripDay 
-                ? 'bg-orange-50 dark:bg-orange-900/20 border-2 border-primary' 
+
+        const cardClass = isSelected
+            ? 'bg-primary text-white'
+            : (isTripDay
+                ? 'bg-orange-50 dark:bg-orange-900/20 border-2 border-primary'
                 : 'bg-card-light dark:bg-card-dark border border-gray-200 dark:border-gray-700');
-        
-        const textClass = isSelected 
-            ? 'text-white' 
-            : (isAvailable 
-                ? 'text-text-main dark:text-white' 
+
+        const textClass = isSelected
+            ? 'text-white'
+            : (isAvailable
+                ? 'text-text-main dark:text-white'
                 : 'text-gray-400');
-        
+
         html += `
             <button 
                 onclick="selectWeatherDate('${dateStr}')" 
@@ -3731,7 +2943,7 @@ function renderWeeklyWeather() {
             </button>
         `;
     }
-    
+
     html += '</div>';
     container.innerHTML = html;
 }
@@ -3739,25 +2951,25 @@ function renderWeeklyWeather() {
 async function loadAndRenderHourlyWeather(dateStr) {
     const container = document.getElementById('hourly-weather-container');
     if (!container) return;
-    
+
     const selectedDate = new Date(dateStr);
     const dateDisplay = `${selectedDate.getMonth() + 1}월 ${selectedDate.getDate()}일`;
-    
+
     document.getElementById('selected-date-title').textContent = dateDisplay;
-    
+
     try {
         const hourlyData = await fetchHourlyWeatherForDate(
-            travelData.meta.lat, 
-            travelData.meta.lng, 
+            travelData.meta.lat,
+            travelData.meta.lng,
             dateStr
         );
-        
+
         if (hourlyData && hourlyData.length > 0) {
             let html = '';
-            
+
             hourlyData.forEach(hour => {
                 const tempColor = hour.temp >= 25 ? 'text-red-500' : (hour.temp <= 10 ? 'text-blue-500' : 'text-text-main dark:text-white');
-                
+
                 html += `
                     <div class="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-800 last:border-0">
                         <div class="flex items-center gap-4 flex-1">
@@ -3779,7 +2991,7 @@ async function loadAndRenderHourlyWeather(dateStr) {
                     </div>
                 `;
             });
-            
+
             container.innerHTML = html;
         } else {
             container.innerHTML = `
@@ -3812,7 +3024,7 @@ export async function navigateWeatherWeek(direction) {
     const weekStart = new Date(currentWeatherWeekStart);
     weekStart.setDate(weekStart.getDate() + (direction * 7));
     currentWeatherWeekStart = formatDate(weekStart);
-    
+
     await loadAndRenderWeeklyWeather();
 }
 

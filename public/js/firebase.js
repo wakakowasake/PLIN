@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-import { getAuth, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getFirestore, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getAuth, GoogleAuthProvider, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { BACKEND_URL } from './config.js';
 
 // API 키를 서버에서 가져오기
@@ -40,6 +40,13 @@ async function initFirebase() {
     db = getFirestore(app);
     auth = getAuth(app);
     provider = new GoogleAuthProvider();
+
+    // [Localhost 감지 시 에뮬레이터 연결]
+    if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+        connectFirestoreEmulator(db, 'localhost', 8080);
+        connectAuthEmulator(auth, "http://localhost:9099");
+        console.log("🔥 Connected to Firebase Emulators (Firestore & Auth)");
+    }
 }
 
 // Firebase 초기화 프로미스를 export

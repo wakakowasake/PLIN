@@ -1,4 +1,5 @@
 import { travelData, setTravelData } from '../state.js';
+import logger from '../logger.js';
 
 export function openRouteModal(routeInfo) {
     const el = document.getElementById('route-modal');
@@ -11,7 +12,7 @@ export function openRouteModal(routeInfo) {
 
 export async function fetchTransitTime(origin, destination) {
     // Placeholder: real implementation should call Google Maps Directions API
-    console.log('fetchTransitTime', origin, destination);
+    logger.log('fetchTransitTime', origin, destination);
     return { durationText: '약 15분', duration: 15 };
 }
 

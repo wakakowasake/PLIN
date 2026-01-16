@@ -6,25 +6,25 @@ function safeGet(id) { return document.getElementById(id); }
 function isTripCompleted() {
     if (!travelData || !travelData.days || travelData.days.length === 0) return false;
     const today = new Date();
-    today.setHours(0,0,0,0);
+    today.setHours(0, 0, 0, 0);
     const lastDayStr = travelData.days[travelData.days.length - 1].date;
     if (!lastDayStr) return false;
     const lastDay = new Date(lastDayStr);
-    lastDay.setHours(0,0,0,0);
+    lastDay.setHours(0, 0, 0, 0);
     return today > lastDay;
 }
 
 // [Helper] 추억(사진) 렌더링 HTML 생성
 function renderMemoriesHtml(item, dayIndex, itemIndex) {
     if (!item.memories || item.memories.length === 0) return '';
-    
+
     let html = '<div class="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex gap-2 overflow-x-auto pb-1 no-scrollbar">';
     item.memories.forEach((mem, memIdx) => {
         // [Fix] 사진이 있는 경우와 없는 경우(코멘트만) 구분
-        const content = mem.photoUrl 
+        const content = mem.photoUrl
             ? `<img src="${mem.photoUrl}" class="w-full h-full object-cover transition-transform group-hover:scale-110" loading="lazy" onerror="this.style.display='none'; this.parentElement.innerHTML='<span class=\\'material-symbols-outlined text-red-400\\'>broken_image</span>'">`
             : `<div class="w-full h-full flex items-center justify-center bg-yellow-50 dark:bg-yellow-900/20"><span class="material-symbols-outlined text-yellow-600 dark:text-yellow-400">chat</span></div>`;
-            
+
         html += `
             <div class="relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden cursor-pointer group border border-gray-200 dark:border-gray-700" onclick="event.stopPropagation(); window.openLightbox(${dayIndex}, ${itemIndex}, ${memIdx})">
                 ${content}
@@ -52,8 +52,8 @@ function buildImageCard(item, editClass, clickHandler, index, dayIndex) {
                             <span class="truncate flex-1">${item.location}</span>
                         </div>
                     </div>
-                    ${showMemoryBtn ? `<button type="button" onclick="event.stopPropagation(); addMemoryItem(${index}, ${dayIndex})" class="absolute top-2 right-2 bg-black/30 hover:bg-black/50 text-white p-1.5 rounded-full backdrop-blur-sm transition-colors z-10">
-                        <span class="material-symbols-outlined text-lg">photo_camera</span>
+                    ${showMemoryBtn ? `<button type="button" onclick="event.stopPropagation(); addMemoryItem(${index}, ${dayIndex})" class="absolute top-2 right-2 bg-black/30 hover:bg-black/50 text-white p-2 rounded-full backdrop-blur-sm transition-colors z-10">
+                        <span class="material-symbols-outlined text-2xl">photo_camera</span>
                     </button>` : ''}
                 </div>
                 <div class="p-3 md:p-4">
@@ -80,7 +80,7 @@ function buildMemoCard(item, index, dayIndex, editClass) {
                         <p class="text-sm font-medium text-gray-800 dark:text-gray-200 break-words whitespace-pre-wrap leading-relaxed font-body">${item.title}</p>
                     </div>
                     <div class="flex items-center gap-1">
-                        ${showMemoryBtn ? `<button type="button" onclick="event.stopPropagation(); addMemoryItem(${index}, ${dayIndex})" class="text-yellow-600/70 hover:text-yellow-800 dark:text-yellow-500 dark:hover:text-yellow-300 p-1 rounded-full flex-shrink-0"><span class="material-symbols-outlined text-lg">photo_camera</span></button>` : ''}
+                        ${showMemoryBtn ? `<button type="button" onclick="event.stopPropagation(); addMemoryItem(${index}, ${dayIndex})" class="text-yellow-600/70 hover:text-yellow-800 dark:text-yellow-500 dark:hover:text-yellow-300 p-2 rounded-full flex-shrink-0"><span class="material-symbols-outlined text-2xl">photo_camera</span></button>` : ''}
                         ${isEditing ? `<button type="button" onclick="event.stopPropagation(); deleteTimelineItem(${index}, ${dayIndex})" class="text-red-500 hover:bg-red-50 p-2 rounded-full flex-shrink-0"><span class="material-symbols-outlined text-lg">delete</span></button>` : ''}
                     </div>
                 </div>
@@ -94,7 +94,7 @@ function buildTransitCard(item, index, dayIndex, editClass) {
     const showMemoryBtn = isCompleted && !isMemoryLocked && !isEditing;
 
     let contentHtml;
-    
+
     // Google Maps 경로 등: item.title에 이미 완성된 HTML 태그가 포함된 경우
     if (item.title && item.title.includes('<span')) {
         contentHtml = item.title;
@@ -118,7 +118,7 @@ function buildTransitCard(item, index, dayIndex, editClass) {
                             <span>${item.tag}</span>
                         </div>`;
         }
-        
+
         // 상세 경로가 있는 경우(태그가 여러 개일 수 있음)에는 제목(역 정보/중복 노선명)을 숨기고 태그만 표시
         const showTitle = !hasDetailedTransit;
         const titleText = (showTitle && item.title) ? `<p class="text-sm font-bold text-text-main dark:text-white truncate ml-2">${item.title}</p>` : '';
@@ -136,7 +136,7 @@ function buildTransitCard(item, index, dayIndex, editClass) {
                             ${contentHtml}
                         </div>
                     </div>
-                    ${showMemoryBtn ? `<button type="button" onclick="event.stopPropagation(); addMemoryItem(${index}, ${dayIndex})" class="text-gray-400 hover:text-primary p-1 rounded-full flex-shrink-0"><span class="material-symbols-outlined text-lg">photo_camera</span></button>` : ''}
+                    ${showMemoryBtn ? `<button type="button" onclick="event.stopPropagation(); addMemoryItem(${index}, ${dayIndex})" class="text-gray-400 hover:text-primary p-2 rounded-full flex-shrink-0"><span class="material-symbols-outlined text-2xl">photo_camera</span></button>` : ''}
                 </div>
                 ${item.transitInfo?.summary ? `<p class="text-xs text-text-muted dark:text-gray-400 pl-[76px] md:pl-[86px]">${item.transitInfo.summary}</p>` : ''}
                 ${renderMemoriesHtml(item, dayIndex, index)}
@@ -159,7 +159,7 @@ function buildDefaultCard(item, index, dayIndex, editClass, clickHandler) {
                         </p>
                     </div>
                     ${item.tag ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 flex-shrink-0 whitespace-nowrap">${item.tag}</span>` : ''}
-                    ${showMemoryBtn ? `<button type="button" onclick="event.stopPropagation(); addMemoryItem(${index}, ${dayIndex})" class="text-gray-400 hover:text-primary p-1 rounded-full flex-shrink-0"><span class="material-symbols-outlined text-lg">photo_camera</span></button>` : ''}
+                    ${showMemoryBtn ? `<button type="button" onclick="event.stopPropagation(); addMemoryItem(${index}, ${dayIndex})" class="text-gray-400 hover:text-primary p-2 rounded-full flex-shrink-0"><span class="material-symbols-outlined text-2xl">photo_camera</span></button>` : ''}
                     ${isEditing ? `<button type="button" onclick="event.stopPropagation(); deleteTimelineItem(${index}, ${dayIndex})" class="text-red-500 hover:bg-red-50 p-1 rounded flex-shrink-0"><span class="material-symbols-outlined text-lg">delete</span></button>` : ''}
                 </div>
                 <div class="flex items-center gap-2 text-sm font-medium text-text-main dark:text-gray-300 flex-wrap">
@@ -458,8 +458,8 @@ export function renderWeeklyWeather(weeklyWeatherData, currentWeatherWeekStart, 
         <div class="grid grid-cols-7 gap-2">
     `;
     const tripDates = new Set(); if (travelData.days) travelData.days.forEach(day => tripDates.add(day.date));
-    const dayNames = ['일','월','화','수','목','금','토'];
-    for (let i=0;i<7;i++) {
+    const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+    for (let i = 0; i < 7; i++) {
         const date = new Date(currentWeatherWeekStart); date.setDate(date.getDate() + i);
         const dateStr = date.toISOString().split('T')[0];
         const dayName = dayNames[date.getDay()];

@@ -23,8 +23,43 @@ export function closeUserMenuOnClickOutside(e) {
 }
 
 export function openUserSettings() {
-    const dropdown = document.getElementById('user-menu-dropdown'); if (dropdown) dropdown.classList.add('hidden');
-    alert('설정 기능은 준비 중입니다.');
+    const dropdown = document.getElementById('user-menu-dropdown');
+    if (dropdown) dropdown.classList.add('hidden');
+
+    // 설정 모달 생성 (이미 존재하면 재사용)
+    let modal = document.getElementById('user-settings-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'user-settings-modal';
+        modal.className = 'fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
+        modal.innerHTML = `
+            <div class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+                <div class="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-text-main dark:text-white">설정</h3>
+                    <button type="button" onclick="closeUserSettings()" class="text-gray-400 hover:text-gray-600"><span class="material-symbols-outlined">close</span></button>
+                </div>
+                <div class="p-6 space-y-4">
+                    <!-- 다크모드 토글 -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="font-bold text-text-main dark:text-white">다크 모드</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">어두운 테마 사용</p>
+                        </div>
+                        <button type="button" id="dark-mode-toggle" onclick="toggleDarkMode()" 
+                            class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
+                            <span class="sr-only">다크 모드 토글</span>
+                            <span id="dark-mode-toggle-dot" class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    // 현재 다크모드 상태에 맞게 토글 버튼 업데이트
+    updateDarkModeToggle();
+    modal.classList.remove('hidden');
 }
 
 export function openUserProfile() {
@@ -174,4 +209,58 @@ export async function saveProfileChanges() {
     } catch (error) { console.error("프로필 저장 실패:", error); alert('프로필 저장에 실패했습니다: ' + error.message); }
 }
 
-export default { openUserMenu, closeUserMenuOnClickOutside, openUserSettings, openUserProfile, closeProfileView, setupHomeAddressAutocomplete, geocodeAddress, loadProfileData, handleProfilePhotoChange, saveProfileChanges };
+export function closeUserSettings() {
+    const modal = document.getElementById('user-settings-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+export function toggleDarkMode() {
+    const html = document.documentElement;
+    const isDark = html.classList.contains('dark');
+
+    if (isDark) {
+        html.classList.remove('dark');
+        html.classList.add('light');
+        localStorage.setItem('theme', 'light');
+    } else {
+        html.classList.remove('light');
+        html.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+    }
+
+    updateDarkModeToggle();
+}
+
+export function updateDarkModeToggle() {
+    const toggle = document.getElementById('dark-mode-toggle');
+    const dot = document.getElementById('dark-mode-toggle-dot');
+    if (!toggle || !dot) return;
+
+    const isDark = document.documentElement.classList.contains('dark');
+
+    if (isDark) {
+        toggle.classList.add('bg-primary');
+        toggle.classList.remove('bg-gray-300');
+        dot.classList.add('translate-x-5');
+    } else {
+        toggle.classList.remove('bg-primary');
+        toggle.classList.add('bg-gray-300');
+        dot.classList.remove('translate-x-5');
+    }
+}
+
+// 페이지 로드 시 다크모드 초기화
+export function initDarkMode() {
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    const html = document.documentElement;
+
+    if (savedTheme === 'dark') {
+        html.classList.remove('light');
+        html.classList.add('dark');
+    } else {
+        html.classList.remove('dark');
+        html.classList.add('light');
+    }
+}
+
+export default { openUserMenu, closeUserMenuOnClickOutside, openUserSettings, closeUserSettings, toggleDarkMode, updateDarkModeToggle, initDarkMode, openUserProfile, closeProfileView, setupHomeAddressAutocomplete, geocodeAddress, loadProfileData, handleProfilePhotoChange, saveProfileChanges };

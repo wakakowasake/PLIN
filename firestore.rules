@@ -1,0 +1,78 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 헬퍼 함수: 사용자 인증 확인
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // 헬퍼 함수: 특정 사용자 확인
+    function isUser(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // 헬퍼 함수: 여행 소유자 또는 공유 받은 사용자 확인
+    function canAccessTrip(tripData) {
+      return isAuthenticated() && (
+        request.auth.uid == tripData.userId ||
+        (tripData.sharedWith != null && request.auth.uid in tripData.sharedWith)
+      );
+    }
+    
+    // 사용자 프로필 문서
+    match /users/{userId} {
+      // 본인만 읽기/쓰기 가능
+      allow read, write: if isUser(userId);
+    }
+    
+    // 여행 계획 문서
+    match /trips/{tripId} {
+      // 읽기: 로그인한 사용자이고 (소유자이거나 공유 받은 경우)
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        (resource.data.sharedWith != null && request.auth.uid in resource.data.sharedWith)
+      );
+      
+      // 생성: 로그인한 사용자이고, userId가 자신의 uid인 경우
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid;
+      
+      // 수정: 소유자이거나 공유 받은 사용자
+      allow update: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        (resource.data.sharedWith != null && request.auth.uid in resource.data.sharedWith)
+      );
+      
+      // 삭제: 소유자만 가능
+      allow delete: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid;
+      
+      // 타임라인 아이템 서브컬렉션
+      match /timeline/{itemId} {
+        // 부모 여행 문서의 권한을 따름
+        allow read, write: if isAuthenticated();
+      }
+      
+      // 추억 서브컬렉션
+      match /memories/{memoryId} {
+        // 부모 여행 문서의 권한을 따름
+        allow read, write: if isAuthenticated();
+      }
+    }
+    
+    // 공유 링크 (읽기 전용 공유)
+    match /sharedTrips/{shareId} {
+      // 공유 링크로 접근한 경우 읽기 가능
+      allow read: if true;
+      
+      // 생성/수정/삭제는 인증된 사용자만
+      allow create, update, delete: if isAuthenticated();
+    }
+    
+    // 기본적으로 모든 접근 거부
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

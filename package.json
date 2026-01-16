@@ -1,4 +1,40 @@
 {
+  "name": "plin",
+  "version": "1.0.0",
+  "description": "여행 계획 및 기록 관리 애플리케이션 - 설레는 계획부터 소중한 추억까지",
+  "main": "public/index.html",
+  "scripts": {
+    "dev": "firebase emulators:start",
+    "serve": "firebase serve --only hosting",
+    "build:css": "npx tailwindcss -i ./public/css/input.css -o ./public/css/style.css --minify",
+    "watch:css": "npx tailwindcss -i ./public/css/input.css -o ./public/css/style.css --watch",
+    "deploy": "firebase deploy",
+    "deploy:hosting": "firebase deploy --only hosting",
+    "deploy:functions": "firebase deploy --only functions",
+    "deploy:rules": "firebase deploy --only firestore:rules,storage:rules",
+    "logs": "firebase functions:log",
+    "clean": "rm -rf node_modules functions/node_modules",
+    "update": "npm update && cd functions && npm update && cd .."
+  },
+  "keywords": [
+    "travel",
+    "planner",
+    "itinerary",
+    "trip",
+    "vacation",
+    "firebase",
+    "pwa"
+  ],
+  "author": "PLIN Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/plin.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/plin/issues"
+  },
+  "homepage": "https://plin.ink",
   "dependencies": {
     "autoprefixer": "^10.4.23",
     "dotenv": "^17.2.3",
@@ -8,5 +44,9 @@
   },
   "devDependencies": {
     "tailwindcss": "^4.1.18"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
   }
 }

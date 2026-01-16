@@ -64,6 +64,27 @@ node_modules/
 
 # dotenv environment variables file
 functions/.env
+.env
+.env.local
+.env.*.local
 
 # dataconnect generated files
 .dataconnect
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Build outputs
+dist/
+build/
+*.min.js
+*.min.css
+
+# Temporary files
+tmp/
+temp/
