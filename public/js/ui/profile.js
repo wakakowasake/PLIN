@@ -81,6 +81,13 @@ export function closeProfileView() {
     const mainView = document.getElementById('main-view');
     profileView.classList.add('hidden');
     mainView.classList.remove('hidden');
+
+    // 프로필 뷰를 닫을 때 헤더 아바타를 최신 상태로 업데이트
+    const cachedPhoto = localStorage.getItem('cachedUserPhotoURL');
+    const userAvatar = document.getElementById('user-avatar');
+    if (cachedPhoto && userAvatar) {
+        userAvatar.style.backgroundImage = `url("${cachedPhoto}")`;
+    }
 }
 
 export function setupHomeAddressAutocomplete() {
@@ -141,7 +148,7 @@ export function loadProfileData() {
     const nameInput = document.getElementById('profile-name-input'); if (nameInput) nameInput.value = currentUser.displayName || '';
     const emailDisplay = document.getElementById('profile-email-display'); if (emailDisplay) emailDisplay.textContent = currentUser.email || '--';
     let photoURL = currentUser.customPhotoURL || currentUser.photoURL || localStorage.getItem('cachedUserPhotoURL');
-    const avatarLarge = document.getElementById('profile-avatar-large'); if (avatarLarge && photoURL) avatarLarge.style.backgroundImage = `url('${photoURL}')`;
+    const avatarLarge = document.getElementById('profile-avatar-large'); if (avatarLarge && photoURL) avatarLarge.style.backgroundImage = `url("${photoURL}")`;
     const homeAddressInput = document.getElementById('profile-home-address'); const homeCoords = document.getElementById('profile-home-coords');
     if (homeAddressInput && currentUser.homeAddress) homeAddressInput.value = currentUser.homeAddress;
     if (homeCoords && currentUser.homeLat && currentUser.homeLng) homeCoords.textContent = `좌표: ${currentUser.homeLat.toFixed(6)}, ${currentUser.homeLng.toFixed(6)}`;
@@ -163,7 +170,7 @@ export function handleProfilePhotoChange(event) {
     const reader = new FileReader();
     reader.onload = (e) => {
         const dataURL = e.target.result;
-        const avatarLarge = document.getElementById('profile-avatar-large'); if (avatarLarge) avatarLarge.style.backgroundImage = `url('${dataURL}')`;
+        const avatarLarge = document.getElementById('profile-avatar-large'); if (avatarLarge) avatarLarge.style.backgroundImage = `url("${dataURL}")`;
         sessionStorage.setItem('pendingProfilePhoto', dataURL);
     };
     reader.readAsDataURL(file);
@@ -199,7 +206,7 @@ export async function saveProfileChanges() {
             await updateDoc(userRef, { photoURL: pendingPhoto });
             localStorage.setItem('cachedUserPhotoURL', pendingPhoto);
             setCurrentUser({ ...currentUser, customPhotoURL: pendingPhoto, displayName: newName });
-            const userAvatar = document.getElementById('user-avatar'); if (userAvatar) userAvatar.style.backgroundImage = `url('${pendingPhoto}')`;
+            const userAvatar = document.getElementById('user-avatar'); if (userAvatar) userAvatar.style.backgroundImage = `url("${pendingPhoto}")`;
             sessionStorage.removeItem('pendingProfilePhoto');
         } else {
             setCurrentUser({ ...currentUser, displayName: newName });

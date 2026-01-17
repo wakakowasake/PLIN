@@ -3,7 +3,7 @@
 import { db } from '../firebase.js';
 import { collection, query, where, getDocs, addDoc, doc, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 import { currentUser, newTripDataTemp, defaultTravelData, setNewTripDataTemp } from '../state.js';
-import { showLoading, hideLoading } from './modals.js';
+import { showLoading, hideLoading, showToast } from './modals.js';
 import logger from '../logger.js';
 
 // [Helper] 여행 목록 컨테이너가 없으면 생성
@@ -47,7 +47,7 @@ function ensureNewTripModal() {
                     <div id="wizard-step-1" class="space-y-4">
                         <div>
                             <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">여행 제목</label>
-                            <input type="text" id="new-trip-title" class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 focus:ring-2 focus:ring-primary outline-none transition-all" placeholder="예: 도쿄 벚꽃 여행">
+                            <input type="text" id="new-trip-title" onkeypress="if(event.key==='Enter'){event.preventDefault();nextWizardStep(2);}" class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 focus:ring-2 focus:ring-primary outline-none transition-all" placeholder="예: 도쿄 벚꽃 여행">
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
@@ -67,13 +67,13 @@ function ensureNewTripModal() {
                     <!-- Step 2: 장소 설정 -->
                     <div id="wizard-step-2" class="hidden space-y-4">
                         <div>
-                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">어디로 떠나시나요?</label>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300">어디로 떠나시나요?</label>
+                                <button onclick="useManualInput('new-trip')" class="text-xs text-primary hover:text-orange-600 underline font-medium">직접 입력하기</button>
+                            </div>
                             <div class="relative">
                                 <span class="absolute left-4 top-3.5 text-gray-400 material-symbols-outlined">search</span>
-                                <input type="text" id="new-trip-location" class="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 focus:ring-2 focus:ring-primary outline-none transition-all" placeholder="도시나 장소를 검색하세요">
-                            </div>
-                            <div class="mt-2 flex justify-end">
-                                <button onclick="useManualInput('new-trip')" class="text-xs text-gray-500 hover:text-primary underline">직접 입력하기</button>
+                                <input type="text" id="new-trip-location" onkeypress="if(event.key==='Enter'){event.preventDefault();finishNewTripWizard();}" class="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 focus:ring-2 focus:ring-primary outline-none transition-all" placeholder="도시나 장소를 검색하세요">
                             </div>
                         </div>
                         <div class="pt-4 flex justify-between">
@@ -118,7 +118,7 @@ export async function loadTripList(uid) {
                     <span class="material-symbols-outlined text-6xl mb-4 text-gray-300">travel_explore</span>
                     <p class="text-xl font-bold text-gray-600 dark:text-gray-300 mb-2">아직 여행 계획이 없습니다</p>
                     <p class="text-sm mb-8">새로운 여행을 만들어보세요!</p>
-                    <button onclick="createNewTrip()" class="px-8 py-4 bg-primary text-white rounded-2xl font-bold shadow-xl hover:bg-orange-600 transition-all transform hover:scale-105 flex items-center gap-2">
+                    <button onclick="createNewTrip()" class="px-6 py-3 bg-primary text-white rounded-2xl font-bold shadow-lg hover:bg-orange-600 transition-all transform hover:scale-105 flex items-center gap-2">
                         <span class="material-symbols-outlined">add_circle</span> 새 여행 만들기
                     </button>
                 </div>
@@ -145,11 +145,11 @@ export async function loadTripList(uid) {
                 dateDisplay = plan.meta.subInfo;
             }
 
-            const image = plan.meta?.mapImage || 'https://placehold.co/600x400';
+            const image = plan.meta?.mapImage || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=600&h=400&fit=crop';
             const memberCount = Object.keys(plan.members || {}).length;
 
             html += `
-                <div class="group bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 dark:border-gray-700 relative cursor-pointer transform hover:-translate-y-1" onclick="openTrip('${id}')">
+                <div class="group bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 dark:border-gray-700 relative cursor-pointer transform hover:-translate-y-1" onclick="openTrip('${id}')" oncontextmenu="event.preventDefault(); event.stopPropagation(); toggleTripMenu('${id}'); return false;">
                     <div class="h-48 bg-gray-200 relative overflow-hidden">
                         <div class="absolute inset-0 bg-cover bg-center transform group-hover:scale-110 transition-transform duration-700" style="background-image: url('${image}');"></div>
                         <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
@@ -211,6 +211,25 @@ export function createNewTrip() {
         // 입력 필드 초기화
         const inputs = modal.querySelectorAll('input');
         inputs.forEach(input => input.value = '');
+
+        // 기본 날짜를 일주일 뒤로 설정
+        const startInput = document.getElementById('new-trip-start');
+        const endInput = document.getElementById('new-trip-end');
+        if (startInput && endInput) {
+            const weekLater = new Date();
+            weekLater.setDate(weekLater.getDate() + 7);
+            const weekLaterPlus2 = new Date(weekLater);
+            weekLaterPlus2.setDate(weekLaterPlus2.getDate() + 2);
+
+            startInput.value = weekLater.toISOString().split('T')[0];
+            endInput.value = weekLaterPlus2.toISOString().split('T')[0];
+        }
+
+        // 제목 입력란에 자동 포커스
+        setTimeout(() => {
+            const titleInput = document.getElementById('new-trip-title');
+            if (titleInput) titleInput.focus();
+        }, 100);
     }
 }
 
@@ -225,6 +244,12 @@ export function nextWizardStep(step) {
     if (nextStep) nextStep.classList.remove('hidden');
 
     if (step === 2) {
+        // 장소 입력란에 자동 포커스
+        setTimeout(() => {
+            const locationInput = document.getElementById('new-trip-location');
+            if (locationInput) locationInput.focus();
+        }, 100);
+
         // map.js의 setupWizardAutocomplete 호출 (동적 import)
         import('../map.js').then(module => {
             if (module.setupWizardAutocomplete) module.setupWizardAutocomplete();
@@ -234,7 +259,7 @@ export function nextWizardStep(step) {
 
 export async function finishNewTripWizard() {
     if (!currentUser) {
-        alert("로그인이 필요합니다.");
+        showToast("여행을 저장하려면 로그인이 필요해요! 🔒", 'warning');
         return;
     }
 
@@ -246,17 +271,25 @@ export async function finishNewTripWizard() {
     if (!titleInput || !startInput || !endInput) {
         console.error("New trip wizard inputs not found. Re-initializing modal.");
         ensureNewTripModal(); // 복구 시도
-        alert("입력 폼 오류가 발생했습니다. 다시 시도해주세요.");
+        showToast("입력 폼 오류가 발생했어요. 다시 시도해주세요 😢", 'error');
         return;
     }
 
-    const title = titleInput.value;
+    let title = titleInput.value.trim();
     const startDate = startInput.value;
     const endDate = endInput.value;
-    const location = newTripDataTemp.locationName || (locationInput ? locationInput.value : "알 수 없는 여행지");
+    const location = newTripDataTemp.locationName || (locationInput ? locationInput.value.trim() : "");
 
-    if (!title || !startDate || !endDate) {
-        alert("여행 제목과 날짜를 모두 입력해주세요.");
+    if (!startDate || !endDate) {
+        showToast("여행 날짜를 입력해주세요! ✨", 'warning');
+        return;
+    }
+
+    // 제목이 비어있으면 "여행지명 + 여행"으로 자동 생성
+    if (!title && location) {
+        title = `${location} 여행`;
+    } else if (!title) {
+        showToast("여행 제목을 입력해주세요! ✨", 'warning');
         return;
     }
 
@@ -286,7 +319,7 @@ export async function finishNewTripWizard() {
                 title: title,
                 dayCount: dayCountText,
                 subInfo: `${location} • ${startDate} - ${endDate}`,
-                mapImage: newTripDataTemp.mapImage || "https://placehold.co/600x400",
+                mapImage: newTripDataTemp.mapImage || "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=600&h=400&fit=crop",
                 lat: newTripDataTemp.lat || null,
                 lng: newTripDataTemp.lng || null,
                 location: location
@@ -315,7 +348,7 @@ export async function finishNewTripWizard() {
 }
 
 export async function deleteTrip(tripId) {
-    if (!confirm("정말 이 여행 계획을 삭제하시겠습니까? 복구할 수 없습니다.")) return;
+    if (!confirm("정말 이 여행 계획을 보내주시겠습니까? 🗑️\n삭제된 여행은 복구할 수 없습니다.")) return;
 
     try {
         showLoading();

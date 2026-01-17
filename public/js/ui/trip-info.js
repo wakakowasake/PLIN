@@ -17,18 +17,20 @@ export function closeTripInfoModal() {
  * @param {Function} renderItinerary - Function to re-render itinerary
  * @param {Function} autoSave - Function to auto-save data
  */
+import { showToast } from './modals.js';
+
 export function saveTripInfo(travelData, currentDayIndex, updateMeta, selectDay, renderItinerary, autoSave) {
     const title = document.getElementById('edit-trip-title').value.trim();
     const startStr = document.getElementById('edit-trip-start').value;
     const endStr = document.getElementById('edit-trip-end').value;
 
-    if (!title) return alert("여행 제목을 입력해주세요.");
-    if (!startStr || !endStr) return alert("날짜를 선택해주세요.");
+    if (!title) return showToast("여행 제목을 입력해주세요! 🏝️", 'warning');
+    if (!startStr || !endStr) return showToast("여행 날짜를 선택해주세요! 📅", 'warning');
 
     const start = new Date(startStr);
     const end = new Date(endStr);
 
-    if (end < start) return alert("종료일은 시작일보다 빠를 수 없습니다.");
+    if (end < start) return showToast("종료일이 시작일보다 빠를 수 없어요 😅", 'warning');
 
     // Update title
     updateMeta('title', title);
@@ -88,7 +90,7 @@ export function saveTripInfo(travelData, currentDayIndex, updateMeta, selectDay,
  */
 export function resetHeroImage(travelData, updateMeta, renderItinerary, autoSave) {
     if (confirm("배경 이미지를 초기 설정된 이미지로 되돌리시겠습니까?")) {
-        const defaultImg = travelData.meta.defaultMapImage || "https://placehold.co/600x400";
+        const defaultImg = travelData.meta.defaultMapImage || "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=600&h=400&fit=crop";
         updateMeta('mapImage', defaultImg);
         renderItinerary();
         autoSave();
@@ -102,7 +104,7 @@ export function resetHeroImage(travelData, updateMeta, renderItinerary, autoSave
  * @param {Function} autoSave - Function to auto-save data
  */
 export function deleteHeroImage(updateMeta, renderItinerary, autoSave) {
-    if (confirm("배경 이미지를 삭제하시겠습니까?")) {
+    if (confirm("배경 이미지를 삭제하고 기본 배경으로 돌아가시겠습니까?")) {
         updateMeta('mapImage', "");
         renderItinerary();
         autoSave();

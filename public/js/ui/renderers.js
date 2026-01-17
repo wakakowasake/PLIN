@@ -246,13 +246,25 @@ export function renderItinerary() {
         calcTimeline.forEach(item => { if (item.budget) dailyTotal += Number(item.budget); });
     }
 
-    const userImg = travelData.meta?.userImage || localStorage.getItem('cachedUserPhotoURL') || "https://placehold.co/100";
+    const cachedPhoto = localStorage.getItem('cachedUserPhotoURL');
+    const userImg = cachedPhoto || travelData.meta?.userImage || "/images/basic-profile.png";
     const userAvatarEl = document.getElementById('user-avatar');
-    if (userAvatarEl) userAvatarEl.style.backgroundImage = `url('${userImg}')`;
+    if (userAvatarEl) userAvatarEl.style.backgroundImage = `url("${userImg}")`;
 
-    const bgImg = travelData.meta?.mapImage || "https://placehold.co/600x400";
-    const mapBg = document.getElementById('map-bg'); if (mapBg) mapBg.style.backgroundImage = `url('${bgImg}')`;
-    const heroEl = document.getElementById('trip-hero'); if (heroEl) heroEl.style.backgroundImage = `url('${bgImg}')`;
+    const bgImg = travelData.meta?.mapImage || "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=600&h=400&fit=crop";
+    const mapBg = document.getElementById('map-bg'); if (mapBg) mapBg.style.backgroundImage = `url("${bgImg}")`;
+    const heroEl = document.getElementById('trip-hero'); if (heroEl) heroEl.style.backgroundImage = `url("${bgImg}")`;
+
+    // 여행 제목과 날짜 정보 업데이트
+    const titleEl = document.getElementById('trip-title');
+    if (titleEl) titleEl.innerText = travelData.meta?.title || "제목 없음";
+
+    const dateInfoEl = document.getElementById('trip-date-info');
+    if (dateInfoEl) dateInfoEl.innerText = travelData.meta?.subInfo || "";
+
+    // [Fix] 여행 기간(몇박 몇일) 정보 업데이트
+    const dayCountEl = document.getElementById('trip-day-count');
+    if (dayCountEl) dayCountEl.innerText = travelData.meta?.dayCount || "일정 미정";
 
     // Tabs and timeline
     const tabsEl = document.getElementById('day-tabs'); if (!tabsEl) return;

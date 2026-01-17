@@ -1,4 +1,4 @@
-const functions = require("firebase-functions");
+const { onRequest } = require("firebase-functions/v2/https");
 const { defineSecret } = require('firebase-functions/params');
 const express = require("express");
 // const fetch = require("node-fetch"); // [수정] Node.js 18 이상은 내장 fetch를 사용하므로 이 줄은 삭제하거나 주석 처리
@@ -247,4 +247,9 @@ app.get("/ekispert-proxy", async (req, res) => {
 });
 
 // 여기서 함수 이름이 'api'이므로, 실제 주소는 .../api/directions 가 됩니다.
-exports.api = functions.https.onRequest({ secrets: [ekispertApiKey] }, app);
+exports.api = onRequest({
+  secrets: [ekispertApiKey],
+  region: "us-central1",
+  memory: "256MiB",
+  maxInstances: 10
+}, app);

@@ -1,7 +1,7 @@
 // Weather UI Module
 // Handles weekly weather calendar and hourly forecast display
 
-import { fetchWeeklyWeather, fetchHourlyWeatherForDate } from '../map.js';
+import { fetchWeeklyWeather, fetchHourlyWeatherForDate, isMapInitialized } from '../map.js';
 
 // Module state
 let currentWeatherWeekStart = null;
@@ -34,10 +34,75 @@ function formatDate(date) {
 }
 
 /**
+ * Ensure the weather detail modal exists in the DOM
+ */
+export function ensureWeatherDetailModal() {
+    if (!document.getElementById('weather-detail-modal')) {
+        const modal = document.createElement('div');
+        modal.id = 'weather-detail-modal';
+        modal.className = 'hidden fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
+
+        modal.onclick = (e) => {
+            if (e.target === modal) closeWeatherDetailModal();
+        };
+
+        modal.innerHTML = `
+        <div class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6 modal-slide-in" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-text-main dark:text-white flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">partly_cloudy_day</span>
+                    날씨
+                </h3>
+                <button type="button" onclick="window.closeWeatherDetailModal()" aria-label="날씨 상세 닫기"
+                    class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            
+            <div class="mb-6 text-center">
+                <p class="text-sm text-gray-600 dark:text-gray-400" id="weather-location-title">위치 로딩 중...</p>
+            </div>
+            
+            <div id="weekly-weather-container" class="mb-6">
+                <!-- 주간 날씨 카드가 여기에 동적으로 추가됨 -->
+                <div class="text-center py-8 text-gray-400">
+                    <p class="text-sm">로딩 중...</p>
+                </div>
+            </div>
+            
+            <div class="border-t border-gray-200 dark:border-gray-700 my-6"></div>
+            
+            <div>
+                <h4 class="text-lg font-bold text-text-main dark:text-white mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-sm">schedule</span>
+                    <span id="selected-date-title">시간별 예보</span>
+                </h4>
+                <div id="hourly-weather-container">
+                    <!-- 시간별 날씨가 여기에 동적으로 추가됨 -->
+                    <div class="text-center py-8 text-gray-400">
+                        <p class="text-sm">날짜를 선택하세요.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-6 flex justify-end">
+                <button type="button" onclick="window.closeWeatherDetailModal()"
+                    class="px-6 py-2 bg-gray-200 dark:bg-gray-700 text-text-main dark:text-white rounded-xl hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
+                    닫기
+                </button>
+            </div>
+        </div>
+        `;
+        document.body.appendChild(modal);
+    }
+}
+
+/**
  * Open the weather detail modal with weekly and hourly forecasts
  * @param {Object} travelData - Travel data containing dates and location
  */
 export async function openWeatherDetailModal(travelData) {
+    ensureWeatherDetailModal();
     const modal = document.getElementById('weather-detail-modal');
     if (!modal) return;
 
@@ -67,6 +132,7 @@ async function loadAndRenderWeeklyWeather(travelData) {
     const location = travelData.meta.title || '위치 정보 없음';
     document.getElementById('weather-location-title').textContent = location;
 
+    // [Added] 지도 및 위치 정보 초기화 방어 코드
     if (!travelData.meta.lat || !travelData.meta.lng) {
         document.getElementById('weekly-weather-container').innerHTML = `
             <div class="text-center py-8 text-gray-400">
@@ -74,6 +140,15 @@ async function loadAndRenderWeeklyWeather(travelData) {
             </div>
         `;
         return;
+    }
+
+    // 지도가 아직 초기화되지 않았다면 잠시 대기하거나 경고 표시 (API 에러 방지)
+    if (!isMapInitialized) {
+        // 단, 위도/경도가 확실히 있다면 지도가 없어도 Open-Meteo 호출은 가능하므로
+        // 심각한 blocking보다는 경고 로그 정도로 처리하거나, 
+        // 엄격한 방어를 원할 경우 여기서 return 처리할 수 있음.
+        // 현재는 API 로드 속도 차이를 고려해 loading indicator를 보여주는 방식으로 개선
+        console.warn('Weather loaded before Map initialized. Proceeding with latitude/longitude...');
     }
 
     // Fetch weekly weather data (7 days)

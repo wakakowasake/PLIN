@@ -4,6 +4,7 @@ import logger from './logger.js';
 
 export let map;
 export let mapMarker;
+export let isMapInitialized = false; // [Added] 지도 초기화 상태 플래그
 let autocomplete;
 let wizardAutocomplete;
 
@@ -226,6 +227,7 @@ export async function initMap() {
         }
     }
     setupAutocomplete(); // 지도가 로드되면 검색 기능도 바로 준비
+    isMapInitialized = true; // [Added] 지도 초기화 완료
 }
 
 function fillInAddress() {

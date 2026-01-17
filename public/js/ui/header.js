@@ -11,7 +11,7 @@ export async function openShareModal(tripId = null) {
     const modalEl = document.getElementById('share-modal');
     if (modalEl) modalEl.classList.remove('hidden');
 
-    let targetTripId = tripId || currentTripId;
+    let targetTripId = tripId || window.currentTripId || travelData.id;
     let members = {};
 
     if (tripId) {

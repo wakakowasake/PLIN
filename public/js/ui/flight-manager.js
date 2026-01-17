@@ -173,10 +173,15 @@ export function closeFlightInputModal() {
 /**
  * Search flight number online
  */
+import { showToast } from './modals.js';
+
+/**
+ * Search flight number online
+ */
 export function searchFlightNumber() {
     const flightNum = document.getElementById('flight-number').value.trim();
     if (!flightNum) {
-        alert("항공편명을 입력해주세요 (예: KE123)");
+        showToast("항공편명을 먼저 입력해주세요! (예: KE123) ✈️", 'warning');
         return;
     }
     window.open(`https://www.google.com/search?q=${encodeURIComponent(flightNum + " 항공편")}`, '_blank');

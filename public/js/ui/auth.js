@@ -1,7 +1,7 @@
 import { firebaseReady, auth, provider, db } from '../firebase.js';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
 import { doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
-import { setCurrentUser } from '../state.js';
+import { setCurrentUser, defaultTravelData } from '../state.js';
 import { hideLoading } from './modals.js';
 
 export async function login() {
@@ -78,29 +78,40 @@ export async function initAuthStateObserver() {
                     setCurrentUser({ ...user, customPhotoURL: customPhotoURL });
                 }
 
-                const finalPhotoURL = customPhotoURL || user.photoURL || localStorage.getItem('cachedUserPhotoURL');
+                // Check localStorage first for uploaded photos, then Firestore custom photo, then Google photo
+                const cachedPhoto = localStorage.getItem('cachedUserPhotoURL');
+                const finalPhotoURL = cachedPhoto || customPhotoURL || user.photoURL;
+
                 if (finalPhotoURL) {
                     localStorage.setItem('cachedUserPhotoURL', finalPhotoURL);
-                    if (userAvatar) userAvatar.style.backgroundImage = `url('${finalPhotoURL}')`;
+                    if (userAvatar) userAvatar.style.backgroundImage = `url("${finalPhotoURL}")`;
                     const testImg = new Image();
                     testImg.onerror = () => {
                         const cached = localStorage.getItem('cachedUserPhotoURL');
                         if (cached && cached !== finalPhotoURL) {
-                            if (userAvatar) userAvatar.style.backgroundImage = `url('${cached}')`;
+                            if (userAvatar) userAvatar.style.backgroundImage = `url("${cached}")`;
                         } else {
-                            if (userAvatar) userAvatar.style.backgroundImage = '';
+                            // 이미지 로드 실패 시 기본 여행가 아바타 표시
+                            if (userAvatar) userAvatar.style.backgroundImage = `url("${defaultTravelData.meta.userImage}")`;
                         }
                     };
                     testImg.src = finalPhotoURL;
                 } else {
+                    // 사진이 없을 때 기본 여행가 아바타 표시
                     const cached = localStorage.getItem('cachedUserPhotoURL');
-                    if (cached && userAvatar) userAvatar.style.backgroundImage = `url('${cached}')`;
-                    else if (userAvatar) userAvatar.style.backgroundImage = '';
+                    if (cached && userAvatar) userAvatar.style.backgroundImage = `url("${cached}")`;
+                    else if (userAvatar) userAvatar.style.backgroundImage = `url("${defaultTravelData.meta.userImage}")`;
                 }
             }).catch(error => {
                 console.error("Error loading user data:", error);
                 const fallbackPhotoURL = user.photoURL || localStorage.getItem('cachedUserPhotoURL');
-                if (fallbackPhotoURL && document.getElementById('user-avatar')) document.getElementById('user-avatar').style.backgroundImage = `url('${fallbackPhotoURL}')`;
+                const userAvatar = document.getElementById('user-avatar');
+                if (fallbackPhotoURL && userAvatar) {
+                    userAvatar.style.backgroundImage = `url("${fallbackPhotoURL}")`;
+                } else if (userAvatar) {
+                    // Firestore 에러 시에도 기본 여행가 아바타 표시
+                    userAvatar.style.backgroundImage = `url("${defaultTravelData.meta.userImage}")`;
+                }
             });
 
             setDoc(userRef, userData, { merge: true });
@@ -117,7 +128,8 @@ export async function initAuthStateObserver() {
         } else {
             loginBtn?.classList.remove('hidden');
             userProfile?.classList.add('hidden');
-            if (userAvatar) userAvatar.style.backgroundImage = '';
+            // 로그아웃 상태에서도 기본 여행가 아바타 표시
+            if (userAvatar) userAvatar.style.backgroundImage = `url('${defaultTravelData.meta.userImage}')`;
             if (mainTitle) mainTitle.innerText = '나의 여행 계획';
 
             loginView?.classList.remove('hidden');
@@ -130,5 +142,29 @@ export async function initAuthStateObserver() {
 
 // Initialize observer immediately
 initAuthStateObserver();
+
+// CRITICAL: Immediately set avatar from localStorage on page load (before async auth completes)
+// This ensures uploaded photos display instantly instead of waiting for Firebase auth
+// Wrapped in DOMContentLoaded to ensure the avatar element exists
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        const cachedPhotoOnLoad = localStorage.getItem('cachedUserPhotoURL');
+        const userAvatarOnLoad = document.getElementById('user-avatar');
+        if (userAvatarOnLoad) {
+            // localStorage에 캐시가 있으면 사용, 없으면 기본 여행가 아바타 사용
+            const photoToUse = cachedPhotoOnLoad || defaultTravelData.meta.userImage;
+            userAvatarOnLoad.style.backgroundImage = `url('${photoToUse}')`;
+        }
+    });
+} else {
+    // DOM already loaded, execute immediately
+    const cachedPhotoOnLoad = localStorage.getItem('cachedUserPhotoURL');
+    const userAvatarOnLoad = document.getElementById('user-avatar');
+    if (userAvatarOnLoad) {
+        // localStorage에 캐시가 있으면 사용, 없으면 기본 여행가 아바타 사용
+        const photoToUse = cachedPhotoOnLoad || defaultTravelData.meta.userImage;
+        userAvatarOnLoad.style.backgroundImage = `url('${photoToUse}')`;
+    }
+}
 
 export default { login, logout, openLogoutModal, closeLogoutModal, confirmLogout, initAuthStateObserver };

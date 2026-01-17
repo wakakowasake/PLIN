@@ -1,14 +1,15 @@
+import { travelData, viewingItemIndex, targetDayIndex } from '../state.js';
+
 // Expense Manager Module
-// Handles expense tracking and budget calculations for timeline items
+// Handles expense tracking, budget calculations (Logic Only)
 
 /**
  * Render the expense list for a timeline item
- * @param {Object} item - Timeline item containing expenses
- * @param {Object} state - Application state with travelData and viewing indices
  */
 export function renderExpenseList(item, state = {}) {
     const listEl = document.getElementById('detail-expense-list');
     const totalEl = document.getElementById('detail-total-budget');
+    if (!listEl || !totalEl) return;
 
     if (!item.expenses) item.expenses = [];
 
@@ -16,7 +17,6 @@ export function renderExpenseList(item, state = {}) {
     let total = 0;
 
     item.expenses.forEach((exp, idx) => {
-        // Support both formats (migration period)
         const description = exp.description || exp.desc || '내역 없음';
         const amount = exp.amount || exp.cost || 0;
 
@@ -28,7 +28,7 @@ export function renderExpenseList(item, state = {}) {
             </div>
             <div class="flex items-center gap-3">
                 <span class="text-sm font-bold text-text-main dark:text-white">₩${Number(amount).toLocaleString()}</span>
-                <button type="button" onclick="deleteExpense(${idx})" class="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><span class="material-symbols-outlined text-sm">delete</span></button>
+                <button type="button" onclick="window.deleteExpenseItem(${idx})" class="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><span class="material-symbols-outlined text-sm">delete</span></button>
             </div>
         </div>`;
     });
@@ -38,16 +38,12 @@ export function renderExpenseList(item, state = {}) {
     }
 
     listEl.innerHTML = html;
-
-    // Update total budget (sum of expenses)
     totalEl.value = total;
     item.budget = total;
 }
 
 /**
- * Calculate total budget across all timeline items
- * @param {Object} travelData - Travel data containing all days and timeline items
- * @returns {number} Total budget amount
+ * Calculate total budget across all timeline items and update meta
  */
 export function updateTotalBudget(travelData) {
     let total = 0;
@@ -55,93 +51,152 @@ export function updateTotalBudget(travelData) {
         travelData.days.forEach(day => {
             if (day.timeline) {
                 day.timeline.forEach(item => {
-                    // Legacy budget field
-                    if (item.budget) {
+                    // [Fix] Avoid double counting & Force Recalculation
+                    if (item.expenses && Array.isArray(item.expenses) && item.expenses.length > 0) {
+                        const sum = item.expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
+                        item.budget = sum;
+                        total += sum;
+                    } else if (item.budget) {
                         total += Number(item.budget);
-                    }
-                    // Sum expenses array
-                    if (item.expenses && Array.isArray(item.expenses)) {
-                        item.expenses.forEach(exp => {
-                            total += Number(exp.amount || 0);
-                        });
                     }
                 });
             }
         });
     }
     travelData.meta.budget = `₩${total.toLocaleString()}`;
-    return total;
-}
 
-/**
- * Delete a specific expense from an item
- * @param {number} expIndex - Index of expense to delete
- * @param {Object} item - Timeline item containing the expense
- * @param {Object} travelData - Travel data for budget recalculation
- * @param {Function} onUpdate - Callback after deletion
- */
-export function deleteExpense(expIndex, item, travelData, onUpdate) {
-    item.expenses.splice(expIndex, 1);
-
-    // Recalculate total
-    let total = 0;
-    item.expenses.forEach(exp => {
-        total += Number(exp.amount || 0);
-    });
-    item.budget = total;
-
-    // Update total budget
-    updateTotalBudget(travelData);
-
-    // Update budget display
+    // Update display
     const budgetEl = document.getElementById('budget-amount');
     if (budgetEl) {
         budgetEl.textContent = travelData.meta.budget || '₩0';
+        // Remove click handler related to Budget Manager Modal
+        budgetEl.onclick = null; // Reset
+        // 원래의 동작을 위해 onclick을 제거하거나, openExpenseDetailModal() 호출이 index.html에 있다면 그대로 둠.
+        // 하지만 index.html에는 div 전체에 onclick="openExpenseDetailModal()"이 걸려있음.
+        // 따라서 span 내부의 onclick을 제거해야 이벤트 버블링으로 원래 모달이 뜸.
+        budgetEl.style.cursor = '';
+        budgetEl.title = "";
     }
-
-    // Callback for further updates (e.g., re-render, autosave)
-    if (onUpdate) {
-        onUpdate();
-    }
-}
-
-/**
- * Add a new expense to an item
- * @param {Object} item - Timeline item to add expense to
- * @param {string} description - Expense description
- * @param {number} amount - Expense amount
- */
-export function addExpense(item, description, amount) {
-    if (!item.expenses) item.expenses = [];
-
-    item.expenses.push({
-        description: description,
-        amount: Number(amount)
-    });
-
-    // Update item budget
-    item.budget = item.expenses.reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
-}
-
-/**
- * Get total expenses for a specific day
- * @param {Object} day - Day object containing timeline
- * @returns {number} Total expenses for the day
- */
-export function getDayExpenses(day) {
-    if (!day || !day.timeline) return 0;
-
-    let total = 0;
-    day.timeline.forEach(item => {
-        if (item.budget) {
-            total += Number(item.budget);
-        }
-        if (item.expenses && Array.isArray(item.expenses)) {
-            item.expenses.forEach(exp => {
-                total += Number(exp.amount || 0);
-            });
-        }
-    });
 
     return total;
 }
+
+export function deleteExpense(expIndex, item, travelData, onUpdate) {
+    item.expenses.splice(expIndex, 1);
+
+    // Recalculate
+    let total = 0;
+    item.expenses.forEach(exp => { total += Number(exp.amount || 0); });
+    item.budget = total;
+
+    updateTotalBudget(travelData);
+    if (onUpdate) onUpdate();
+}
+
+export function addExpense(item, description, amount) {
+    if (!item.expenses) item.expenses = [];
+    const newExpense = { description: description, amount: Number(amount) };
+    // [Added] Check if adding from 'General' context (Expense Detail View)
+    if (window.isAddingFromDetail) {
+        newExpense.isGeneral = true;
+    }
+    item.expenses.push(newExpense);
+    item.budget = item.expenses.reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
+}
+
+export function getDayExpenses(day) {
+    if (!day || !day.timeline) return 0;
+    let total = 0;
+    day.timeline.forEach(item => {
+        if (item.expenses && Array.isArray(item.expenses) && item.expenses.length > 0) {
+            item.expenses.forEach(exp => { total += Number(exp.amount || 0); });
+        } else if (item.budget) {
+            total += Number(item.budget);
+        }
+    });
+    return total;
+}
+
+export function saveExpense() {
+    const descInput = document.getElementById('expense-desc');
+    const costInput = document.getElementById('expense-cost');
+    if (!descInput || !costInput) return;
+
+    const desc = descInput.value;
+    const cost = costInput.value.replace(/,/g, '');
+
+    if (!desc || !cost) {
+        alert('내역과 금액을 입력해주세요.');
+        return;
+    }
+
+    const tDayIdx = (typeof window.targetDayIndex === 'number') ? window.targetDayIndex : targetDayIndex;
+    const vItemIdx = (typeof window.viewingItemIndex === 'number') ? window.viewingItemIndex : viewingItemIndex;
+
+    // [Added] Location Selection Logic
+    const locSelect = document.getElementById('expense-location-select');
+    let useItemIdx = vItemIdx;
+    let forceGeneral = true; // Default to true (General Expense) if no location selected
+
+    if (window.isAddingFromDetail && locSelect && !locSelect.parentElement.classList.contains('hidden')) {
+        const val = Number(locSelect.value);
+        if (val !== -1) {
+            useItemIdx = val;
+            forceGeneral = false; // Specific location selected
+        }
+    }
+
+    if (tDayIdx === null || useItemIdx === null) return;
+
+    const item = travelData.days[tDayIdx]?.timeline[useItemIdx];
+    if (item) {
+        // [Refactor] Add expense manually to ensure flag control
+        if (!item.expenses) item.expenses = [];
+        const newExpense = { description: desc, amount: Number(cost) };
+
+        // isGeneral logic removed as per request ("Remove Unknown Option")
+
+        item.expenses.push(newExpense);
+        item.budget = item.expenses.reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
+
+        // [Fix] Refresh Detail Modal IMMEDIATELY after data change
+        if (typeof window.refreshExpenseDetail === 'function') {
+            window.refreshExpenseDetail();
+        }
+
+        renderExpenseList(item);
+        updateTotalBudget(travelData);
+        if (window.renderItinerary) window.renderItinerary();
+        if (window.autoSave) window.autoSave();
+
+        // Modal 닫기는 Modals.js 함수 호출 필요
+        if (window.closeExpenseModal) window.closeExpenseModal();
+    }
+}
+
+// Window Bindings
+window.saveExpense = saveExpense;
+
+window.deleteExpenseItem = function (idx) {
+    const tDayIdx = (typeof window.targetDayIndex === 'number') ? window.targetDayIndex : targetDayIndex;
+    const vItemIdx = (typeof window.viewingItemIndex === 'number') ? window.viewingItemIndex : viewingItemIndex;
+    if (tDayIdx === null || vItemIdx === null) return;
+    const item = travelData.days[tDayIdx]?.timeline[vItemIdx];
+    if (item) {
+        deleteExpense(idx, item, travelData, () => {
+            renderExpenseList(item);
+            if (window.renderItinerary) window.renderItinerary();
+            if (window.autoSave) window.autoSave();
+            if (typeof window.refreshExpenseDetail === 'function') window.refreshExpenseDetail();
+        });
+    }
+};
+
+export default {
+    renderExpenseList,
+    updateTotalBudget,
+    deleteExpense,
+    addExpense,
+    getDayExpenses,
+    saveExpense
+};

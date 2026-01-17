@@ -119,12 +119,12 @@ export function selectAddType(type, subtype) {
     // 모달을 닫으면 insertingItemIndex가 null로 초기화되므로 미리 저장
     const currentIndex = insertingItemIndex;
     const currentDay = targetDayIndex;
-    
+
     closeAddModal();
-    
+
     // 상태 의존적인 함수들을 위해 값 복구 (필요한 경우)
     setInsertingItemIndex(currentIndex);
-    
+
     if (type === 'place' || type === 'activity') {
         if (window.addTimelineItem) window.addTimelineItem(currentIndex, currentDay);
     } else if (type === 'memo') {
@@ -187,22 +187,22 @@ export function closeGeneralDeleteModal() {
 
 export function confirmGeneralDelete() {
     if (pendingGeneralDeleteIndex === null) return;
-    
+
     const dayIndex = pendingGeneralDeleteDayIndex;
     const itemIndex = pendingGeneralDeleteIndex;
     const deletedItem = travelData.days[dayIndex].timeline[itemIndex];
-    
+
     // 삭제 실행
     travelData.days[dayIndex].timeline.splice(itemIndex, 1);
-    
+
     // UI 업데이트
     if (window.updateTotalBudget) window.updateTotalBudget();
     if (window.renderItinerary) window.renderItinerary();
     if (window.autoSave) window.autoSave();
-    
+
     closeGeneralDeleteModal();
     closeDetailModal();
-    
+
     // 실행 취소 토스트 표시
     showUndoToast("항목이 삭제되었습니다.", () => {
         // 복구 로직
@@ -211,6 +211,52 @@ export function confirmGeneralDelete() {
         if (window.renderItinerary) window.renderItinerary();
         if (window.autoSave) window.autoSave();
     });
+}
+
+// [Toast Notification Logic]
+export function showToast(message, type = 'info') {
+    let toast = document.getElementById('global-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'global-toast';
+        toast.className = "fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 z-[10000] transition-all duration-300 transform translate-y-20 opacity-0 font-bold text-sm pointer-events-none";
+        document.body.appendChild(toast);
+    }
+
+    // Reset styles
+    toast.className = "fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 z-[10000] transition-all duration-300 transform translate-y-20 opacity-0 font-bold text-sm pointer-events-none";
+
+    let icon = 'info';
+    let bgClass = 'bg-gray-900 text-white';
+
+    switch (type) {
+        case 'success':
+            icon = 'check_circle';
+            bgClass = 'bg-green-600 text-white';
+            break;
+        case 'warning':
+            icon = 'warning';
+            bgClass = 'bg-orange-500 text-white';
+            break;
+        case 'error':
+            icon = 'error';
+            bgClass = 'bg-red-600 text-white';
+            break;
+    }
+
+    toast.classList.add(...bgClass.split(' '));
+    toast.innerHTML = `<span class="material-symbols-outlined text-lg">${icon}</span><span>${message}</span>`;
+
+    // Show
+    requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-20', 'opacity-0');
+    });
+
+    // Hide after 3s
+    if (window.globalToastTimeout) clearTimeout(window.globalToastTimeout);
+    window.globalToastTimeout = setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+    }, 3000);
 }
 
 // [Undo Toast Logic]
@@ -226,18 +272,18 @@ export function showUndoToast(message, onUndo) {
         `;
         document.body.appendChild(toast);
     }
-    
+
     document.getElementById('undo-toast-msg').innerText = message;
-    
+
     const btn = document.getElementById('undo-toast-btn');
     btn.onclick = () => {
         onUndo();
         toast.classList.add('translate-y-20', 'opacity-0');
     };
-    
+
     // 표시
     toast.classList.remove('translate-y-20', 'opacity-0');
-    
+
     // 기존 타이머 제거 후 재설정
     if (window.undoToastTimeout) clearTimeout(window.undoToastTimeout);
     window.undoToastTimeout = setTimeout(() => {
@@ -329,7 +375,7 @@ export function openLightbox(dayIndex, itemIndex, memoryIndex) {
     }
 
     // 2. Find start index
-    currentLightboxIndex = lightboxMemories.findIndex(m => 
+    currentLightboxIndex = lightboxMemories.findIndex(m =>
         m.dayIndex === dayIndex && m.itemIndex === itemIndex && m.memoryIndex === memoryIndex
     );
 
@@ -337,14 +383,14 @@ export function openLightbox(dayIndex, itemIndex, memoryIndex) {
     if (currentLightboxIndex === -1) return; // No memories
 
     updateLightboxImage();
-    
+
     modal.classList.remove('hidden');
-    void modal.offsetWidth; 
+    void modal.offsetWidth;
     modal.classList.remove('opacity-0');
-    
+
     // Keyboard navigation
     document.addEventListener('keydown', handleLightboxKeydown);
-    
+
     lockBodyScroll();
 }
 
@@ -382,7 +428,7 @@ function updateLightboxImage() {
     }
 }
 
-window.navigateLightbox = function(direction) {
+window.navigateLightbox = function (direction) {
     const newIndex = currentLightboxIndex + direction;
     if (newIndex >= 0 && newIndex < lightboxMemories.length) {
         currentLightboxIndex = newIndex;
@@ -390,24 +436,24 @@ window.navigateLightbox = function(direction) {
     }
 };
 
-window.toggleLightboxMenu = function() {
+window.toggleLightboxMenu = function () {
     const menu = document.getElementById('lightbox-menu');
     if (menu) menu.classList.toggle('hidden');
 };
 
-window.deleteCurrentLightboxMemory = function() {
+window.deleteCurrentLightboxMemory = function () {
     const mem = lightboxMemories[currentLightboxIndex];
     if (!mem) return;
 
-    if (confirm("이 추억을 삭제하시겠습니까?")) {
+    if (confirm("이 소중한 추억을 정말 삭제하시겠습니까? 📸")) {
         // Remove from data
         const item = travelData.days[mem.dayIndex].timeline[mem.itemIndex];
         if (item && item.memories) {
             item.memories.splice(mem.memoryIndex, 1);
-            
+
             // Remove from lightbox list
             lightboxMemories.splice(currentLightboxIndex, 1);
-            
+
             // Save & Render
             if (window.autoSave) window.autoSave();
             if (window.renderItinerary) window.renderItinerary();
@@ -435,11 +481,11 @@ function handleLightboxKeydown(e) {
     if (e.key === 'Escape') closeLightbox();
 }
 
-window.handleLightboxTouchStart = function(e) {
+window.handleLightboxTouchStart = function (e) {
     lightboxTouchStartX = e.changedTouches[0].screenX;
 };
 
-window.handleLightboxTouchEnd = function(e) {
+window.handleLightboxTouchEnd = function (e) {
     lightboxTouchEndX = e.changedTouches[0].screenX;
     handleSwipe();
 };
@@ -464,7 +510,7 @@ export function closeLightbox() {
             img.classList.remove('scale-100');
             img.classList.add('scale-95');
         }
-        
+
         setTimeout(() => {
             modal.classList.add('hidden');
             if (img) img.src = '';
@@ -517,7 +563,7 @@ export function ensureMemoryModal() {
             </div>
         `;
         document.body.appendChild(modal);
-        
+
         // 이벤트 리스너 연결
         document.getElementById('memory-photo-preview').addEventListener('click', () => {
             const img = document.getElementById('memory-photo-img');
@@ -568,14 +614,14 @@ export function openMemoModal(item) {
     const content = document.getElementById('memo-detail-content');
     const bookmarksContainer = document.getElementById('memo-bookmarks');
     const bookmarksList = document.getElementById('memo-bookmarks-list');
-    
-    content.innerHTML = ""; 
-    
+
+    content.innerHTML = "";
+
     const { html, links } = processMemoContent(item.title);
     content.innerHTML = html;
     renderBookmarks(links, bookmarksContainer, bookmarksList);
 
-    const btnContainer = modal.querySelector('.mt-6'); 
+    const btnContainer = modal.querySelector('.mt-6');
     if (btnContainer) {
         const btn = btnContainer.querySelector('button');
         if (btn) {
@@ -598,16 +644,16 @@ export function closeMemoModal() {
 
 export function editCurrentMemo() {
     if (viewingItemIndex === null) return;
-    
+
     const contentEl = document.getElementById('memo-detail-content');
     const currentText = contentEl.innerText;
-    
+
     contentEl.innerHTML = `<textarea id="memo-edit-area" class="w-full h-60 bg-white/50 dark:bg-black/20 border-2 border-yellow-300 dark:border-yellow-600/50 rounded-lg p-3 text-gray-800 dark:text-gray-200 resize-none focus:ring-0 outline-none leading-relaxed font-body text-lg placeholder-gray-400" placeholder="메모를 입력하세요">${currentText}</textarea>`;
-    
+
     const modal = document.getElementById('memo-detail-modal');
     const btnContainer = modal.querySelector('.mt-6');
     const btn = btnContainer.querySelector('button');
-    
+
     btn.setAttribute('onclick', 'saveCurrentMemo()');
     btn.innerHTML = `<span class="material-symbols-outlined text-sm">save</span> 저장`;
     btn.className = "text-sm bg-primary text-white hover:bg-orange-500 px-6 py-2 rounded-xl font-bold transition-colors flex items-center gap-1 shadow-md";
@@ -617,14 +663,14 @@ export function editCurrentMemo() {
 
 export function saveCurrentMemo() {
     if (viewingItemIndex === null) return;
-    
+
     const textarea = document.getElementById('memo-edit-area');
     if (!textarea) return;
 
     const newText = textarea.value;
-    
+
     travelData.days[targetDayIndex].timeline[viewingItemIndex].title = newText;
-    
+
     const { html, links } = processMemoContent(newText);
 
     const contentEl = document.getElementById('memo-detail-content');
@@ -634,7 +680,7 @@ export function saveCurrentMemo() {
     const modal = document.getElementById('memo-detail-modal');
     const btnContainer = modal.querySelector('.mt-6');
     const btn = btnContainer.querySelector('button');
-    
+
     btn.setAttribute('onclick', 'editCurrentMemo()');
     btn.innerHTML = `<span class="material-symbols-outlined text-sm">edit</span> 수정`;
     btn.className = "text-sm bg-yellow-100 hover:bg-yellow-200 text-yellow-800 px-4 py-2 rounded-xl font-bold transition-colors flex items-center gap-1";
@@ -679,7 +725,7 @@ function renderBookmarks(links, container, list) {
                     <span class="material-symbols-outlined text-gray-400 text-sm">open_in_new</span>
                 </a>
             `;
-        } catch (e) {}
+        } catch (e) { }
     });
     list.innerHTML = html;
     container.classList.remove('hidden');
@@ -692,13 +738,19 @@ export function ensureExpenseModal() {
     if (!document.getElementById('expense-modal')) {
         const modal = document.createElement('div');
         modal.id = 'expense-modal';
-        modal.className = 'hidden fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
+        modal.className = 'hidden fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
+        modal.style.zIndex = '9999';
         modal.innerHTML = `
             <div class="bg-white dark:bg-card-dark rounded-xl shadow-2xl w-full max-w-sm overflow-hidden">
                 <div class="p-5 border-b border-gray-100 dark:border-gray-700">
                     <h3 class="text-lg font-bold text-text-main dark:text-white">지출 내역 추가</h3>
                 </div>
                 <div class="p-6 flex flex-col gap-4">
+                    <div id="expense-location-container" class="hidden">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">사용 장소</label>
+                        <select id="expense-location-select" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800 text-sm font-bold text-gray-700 dark:text-gray-300 cursor-pointer focus:ring-2 focus:ring-primary/50 outline-none">
+                        </select>
+                    </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">사용 내역</label>
                         <div class="flex gap-2">
@@ -718,12 +770,12 @@ export function ensureExpenseModal() {
                 </div>
                 <div class="p-5 border-t border-gray-100 dark:border-gray-700 flex gap-3">
                     <button type="button" onclick="closeExpenseModal()" class="flex-1 py-2 text-gray-500 font-bold hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl">취소</button>
-                    <button type="button" id="expense-save-btn" onclick="if (typeof window.saveRouteExpense !== 'undefined' && window.currentRouteItemIndex !== null) window.saveRouteExpense(); else saveExpense();" class="flex-1 py-2 bg-primary text-white font-bold rounded-xl hover:bg-orange-500 shadow-lg">추가</button>
+                    <button type="button" id="expense-save-btn" onclick="saveExpense()" class="flex-1 py-2 bg-primary text-white font-bold rounded-xl hover:bg-orange-500 shadow-lg">추가</button>
                 </div>
             </div>
         `;
         document.body.appendChild(modal);
-        
+
         // 금액 입력 시 천 단위 콤마 자동 포맷팅
         const costInput = document.getElementById('expense-cost');
         costInput.addEventListener('input', (e) => {
@@ -737,17 +789,78 @@ export function ensureExpenseModal() {
     }
 }
 
-export function openExpenseModal() {
+export function openExpenseModal(dayIdx = null, fromDetail = false) {
     ensureExpenseModal();
+    window.isAddingFromDetail = !!fromDetail; // [Fix] Force boolean
+
+    const modal = document.getElementById('expense-modal');
+    // [Fix] Force highest z-index (Max Int) and move to end of body
+    modal.style.zIndex = '2147483647';
+    document.body.appendChild(modal);
+
+    // [Fix] Reset Save Button to default behavior (generic expense)
+    const saveBtn = document.getElementById('expense-save-btn');
+    if (saveBtn) {
+        // [Fix] Directly assign function handler to avoid scope issues
+        // saveExpense is available in this module scope
+        saveBtn.onclick = saveExpense;
+        saveBtn.removeAttribute('onclick'); // Clean up HTML attribute to prevent confusion
+    }
+
+    // [Added] Location Select Logic
+    const locContainer = document.getElementById('expense-location-container');
+    const locSelect = document.getElementById('expense-location-select');
+
+    if (window.isAddingFromDetail && typeof dayIdx === 'number') {
+        locContainer.classList.remove('hidden');
+        locSelect.innerHTML = '';
+
+        const day = travelData.days[dayIdx];
+        let options = ``; // [User Request] Remove "Unknown Location" option
+
+        if (day && day.timeline) {
+            day.timeline.forEach((item, idx) => {
+                let title = item.title;
+                // [Fix] Handle empty title and 'Walk' specifically
+                if (!title || title.trim() === '') {
+                    title = (item.tag === '도보') ? '도보' : '이름 없는 장소';
+                }
+
+                // [User Request] Add prefix with space for all transit items including Walk
+                if (item.isTransit || item.tag === '도보') {
+                    title = `[이동수단] ${title}`;
+                }
+                options += `<option value="${idx}">${title}</option>`;
+            });
+        }
+        locSelect.innerHTML = options;
+
+        // Default to last item if exists (User Request: "기존 장소에서 추가하도록 하고")
+        if (day && day.timeline && day.timeline.length > 0) {
+            // [Fix] Use viewingItemIndex if available (from Detail Modal), otherwise last item
+            if (window.isAddingFromDetail && typeof window.viewingItemIndex === 'number' && window.viewingItemIndex !== null) {
+                locSelect.value = window.viewingItemIndex;
+            } else {
+                locSelect.value = day.timeline.length - 1;
+            }
+        } else {
+            // If no items, ensure select is empty or hidden if no options
+            // locSelect.value = "-1"; // No longer needed as "Unknown Location" is removed
+        }
+    } else {
+        if (locContainer) locContainer.classList.add('hidden');
+    }
+
     document.getElementById('expense-desc').value = "";
     document.getElementById('expense-cost').value = "";
-    document.getElementById('expense-modal').classList.remove('hidden');
+    modal.classList.remove('hidden');
     setTimeout(() => document.getElementById('expense-desc').focus(), 100);
     lockBodyScroll();
 }
 
 export function closeExpenseModal() {
     selectedShoppingItemIndex = null;
+    window.isAddingFromDetail = false;
     const modal = document.getElementById('expense-modal');
     if (modal) modal.classList.add('hidden');
     unlockBodyScroll();
@@ -757,44 +870,65 @@ export function saveExpense() {
     const desc = document.getElementById('expense-desc').value;
     const costRaw = document.getElementById('expense-cost').value;
     const cost = costRaw.replace(/,/g, ''); // 콤마 제거
-    
+
     if (!desc || !cost) {
-        alert("내역과 금액을 입력해주세요.");
+        showToast("지출 내역과 금액을 모두 입력해주세요! 💸", 'warning');
         return;
     }
 
-    const item = travelData.days[targetDayIndex].timeline[viewingItemIndex];
-    if (!item.expenses) item.expenses = [];
-    
-    item.expenses.push({ 
-        description: desc, 
-        amount: Number(cost) 
-    });
-    
+    const selectedLocationIndex = document.getElementById('expense-location-select').value;
+    const isGeneral = window.isAddingFromDetail && selectedLocationIndex === "-1";
+
+    let targetItem;
+    if (window.isAddingFromDetail && typeof targetDayIndex === 'number' && selectedLocationIndex !== "-1") {
+        targetItem = travelData.days[targetDayIndex].timeline[parseInt(selectedLocationIndex)];
+    } else {
+        // Fallback to viewingItemIndex if not adding from detail or if "general" expense
+        targetItem = travelData.days[targetDayIndex].timeline[viewingItemIndex];
+    }
+
+    if (!targetItem.expenses) targetItem.expenses = [];
+
+    const newExpense = {
+        description: desc,
+        amount: Number(cost),
+        isGeneral: isGeneral // Mark as general if no specific item is selected
+    };
+    targetItem.expenses.push(newExpense);
+
+    // Update item's budget (sum of its expenses)
+    targetItem.budget = targetItem.expenses.reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
+
     // 쇼핑 리스트 연동 처리
     if (selectedShoppingItemIndex !== null && travelData.shoppingList && travelData.shoppingList[selectedShoppingItemIndex]) {
         const shoppingItem = travelData.shoppingList[selectedShoppingItemIndex];
         shoppingItem.checked = true;
-        
-        if (!shoppingItem.location && item.title) {
-            shoppingItem.location = item.title;
-            shoppingItem.locationDetail = item.location || '';
+
+        if (!shoppingItem.location && targetItem.title) {
+            shoppingItem.location = targetItem.title;
+            shoppingItem.locationDetail = targetItem.location || '';
         }
-        
-        window.lastExpenseLocation = item.title;
+
+        window.lastExpenseLocation = targetItem.title;
         selectedShoppingItemIndex = null;
         if (window.renderLists) window.renderLists();
     }
-    
-    if (window.renderExpenseList) window.renderExpenseList(item);
+
+    // [Fix] Refresh Detail Modal IMMEDIATELY after data change
+    if (typeof window.refreshExpenseDetail === 'function') {
+        window.refreshExpenseDetail();
+    }
+
+    // These functions are now called after refreshExpenseDetail
+    if (window.renderExpenseList) window.renderExpenseList(targetItem);
     closeExpenseModal();
     if (window.updateTotalBudget) window.updateTotalBudget();
-    
+
     const budgetEl = document.getElementById('budget-amount');
     if (budgetEl) {
         budgetEl.textContent = travelData.meta.budget || '₩0';
     }
-    
+
     if (window.renderItinerary) window.renderItinerary();
     if (window.autoSave) window.autoSave();
 }
@@ -824,7 +958,7 @@ export function openShoppingListSelector() {
     ensureShoppingSelectorModal();
     const modal = document.getElementById('shopping-selector-modal');
     const listContainer = document.getElementById('shopping-selector-list');
-    
+
     if (!travelData.shoppingList || travelData.shoppingList.length === 0) {
         listContainer.innerHTML = '<p class="text-xs text-gray-400 text-center py-8">쇼핑 리스트가 비어있습니다.</p>';
     } else {
@@ -840,7 +974,7 @@ export function openShoppingListSelector() {
             </button>
         `).join('');
     }
-    
+
     modal.classList.remove('hidden');
     lockBodyScroll();
 }
@@ -854,10 +988,10 @@ export function closeShoppingListSelector() {
 export function selectShoppingItem(idx) {
     const item = travelData.shoppingList[idx];
     const descInput = document.getElementById('expense-desc');
-    
+
     selectedShoppingItemIndex = idx;
     if (descInput) descInput.value = item.text;
-    
+
     closeShoppingListSelector();
     setTimeout(() => {
         const costInput = document.getElementById('expense-cost');

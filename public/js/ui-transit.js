@@ -6,7 +6,7 @@ import {
 } from './state.js';
 import { parseTimeStr, formatTimeStr, calculateStraightDistance, minutesTo24Hour } from './ui-utils.js';
 import { airports, searchAirports, getAirportByCode, formatAirport } from './airports.js';
-import logger from '../logger.js';
+import logger from './logger.js';
 import { translateStation, translateLine } from './station-translations.js';
 import { openUserProfile } from './ui/profile.js';
 
@@ -309,10 +309,25 @@ export function fetchTransitTime() {
 
     const [h, m] = startTimeInput.value.split(':').map(Number);
 
-    const now = new Date();
-    const departureTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
-    if (departureTime < now) {
-        departureTime.setDate(departureTime.getDate() + 1);
+    // [Fix] Use Trip Date instead of OS Date
+    const dayData = travelData.days[targetDayIndex];
+    let baseDate = new Date();
+    if (dayData && dayData.date) {
+        baseDate = new Date(dayData.date);
+    }
+
+    let departureTime = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), h, m);
+
+    // [Fix] If past, use Today/Tomorrow with same time (User Request)
+    if (departureTime < new Date()) {
+        const now = new Date();
+        departureTime.setFullYear(now.getFullYear());
+        departureTime.setMonth(now.getMonth());
+        departureTime.setDate(now.getDate());
+        // If the time has already passed today, use tomorrow
+        if (departureTime < new Date()) {
+            departureTime.setDate(departureTime.getDate() + 1);
+        }
     }
 
     const directionsService = new google.maps.DirectionsService();
@@ -1278,7 +1293,17 @@ export async function addFastestTransitItem() {
             }
         }
 
-        if (departureTime < new Date()) departureTime = new Date();
+        // [Fix] If past, use Today/Tomorrow with same time (User Request)
+        if (departureTime < new Date()) {
+            const now = new Date();
+            departureTime.setFullYear(now.getFullYear());
+            departureTime.setMonth(now.getMonth());
+            departureTime.setDate(now.getDate());
+            // If the time has already passed today, use tomorrow
+            if (departureTime < now) {
+                departureTime.setDate(departureTime.getDate() + 1);
+            }
+        }
 
         const fetchRoute = async (params) => {
             return new Promise((resolve) => {
@@ -2515,10 +2540,37 @@ window.updateRouteItemNote = function (value) {
 
 // 경로 지출 관련 함수들
 window.openRouteExpenseModal = function () {
-    document.getElementById('expense-desc').value = "";
-    document.getElementById('expense-cost').value = "";
-    document.getElementById('expense-modal').classList.remove('hidden');
-    setTimeout(() => document.getElementById('expense-desc').focus(), 100);
+    // [Fix] Use centralized function for z-index/dropdown logic
+    // Pass fromDetail=false so dropdown is hidden (transit item implies location)
+    if (window.openExpenseModal) {
+        window.openExpenseModal(targetDayIndex, false);
+    } else {
+        // Fallback
+        if (window.ensureExpenseModal) window.ensureExpenseModal();
+        const modal = document.getElementById('expense-modal');
+        modal.classList.remove('hidden');
+        modal.style.zIndex = '2147483647';
+        document.body.appendChild(modal);
+        if (window.hasOwnProperty('isAddingFromDetail')) window.isAddingFromDetail = false;
+    }
+
+    // [Fix] Override Save Button for Transit Expense
+    const saveBtn = document.getElementById('expense-save-btn');
+    if (saveBtn) {
+        // [Fix] Directly assign window function
+        saveBtn.onclick = window.saveRouteExpense;
+        saveBtn.removeAttribute('onclick');
+    }
+
+    // Reset fields
+    const desc = document.getElementById('expense-desc');
+    const cost = document.getElementById('expense-cost');
+    if (desc) desc.value = "";
+    if (cost) cost.value = "";
+
+    setTimeout(() => {
+        if (desc) desc.focus();
+    }, 100);
 };
 
 window.saveRouteExpense = function () {
@@ -3158,3 +3210,6 @@ window.openRouteSelectionModal = openRouteSelectionModal;
 window.closeRouteSelectionModal = closeRouteSelectionModal;
 window.openRouteModal = openRouteModal;
 window.closeRouteModal = closeRouteModal;
+
+// [Duplicate Removed] saveRouteExpense used to be here but was incomplete.
+// Using the definition around line 2525 instread.

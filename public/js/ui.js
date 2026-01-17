@@ -8,7 +8,8 @@ import {
     setPendingTransitCallback, setEditingItemIndex, setViewingItemIndex,
     setCurrentTripUnsubscribe, setIsEditing, setCurrentUser,
     insertingItemIndex, isEditingFromDetail, setInsertingItemIndex, setIsEditingFromDetail,
-    updateMetaState, updateTripDateState, updateTimelineItemState
+    updateMetaState, updateTripDateState, updateTimelineItemState,
+    isSaving, setIsSaving
 } from './state.js';
 
 import { parseTimeStr, formatTimeStr, parseDurationStr, formatDuration, minutesTo24Hour, calculateStraightDistance } from './ui-utils.js';
@@ -17,7 +18,7 @@ import { doc, getDoc, updateDoc, setDoc } from 'https://www.gstatic.com/firebase
 
 import * as Modals from './ui/modals.js';
 import * as Header from './ui/header.js';
-import * as Renderers from './ui/renderers.js';
+import * as Renderers from './ui/renderers.js?v=1.1.7';
 import * as Auth from './ui/auth.js';
 import * as Profile from './ui/profile.js';
 import * as Trips from './ui/trips.js';
@@ -34,6 +35,7 @@ import * as Weather from './ui/weather.js';
 import * as ExpenseManager from './ui/expense-manager.js';
 import * as TripInfo from './ui/trip-info.js';
 import * as TimelineDetail from './ui/timeline-detail.js';
+import * as ExpenseDetail from './ui/expense-detail.js';
 import * as FlightManager from './ui/flight-manager.js';
 import * as DnD from './ui/dnd.js';
 import { categoryList, majorAirports } from './ui/constants.js';
@@ -63,15 +65,18 @@ export async function openTrip(tripId) {
 
         if (docSnap.exists()) {
             const data = docSnap.data();
-            const fullData = { ...defaultTravelData, ...data, meta: { ...defaultTravelData.meta, ...data.meta } };
-            setTravelData(fullData);
+            // 실제 데이터만 사용 (기본값 병합 제거)
+            setTravelData(data);
             setCurrentTripId(tripId);
+            window.currentTripId = tripId;
 
             document.getElementById('main-view').classList.add('hidden');
             document.getElementById('detail-view').classList.remove('hidden');
             document.getElementById('back-btn').classList.remove('hidden');
             document.getElementById('share-btn').classList.remove('hidden');
 
+            // [Fix] Recalculate budget on load to fix potential legacy errors
+            ExpenseManager.updateTotalBudget(travelData);
             selectDay(0); // 첫째날로 초기화
         } else {
             console.error("Trip not found:", tripId);
@@ -245,6 +250,14 @@ export function viewTimelineItem(index, dayIndex = currentDayIndex) {
 
     document.getElementById('detail-total-budget').value = item.budget || 0;
     renderExpenseList(item);
+
+    // [Fix] Bind Add Expense Button with explicit context
+    const addExpBtn = document.getElementById('detail-add-expense-btn');
+    if (addExpBtn) {
+        // [Fix] Pass false to hide location dropdown (User Request: "다시 원래 대로 빼줘")
+        // logic will fallback to viewingItemIndex automatically
+        addExpBtn.onclick = () => Modals.openExpenseModal(dayIndex, false);
+    }
 
     // Attachments
     renderAttachments(item, 'detail-attachment-list');
@@ -1197,12 +1210,25 @@ let autoSaveTimeout = null;
 export async function autoSave(immediate = false) {
     if (!isEditing && currentUser && currentTripId) {
         const saveTask = async () => {
+            // [Added] 저장 중복 방지 (데이터 일관성)
+            if (isSaving) {
+                console.warn('AutoSave skipped: Save already in progress');
+                // 저장이 진행 중이라면, 잠시 후 다시 시도하도록 예약 (선택 사항)
+                if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
+                autoSaveTimeout = setTimeout(() => autoSave(true), 1000);
+                return;
+            }
+
             try {
+                setIsSaving(true);
                 // [핵심] JSON 변환을 통해 undefined 값을 가진 필드를 자동으로 제거함
                 const cleanData = JSON.parse(JSON.stringify(travelData));
                 await setDoc(doc(db, "plans", currentTripId), cleanData);
+                console.debug('AutoSave completed:', new Date().toLocaleTimeString());
             } catch (e) {
                 console.error("Auto-save failed", e);
+            } finally {
+                setIsSaving(false);
             }
         };
 
@@ -1214,8 +1240,8 @@ export async function autoSave(immediate = false) {
         if (immediate) {
             await saveTask();
         } else {
-            // Debounce: 500ms 대기 후 저장 (연속 호출 시 마지막 것만 실행)
-            autoSaveTimeout = setTimeout(saveTask, 500);
+            // Debounce: 1000ms 대기 후 저장 (너무 잦은 저장 방지 - 500ms -> 1000ms로 상향)
+            autoSaveTimeout = setTimeout(saveTask, 1000);
         }
     }
 }
@@ -1757,7 +1783,10 @@ export function useManualInput(type) {
             document.getElementById('new-trip-location').value = val;
             newTripDataTemp.locationName = val;
             newTripDataTemp.address = val;
-            nextWizardStep(2);
+            // 바로 여행 생성 완료
+            if (window.finishNewTripWizard) {
+                window.finishNewTripWizard();
+            }
         }
     });
 }
@@ -2587,15 +2616,15 @@ window.handleAttachmentUpload = handleAttachmentUpload;
 window.renderExpenseList = renderExpenseList; // [Added] modals.js에서 호출할 수 있도록 노출
 window.deleteAttachment = deleteAttachment;
 window.openAttachment = openAttachment;
-window.openExpenseDetailModal = openExpenseDetailModal;
-window.closeExpenseDetailModal = closeExpenseDetailModal;
+
 window.openLightbox = Modals.openLightbox;
 window.closeLightbox = Modals.closeLightbox;
 window.autoSave = autoSave; // [Fix] 순환 참조 해결을 위한 전역 할당 추가
 
-// 지출 상세 모달
-export function openExpenseDetailModal() {
+
+function legacy_openExpenseDetailModal() {
     const modal = document.getElementById('expense-detail-modal');
+    if (!modal) return; // Ensure modal exists
 
     // 전체 지출 계산
     let totalExpense = 0;
@@ -2621,9 +2650,9 @@ export function openExpenseDetailModal() {
 
                     // expenses 배열
                     if (item.expenses && Array.isArray(item.expenses)) {
-                        item.expenses.forEach(exp => {
+                        item.expenses.forEach((exp, expIdx) => {
                             const amount = Number(exp.amount || 0);
-                            if (amount > 0) { // 0원 더미 데이터 제외
+                            if (amount > 0) {
                                 dayTotal += amount;
 
                                 // 이동수단인 경우 출발지->도착지 붙이기
@@ -2639,7 +2668,10 @@ export function openExpenseDetailModal() {
                                 dayExpenses.push({
                                     title: displayTitle,
                                     description: exp.description,
-                                    amount: amount
+                                    amount: amount,
+                                    dayIdx: dayIdx,
+                                    itemIdx: itemIdx,
+                                    expIdx: expIdx
                                 });
                             }
                         });
@@ -2651,7 +2683,8 @@ export function openExpenseDetailModal() {
                 expensesByDay.push({
                     date: day.date,
                     total: dayTotal,
-                    expenses: dayExpenses
+                    expenses: dayExpenses,
+                    originalDayIdx: dayIdx // [Added] for add button
                 });
             }
 
@@ -2670,17 +2703,28 @@ export function openExpenseDetailModal() {
         dayListEl.innerHTML = expensesByDay.map((dayData, idx) => `
             <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700">
                 <div class="flex justify-between items-center mb-3">
-                    <h5 class="font-bold text-gray-800 dark:text-white">${dayData.date}</h5>
+                    <div class="flex items-center gap-2">
+                        <h5 class="font-bold text-gray-800 dark:text-white">${dayData.date}</h5>
+                        <button onclick="window.addExpenseFromDetail(${dayData.originalDayIdx})" class="text-xs bg-primary/10 hover:bg-primary/20 text-primary px-2 py-1 rounded transition-colors font-bold flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">add</span> 추가
+                        </button>
+                    </div>
                     <p class="text-lg font-bold text-primary">₩${dayData.total.toLocaleString()}</p>
                 </div>
                 <div class="space-y-2">
                     ${dayData.expenses.map(exp => `
-                        <div class="flex justify-between items-center text-sm bg-gray-50 dark:bg-gray-900 p-2 rounded-lg">
+                        <div class="flex justify-between items-center text-sm bg-gray-50 dark:bg-gray-900 p-2 rounded-lg group">
                             <div class="flex-1 min-w-0">
                                 <p class="font-medium text-gray-700 dark:text-gray-300 truncate">${exp.title}</p>
                                 <p class="text-xs text-gray-500 dark:text-gray-400">${exp.description}</p>
                             </div>
-                            <p class="font-bold text-gray-800 dark:text-white ml-2">₩${exp.amount.toLocaleString()}</p>
+                            <div class="flex items-center gap-2">
+                                <p class="font-bold text-gray-800 dark:text-white ml-2">₩${exp.amount.toLocaleString()}</p>
+                                ${(exp.dayIdx !== undefined) ? `
+                                <button onclick="window.deleteExpenseFromDetail(${exp.dayIdx}, ${exp.itemIdx}, ${exp.expIdx})" class="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1" title="삭제">
+                                    <span class="material-symbols-outlined text-sm">delete</span>
+                                </button>` : ''}
+                            </div>
                         </div>
                     `).join('')}
                 </div>
@@ -2699,11 +2743,11 @@ export function openExpenseDetailModal() {
     modal.classList.remove('hidden');
 }
 
-export function closeExpenseDetailModal() {
+function legacy_closeExpenseDetailModal() {
     document.getElementById('expense-detail-modal').classList.add('hidden');
 }
 
-export function calculateSplit() {
+function legacy_calculateSplit() {
     const peopleCount = Number(document.getElementById('split-people-count').value);
     if (!peopleCount || peopleCount < 1) {
         alert('인원 수를 입력해주세요.');
@@ -2718,7 +2762,44 @@ export function calculateSplit() {
     document.getElementById('split-result').classList.remove('hidden');
 }
 
-window.calculateSplit = calculateSplit;
+// window.calculateSplit = calculateSplit;
+
+// [Added] Add expense from detail view
+export function addExpenseFromDetail(dayIdx) {
+    Modals.openExpenseModal(dayIdx);
+}
+
+// [Added] Delete expense from detail view
+export function deleteExpenseFromDetail(dayIdx, itemIdx, expIdx) {
+    // [User Request] Remove confirmation
+    // if (!confirm('이 지출 내역을 삭제하시겠습니까?')) return;
+
+    // dayIdx 검증
+    if (dayIdx < 0 || dayIdx >= travelData.days.length) return;
+    const day = travelData.days[dayIdx];
+
+    // itemIdx 검증
+    if (itemIdx < 0 || itemIdx >= day.timeline.length) return;
+    const item = day.timeline[itemIdx];
+
+    // expIdx 검증
+    if (!item.expenses || expIdx < 0 || expIdx >= item.expenses.length) return;
+
+    // 삭제
+    item.expenses.splice(expIdx, 1);
+
+    // 재계산 (budget 필드 업데이트)
+    const sum = item.expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
+    item.budget = sum;
+
+    // 전체 예산 재계산
+    ExpenseManager.updateTotalBudget(travelData);
+
+    // 화면 갱신
+    openExpenseDetailModal();
+    renderItinerary();
+    autoSave();
+};
 
 // [Context Menu Logic]
 let contextMenuTargetIndex = null;
@@ -2816,11 +2897,11 @@ window.openContextMenu = openContextMenu;
 window.handleContextAction = handleContextAction;
 
 // [Weather Detail Modal - 주간 날씨 캘린더]
-let currentWeatherWeekStart = null;
+
 let selectedWeatherDate = null;
 let weeklyWeatherData = null;
 
-export async function openWeatherDetailModal() {
+async function legacy_openWeatherDetailModal() {
     const modal = document.getElementById('weather-detail-modal');
     if (!modal) return;
 
@@ -3043,14 +3124,61 @@ function formatDate(date) {
     return `${year}-${month}-${day}`;
 }
 
-export function closeWeatherDetailModal() {
+function legacy_closeWeatherDetailModal() {
     const modal = document.getElementById('weather-detail-modal');
     if (modal) {
         modal.classList.add('hidden');
     }
 }
 
-window.openWeatherDetailModal = openWeatherDetailModal;
-window.closeWeatherDetailModal = closeWeatherDetailModal;
-window.selectWeatherDate = selectWeatherDate;
-window.navigateWeatherWeek = navigateWeatherWeek;
+// Expense Modal Bindings
+export const ensureExpenseModal = Modals.ensureExpenseModal;
+export const openExpenseModal = Modals.openExpenseModal;
+export const closeExpenseModal = Modals.closeExpenseModal;
+
+// Bindings for new modules
+window.openExpenseDetailModal = ExpenseDetail.openExpenseDetailModal;
+window.closeExpenseDetailModal = ExpenseDetail.closeExpenseDetailModal;
+window.calculateSplit = ExpenseDetail.calculateSplit;
+window.deleteExpenseFromDetail = ExpenseDetail.deleteExpenseFromDetail;
+
+window.ensureWeatherDetailModal = Weather.ensureWeatherDetailModal;
+window.openWeatherDetailModal = Weather.openWeatherDetailModal;
+window.closeWeatherDetailModal = Weather.closeWeatherDetailModal;
+
+// [Automated] Window Global Binding
+// 모든 export된 함수와 객체를 window 객체에 자동으로 바인딩하여 HTML onclick 등에서 접근 가능하게 함
+import * as UI from './ui.js';
+Object.keys(UI).forEach(key => {
+    if (typeof UI[key] === 'function' || typeof UI[key] === 'object') {
+        window[key] = UI[key];
+    }
+});
+
+window.addExpenseFromDetail = function (dayIdx) {
+    if (dayIdx < 0 || dayIdx >= travelData.days.length) return;
+    const day = travelData.days[dayIdx];
+    if (!day.timeline || day.timeline.length === 0) {
+        alert('해당 날짜에 일정이 없어 지출을 추가할 수 없습니다.');
+        return;
+    }
+    // 마지막 일정에 추가
+    const itemIdx = day.timeline.length - 1;
+    setTargetDayIndex(dayIdx);
+    setViewingItemIndex(itemIdx);
+
+    // window.isAddingFromDetail = true; // Handled in openExpenseModal
+    Modals.openExpenseModal(dayIdx, true);
+};
+
+// 추가적으로 필요한 모듈 바인딩 (import * as 문법으로 가져온 모듈들)
+window.Modals = Modals;
+// [Fix] Manually bind saveExpense for HTML onclick handlers
+window.saveExpense = Modals.saveExpense;
+window.Renderers = Renderers;
+window.Auth = Auth;
+window.Profile = Profile;
+window.Trips = Trips;
+window.Memories = Memories;
+
+console.debug('[UI] Window global bindings initialized');
