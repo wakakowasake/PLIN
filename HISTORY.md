@@ -6,6 +6,11 @@
 
 ## 2026-01-19
 
+### 03:05 - [AI] 추억 사진 모달 열 때 미리보기 완전 초기화
+- `addMemoryItem` 함수에서 previewContainer의 모든 자식 요소 제거
+- 이전 업로드 사진이 미리보기에 남아있지 않도록 개선
+- **변경 파일**: public/js/ui/memories.js
+
 ### 02:59 - [AI] 커밋 메시지를 한국어로 작성하도록 규칙 변경
 - Git 커밋 메시지도 한국어로 작성하도록 .cursorrules 수정
 - HISTORY.md와 일관성 유지
