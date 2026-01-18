@@ -104,6 +104,7 @@ export function addMemoryItem(index, dayIndex) {
         const clearBtn = modal.querySelector('#memory-photo-clear');
         const previewContainer = modal.querySelector('#memory-photo-preview');
 
+        // [Enhanced] 단일 이미지 미리보기 초기화
         if (imgPreview) {
             imgPreview.src = "";
             imgPreview.classList.add('hidden');
@@ -113,10 +114,15 @@ export function addMemoryItem(index, dayIndex) {
         if (input) input.value = "";
         if (comment) comment.value = "";
 
-        // [Fix] 이전에 업로드된 다중 이미지 미리보기 그리드 제거
+        // [Enhanced] 다중 이미지 미리보기 그리드 제거
         if (previewContainer) {
             const existingGrid = previewContainer.querySelector('.preview-grid');
             if (existingGrid) existingGrid.remove();
+
+            // 추가: previewContainer 내부의 모든 자식 요소 제거 (완전 초기화)
+            while (previewContainer.firstChild) {
+                previewContainer.removeChild(previewContainer.firstChild);
+            }
         }
 
         modal.classList.remove('hidden');
