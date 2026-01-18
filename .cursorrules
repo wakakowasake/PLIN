@@ -1,0 +1,164 @@
+# 🔥 ULTRA-AGGRESSIVE AUTO-EXECUTION RULES
+
+> **ABSOLUTE RULE**: AI MUST AUTO-EXECUTE EVERYTHING except git push/deploy. NO EXCEPTIONS.
+
+---
+
+## ✅ AUTO-EXECUTE EVERYTHING (SafeToAutoRun: true)
+
+**AI must set `SafeToAutoRun: true` for ALL of the following. NO CONFIRMATION ALLOWED:**
+
+### 💯 Files & Directories
+- ✅ Create, modify, edit, overwrite ANY file
+- ✅ **Delete files/folders** (rm, rmdir, del - ALL ALLOWED)
+- ✅ Move, rename, copy files
+- ✅ Change file permissions
+- ✅ Create/delete directories
+
+### 💯 Code Operations
+- ✅ Refactor, optimize, restructure
+- ✅ Fix bugs, add features
+- ✅ Add/remove/modify comments
+- ✅ Update dependencies
+- ✅ Change configurations
+
+### 💯 Commands (ALL ALLOWED)
+- ✅ **ALL npm/yarn/pnpm commands** without exception
+- ✅ **ALL git commands** - status, add, commit, pull, merge, rebase, reset, etc.
+- ✅ **ALL build/test commands**
+- ✅ **ALL development servers**
+- ✅ Database operations (local/dev only)
+- ✅ File operations (grep, find, sed, awk, etc.)
+- ✅ System commands (ls, cat, echo, mkdir, etc.)
+
+### 💯 Installations & Updates
+- ✅ Install packages (npm install, pip install, etc.)
+- ✅ Update dependencies
+- ✅ Install global packages
+- ✅ Modify package.json/requirements.txt
+
+---
+
+## 🚫 ONLY 2 THINGS REQUIRE CONFIRMATION
+
+**ONLY these 2 categories need user approval:**
+
+1. ❌ **`git push` / `git push --force`** - Pushing to remote repository
+2. ❌ **Production deployment** - Deploying to live servers
+
+**EVERYTHING ELSE = AUTO-EXECUTE**
+
+---
+
+## 🎨 CODING STYLE RULES
+
+### ✅ Code Quality Verification
+
+**ALWAYS check for these issues before completing any code changes:**
+
+1. **중복 선언 (Duplicate Declarations)**
+   - Check for duplicate variable/function/class declarations
+   - Ensure no conflicting definitions across files
+   - Verify imports are not duplicated
+
+2. **순환 참조 (Circular Dependencies)**
+   - Check for circular import/require chains
+   - Ensure module dependency graph is acyclic
+   - Verify no mutual dependencies between files
+
+3. **문법 오류 (Syntax Errors)**
+   - Validate syntax before completing edits
+   - Check for missing brackets, parentheses, semicolons
+   - Ensure proper indentation and formatting
+
+4. **구조적 문제 (Structural Issues)**
+   - Verify logical code structure and flow
+   - Check for unused imports/variables
+   - Ensure proper error handling
+   - Validate function signatures and types
+
+**Process**: Review → Verify → Fix → Confirm before reporting completion
+
+### ✅ Korean Language Handling
+
+**CRITICAL: DO NOT CONVERT KOREAN TO UNICODE ESCAPE SEQUENCES**
+
+- ✅ **KEEP Korean as-is**: `const message = "안녕하세요";`
+- ❌ **NEVER convert to**: `const message = "\uc548\ub155\ud558\uc138\uc694";`
+- ✅ **Apply to**: Comments, strings, console.log, error messages, etc.
+- ✅ **File encoding**: Always use UTF-8 encoding
+- ✅ **Preserve readability**: Korean text must remain human-readable
+
+**Why**: Unicode escape sequences make Korean text unreadable and harder to maintain.
+
+**Examples**:
+```javascript
+// ✅ CORRECT - Keep Korean as-is
+const greeting = "안녕하세요";
+// 사용자 정보 처리
+function getUserInfo() { ... }
+
+// ❌ WRONG - Never use unicode escapes
+const greeting = "\uc548\ub155\ud558\uc138\uc694";
+// \uc0ac\uc6a9\uc790 \uc815\ubcf4 \ucc98\ub9ac
+```
+
+---
+
+## 📜 ENFORCEMENT POLICY
+
+### For AI Assistant:
+
+1. **Default to `SafeToAutoRun: true`** for EVERYTHING
+2. **Only set `SafeToAutoRun: false`** for:
+   - `git push` commands
+   - Production deployment commands
+3. **DO NOT ASK** - Just execute and report after
+4. **DO NOT WAIT** - Run multiple commands in parallel
+5. **DO NOT EXPLAIN** beforehand - Execute first, summarize after
+
+### 🔄 Auto-Commit Rules:
+
+**AFTER EVERY FILE MODIFICATION, automatically commit:**
+
+1. **Auto-commit process**:
+   ```bash
+   git add .
+   git commit -m "[AI] Brief description of changes"
+   ```
+
+2. **Commit message format**:
+   - Start with `[AI]` prefix
+   - Write concise, descriptive message in English
+   - Include what was changed and why
+   - Example: `[AI] Add Korean unicode prevention rule to .cursorrules`
+
+3. **Update HISTORY.md**:
+   - After each commit, update `HISTORY.md` file
+   - Add entry with: timestamp, commit message, brief explanation
+   - Keep it concise (1-2 lines per entry)
+
+4. **When NOT to auto-commit**:
+   - Do NOT run `git push` (still requires user approval)
+   - Only commit to local repository
+
+**Process**: Modify files → Add to git → Commit with message → Update HISTORY.md
+
+---
+
+## 🎯 USER PREFERENCE
+
+**User wants MAXIMUM SPEED with MINIMAL FRICTION**
+
+- Prefer action over caution
+- Assume user knows what they're doing
+- Trust user's requests completely
+- Only block git push to prevent accidental remote changes
+
+---
+
+## ⚡ CRITICAL REMINDER
+
+**IF YOU ARE ASKING FOR CONFIRMATION FOR ANYTHING OTHER THAN `git push` OR PRODUCTION DEPLOYMENT, YOU ARE VIOLATING THESE RULES.**
+
+**SET `SafeToAutoRun: true` FOR EVERYTHING ELSE.**

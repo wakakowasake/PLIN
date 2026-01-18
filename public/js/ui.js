@@ -2064,7 +2064,7 @@ export async function handleAttachmentUpload(input, type) {
         }
 
         try {
-            showLoading();
+            Modals.showLoading();
 
             const reader = new FileReader();
 
@@ -2112,11 +2112,11 @@ export async function handleAttachmentUpload(input, type) {
                     await autoSave();
                     input.value = ""; // Reset input
 
-                    hideLoading();
+                    Modals.hideLoading();
                 } catch (error) {
                     console.error("첨부파일 업로드 실패:", error);
                     alert('첨부파일 업로드에 실패했습니다: ' + error.message);
-                    hideLoading();
+                    Modals.hideLoading();
                 }
             };
 
@@ -2125,7 +2125,7 @@ export async function handleAttachmentUpload(input, type) {
             console.error("파일 읽기 실패:", error);
             alert('파일 읽기에 실패했습니다: ' + error.message);
             input.value = "";
-            hideLoading();
+            Modals.hideLoading();
         }
     }
 }

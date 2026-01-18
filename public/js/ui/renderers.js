@@ -185,7 +185,7 @@ export function renderTimelineItemHtml(item, index, dayIndex, isLast, isFirst) {
     // Simplified extraction of the original HTML generation from ui.js
     const lineStyle = isLast ? `bg-gradient-to-b from-gray-200 to-transparent dark:from-gray-700` : `bg-gray-200 dark:bg-gray-700`;
     const linePosition = isFirst ? 'top-6 -bottom-8' : 'top-0 -bottom-8';
-    let iconBg = item.isTransit ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-white dark:bg-card-dark';
+    let iconBg = 'bg-white dark:bg-card-dark'; // 장소와 교통 수단 아이콘 배경색 통일
     let iconColor = item.isTransit ? 'text-primary/70' : 'text-primary';
     let iconStyle = '';
     if (item.tag === '메모') {

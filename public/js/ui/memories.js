@@ -1,6 +1,6 @@
-import { 
-    travelData, targetDayIndex, setTargetDayIndex, 
-    viewingItemIndex, setViewingItemIndex, currentTripId 
+import {
+    travelData, targetDayIndex, setTargetDayIndex,
+    viewingItemIndex, setViewingItemIndex, currentTripId
 } from '../state.js';
 import { showLoading, hideLoading, ensureMemoryModal } from './modals.js';
 import { BACKEND_URL } from '../config.js';
@@ -54,15 +54,15 @@ async function compressImage(file, maxWidth = 1024, quality = 0.7) {
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
-        
+
         // [Fix] 투명 배경(PNG)이 검은색으로 나오는 문제 해결을 위해 흰색 배경 채우기
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(0, 0, width, height);
-        
+
         ctx.drawImage(imageSource, 0, 0, width, height);
-        
+
         const dataUrl = canvas.toDataURL('image/jpeg', quality);
-        
+
         // [Safety Check] 데이터가 너무 작으면(빈 이미지/손상) 에러 처리
         if (dataUrl.length < 1000) throw new Error("압축 결과가 비정상적입니다 (Canvas Error).");
         return dataUrl;
@@ -75,16 +75,16 @@ async function compressImage(file, maxWidth = 1024, quality = 0.7) {
 
 export function getTripStatus(data) {
     if (!data || !data.days || data.days.length === 0) return 'planning';
-    
+
     const today = new Date();
-    today.setHours(0,0,0,0);
-    
+    today.setHours(0, 0, 0, 0);
+
     const lastDayStr = data.days[data.days.length - 1].date;
     if (!lastDayStr) return 'planning';
 
     const lastDay = new Date(lastDayStr);
-    lastDay.setHours(0,0,0,0);
-    
+    lastDay.setHours(0, 0, 0, 0);
+
     if (today > lastDay) return 'completed';
     return 'planning';
 }
@@ -92,7 +92,7 @@ export function getTripStatus(data) {
 export function addMemoryItem(index, dayIndex) {
     setViewingItemIndex(index);
     setTargetDayIndex(dayIndex);
-    
+
     ensureMemoryModal(); // [Added] 모달 DOM이 없으면 생성
     const modal = document.getElementById('memory-modal');
     if (modal) {
@@ -102,7 +102,8 @@ export function addMemoryItem(index, dayIndex) {
         const comment = modal.querySelector('#memory-comment');
         const placeholder = modal.querySelector('#memory-photo-placeholder');
         const clearBtn = modal.querySelector('#memory-photo-clear');
-        
+        const previewContainer = modal.querySelector('#memory-photo-preview');
+
         if (imgPreview) {
             imgPreview.src = "";
             imgPreview.classList.add('hidden');
@@ -111,7 +112,13 @@ export function addMemoryItem(index, dayIndex) {
         if (clearBtn) clearBtn.classList.add('hidden');
         if (input) input.value = "";
         if (comment) comment.value = "";
-        
+
+        // [Fix] 이전에 업로드된 다중 이미지 미리보기 그리드 제거
+        if (previewContainer) {
+            const existingGrid = previewContainer.querySelector('.preview-grid');
+            if (existingGrid) existingGrid.remove();
+        }
+
         modal.classList.remove('hidden');
     }
 }
@@ -136,7 +143,7 @@ export async function handleMemoryPhotoChange(arg) {
     if (placeholder) placeholder.classList.add('hidden');
     if (singleImg) singleImg.classList.add('hidden');
     if (clearBtn) clearBtn.classList.remove('hidden');
-    
+
     // Remove existing grid if any
     const existingGrid = previewContainer.querySelector('.preview-grid');
     if (existingGrid) existingGrid.remove();
@@ -154,7 +161,7 @@ export async function handleMemoryPhotoChange(arg) {
             }
 
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = function (e) {
                 if (singleImg) {
                     singleImg.src = e.target.result;
                     singleImg.classList.remove('hidden');
@@ -165,10 +172,10 @@ export async function handleMemoryPhotoChange(arg) {
             // Multiple images - Grid view
             const grid = document.createElement('div');
             grid.className = 'preview-grid w-full h-full overflow-x-auto flex gap-2 p-2 items-center';
-            
+
             Array.from(input.files).forEach(file => {
                 const reader = new FileReader();
-                reader.onload = function(e) {
+                reader.onload = function (e) {
                     const img = document.createElement('img');
                     img.src = e.target.result;
                     img.className = 'h-full w-auto object-cover rounded-lg shadow-sm flex-shrink-0 aspect-square';
@@ -211,7 +218,7 @@ export async function saveMemoryItem() {
     const input = modal.querySelector('#memory-photo-input');
     const commentEl = modal.querySelector('#memory-comment');
     const comment = commentEl ? commentEl.value : "";
-    
+
     // 사진도 없고 코멘트도 없으면 경고
     if ((!input || !input.files || input.files.length === 0) && !comment) {
         alert("사진이나 코멘트 중 하나는 입력해야 합니다.");
@@ -228,10 +235,10 @@ export async function saveMemoryItem() {
         alert("여행 ID를 찾을 수 없습니다. 페이지를 새로고침 해주세요.");
         return;
     }
-    
+
     try {
         showLoading();
-        
+
         const files = input.files;
         const uploadedUrls = [];
 
@@ -240,7 +247,7 @@ export async function saveMemoryItem() {
                 const file = files[i];
                 const timestamp = Date.now();
                 const fileName = `memory_${targetDayIndex}_${viewingItemIndex}_${timestamp}_${i}.jpg`;
-                
+
                 let base64Data;
                 try {
                     // 1차 시도: 1024px, 0.7
@@ -258,7 +265,7 @@ export async function saveMemoryItem() {
                         } catch (err3) {
                             console.warn("All compression attempts failed:", err3);
                             if (file.size > 7 * 1024 * 1024) {
-                                throw new Error(`이미지 압축에 실패했습니다. 원본 용량(${Math.round(file.size/1024/1024)}MB)이 너무 커서 업로드할 수 없습니다.`);
+                                throw new Error(`이미지 압축에 실패했습니다. 원본 용량(${Math.round(file.size / 1024 / 1024)}MB)이 너무 커서 업로드할 수 없습니다.`);
                             }
                             base64Data = await new Promise((resolve, reject) => {
                                 const reader = new FileReader();
@@ -273,7 +280,7 @@ export async function saveMemoryItem() {
                 if (base64Data.length > 9.5 * 1024 * 1024) {
                     throw new Error("이미지 용량이 너무 큽니다 (압축 실패). 더 작은 사진을 선택해주세요.");
                 }
-                
+
                 const response = await fetch(`${BACKEND_URL}/upload-memory`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -283,7 +290,7 @@ export async function saveMemoryItem() {
                         tripId: currentTripId
                     })
                 });
-                
+
                 if (!response.ok) {
                     const errData = await response.json().catch(() => ({}));
                     throw new Error(errData.error || 'Upload failed');
@@ -292,13 +299,13 @@ export async function saveMemoryItem() {
                 uploadedUrls.push(result.url);
             }
         }
-        
+
         const day = travelData.days[targetDayIndex];
         const item = day ? day.timeline[viewingItemIndex] : null;
-        
+
         if (!item) throw new Error("Timeline item not found.");
         if (!item.memories) item.memories = [];
-        
+
         if (uploadedUrls.length > 0) {
             uploadedUrls.forEach((url, idx) => {
                 // 코멘트는 첫 번째 사진에만 첨부 (중복 방지)
@@ -316,7 +323,7 @@ export async function saveMemoryItem() {
                 createdAt: new Date().toISOString()
             });
         }
-        
+
         await autoSave(true); // 즉시 저장
         renderItinerary();
         closeMemoryModal();

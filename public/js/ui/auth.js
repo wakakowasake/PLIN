@@ -1,18 +1,47 @@
 import { firebaseReady, auth, provider, db } from '../firebase.js';
-import { signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+import { signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
 import { doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 import { setCurrentUser, defaultTravelData } from '../state.js';
 import { hideLoading } from './modals.js';
 
+// Detect if running in Capacitor (native app)
+function isCapacitorApp() {
+    return window.Capacitor !== undefined;
+}
+
 export async function login() {
     try {
         await firebaseReady;
-        await signInWithPopup(auth, provider);
+
+        if (isCapacitorApp()) {
+            // Use redirect for native apps (popup doesn't work in WebView)
+            await signInWithRedirect(auth, provider);
+        } else {
+            // Use popup for web
+            await signInWithPopup(auth, provider);
+        }
     } catch (error) {
         console.error("로그인 실패", error);
         alert("로그인 실패: " + error.message);
     }
 }
+
+// Handle redirect result on app load (for native apps)
+async function handleRedirectResult() {
+    try {
+        await firebaseReady;
+        const result = await getRedirectResult(auth);
+        if (result) {
+            console.log("Redirect login successful:", result.user.displayName);
+        }
+    } catch (error) {
+        console.error("Redirect login error:", error);
+    }
+}
+
+// Call on page load
+handleRedirectResult();
+
 
 export async function logout() {
     try { await firebaseReady; await signOut(auth); closeLogoutModal(); } catch (error) { console.error("로그아웃 실패", error); }

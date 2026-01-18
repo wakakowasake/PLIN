@@ -94,15 +94,27 @@ export function closeCopyItemModal() {
 export function copyItemToCurrent(dIdx, iIdx) {
     const sourceItem = travelData.days[dIdx].timeline[iIdx];
     const newItem = JSON.parse(JSON.stringify(sourceItem));
-    const timeline = travelData.days[window.targetDayIndex || 0].timeline;
-    if (typeof window.insertingItemIndex === 'number' && window.insertingItemIndex !== null) {
-        timeline.splice(window.insertingItemIndex + 1, 0, newItem);
+
+    // [Fix] 기존 일정 가져올 때 추억, 지출 내역, 첨부파일 초기화
+    delete newItem.memories;      // 추억 사진/코멘트
+    delete newItem.expenses;      // 지출 내역 (배열)
+    delete newItem.budget;        // 예산/지출 금액
+    delete newItem.attachments;   // 첨부파일 (티켓 등)
+
+    // [Fix] 모듈 내부 상태 변수 사용 (window 객체 대신)
+    const currentTargetDay = targetDayIndex !== null ? targetDayIndex : 0;
+    const currentInsertIndex = insertingItemIndex;
+
+    const timeline = travelData.days[currentTargetDay].timeline;
+    if (typeof currentInsertIndex === 'number' && currentInsertIndex !== null) {
+        timeline.splice(currentInsertIndex + 1, 0, newItem);
     } else {
         timeline.push(newItem);
     }
     // call global reorder and autosave if available
-    window.reorderTimeline && window.reorderTimeline(window.targetDayIndex || 0);
+    window.reorderTimeline && window.reorderTimeline(currentTargetDay);
     closeCopyItemModal();
+    closeAddModal(); // [Fix] Add 모달도 닫기
     window.autoSave && window.autoSave();
 }
 
