@@ -135,8 +135,10 @@ const greeting = "\uc548\ub155\ud558\uc138\uc694";
 
 3. **Update HISTORY.md**:
    - After each commit, update `HISTORY.md` file
+   - **ALWAYS write HISTORY.md in Korean (한국어)**
    - Add entry with: timestamp, commit message, brief explanation
    - Keep it concise (1-2 lines per entry)
+   - Format: `### HH:MM - [커밋 메시지]`
 
 4. **When NOT to auto-commit**:
    - Do NOT run `git push` (still requires user approval)
