@@ -6,6 +6,11 @@
 
 ## 2026-01-19
 
+### 02:59 - [AI] 커밋 메시지를 한국어로 작성하도록 규칙 변경
+- Git 커밋 메시지도 한국어로 작성하도록 .cursorrules 수정
+- HISTORY.md와 일관성 유지
+- **변경 파일**: .cursorrules, HISTORY.md
+
 ### 02:57 - [AI] HISTORY.md 한국어 작성 규칙 추가
 - HISTORY.md를 항상 한국어로 작성하도록 규칙 추가
 - 기존 HISTORY.md 내용을 한국어로 변환

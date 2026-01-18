@@ -129,9 +129,10 @@ const greeting = "\uc548\ub155\ud558\uc138\uc694";
 
 2. **Commit message format**:
    - Start with `[AI]` prefix
-   - Write concise, descriptive message in English
+   - **Write in Korean (한국어)**
+   - Be concise and descriptive
    - Include what was changed and why
-   - Example: `[AI] Add Korean unicode prevention rule to .cursorrules`
+   - Example: `[AI] .cursorrules에 한글 유니코드 방지 규칙 추가`
 
 3. **Update HISTORY.md**:
    - After each commit, update `HISTORY.md` file
