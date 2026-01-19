@@ -118,11 +118,6 @@ export function addMemoryItem(index, dayIndex) {
         if (previewContainer) {
             const existingGrid = previewContainer.querySelector('.preview-grid');
             if (existingGrid) existingGrid.remove();
-
-            // 추가: previewContainer 내부의 모든 자식 요소 제거 (완전 초기화)
-            while (previewContainer.firstChild) {
-                previewContainer.removeChild(previewContainer.firstChild);
-            }
         }
 
         modal.classList.remove('hidden');
