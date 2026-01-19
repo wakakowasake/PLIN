@@ -284,10 +284,9 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
             
             <!-- 시간 카드 (기존 아이콘 위치) -->
             <div class="relative flex flex-col" data-timeline-icon="true">
-                <div class="absolute ${linePosition} w-0.5 ${lineStyle} timeline-vertical-line"></div>
-                <div class="relative z-10 h-full flex flex-col items-center justify-start bg-white dark:bg-card-dark border-2 border-primary/30 rounded-xl px-3 py-3 shadow-sm min-w-[70px] mt-1">
+                <div class="relative z-10 h-full flex flex-col items-center justify-between bg-white dark:bg-card-dark border-2 border-primary/30 rounded-xl px-3 py-3 shadow-sm min-w-[70px] mt-1">
                     <div class="font-bold text-primary text-sm planner-time-label leading-tight">${startTime}</div>
-                    <div class="text-xs text-primary/50 my-0.5">↓</div>
+                    <div class="text-xs text-primary/50">↓</div>
                     <div class="font-bold text-primary text-sm planner-time-label leading-tight">${endTime}</div>
                 </div>
             </div>
