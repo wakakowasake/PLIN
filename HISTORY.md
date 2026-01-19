@@ -6,6 +6,13 @@
 
 ## 2026-01-19
 
+### 09:07 - [AI] UI 개선: 아이콘 배경색 통일, DND 애니메이션 개선, 드래그 고스트 가시성 향상
+- 이동수단과 장소 아이콘 배경색을 흰색/카드 배경으로 통일
+- DND 시 원래 자리의 카드에 shake 애니메이션 적용 (`dragging` 클래스 추가)
+- 드래그 중인 고스트 카드 투명도 증가 (0.9 → 0.95)
+- 아이콘 수직 정렬 개선 (mt-1 제거로 완벽한 중앙 배치)
+- **변경 파일**: public/js/ui/renderers.js, public/js/ui/dnd.js
+
 ### 03:25 - [AI] 성능 최적화 - DNS preconnect 및 이미지 압축 개선
 - DNS preconnect 추가 (cdn.jsdelivr.net, maps.googleapis.com)
 - 이미지 압축 디바이스별 최적화
