@@ -206,9 +206,9 @@ export function viewTimelineItem(index, dayIndex = currentDayIndex) {
 
     // [Modified] 이동수단인 경우 전용 상세 모달 호출
     if (item.isTransit) {
-        // Transit 상세 모달은 ui-transit.js에서만 담당
-        if (window.openTransitDetailModal) {
-            window.openTransitDetailModal(item, index, dayIndex);
+        // Transit 상세 모달은 ui-transit.js의 viewRouteDetail에서 담당
+        if (window.viewRouteDetail) {
+            window.viewRouteDetail(index, dayIndex);
         }
         return;
     }
@@ -1606,16 +1606,8 @@ export function editTimelineItem(index, dayIndex = currentDayIndex) {
 
     // 이동 수단(Transit)인 경우 전용 모달(상세 모달) 호출
     if (item.isTransit) {
-        if (window.openTransitDetailModal) {
-            window.openTransitDetailModal(item, index, targetDayIndex);
-
-            // [User Request] Trigger 'Edit Mode' if possible
-            // Currently, openTransitDetailModal opens the detail view. 
-            // The user requested "edit button pressed state" but as per plan, we redirect to detail modal first.
-            // If we wanted to immediately trigger edit:
-            // setTimeout(() => { if(window.editCurrentTransitItem) window.editCurrentTransitItem(); }, 200);
-            // However, editCurrentTransitItem currently opens the OLD modal which we are deleting. 
-            // So we just stop at opening the detail modal which is the new "hub" for these items.
+        if (window.viewRouteDetail) {
+            window.viewRouteDetail(index, targetDayIndex);
         }
         return;
     }
@@ -2845,10 +2837,10 @@ export function openContextMenu(e, type, index, dayIndex = currentDayIndex) {
     const menu = document.getElementById('context-menu');
     let html = '';
 
-    const item = travelData.days[targetDayIndex].timeline[index];
-    const isOptimalRoute = !!item.routeGroupId;
-
     if (type === 'item') {
+        const item = travelData.days[dayIndex].timeline[index];
+        const isOptimalRoute = !!item.routeGroupId;
+
         html = `
             ${!isOptimalRoute ? `<button onclick="handleContextAction('edit')" class="w-full text-left px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3 transition-colors">
                 <span class="material-symbols-outlined text-lg text-primary">edit</span> 수정
@@ -2908,20 +2900,9 @@ export function handleContextAction(action) {
         setIsEditingFromDetail(false);
         const item = travelData.days[targetDayIndex].timeline[contextMenuTargetIndex];
 
-        // [User Request] Transit/Flight items should open Detail Modal in 'edit state'
-        // Since Detail Modal doesn't support 'edit state' flag yet, just opening it for now as per "detail modal" request
-        // Also assuming window.openTransitDetailModal exists (from ui-transit.js)
-        if (item.isTransit && window.openTransitDetailModal) {
-            window.openTransitDetailModal(item, contextMenuTargetIndex, targetDayIndex);
-
-            // [Feature] Auto-trigger edit mode within the detail modal
-            // User asked for "수정 버튼을 누를 상태로 뜨게 해줘"
-            if (window.editCurrentTransitItem) {
-                // This is tricky because editCurrentTransitItem closes detail modal and opens input modal (old).
-                // If the user wants the DETAIL modal to be the edit interface, that requires a bigger refactor not requested yet?
-                // But they said "Old modal is appearing (should allow delete!)".
-                // Let's just open the detail modal for now, which gives access to 'Edit' (even if it leads to old modal, this step is what was asked: "open detail modal").
-            }
+        // [User Request] Transit/Flight items should open Route Detail Modal
+        if (item.isTransit && window.viewRouteDetail) {
+            window.viewRouteDetail(contextMenuTargetIndex, targetDayIndex, true); // true = edit mode
         } else {
             editTimelineItem(contextMenuTargetIndex, targetDayIndex);
         }

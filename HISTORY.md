@@ -10,6 +10,10 @@
 - schedule `ui.js` 구문 오류(중복 함수 선언, 잘못된 brace) 수정
 - 데이터 병합 로직(`saveNewItem`) 정상 복구 및 ID 생성 로직 적용
 
+### 14:50 - [AI] 신형 모달 연결 수정
+- `ui.js`: `viewTimelineItem` 함수에서 이동수단 클릭 시 `openTransitDetailModal` 호출하도록 수정
+- 플래너 모드에서 이동수단 카드 클릭 시 신형 상세 모달이 정상적으로 열리도록 연결
+
 ### 14:05 - [AI] 구형 모달 제거 및 로직 클린업
 - `index.html`: 더 이상 사용하지 않는 `flight-input-modal`, `transit-input-modal` HTML 코드 완전 제거
 - `ui.js`: `editTimelineItem` 함수에서 구형 모달 호출 로직 제거 및 상세 모달(`openTransitDetailModal`)로 리다이렉트 처리
