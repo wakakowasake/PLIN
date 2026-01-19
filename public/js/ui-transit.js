@@ -760,21 +760,148 @@ export function closeTransitDetailModal(fromHistory = false) {
 }
 
 export function editCurrentTransitItem() {
-    if (viewingItemIndex !== null) {
-        const idx = viewingItemIndex;
+    if (viewingItemIndex === null) return;
 
-        const savedStart = document.getElementById('transit-detail-start-val').value;
-        const savedEnd = document.getElementById('transit-detail-end-val').value;
+    const modal = document.getElementById('transit-detail-modal');
+    const container = modal.querySelector('.p-8');
+    if (!container) return;
 
-        setIsEditingFromDetail(true);
-        closeTransitDetailModal();
-        setTimeout(() => {
-            editTimelineItem(idx, targetDayIndex);
-            if (savedStart) document.getElementById('transit-start-time').value = savedStart;
-            if (savedEnd) document.getElementById('transit-end-time').value = savedEnd;
-            calculateTransitDuration();
-        }, 50);
+    // 1. 이미 수정 모드인지 확인 (저장 버튼이 있는지 확인)
+    const saveBtn = document.getElementById('btn-save-transit-detail');
+    if (saveBtn) return; // 이미 수정 모드임
+
+    // 2. 현재 값 가져오기
+    const startVal = document.getElementById('transit-detail-start-val').value;
+    const endVal = document.getElementById('transit-detail-end-val').value;
+    const noteVal = document.getElementById('transit-detail-note').innerText;
+    const isNoteEmpty = noteVal === "메모가 없습니다.";
+
+    // 3. UI 변환 (Display -> Input)
+
+    // 3-1. 시간 관련 UI 숨기기
+    const durationEl = document.getElementById('transit-detail-time').parentElement; // 소요시간 박스
+    const routeEl = document.getElementById('transit-detail-route'); // 경로 텍스트
+    const publicInfoEl = document.getElementById('transit-detail-public-info'); // 대중교통 정보 박스
+
+    durationEl.classList.add('hidden');
+    routeEl.classList.add('hidden');
+    if (publicInfoEl) publicInfoEl.classList.add('hidden');
+
+    // 3-2. 시간 입력 UI 삽입 (소요시간 박스 위치에)
+    const timeInputHtml = `
+        <div id="transit-edit-time-container" class="w-full bg-gray-50 dark:bg-gray-800 rounded-2xl p-4 mb-6 animate-fade-in-up">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">출발 시간</label>
+                    <input id="edit-transit-start" type="time" value="${startVal}"
+                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-lg font-bold text-center">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">도착 시간</label>
+                    <input id="edit-transit-end" type="time" value="${endVal}"
+                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-lg font-bold text-center">
+                </div>
+            </div>
+            <p id="edit-transit-duration" class="text-center text-primary font-bold mt-3 text-lg">--</p>
+        </div>
+    `;
+    durationEl.insertAdjacentHTML('afterend', timeInputHtml);
+
+    // 시간 변경 시 소요시간 자동 계산 리스너 등록
+    const startInput = document.getElementById('edit-transit-start');
+    const endInput = document.getElementById('edit-transit-end');
+
+    const updateDuration = () => {
+        const s = startInput.value;
+        const e = endInput.value;
+        const disp = document.getElementById('edit-transit-duration');
+        if (s && e) {
+            const [h1, m1] = s.split(':').map(Number);
+            const [h2, m2] = e.split(':').map(Number);
+            let diff = (h2 * 60 + m2) - (h1 * 60 + m1);
+            if (diff < 0) diff += 24 * 60;
+            const h = Math.floor(diff / 60);
+            const m = diff % 60;
+            disp.innerText = (h > 0 ? `${h}시간 ` : '') + `${m}분`;
+        } else {
+            disp.innerText = '--';
+        }
+    };
+
+    startInput.addEventListener('change', updateDuration);
+    endInput.addEventListener('change', updateDuration);
+    updateDuration(); // 초기 계산
+
+    // 3-3. 메모 UI 변환
+    const noteNoteContainer = document.getElementById('transit-detail-note').parentElement;
+    noteNoteContainer.classList.add('hidden');
+
+    const noteInputHtml = `
+        <div id="transit-edit-note-container" class="w-full mb-6">
+            <label class="block text-xs font-bold text-gray-400 uppercase mb-1">메모 수정</label>
+            <textarea id="edit-transit-note" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 h-24 resize-none" placeholder="메모를 입력하세요">${isNoteEmpty ? '' : noteVal}</textarea>
+        </div>
+    `;
+    noteNoteContainer.insertAdjacentHTML('afterend', noteInputHtml);
+
+    // 3-4. 버튼 변경 (수정 -> 저장)
+    const editBtn = container.querySelector('button[onclick="editCurrentTransitItem()"]');
+    if (editBtn) {
+        editBtn.innerHTML = `<span class="material-symbols-outlined text-sm">save</span> 저장`;
+        editBtn.setAttribute('onclick', 'saveTransitDetailItem()');
+        editBtn.id = 'btn-save-transit-detail';
+        editBtn.classList.remove('bg-gray-100', 'hover:bg-gray-200', 'dark:bg-gray-700', 'dark:hover:bg-gray-600', 'text-gray-700', 'dark:text-gray-200');
+        editBtn.classList.add('bg-primary', 'text-white', 'hover:bg-orange-500', 'shadow-lg');
     }
+}
+
+export function saveTransitDetailItem() {
+    if (viewingItemIndex === null) return;
+
+    const start = document.getElementById('edit-transit-start').value;
+    const end = document.getElementById('edit-transit-end').value;
+    const note = document.getElementById('edit-transit-note').value;
+
+    if (!start) {
+        alert("출발 시간을 입력해주세요.");
+        return;
+    }
+
+    // 데이터 업데이트
+    const item = travelData.days[targetDayIndex].timeline[viewingItemIndex];
+
+    // 시간 계산 및 업데이트
+    let durationStr = "30분";
+    if (start && end) {
+        const [h1, m1] = start.split(':').map(Number);
+        const [h2, m2] = end.split(':').map(Number);
+        let diff = (h2 * 60 + m2) - (h1 * 60 + m1);
+        if (diff < 0) diff += 24 * 60;
+        const h = Math.floor(diff / 60);
+        const m = diff % 60;
+        durationStr = (h > 0 ? `${h}시간 ` : '') + `${m}분`;
+    }
+
+    item.time = durationStr;
+    item.duration = durationStr; // 혹시 몰라 같이 업데이트
+    item.note = note;
+
+    // transitInfo 업데이트 (기존 정보 유지하면서 시간만 변경)
+    if (!item.transitInfo) item.transitInfo = {};
+    item.transitInfo.start = start;
+    item.transitInfo.end = end; // end가 비어있으면 undefined 들어가도 괜찮음 (렌더링 시 체크함)
+
+    setTravelData(travelData);
+    autoSave();
+
+    // UI 복구 및 갱신 (모달을 닫았다가 다시 열거나, View 모드로 전환)
+    // 여기서는 간단하게 모달을 닫고 타임라인을 갱신
+    closeTransitDetailModal();
+    renderItinerary();
+
+    // 만약 사용자가 수정을 했음을 명확히 알리고 싶다면
+    // 다시 openTransitDetailModal(item, viewingItemIndex, targetDayIndex) 호출 가능
+    // 하지만 보통 저장 후엔 목록으로 돌아가는 것이 깔끔
 }
 
 export function deleteCurrentTransitItem() {
