@@ -6,6 +6,14 @@
 
 ## 2026-01-19
 
+### 09:20 - [AI] 플래너 모드 구현 완료 - 시간 표시 일정표 형식 추가
+- 설정에서 "간단 모드" ↔ "플래너 모드" 전환 기능 추가
+- 플래너 모드: 왼쪽에 시작/종료 시간 레이블 표시
+- 시간 계산 헬퍼 함수 추가 (time-helpers.js)
+- viewMode를 meta에 저장하고 Firebase 동기화
+- 렌더링 로직을 viewMode에 따라 분기 처리
+- **변경 파일**: public/js/state.js, public/js/ui/profile.js, public/js/ui/renderers.js, public/js/ui/time-helpers.js, public/js/ui.js
+
 ### 09:11 - [AI] DND 고스트 가시성 대폭 개선 - 투명도 0.98로 상향
 - 드래그 중인 고스트 카드 투명도를 0.98로 대폭 증가 (거의 불투명)
 - 고스트 크기를 1.0으로 설정하여 원래 크기 유지
