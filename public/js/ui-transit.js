@@ -4,7 +4,7 @@ import {
     travelData, targetDayIndex, setTargetDayIndex, setViewingItemIndex, viewingItemIndex, currentDayIndex,
     insertingItemIndex, setInsertingItemIndex, isEditingFromDetail, setIsEditingFromDetail, setTravelData
 } from './state.js';
-import { parseTimeStr, formatTimeStr, calculateStraightDistance, minutesTo24Hour, parseDurationStr } from './ui-utils.js';
+import { parseTimeStr, formatTimeStr, calculateStraightDistance, minutesTo24Hour, parseDurationStr, formatDuration } from './ui-utils.js';
 import { airports, searchAirports, getAirportByCode, formatAirport } from './airports.js';
 import logger from './logger.js';
 import { translateStation, translateLine } from './station-translations.js';
@@ -2331,14 +2331,14 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
                         </div>
                         
                         <div>
-                            <label class="text-xs font-bold text-gray-500 mb-1 block">소요 시간</label>
+                            <label class="text-xs font-bold text-gray-500 mb-1 block">소요 시간 (분)</label>
                             <div class="flex gap-2 mb-2">
-                                <button type="button" onclick="setTransitDuration('10분')" class="flex-1 px-3 py-2 bg-gray-100 hover:bg-primary/10 dark:bg-gray-700 dark:hover:bg-primary/20 rounded-lg text-sm font-bold transition-colors">10분</button>
-                                <button type="button" onclick="setTransitDuration('30분')" class="flex-1 px-3 py-2 bg-gray-100 hover:bg-primary/10 dark:bg-gray-700 dark:hover:bg-primary/20 rounded-lg text-sm font-bold transition-colors">30분</button>
-                                <button type="button" onclick="setTransitDuration('1시간')" class="flex-1 px-3 py-2 bg-gray-100 hover:bg-primary/10 dark:bg-gray-700 dark:hover:bg-primary/20 rounded-lg text-sm font-bold transition-colors">1시간</button>
-                                <button type="button" onclick="setTransitDuration('2시간')" class="flex-1 px-3 py-2 bg-gray-100 hover:bg-primary/10 dark:bg-gray-700 dark:hover:bg-primary/20 rounded-lg text-sm font-bold transition-colors">2시간</button>
+                                <button type="button" onclick="setTransitDuration(10)" class="flex-1 px-3 py-2 bg-gray-100 hover:bg-primary/10 dark:bg-gray-700 dark:hover:bg-primary/20 rounded-lg text-sm font-bold transition-colors">10분</button>
+                                <button type="button" onclick="setTransitDuration(30)" class="flex-1 px-3 py-2 bg-gray-100 hover:bg-primary/10 dark:bg-gray-700 dark:hover:bg-primary/20 rounded-lg text-sm font-bold transition-colors">30분</button>
+                                <button type="button" onclick="setTransitDuration(60)" class="flex-1 px-3 py-2 bg-gray-100 hover:bg-primary/10 dark:bg-gray-700 dark:hover:bg-primary/20 rounded-lg text-sm font-bold transition-colors">1시간</button>
+                                <button type="button" onclick="setTransitDuration(120)" class="flex-1 px-3 py-2 bg-gray-100 hover:bg-primary/10 dark:bg-gray-700 dark:hover:bg-primary/20 rounded-lg text-sm font-bold transition-colors">2시간</button>
                             </div>
-                            <input type="text" id="route-edit-duration" value="${item.duration || '30분'}" placeholder="30분" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" oninput="updateTransitArrivalTime()">
+                            <input type="number" id="route-edit-duration" value="${parseDurationStr(item.duration) || 30}" placeholder="30" min="1" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" oninput="updateTransitArrivalTime()">
                         </div>
                     </div>
                 </div>
@@ -2831,7 +2831,8 @@ window.saveRouteItem = function () {
     } else {
         // 일반 이동수단 정보 저장
         const title = document.getElementById('route-edit-title')?.value || '';
-        const duration = document.getElementById('route-edit-duration')?.value || '30분';
+        const durationMinutes = parseInt(document.getElementById('route-edit-duration')?.value) || 30;
+        const duration = formatDuration(durationMinutes); // 숫자를 형식화된 문자열로 변환 (e.g., 120 → "2시간")
 
         item.title = title;
         item.duration = duration;
@@ -3309,8 +3310,7 @@ export function updateTransitArrivalTime() {
     const durationInput = document.getElementById('route-edit-duration');
     if (!durationInput) return;
 
-    const durationStr = durationInput.value;
-    const durationMins = parseDurationStr(durationStr);
+    const durationMins = parseInt(durationInput.value) || 0;
 
     if (!durationMins || durationMins === 0) return;
 

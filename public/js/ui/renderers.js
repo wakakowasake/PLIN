@@ -317,8 +317,8 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
     `;
 
 
-    // 플래너 모드에서 마지막 아이템이 아니면 플러스 버튼과 함께 구분선 추가
-    if (!isLast && !isMemoryLocked) {
+    // 플래너 모드에서 플러스 버튼과 함께 구분선 추가 (마지막 아이템 포함)
+    if (!isMemoryLocked) {
         html += `
             <div class="relative flex items-center gap-3 my-4">
                 <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
