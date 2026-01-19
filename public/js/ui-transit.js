@@ -751,11 +751,10 @@ export function openTransitDetailModal(item, index, dayIndex) {
 
     renderAttachments(item, 'transit-attachment-list');
 
-    // [User Request] Hide edit button for optimal routes (items with routeGroupId or detailedSteps)
-    const editBtn = document.getElementById('transit-detail-edit-btn');
+    // [User Request] 최적 경로 자동 생성 항목은 수정 버튼 숨기기
+    const editBtn = modal.querySelector('button[onclick="editCurrentTransitItem()"]');
     if (editBtn) {
-        const isOptimalRoute = !!(item.routeGroupId || (item.detailedSteps && item.detailedSteps.length > 0));
-        if (isOptimalRoute) {
+        if (item.routeGroupId) {
             editBtn.classList.add('hidden');
         } else {
             editBtn.classList.remove('hidden');
@@ -772,19 +771,11 @@ export function closeTransitDetailModal(fromHistory = false) {
 
 export function editCurrentTransitItem() {
     if (viewingItemIndex !== null) {
-        const idx = viewingItemIndex;
-
-        const savedStart = document.getElementById('transit-detail-start-val').value;
-        const savedEnd = document.getElementById('transit-detail-end-val').value;
-
-        setIsEditingFromDetail(true);
+        // [DISABLED] 구형 입력 모달이 삭제되어 직접 편집 불가
+        // 향후 신형 모달 내 인라인 편집 기능 추가 예정
+        console.log('[Transit Detail] 수정 기능은 현재 비활성화되었습니다.');
+        alert('이동수단 수정 기능은 현재 개선 중입니다.');
         closeTransitDetailModal();
-        setTimeout(() => {
-            editTimelineItem(idx, targetDayIndex);
-            if (savedStart) document.getElementById('transit-start-time').value = savedStart;
-            if (savedEnd) document.getElementById('transit-end-time').value = savedEnd;
-            calculateTransitDuration();
-        }, 50);
     }
 }
 
