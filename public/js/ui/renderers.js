@@ -1,5 +1,6 @@
 import { travelData, currentDayIndex, isEditing } from '../state.js';
 import { calculateEndTime, formatTime } from './time-helpers.js';
+import { formatDuration } from '../ui-utils.js';
 
 function safeGet(id) { return document.getElementById(id); }
 
@@ -131,7 +132,7 @@ function buildTransitCard(item, index, dayIndex, editClass) {
                 <div class="flex items-center gap-2 md:gap-4 justify-between">
                     <div class="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
                         <div class="flex flex-col items-center justify-center bg-white dark:bg-card-dark rounded px-2 md:px-3 py-1 shadow-sm text-xs font-bold text-gray-900 dark:text-white min-w-[60px] md:min-w-[70px] flex-shrink-0 whitespace-nowrap">
-                            <span>${item.duration || item.time || '30분'}</span>
+                            <span>${typeof item.duration === 'number' ? formatDuration(item.duration) : (item.duration || item.time || '30분')}</span>
                         </div>
                         <div class="flex items-center gap-2 flex-1 min-w-0 flex-wrap">
                             ${contentHtml}

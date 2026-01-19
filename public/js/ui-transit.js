@@ -2865,42 +2865,15 @@ window.saveRouteItem = function () {
         const durationFormatted = formatDuration(durationMinutes); // 숫자를 형식화된 문자열로 변환 (e.g., 120 → "2시간")
 
         item.title = title;
-        item.duration = durationFormatted; // "2시간" 형식으로 저장 (원래 로직)
+        item.duration = durationMinutes; // [Fix] 분 단위 숫자로 저장 (문자열 X)
         item.time = durationFormatted; // 타임라인 카드에 소요시간 표시
 
-        // [FIX] 시간 카드 실시간 업데이트를 위해 transitInfo 계산
-        // 이전 장소의 종료 시간을 찾아 출발 시간으로 설정
-        const timeline = travelData.days[targetDayIndex].timeline;
-        let startTime = null;
-
-        // 이전 아이템에서 종료 시간 찾기
-        for (let i = currentRouteItemIndex - 1; i >= 0; i--) {
-            const prevItem = timeline[i];
-            if (prevItem.isTransit && prevItem.transitInfo?.end) {
-                startTime = prevItem.transitInfo.end;
-                break;
-            } else if (!prevItem.isTransit && prevItem.time) {
-                const prevTimeMinutes = parseTimeStr(prevItem.time);
-                if (prevTimeMinutes !== null) {
-                    const prevDuration = prevItem.duration || 30;
-                    const endMinutes = prevTimeMinutes + prevDuration;
-                    startTime = minutesTo24Hour(endMinutes);
-                    break;
-                }
-            }
-        }
-
-        // 출발 시간이 있으면 도착 시간 계산
-        if (startTime) {
-            const startMinutes = parseTimeStr(startTime);
+        // [Fix] transitInfo.end 재계산하여 플래너 모드 시간 카드 업데이트
+        if (item.transitInfo && item.transitInfo.start) {
+            const startMinutes = parseTimeStr(item.transitInfo.start);
             if (startMinutes !== null) {
                 const endMinutes = startMinutes + durationMinutes;
-                const endTime = minutesTo24Hour(endMinutes);
-
-                // transitInfo 업데이트
-                if (!item.transitInfo) item.transitInfo = {};
-                item.transitInfo.start = startTime;
-                item.transitInfo.end = endTime;
+                item.transitInfo.end = minutesTo24Hour(endMinutes);
             }
         }
     }
