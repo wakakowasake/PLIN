@@ -1,4 +1,5 @@
 import { travelData, currentDayIndex, isEditing } from '../state.js';
+import { calculateEndTime, formatTime } from './time-helpers.js';
 
 function safeGet(id) { return document.getElementById(id); }
 
@@ -238,6 +239,78 @@ export function renderTimelineItemHtml(item, index, dayIndex, isLast, isFirst) {
     return html;
 }
 
+/**
+ * 플래너 모드 타임라인 아이템 렌더링
+ * 왼쪽에 시간 레이블, 오른쪽에 카드 내용
+ */
+export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isFirst) {
+    const isMemoryLocked = travelData.meta?.memoryLocked || false;
+    const editClass = isEditing ? "edit-mode-active ring-2 ring-primary/50 ring-offset-2" : "cursor-pointer hover:shadow-md transform transition-all hover:-translate-y-0.5";
+    const clickHandler = isEditing ? `onclick="editTimelineItem(${index}, ${dayIndex})"` : `onclick="viewTimelineItem(${index}, ${dayIndex})"`;
+    const contextHandler = `oncontextmenu="openContextMenu(event, 'item', ${index}, ${dayIndex})"`;
+    const draggableAttr = isMemoryLocked ? 'draggable="false"' : `draggable="true" ondragstart="dragStart(event, ${index}, ${dayIndex})" ondragend="dragEnd(event)" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event, ${index})" data-drop-index="${index}"`;
+
+    // 시간 정보 파싱
+    let startTime = '--:--';
+    let endTime = '--:--';
+
+    if (item.time) {
+        // "오전 09:00", "09:00 - 10:30", "09:00" 등 다양한 형식 처리
+        const timeStr = item.time.replace(/오전|오후|AM|PM/gi, '').trim();
+        const timeMatch = timeStr.match(/(\d{1,2}):(\d{2})/);
+
+        if (timeMatch) {
+            startTime = formatTime(`${timeMatch[1]}:${timeMatch[2]}`);
+
+            // duration이 있으면 종료 시간 계산
+            if (item.duration) {
+                endTime = calculateEndTime(startTime, item.duration);
+            } else {
+                // duration이 없으면 기본 30분
+                endTime = calculateEndTime(startTime, 30);
+            }
+        }
+    }
+
+    // border 스타일 - 마지막 아이템은 border 없음
+    const borderClass = isLast ? '' : 'border-b border-gray-100 dark:border-gray-800';
+
+    let html = `
+        <div ${draggableAttr} ontouchstart="touchStart(event, ${index}, 'item')" ontouchmove="touchMove(event)" ontouchend="touchEnd(event)" data-index="${index}" 
+            class="group/timeline-item grid grid-cols-[120px_1fr] gap-3 md:gap-6 py-4 ${borderClass}" ${contextHandler}>
+            <div class="drag-indicator absolute -top-3 left-0 right-0 h-1 bg-primary rounded-full hidden z-50 shadow-sm pointer-events-none"></div>
+            
+            <!-- 시간 레이블 -->
+            <div class="flex flex-col items-end justify-start pr-4 border-r-2 border-primary/20 dark:border-primary/30">
+                <div class="font-bold text-primary text-sm planner-time-label">${startTime}</div>
+                <div class="text-xs text-gray-400 my-0.5">↓</div>
+                <div class="font-bold text-primary text-sm planner-time-label">${endTime}</div>
+            </div>
+            
+            <!-- 카드 내용 -->
+            <div class="min-w-0">
+    `;
+
+    // Content variants (Same as simple mode but without icon)
+    if (item.image) {
+        html += buildImageCard(item, editClass, clickHandler, index, dayIndex);
+    } else if (item.tag === '메모') {
+        html += buildMemoCard(item, index, dayIndex, editClass);
+    } else if (item.isTransit) {
+        html += buildTransitCard(item, index, dayIndex, editClass);
+    } else {
+        html += buildDefaultCard(item, index, dayIndex, editClass, clickHandler);
+    }
+
+    html += `
+            </div>
+        </div>
+    `;
+
+    return html;
+}
+
+
 export function renderItinerary() {
     // Reuse the big implementation from ui.js but keep external calls via window
     let dailyTotal = 0;
@@ -308,10 +381,13 @@ export function renderItinerary() {
                     </div>
                     <div class="flex flex-col">`;
             if (day.timeline && day.timeline.length > 0) {
+                const isPlannerMode = travelData.meta?.viewMode === 'planner';
+                const renderFunc = isPlannerMode ? renderTimelineItemHtmlPlanner : renderTimelineItemHtml;
+
                 day.timeline.forEach((item, index) => {
                     const isLast = index === day.timeline.length - 1;
                     const isFirst = index === 0;
-                    html += renderTimelineItemHtml(item, index, dayIdx, isLast, isFirst);
+                    html += renderFunc(item, index, dayIdx, isLast, isFirst);
                 });
             } else {
                 html += `<div class="text-center py-4 text-gray-400 text-sm">일정이 없습니다.</div>`;
@@ -344,10 +420,13 @@ export function renderItinerary() {
                     </div>
                     <div class="flex flex-col">`;
         }
+        const isPlannerMode = travelData.meta?.viewMode === 'planner';
+        const renderFunc = isPlannerMode ? renderTimelineItemHtmlPlanner : renderTimelineItemHtml;
+
         currentTimeline.forEach((item, index) => {
             const isLast = index === currentTimeline.length - 1;
             const isFirst = index === 0;
-            html += renderTimelineItemHtml(item, index, currentDayIndex, isLast, isFirst);
+            html += renderFunc(item, index, currentDayIndex, isLast, isFirst);
         });
         if (currentTimeline.length > 0) {
             html += `

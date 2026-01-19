@@ -2593,6 +2593,7 @@ window.openUserMenu = Profile.openUserMenu;
 window.openUserSettings = Profile.openUserSettings;
 window.closeUserSettings = Profile.closeUserSettings;
 window.toggleDarkMode = Profile.toggleDarkMode;
+window.handleViewModeChange = Profile.handleViewModeChange;
 window.openUserProfile = Profile.openUserProfile;
 window.closeProfileView = Profile.closeProfileView;
 window.handleProfilePhotoChange = Profile.handleProfilePhotoChange;
