@@ -6,6 +6,12 @@
 
 ## 2026-01-19
 
+### 10:32 - [AI] 최적 경로 추가 오류 수정 - totalMinutes 변수 정의
+- `totalDuration` 문자열을 `parseDurationStr`로 분 단위로 변환
+- `totalMinutes` 변수 정의 누락으로 발생한 ReferenceError 수정
+- 최적 경로 추가 기능 정상 작동
+- **변경 파일**: public/js/ui-transit.js
+
 ### 10:26 - [AI] 이동수단 소요시간 변경 시 도착시간 실시간 업데이트 구현
 - `route-edit-duration` 입력 필드에 `oninput` 이벤트 추가
 - `updateTransitArrivalTime()` 함수 생성
