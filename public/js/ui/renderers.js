@@ -289,10 +289,10 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
             
             <!-- 시간 카드 (기존 아이콘 위치) -->
             <div class="relative flex flex-col" data-timeline-icon="true">
-                <div class="relative z-10 h-full flex flex-col items-center justify-between bg-white dark:bg-card-dark border-2 border-primary/30 rounded-xl px-3 py-3 shadow-sm w-[74px] shrink-0 mt-1">
-                    <div class="font-bold text-primary text-sm planner-time-label leading-tight tabular-nums">${startTime}</div>
+                <div class="relative z-10 h-full flex flex-col items-center justify-between bg-white dark:bg-card-dark border-2 border-primary/30 rounded-xl px-3 py-3 shadow-sm w-[74px] shrink-0 mt-1" style="width: 74px; min-width: 74px;">
+                    <div class="font-bold text-primary text-sm planner-time-label leading-tight tabular-nums" style="font-variant-numeric: tabular-nums;">${startTime}</div>
                     <div class="text-xs text-primary/50">↓</div>
-                    <div class="font-bold text-primary text-sm planner-time-label leading-tight tabular-nums">${endTime}</div>
+                    <div class="font-bold text-primary text-sm planner-time-label leading-tight tabular-nums" style="font-variant-numeric: tabular-nums;">${endTime}</div>
                 </div>
             </div>
             
