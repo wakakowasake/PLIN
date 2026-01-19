@@ -6,6 +6,14 @@
 
 ## 2026-01-19
 
+### 03:25 - [AI] 성능 최적화 - DNS preconnect 및 이미지 압축 개선
+- DNS preconnect 추가 (cdn.jsdelivr.net, maps.googleapis.com)
+- 이미지 압축 디바이스별 최적화
+  - 모바일: 800px, quality 0.65
+  - 데스크톱: 1024px, quality 0.7
+- 재시도 횟수 감소로 업로드 속도 40-50% 개선 예상
+- **변경 파일**: public/index.html, public/js/ui/memories.js
+
 ### 03:12 - [AI] 드래그앤드롭 커스텀 고스트 및 자동 스크롤 구현
 - iOS/Android 커스텀 드래그 고스트 구현 (카드만 표시, 아이콘 제외)
 - 웹/모바일 자동 스크롤 영역 확대 (상단 150px, 하단 200px)

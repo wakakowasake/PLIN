@@ -249,6 +249,11 @@ export async function saveMemoryItem() {
         const uploadedUrls = [];
 
         if (files && files.length > 0) {
+            // [Performance] 디바이스별 최적화 설정
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            const optimalMaxWidth = isMobile ? 800 : 1024;
+            const optimalQuality = isMobile ? 0.65 : 0.7;
+
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
                 const timestamp = Date.now();
@@ -256,8 +261,8 @@ export async function saveMemoryItem() {
 
                 let base64Data;
                 try {
-                    // 1차 시도: 1024px, 0.7
-                    base64Data = await compressImage(file, 1024, 0.7);
+                    // 1차 시도: 디바이스 최적화된 설정
+                    base64Data = await compressImage(file, optimalMaxWidth, optimalQuality);
                 } catch (err) {
                     console.warn("1st compression failed:", err);
                     try {

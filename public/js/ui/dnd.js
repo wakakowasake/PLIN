@@ -43,7 +43,7 @@ export function dragStart(ev, itemIndex, dayIndex) {
     // 원래 자리 효과: 투명도 + 흔들림
     dragSourceElement.classList.add('dragging');
     dragSourceElement.classList.add('shake-animation');
-    dragSourceElement.style.opacity = '0.5';
+    dragSourceElement.style.opacity = '0.4';
 
     // 웹 자동 스크롤 시작
     startDesktopAutoScroll();
@@ -241,8 +241,8 @@ function createCustomDragGhost(sourceElement) {
     ghost.style.cssText = `
         position: fixed;
         z-index: 10000;
-        opacity: 0.9;
-        transform: rotate(2deg) scale(0.95);
+        opacity: 0.95;
+        transform: rotate(2deg) scale(0.98);
         pointer-events: none;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
         max-width: 320px;
@@ -298,8 +298,9 @@ export function touchStart(e, index, type, isEditing) {
 
         // 원래 자리 효과: 투명도 + 흔들림
         if (dragSourceElement) {
-            dragSourceElement.style.opacity = '0.5';
+            dragSourceElement.classList.add('dragging');
             dragSourceElement.classList.add('shake-animation');
+            dragSourceElement.style.opacity = '0.4';
         }
 
         // 커스텀 드래그 고스트 생성

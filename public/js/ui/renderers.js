@@ -186,7 +186,7 @@ export function renderTimelineItemHtml(item, index, dayIndex, isLast, isFirst) {
     const lineStyle = isLast ? `bg-gradient-to-b from-gray-200 to-transparent dark:from-gray-700` : `bg-gray-200 dark:bg-gray-700`;
     const linePosition = isFirst ? 'top-6 -bottom-8' : 'top-0 -bottom-8';
     let iconBg = 'bg-white dark:bg-card-dark'; // 장소와 교통 수단 아이콘 배경색 통일
-    let iconColor = item.isTransit ? 'text-primary/70' : 'text-primary';
+    let iconColor = 'text-primary'; // 모든 아이콘 색상 통일
     let iconStyle = '';
     if (item.tag === '메모') {
         iconBg = 'bg-yellow-50 dark:bg-yellow-900/20';
@@ -211,7 +211,7 @@ export function renderTimelineItemHtml(item, index, dayIndex, isLast, isFirst) {
 
         <div class="relative flex flex-col items-center" data-timeline-icon="true">
             <div class="absolute ${linePosition} w-0.5 ${lineStyle} timeline-vertical-line"></div>
-            <div class="w-10 h-10 rounded-full ${iconBg} border-2 border-primary/30 flex items-center justify-center z-10 shadow-sm relative shrink-0 mt-1" style="${iconStyle}">
+            <div class="w-10 h-10 rounded-full ${iconBg} border-2 border-primary/30 flex items-center justify-center z-10 shadow-sm relative shrink-0" style="${iconStyle}">
                 <span class="material-symbols-outlined ${iconColor} text-xl" style="${item.color ? 'color: inherit' : ''}">${item.icon}</span>
             </div>
             ${!isMemoryLocked ? `<div class="absolute -bottom-8 left-1/2 -translate-x-1/2 z-20 add-item-btn-container transition-opacity duration-200">
