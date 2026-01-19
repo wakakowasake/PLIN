@@ -1834,6 +1834,9 @@ function processSelectedRoute(route, insertIdx) {
     let routeStartTime = '';
     let routeEndTime = '';
 
+    // totalDuration을 분 단위로 변환
+    const totalMinutes = totalDuration ? parseDurationStr(totalDuration) : 0;
+
     if (insertIdx >= 0) {
         const prevItem = timelineArr[insertIdx];
         if (prevItem) {
