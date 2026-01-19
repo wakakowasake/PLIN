@@ -212,7 +212,7 @@ export function renderTimelineItemHtml(item, index, dayIndex, isLast, isFirst) {
 
         <div class="relative flex flex-col items-center" data-timeline-icon="true">
             <div class="absolute ${linePosition} w-0.5 ${lineStyle} timeline-vertical-line"></div>
-            <div class="w-10 h-10 rounded-full ${iconBg} border-2 border-primary/30 flex items-center justify-center z-10 shadow-sm relative shrink-0" style="${iconStyle}">
+            <div class="w-10 h-10 rounded-full ${iconBg} border-2 border-primary/30 flex items-center justify-center z-10 shadow-sm relative shrink-0 mt-1" style="${iconStyle}">
                 <span class="material-symbols-outlined ${iconColor} text-xl" style="${item.color ? 'color: inherit' : ''}">${item.icon}</span>
             </div>
             ${!isMemoryLocked ? `<div class="absolute -bottom-8 left-1/2 -translate-x-1/2 z-20 add-item-btn-container transition-opacity duration-200">
@@ -285,7 +285,7 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
             <!-- 시간 카드 (기존 아이콘 위치) -->
             <div class="relative flex flex-col items-center" data-timeline-icon="true">
                 <div class="absolute ${linePosition} w-0.5 ${lineStyle} timeline-vertical-line"></div>
-                <div class="relative z-10 flex flex-col items-center justify-center bg-white dark:bg-card-dark border-2 border-primary/30 rounded-xl px-3 py-2 shadow-sm min-w-[70px]">
+                <div class="relative z-10 flex flex-col items-center justify-center bg-white dark:bg-card-dark border-2 border-primary/30 rounded-xl px-3 py-2 shadow-sm min-w-[70px] mt-1">
                     <div class="font-bold text-primary text-sm planner-time-label leading-tight">${startTime}</div>
                     <div class="text-xs text-primary/50 my-0.5">↓</div>
                     <div class="font-bold text-primary text-sm planner-time-label leading-tight">${endTime}</div>
