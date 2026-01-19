@@ -1266,11 +1266,12 @@
                     <div id="detail-memories-list" class="flex flex-col gap-3"></div>
                 </div>
 
-                <div class="bg-gray-50 dark:bg-gray-800/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700">
+                <div class="bg-gray-50 dark:bg-gray-800/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700"
+                    ondblclick="enablePlaceNoteEdit()">
                     <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">메모 / 설명</h4>
                     <textarea id="detail-note"
-                        class="w-full bg-transparent border-none p-0 text-sm text-gray-700 dark:text-gray-300 resize-none focus:ring-0 leading-relaxed"
-                        rows="4" placeholder="메모가 없습니다." onchange="updateItemNote(this.value)" readonly></textarea>
+                        class="w-full bg-transparent border-none p-0 text-sm text-gray-700 dark:text-gray-300 resize-none focus:ring-0 leading-relaxed cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded transition-colors"
+                        rows="4" placeholder="메모를 입력하세요..." onchange="updateItemNote(this.value)" readonly></textarea>
                 </div>
 
                 <div>

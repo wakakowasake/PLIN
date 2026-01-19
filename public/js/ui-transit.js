@@ -4,7 +4,7 @@ import {
     travelData, targetDayIndex, setTargetDayIndex, setViewingItemIndex, viewingItemIndex, currentDayIndex,
     insertingItemIndex, setInsertingItemIndex, isEditingFromDetail, setIsEditingFromDetail, setTravelData
 } from './state.js';
-import { parseTimeStr, formatTimeStr, calculateStraightDistance, minutesTo24Hour, parseDurationStr, formatDuration } from './ui-utils.js';
+import { parseTimeStr, formatTimeStr, calculateStraightDistance, minutesTo24Hour, formatDuration } from './ui-utils.js';
 import { airports, searchAirports, getAirportByCode, formatAirport } from './airports.js';
 import logger from './logger.js';
 import { translateStation, translateLine } from './station-translations.js';
@@ -402,6 +402,17 @@ export function fetchTransitTime() {
     });
 }
 
+// [Fix] UI-Data Consistency를 위해 시간 파싱 로직 내장 (캐싱 문제 방지)
+function parseDurationStr(str) {
+    if (!str) return 0;
+    let h = 0, m = 0;
+    const hMatch = str.match(/(\d+)시간/);
+    const mMatch = str.match(/(\d+)분/);
+    if (hMatch) h = parseInt(hMatch[1]);
+    if (mMatch) m = parseInt(mMatch[1]);
+    return h * 60 + m;
+}
+
 export function saveTransitItem() {
     const start = document.getElementById('transit-start-time').value;
     let end = document.getElementById('transit-end-time').value;
@@ -440,12 +451,26 @@ export function saveTransitItem() {
     }
 
     const durationStr = calculateTransitDuration();
+    // [Fix] UI에 표시된 시간을 그대로 분으로 변환 (UI-Data Consistency)
+    const durationMins = parseDurationStr(durationStr);
+
+    // [Critical Fix] UI(배지)와 데이터(종료시간)의 불일치 방지
+    // durationMins(2시간)가 있다면 end 시간도 반드시 그에 맞게(12:20) 재계산하여 저장한다.
+    if (start && durationMins > 0) {
+        const [h, m] = start.split(':').map(Number);
+        const startMins = h * 60 + m;
+        const endMins = startMins + durationMins;
+        const eh = Math.floor(endMins / 60) % 24;
+        const em = endMins % 60;
+        end = `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
+    }
 
     let modifiedItem = null;
 
     if (isTransitEditing) {
         const item = travelData.days[targetDayIndex].timeline[transitInputIndex];
         item.time = durationStr;
+        item.duration = durationMins; // [Fix] 수정 시에도 분 단위 소요 시간 업데이트
         item.note = note;
         item.transitInfo = { ...item.transitInfo, start, end };
         modifiedItem = item;
@@ -480,6 +505,7 @@ export function saveTransitItem() {
 
         const newItem = {
             time: durationStr,
+            duration: durationMins, // [Fix] 분 단위 소요 시간 저장 (시간 계산용)
             title: titles[transitInputType],
             location: "",
             icon: icons[transitInputType],
@@ -1847,7 +1873,7 @@ function processSelectedRoute(route, insertIdx) {
             } else if (prevItem.time) {
                 const prevTimeMinutes = parseTimeStr(prevItem.time);
                 if (prevTimeMinutes !== null) {
-                    const prevDuration = prevItem.duration || 30;
+                    const prevDuration = (prevItem.duration !== undefined && prevItem.duration !== null) ? prevItem.duration : 30;
                     const endMinutes = prevTimeMinutes + prevDuration;
                     routeStartTime = minutesTo24Hour(endMinutes);
                 }
@@ -2210,7 +2236,7 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
     // 최적 경로 여부 확인 (routeGroupId가 있으면 최적 경로)
     const isOptimalRoute = !!item.routeGroupId;
 
-    // 버튼 설정
+    // 버튼 설정 (아이콘만 표시하여 장소 모달과 일관성 유지)
     const buttonsContainer = document.getElementById('route-detail-buttons');
     if (isEditMode) {
         buttonsContainer.innerHTML = `
@@ -2218,7 +2244,7 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
                 <span class="material-symbols-outlined text-sm">save</span>
                 <span>저장</span>
             </button>
-            <button onclick="closeRouteDetailModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+            <button onclick="closeRouteDetailModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-2">
                 <span class="material-symbols-outlined">close</span>
             </button>
         `;
@@ -2226,25 +2252,22 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
         // 최적 경로는 수정 버튼 없이 삭제 버튼만, 수동 입력은 수정 버튼 포함
         if (isOptimalRoute) {
             buttonsContainer.innerHTML = `
-                <button onclick="deleteCurrentTransitItem()" class="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded-lg transition-colors flex items-center gap-1">
+                <button onclick="deleteCurrentTransitItem()" class="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded-lg transition-colors" title="삭제">
                     <span class="material-symbols-outlined">delete</span>
-                    <span class="text-sm font-bold">삭제</span>
                 </button>
-                <button onclick="closeRouteDetailModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+                <button onclick="closeRouteDetailModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-2">
                     <span class="material-symbols-outlined">close</span>
                 </button>
             `;
         } else {
             buttonsContainer.innerHTML = `
-                <button onclick="viewRouteDetail(${index}, ${targetDayIndex}, true)" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-1 font-bold">
-                    <span class="material-symbols-outlined text-sm">edit</span>
-                    <span>수정</span>
+                <button onclick="viewRouteDetail(${index}, ${targetDayIndex}, true)" class="text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 p-2 rounded-lg transition-colors" title="수정">
+                    <span class="material-symbols-outlined">edit</span>
                 </button>
-                <button onclick="deleteCurrentTransitItem()" class="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded-lg transition-colors flex items-center gap-1">
+                <button onclick="deleteCurrentTransitItem()" class="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded-lg transition-colors" title="삭제">
                     <span class="material-symbols-outlined">delete</span>
-                    <span class="text-sm font-bold">삭제</span>
                 </button>
-                <button onclick="closeRouteDetailModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+                <button onclick="closeRouteDetailModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-2">
                     <span class="material-symbols-outlined">close</span>
                 </button>
             `;
@@ -2839,11 +2862,47 @@ window.saveRouteItem = function () {
         // 일반 이동수단 정보 저장
         const title = document.getElementById('route-edit-title')?.value || '';
         const durationMinutes = parseInt(document.getElementById('route-edit-duration')?.value) || 30;
-        const duration = formatDuration(durationMinutes); // 숫자를 형식화된 문자열로 변환 (e.g., 120 → "2시간")
+        const durationFormatted = formatDuration(durationMinutes); // 숫자를 형식화된 문자열로 변환 (e.g., 120 → "2시간")
 
         item.title = title;
-        item.duration = duration;
-        item.time = duration; // 타임라인 카드에 소요시간 표시
+        item.duration = durationFormatted; // "2시간" 형식으로 저장 (원래 로직)
+        item.time = durationFormatted; // 타임라인 카드에 소요시간 표시
+
+        // [FIX] 시간 카드 실시간 업데이트를 위해 transitInfo 계산
+        // 이전 장소의 종료 시간을 찾아 출발 시간으로 설정
+        const timeline = travelData.days[targetDayIndex].timeline;
+        let startTime = null;
+
+        // 이전 아이템에서 종료 시간 찾기
+        for (let i = currentRouteItemIndex - 1; i >= 0; i--) {
+            const prevItem = timeline[i];
+            if (prevItem.isTransit && prevItem.transitInfo?.end) {
+                startTime = prevItem.transitInfo.end;
+                break;
+            } else if (!prevItem.isTransit && prevItem.time) {
+                const prevTimeMinutes = parseTimeStr(prevItem.time);
+                if (prevTimeMinutes !== null) {
+                    const prevDuration = prevItem.duration || 30;
+                    const endMinutes = prevTimeMinutes + prevDuration;
+                    startTime = minutesTo24Hour(endMinutes);
+                    break;
+                }
+            }
+        }
+
+        // 출발 시간이 있으면 도착 시간 계산
+        if (startTime) {
+            const startMinutes = parseTimeStr(startTime);
+            if (startMinutes !== null) {
+                const endMinutes = startMinutes + durationMinutes;
+                const endTime = minutesTo24Hour(endMinutes);
+
+                // transitInfo 업데이트
+                if (!item.transitInfo) item.transitInfo = {};
+                item.transitInfo.start = startTime;
+                item.transitInfo.end = endTime;
+            }
+        }
     }
 
     // 편집 모드 해제하고 view 모드로 다시 열기

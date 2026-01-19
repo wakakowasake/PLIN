@@ -2166,12 +2166,77 @@ export async function deleteAttachment(index, containerId) {
 }
 
 export function openAttachment(data, type) {
-    const win = window.open();
+    // 기존 라이트박스 모달 가져오기 또는 생성
+    let modal = document.getElementById('attachment-lightbox-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'attachment-lightbox-modal';
+        modal.className = 'fixed inset-0 bg-black/90 z-[99999] hidden flex items-center justify-center p-4';
+        modal.innerHTML = `
+            <button onclick="closeAttachmentLightbox()" class="absolute top-4 right-4 text-white hover:text-gray-300 z-10 p-2">
+                <span class="material-symbols-outlined text-3xl">close</span>
+            </button>
+            <div id="attachment-lightbox-content" class="max-w-full max-h-full overflow-auto flex items-center justify-center">
+            </div>
+        `;
+        // 배경 클릭 시 닫기
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeAttachmentLightbox();
+            }
+        });
+        document.body.appendChild(modal);
+    }
+
+    const content = document.getElementById('attachment-lightbox-content');
+
     if (type.startsWith('image/')) {
-        win.document.write(`<img src="${data}" style="max-width:100%">`);
+        content.innerHTML = `<img src="${data}" class="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl">`;
+    } else if (type === 'application/pdf') {
+        // PDF는 CSP 문제로 iframe 사용 불가 - 새 탭에서 열기 옵션 제공
+        content.innerHTML = `
+            <div class="bg-white dark:bg-gray-800 p-8 rounded-xl text-center">
+                <span class="material-symbols-outlined text-6xl text-red-400 mb-4 block">picture_as_pdf</span>
+                <p class="text-gray-600 dark:text-gray-300 mb-6">PDF 파일은 앱 내에서 직접 볼 수 없습니다.</p>
+                <div class="flex flex-col sm:flex-row gap-3 justify-center">
+                    <a href="${data}" target="_blank" class="px-6 py-3 bg-primary text-white rounded-lg font-bold hover:bg-orange-600 transition-colors inline-flex items-center gap-2 justify-center">
+                        <span class="material-symbols-outlined">open_in_new</span> 새 탭에서 열기
+                    </a>
+                    <a href="${data}" download class="px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-bold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors inline-flex items-center gap-2 justify-center">
+                        <span class="material-symbols-outlined">download</span> 다운로드
+                    </a>
+                </div>
+            </div>
+        `;
     } else {
-        // PDF의 경우 iframe으로 열기
-        win.document.write(`<iframe src="${data}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
+        // 기타 파일은 다운로드 링크 제공
+        content.innerHTML = `
+            <div class="bg-white dark:bg-gray-800 p-8 rounded-xl text-center">
+                <span class="material-symbols-outlined text-6xl text-gray-400 mb-4">description</span>
+                <p class="text-gray-600 dark:text-gray-300 mb-4">이 파일 형식은 미리보기가 지원되지 않습니다.</p>
+                <a href="${data}" download class="px-6 py-3 bg-primary text-white rounded-lg font-bold hover:bg-orange-600 transition-colors inline-flex items-center gap-2">
+                    <span class="material-symbols-outlined">download</span> 다운로드
+                </a>
+            </div>
+        `;
+    }
+
+    modal.classList.remove('hidden');
+
+    // ESC 키로 닫기
+    const escHandler = (e) => {
+        if (e.key === 'Escape') {
+            closeAttachmentLightbox();
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+}
+
+export function closeAttachmentLightbox() {
+    const modal = document.getElementById('attachment-lightbox-modal');
+    if (modal) {
+        modal.classList.add('hidden');
     }
 }
 
@@ -2639,10 +2704,40 @@ window.handleAttachmentUpload = handleAttachmentUpload;
 window.renderExpenseList = renderExpenseList; // [Added] modals.js에서 호출할 수 있도록 노출
 window.deleteAttachment = deleteAttachment;
 window.openAttachment = openAttachment;
+window.closeAttachmentLightbox = closeAttachmentLightbox;
 
 window.openLightbox = Modals.openLightbox;
 window.closeLightbox = Modals.closeLightbox;
 window.autoSave = autoSave; // [Fix] 순환 참조 해결을 위한 전역 할당 추가
+
+export function enablePlaceNoteEdit() {
+    const textarea = document.getElementById('detail-note');
+    if (!textarea) return;
+
+    // Make editable
+    textarea.readOnly = false;
+    textarea.classList.remove('cursor-pointer');
+    textarea.classList.add('ring-2', 'ring-primary', 'bg-white', 'dark:bg-gray-800', 'p-2');
+
+    // Focus and place cursor at end
+    textarea.focus();
+    const val = textarea.value;
+    textarea.value = '';
+    textarea.value = val;
+
+    // Handle blur (save & reset)
+    const handleBlur = () => {
+        textarea.readOnly = true;
+        textarea.classList.add('cursor-pointer');
+        textarea.classList.remove('ring-2', 'ring-primary', 'bg-white', 'dark:bg-gray-800', 'p-2');
+
+        // Remove event listener to prevent multiple bindings
+        textarea.removeEventListener('blur', handleBlur);
+    };
+
+    textarea.addEventListener('blur', handleBlur);
+}
+window.enablePlaceNoteEdit = enablePlaceNoteEdit;
 
 
 function legacy_openExpenseDetailModal() {

@@ -267,8 +267,8 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
         if (timeMatch) {
             startTime = formatTime(`${timeMatch[1]}:${timeMatch[2]}`);
 
-            // duration이 있으면 종료 시간 계산
-            if (item.duration) {
+            // duration이 있으면 종료 시간 계산 (0도 포함)
+            if (item.duration !== undefined && item.duration !== null) {
                 endTime = calculateEndTime(startTime, item.duration);
             } else {
                 // duration이 없으면 기본 30분
