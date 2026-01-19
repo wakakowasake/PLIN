@@ -3298,6 +3298,7 @@ window.openRouteSelectionModal = openRouteSelectionModal;
 window.closeRouteSelectionModal = closeRouteSelectionModal;
 window.openRouteModal = openRouteModal;
 window.closeRouteModal = closeRouteModal;
+window.updateTransitArrivalTime = updateTransitArrivalTime;
 
 // [Duplicate Removed] saveRouteExpense used to be here but was incomplete.
 // Using the definition around line 2525 instread.
