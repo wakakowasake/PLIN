@@ -6,6 +6,14 @@
 
 ## 2026-01-19
 
+### 10:45 - [AI] 플래너 모드 마지막 플러스 버튼 추가 및 이동수단 소요시간 입력 개선
+- 플래너 모드에서 마지막 아이템 뒤에도 플러스 버튼 추가
+- 이동수단 소요시간 입력을 숫자만 받도록 변경 (장소 카드와 동일)
+- 빠른 선택 버튼 분 단위로 변경 (10, 30, 60, 120)
+- 저장 시 `formatDuration` 사용하여 자동 포맷팅 (120분 → "2시간")
+- `updateTransitArrivalTime` 함수 숫자 입력에 맞게 수정
+- **변경 파일**: public/js/ui/renderers.js, public/js/ui-transit.js
+
 ### 10:32 - [AI] 최적 경로 추가 오류 수정 - totalMinutes 변수 정의
 - `totalDuration` 문자열을 `parseDurationStr`로 분 단위로 변환
 - `totalMinutes` 변수 정의 누락으로 발생한 ReferenceError 수정
