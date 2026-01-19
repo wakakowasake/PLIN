@@ -1275,6 +1275,34 @@ export async function addFastestTransitItem() {
                 const m = durationMins % 60;
                 const durationStr = (h > 0 ? `${h}시간 ` : "") + `${m}분`;
 
+                // 이전 장소의 종료 시간에서 시작 시간 계산
+                let startTime = '';
+                let endTime = '';
+
+                if (insertIdx >= 0) {
+                    const prevItem = timeline[insertIdx];
+                    if (prevItem) {
+                        if (prevItem.isTransit && prevItem.transitInfo && prevItem.transitInfo.end) {
+                            startTime = prevItem.transitInfo.end;
+                        } else if (prevItem.time) {
+                            const prevTimeMinutes = parseTimeStr(prevItem.time);
+                            if (prevTimeMinutes !== null) {
+                                const prevDuration = prevItem.duration || 30;
+                                const endMinutes = prevTimeMinutes + prevDuration;
+                                startTime = minutesTo24Hour(endMinutes);
+                            }
+                        }
+
+                        if (startTime) {
+                            const startMinutes = parseTimeStr(startTime);
+                            if (startMinutes !== null) {
+                                const endMinutes = startMinutes + durationMins;
+                                endTime = minutesTo24Hour(endMinutes);
+                            }
+                        }
+                    }
+                }
+
                 const newItem = {
                     time: durationStr,
                     title: title,
@@ -1285,7 +1313,7 @@ export async function addFastestTransitItem() {
                     image: null,
                     note: `직선거리: ${Math.round(dist)}m (자동 계산됨)`,
                     fixedDuration: true,
-                    transitInfo: { start: "", end: "" }
+                    transitInfo: startTime ? { start: startTime, end: endTime } : { start: "", end: "" }
                 };
 
                 timeline.splice(insertIdx + 1, 0, newItem);
@@ -1802,6 +1830,34 @@ function processSelectedRoute(route, insertIdx) {
     // 타임라인 배열 가져오기
     const timelineArr = travelData.days[targetDayIndex].timeline;
 
+    // 이전 장소의 종료 시간에서 시작 시간 계산
+    let routeStartTime = '';
+    let routeEndTime = '';
+
+    if (insertIdx >= 0) {
+        const prevItem = timelineArr[insertIdx];
+        if (prevItem) {
+            if (prevItem.isTransit && prevItem.transitInfo && prevItem.transitInfo.end) {
+                routeStartTime = prevItem.transitInfo.end;
+            } else if (prevItem.time) {
+                const prevTimeMinutes = parseTimeStr(prevItem.time);
+                if (prevTimeMinutes !== null) {
+                    const prevDuration = prevItem.duration || 30;
+                    const endMinutes = prevTimeMinutes + prevDuration;
+                    routeStartTime = minutesTo24Hour(endMinutes);
+                }
+            }
+
+            if (routeStartTime && totalMinutes) {
+                const startMinutes = parseTimeStr(routeStartTime);
+                if (startMinutes !== null) {
+                    const endMinutes = startMinutes + totalMinutes;
+                    routeEndTime = minutesTo24Hour(endMinutes);
+                }
+            }
+        }
+    }
+
     const summaryItem = {
         time: totalDuration || "시간 미정",
         title: summaryTitle,
@@ -1813,8 +1869,8 @@ function processSelectedRoute(route, insertIdx) {
         note: "",
         fixedDuration: true,
         transitInfo: {
-            start: "",
-            end: "",
+            start: routeStartTime || "",
+            end: routeEndTime || "",
             summary: detailedSteps.length > 1 ? `총 거리: ${totalDistance}` : `총 거리: ${totalDistance}`
         },
         isCollapsed: detailedSteps.length > 0,
