@@ -1863,6 +1863,9 @@ function processSelectedRoute(route, insertIdx) {
         }
     }
 
+    // 고유한 그룹 ID 생성 (최적 경로 자동 생성 항목 식별용)
+    const routeGroupId = `google_route_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
     const summaryItem = {
         time: totalDuration || "시간 미정",
         title: summaryTitle,
@@ -1882,7 +1885,9 @@ function processSelectedRoute(route, insertIdx) {
         detailedSteps: detailedSteps.length > 0 ? detailedSteps : null,
         // 메모, 지출, 첨부파일을 위한 빈 필드들
         expenses: [],
-        attachments: []
+        attachments: [],
+        // 최적 경로 자동 생성 항목 식별자 (컨텍스트 메뉴에서 수정 버튼 숨김 처리용)
+        routeGroupId: routeGroupId
     };
 
     if (insertIdx >= 0 && insertIdx < timelineArr.length) {
@@ -2202,8 +2207,8 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
     // 제목 설정 (출발지 → 도착지)
     document.getElementById('route-detail-title').textContent = `${departurePlace} → ${arrivalPlace}`;
 
-    // 최적 경로 여부 확인 (detailedSteps가 있으면 최적 경로)
-    const hasDetailedSteps = item.detailedSteps && item.detailedSteps.length > 0;
+    // 최적 경로 여부 확인 (routeGroupId가 있으면 최적 경로)
+    const isOptimalRoute = !!item.routeGroupId;
 
     // 버튼 설정
     const buttonsContainer = document.getElementById('route-detail-buttons');
@@ -2219,7 +2224,7 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
         `;
     } else {
         // 최적 경로는 수정 버튼 없이 삭제 버튼만, 수동 입력은 수정 버튼 포함
-        if (hasDetailedSteps) {
+        if (isOptimalRoute) {
             buttonsContainer.innerHTML = `
                 <button onclick="deleteCurrentTransitItem()" class="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded-lg transition-colors flex items-center gap-1">
                     <span class="material-symbols-outlined">delete</span>

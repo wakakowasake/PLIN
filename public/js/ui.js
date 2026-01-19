@@ -2902,7 +2902,9 @@ export function handleContextAction(action) {
 
         // [User Request] Transit/Flight items should open Route Detail Modal
         if (item.isTransit && window.viewRouteDetail) {
-            window.viewRouteDetail(contextMenuTargetIndex, targetDayIndex, true); // true = edit mode
+            // 최적 경로는 편집 모드로 열지 않음
+            const isOptimalRoute = !!item.routeGroupId;
+            window.viewRouteDetail(contextMenuTargetIndex, targetDayIndex, !isOptimalRoute);
         } else {
             editTimelineItem(contextMenuTargetIndex, targetDayIndex);
         }
