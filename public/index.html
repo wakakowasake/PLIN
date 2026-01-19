@@ -1374,8 +1374,9 @@
                 <div
                     class="w-full text-left bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700 mb-6">
                     <p class="text-xs font-bold text-gray-400 uppercase mb-1">메모</p>
-                    <p id="transit-detail-note" class="text-sm text-gray-700 dark:text-gray-300 min-h-[1.25rem]">메모가
-                        없습니다.</p>
+                    <textarea id="transit-detail-note"
+                        class="w-full text-sm text-gray-700 dark:text-gray-300 min-h-[3rem] bg-transparent border-none p-0 resize-none focus:ring-0 cursor-pointer"
+                        rows="3" readonly placeholder="메모가 없습니다." ondblclick="enableTransitNoteEdit()"></textarea>
                 </div>
 
                 <!-- Detailed Steps (for multi-step transit like Ekispert) -->

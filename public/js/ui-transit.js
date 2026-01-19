@@ -404,6 +404,8 @@ export function fetchTransitTime() {
 
 // [Fix] UI-Data Consistency를 위해 시간 파싱 로직 내장 (캐싱 문제 방지)
 function parseDurationStr(str) {
+    // [Fix] 이미 숫자인 경우 그대로 반환
+    if (typeof str === 'number') return str;
     if (!str) return 0;
     let h = 0, m = 0;
     const hMatch = str.match(/(\d+)시간/);
@@ -697,7 +699,16 @@ export function openTransitDetailModal(item, index, dayIndex) {
 
     document.getElementById('transit-detail-route').innerText = routeText;
 
-    document.getElementById('transit-detail-note').innerText = item.note || "메모가 없습니다.";
+    // [Fix] 메모를 textarea로 변경하여 더블클릭으로 편집 가능하도록 수정
+    const noteTextarea = document.getElementById('transit-detail-note');
+    if (noteTextarea && noteTextarea.tagName === 'TEXTAREA') {
+        noteTextarea.value = item.note || '';
+        noteTextarea.readOnly = true;
+        noteTextarea.classList.remove('ring-2', 'ring-primary');
+    } else {
+        // Fallback: 기존 방식 (호환성)
+        document.getElementById('transit-detail-note').innerText = item.note || "메모가 없습니다.";
+    }
 
     // Detailed Steps (Ekispert 등 다단계 경로)
     const stepsContainer = document.getElementById('transit-detail-steps');
@@ -2368,7 +2379,7 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
                                 <button type="button" onclick="setTransitDuration(60)" class="flex-1 px-3 py-2 bg-gray-100 hover:bg-primary/10 dark:bg-gray-700 dark:hover:bg-primary/20 rounded-lg text-sm font-bold transition-colors">1시간</button>
                                 <button type="button" onclick="setTransitDuration(120)" class="flex-1 px-3 py-2 bg-gray-100 hover:bg-primary/10 dark:bg-gray-700 dark:hover:bg-primary/20 rounded-lg text-sm font-bold transition-colors">2시간</button>
                             </div>
-                            <input type="number" id="route-edit-duration" value="${parseDurationStr(item.duration) || 30}" placeholder="30" min="1" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" oninput="updateTransitArrivalTime()">
+                            <input type="number" id="route-edit-duration" value="${typeof item.duration === 'number' ? item.duration : (parseDurationStr(item.duration) || 30)}" placeholder="30" min="1" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" oninput="updateTransitArrivalTime()">
                         </div>
                     </div>
                 </div>
@@ -2650,13 +2661,41 @@ export function closeRouteDetailModal() {
 
 // 경로 아이템 메모 업데이트
 window.updateRouteItemNote = function (value) {
-    if (targetDayIndex === null) return;
+    if (targetDayIndex === null || currentRouteItemIndex === null) return;
     const timeline = travelData.days[targetDayIndex].timeline;
-    const item = timeline.find(i => i.isTransit && i.isCollapsed);
-    if (item) {
+    const item = timeline[currentRouteItemIndex];
+    if (item && item.isTransit) {
         item.note = value;
         autoSave();
     }
+};
+
+// 이동수단 보기 모달에서 메모 편집 활성화
+window.enableTransitNoteEdit = function () {
+    const textarea = document.getElementById('transit-detail-note');
+    if (!textarea) return;
+
+    // 편집 가능하게 변경
+    textarea.readOnly = false;
+    textarea.classList.remove('cursor-pointer');
+    textarea.classList.add('ring-2', 'ring-primary', 'bg-white', 'dark:bg-gray-800', 'p-2');
+
+    // 포커스 및 커서를 끝으로 이동
+    textarea.focus();
+    const val = textarea.value;
+    textarea.value = '';
+    textarea.value = val;
+
+    // Blur 이벤트로 자동 저장 및 초기화
+    const handleBlur = () => {
+        textarea.readOnly = true;
+        textarea.classList.add('cursor-pointer');
+        textarea.classList.remove('ring-2', 'ring-primary', 'bg-white', 'dark:bg-gray-800', 'p-2');
+        updateRouteItemNote(textarea.value); // 자동 저장
+        textarea.removeEventListener('blur', handleBlur);
+    };
+
+    textarea.addEventListener('blur', handleBlur);
 };
 
 // 경로 지출 관련 함수들
@@ -2875,6 +2914,12 @@ window.saveRouteItem = function () {
                 const endMinutes = startMinutes + durationMinutes;
                 item.transitInfo.end = minutesTo24Hour(endMinutes);
             }
+        }
+
+        // [Fix] 메모도 명시적으로 저장 (onchange 이벤트가 blur 전에 발생하지 않을 수 있음)
+        const noteValue = document.getElementById('route-detail-note')?.value;
+        if (noteValue !== undefined) {
+            item.note = noteValue;
         }
     }
 
