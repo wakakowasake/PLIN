@@ -6,6 +6,12 @@
 
 ## 2026-01-19
 
+### 10:26 - [AI] 이동수단 소요시간 변경 시 도착시간 실시간 업데이트 구현
+- `route-edit-duration` 입력 필드에 `oninput` 이벤트 추가
+- `updateTransitArrivalTime()` 함수 생성
+- 소요 시간 입력 시 도착 시간 자동 계산 및 표시
+- **변경 파일**: public/js/ui-transit.js
+
 ### 10:24 - [AI] 최적 경로 찾기 시 transitInfo 자동 계산 구현
 - 직선거리 계산 이동수단 생성 시 transitInfo 자동 생성 (1278-1316줄)
 - Google Maps API 경로 계산 시 transitInfo 자동 생성 (1805-1851줄)
