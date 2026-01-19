@@ -52,8 +52,39 @@ export function addTransitItem(index, type, dayIndex = currentDayIndex) {
     };
 
     // 빈 이동수단 아이템 생성
+    // 이전 장소의 종료 시간을 기반으로 시작 시간 계산
+    let startTime = '';
+    let endTime = '';
+
+    if (index >= 0) {
+        const prevItem = day.timeline[index];
+        if (prevItem) {
+            // 이전 아이템이 이동수단이면 transitInfo.end 사용
+            if (prevItem.isTransit && prevItem.transitInfo && prevItem.transitInfo.end) {
+                startTime = prevItem.transitInfo.end;
+            } else if (prevItem.time) {
+                // 일반 장소면 time + duration으로 종료 시간 계산
+                const prevTimeMinutes = parseTimeStr(prevItem.time);
+                if (prevTimeMinutes !== null) {
+                    const prevDuration = prevItem.duration || 30;
+                    const endMinutes = prevTimeMinutes + prevDuration;
+                    startTime = minutesTo24Hour(endMinutes);
+                }
+            }
+
+            // 종료 시간 계산 (기본 30분 duration)
+            if (startTime) {
+                const startMinutes = parseTimeStr(startTime);
+                if (startMinutes !== null) {
+                    const endMinutes = startMinutes + 30;
+                    endTime = minutesTo24Hour(endMinutes);
+                }
+            }
+        }
+    }
+
     const newItem = {
-        time: "",
+        time: startTime ? "30분" : "",
         title: "",
         location: "",
         icon: iconMap[type] || 'directions_walk',
@@ -62,6 +93,7 @@ export function addTransitItem(index, type, dayIndex = currentDayIndex) {
         isTransit: true,
         transitType: type, // 이동수단 타입 저장
         duration: "30분", // 기본 소요시간
+        transitInfo: startTime ? { start: startTime, end: endTime } : null,
         detailedSteps: [],
         // 비행기 전용 필드
         flightInfo: type === 'airplane' ? {

@@ -254,7 +254,12 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
     let startTime = '--:--';
     let endTime = '--:--';
 
-    if (item.time) {
+    // 이동수단은 transitInfo 사용, 일반 아이템은 time 필드 파싱
+    if (item.isTransit && item.transitInfo) {
+        startTime = item.transitInfo.start || '--:--';
+        endTime = item.transitInfo.end || '--:--';
+    } else if (item.time) {
+
         // "오전 09:00", "09:00 - 10:30", "09:00" 등 다양한 형식 처리
         const timeStr = item.time.replace(/오전|오후|AM|PM/gi, '').trim();
         const timeMatch = timeStr.match(/(\d{1,2}):(\d{2})/);
