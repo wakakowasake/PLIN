@@ -16,8 +16,11 @@ import { parseTimeStr, formatTimeStr, parseDurationStr, formatDuration, minutesT
 import * as Helpers from './ui/helpers.js';
 import { doc, getDoc, updateDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 
-import * as Modals from './ui/modals.js';
-import * as Header from './ui/header.js';
+// [IMPORTS UPDATED] Explicitly import loading functions
+import { showLoading, hideLoading } from './ui/modals.js';
+
+// ... (existing imports) ...
+
 import * as Renderers from './ui/renderers.js?v=1.1.7';
 import * as Auth from './ui/auth.js';
 import * as Profile from './ui/profile.js';
@@ -1845,6 +1848,10 @@ export function setDuration(minutes) {
     }
 }
 
+
+
+// ... (existing imports) ...
+
 export async function saveNewItem() {
     const category = document.getElementById('item-category').dataset.value || 'custom';
     let icon = "place";
@@ -1873,7 +1880,15 @@ export async function saveNewItem() {
     const durationValue = document.getElementById('item-duration').value;
     const parsedDuration = parseInt(durationValue);
 
+    // [DATA PERSISTENCE] Retrieve existing item to preserve auxiliary data
+    const timeline = travelData.days[targetDayIndex].timeline;
+    let existingItem = null;
+    if (editingItemIndex !== null) {
+        existingItem = timeline[editingItemIndex];
+    }
+
     const newItem = {
+        id: (existingItem && existingItem.id) ? existingItem.id : crypto.randomUUID(), // Preserve ID or generate new
         time: document.getElementById('item-time').value,
         title: document.getElementById('item-title').value || "새 활동",
         location: document.getElementById('item-location').value || "위치",
@@ -1887,6 +1902,17 @@ export async function saveNewItem() {
         duration: (!isNaN(parsedDuration) && durationValue !== '') ? parsedDuration : 30 // 잔류 시간 (분)
     };
 
+    // [DATA PERSISTENCE] Merge auxiliary data from existing item
+    if (existingItem) {
+        newItem.expenses = existingItem.expenses || [];
+        newItem.memories = existingItem.memories || [];
+        newItem.attachments = existingItem.attachments || [];
+        newItem.budget = existingItem.budget || 0;
+        // Keep original image if not changing category/type implies keep? 
+        // Logic currently sets image to null for new item, let's keep existing image if valid and not replaced
+        if (existingItem.image && !newItem.image) newItem.image = existingItem.image;
+    }
+
     // 일본어 주소가 있으면 함께 저장
     const jaLocationField = document.getElementById('item-location-ja');
     if (jaLocationField && jaLocationField.value) {
@@ -1899,8 +1925,6 @@ export async function saveNewItem() {
             short_name: 'JP'
         }];
     }
-
-    const timeline = travelData.days[targetDayIndex].timeline;
 
     if (editingItemIndex !== null) {
         // 수정
@@ -1933,7 +1957,6 @@ export async function saveNewItem() {
     setIsEditingFromDetail(false); // 리셋
 
 }
-
 export function deleteTimelineItem(index, dayIndex = currentDayIndex) {
     if (dayIndex !== null) {
         setTargetDayIndex(dayIndex);
