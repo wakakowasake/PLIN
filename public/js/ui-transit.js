@@ -4,7 +4,7 @@ import {
     travelData, targetDayIndex, setTargetDayIndex, setViewingItemIndex, viewingItemIndex, currentDayIndex,
     insertingItemIndex, setInsertingItemIndex, isEditingFromDetail, setIsEditingFromDetail, setTravelData
 } from './state.js';
-import { parseTimeStr, formatTimeStr, calculateStraightDistance, minutesTo24Hour } from './ui-utils.js';
+import { parseTimeStr, formatTimeStr, calculateStraightDistance, minutesTo24Hour, parseDurationStr } from './ui-utils.js';
 import { airports, searchAirports, getAirportByCode, formatAirport } from './airports.js';
 import logger from './logger.js';
 import { translateStation, translateLine } from './station-translations.js';
