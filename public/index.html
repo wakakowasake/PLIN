@@ -1128,146 +1128,14 @@
         </div>
     </div>
 
-    <!-- Flight Input Modal -->
-    <div id="flight-input-modal"
-        class="hidden fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-        <div class="bg-white dark:bg-card-dark rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
-            <div class="p-5 border-b border-gray-100 dark:border-gray-700">
-                <h3 class="text-lg font-bold text-text-main dark:text-white">항공편 정보 입력</h3>
-            </div>
-            <div class="p-6 flex flex-col gap-4">
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">항공편명</label>
-                        <input id="flight-number" type="text"
-                            class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800 uppercase font-bold"
-                            placeholder="예: KE123">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">예약 번호</label>
-                        <input id="flight-pnr" type="text"
-                            class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800 uppercase"
-                            placeholder="PNR">
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">출발 공항</label>
-                        <input id="flight-dep-airport" type="text" list="airport-list"
-                            class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-4 bg-gray-50 dark:bg-gray-800 uppercase font-bold text-lg"
-                            placeholder="ICN">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">도착 공항</label>
-                        <input id="flight-arr-airport" type="text" list="airport-list"
-                            class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-4 bg-gray-50 dark:bg-gray-800 uppercase font-bold text-lg"
-                            placeholder="JFK">
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">출발 시간</label>
-                        <input id="flight-dep-time" type="time"
-                            class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">도착 시간</label>
-                        <input id="flight-arr-time" type="time"
-                            class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800">
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">터미널</label>
-                        <input id="flight-terminal" type="text"
-                            class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800 uppercase"
-                            placeholder="T1">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">게이트</label>
-                        <input id="flight-gate" type="text"
-                            class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800 uppercase"
-                            placeholder="23">
-                    </div>
-                </div>
 
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">메모</label>
-                    <textarea id="flight-note"
-                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800 h-20 resize-none"
-                        placeholder="예: 기내식 신청함, 픽업 예약 확인"></textarea>
-                </div>
-
-                <button type="button" onclick="searchFlightNumber()"
-                    class="w-full py-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300 rounded-xl font-bold hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors flex items-center justify-center gap-2 mt-2">
-                    <span class="material-symbols-outlined">search</span> 구글에서 항공편 검색하기
-                </button>
-            </div>
-            <div class="p-5 border-t border-gray-100 dark:border-gray-700 flex gap-3">
-                <button type="button" onclick="closeFlightInputModal()"
-                    class="flex-1 py-2 text-gray-500 font-bold hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl">취소</button>
-                <button type="button" onclick="saveFlightItem()"
-                    class="flex-1 py-2 bg-primary text-white font-bold rounded-xl hover:bg-orange-500 shadow-lg">추가</button>
-            </div>
-        </div>
-    </div>
 
     <datalist id="airport-list">
         <!-- JS로 채움 -->
     </datalist>
 
-    <!-- Transit Input Modal (New) -->
-    <div id="transit-input-modal"
-        class="hidden fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-        <div
-            class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100">
-            <div class="p-5 border-b border-gray-100 dark:border-gray-700 text-center">
-                <h3 id="transit-modal-title" class="text-lg font-bold text-text-main dark:text-white">이동 정보 입력</h3>
-            </div>
 
-            <div class="p-6 flex flex-col gap-5">
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">출발 시간</label>
-                        <input id="transit-start-time" type="time"
-                            class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800 text-lg font-bold text-center"
-                            onchange="calculateTransitDuration()">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">도착 시간</label>
-                        <input id="transit-end-time" type="time"
-                            class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800 text-lg font-bold text-center"
-                            onchange="calculateTransitDuration()">
-                    </div>
-                </div>
 
-                <div class="bg-primary/5 rounded-xl p-3 text-center">
-                    <p class="text-xs text-gray-500 mb-1">총 소요 시간</p>
-                    <p id="transit-duration-display" class="text-xl font-bold text-primary">--</p>
-                    <p id="transit-warning" class="text-xs text-red-500 font-bold mt-2 hidden"></p>
-                </div>
-
-                <button id="btn-fetch-transit-time" type="button" onclick="fetchTransitTime()"
-                    class="w-full py-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300 rounded-xl font-bold hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors flex items-center justify-center gap-2">
-                    <span class="material-symbols-outlined">search</span> 구글 지도에서 시간/경로 가져오기
-                </button>
-
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">메모 (선택)</label>
-                    <input id="transit-note" type="text"
-                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800"
-                        placeholder="예: 3번 승강장, 환승 필요">
-                </div>
-            </div>
-
-            <div class="p-5 border-t border-gray-100 dark:border-gray-700 flex gap-3">
-                <button type="button" onclick="closeTransitInputModal()"
-                    class="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-50 dark:hover:bg-gray-800 rounded-2xl transition-colors">취소</button>
-                <button type="button" onclick="saveTransitItem()"
-                    class="flex-1 py-3 bg-primary text-white font-bold rounded-2xl hover:bg-orange-500 shadow-lg transition-colors">저장</button>
-            </div>
-        </div>
-    </div>
 
     <!-- Time Selection Modal (AM/PM, Hour, Minute) -->
     <div id="time-selection-modal"

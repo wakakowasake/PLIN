@@ -1601,15 +1601,19 @@ export function editTimelineItem(index, dayIndex = currentDayIndex) {
 
     const item = travelData.days[targetDayIndex].timeline[index];
 
-    // 이동 수단(Transit)인 경우 전용 모달 호출
+    // 이동 수단(Transit)인 경우 전용 모달(상세 모달) 호출
     if (item.isTransit) {
-        if (item.tag === '비행기') {
-            // ui-transit.js의 함수를 호출 (window 객체에 할당된 경우)
-            if (window.openFlightInputModal) window.openFlightInputModal(index, true);
-            return;
+        if (window.openTransitDetailModal) {
+            window.openTransitDetailModal(item, index, targetDayIndex);
+
+            // [User Request] Trigger 'Edit Mode' if possible
+            // Currently, openTransitDetailModal opens the detail view. 
+            // The user requested "edit button pressed state" but as per plan, we redirect to detail modal first.
+            // If we wanted to immediately trigger edit:
+            // setTimeout(() => { if(window.editCurrentTransitItem) window.editCurrentTransitItem(); }, 200);
+            // However, editCurrentTransitItem currently opens the OLD modal which we are deleting. 
+            // So we just stop at opening the detail modal which is the new "hub" for these items.
         }
-        // ui-transit.js의 함수를 호출
-        if (window.openTransitInputModal) window.openTransitInputModal(index, null);
         return;
     }
 
