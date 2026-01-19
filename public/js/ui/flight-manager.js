@@ -245,6 +245,8 @@ export function saveFlightItem(travelData, targetDayIndex, reorderTimeline, open
             pnr: pnr.toUpperCase(),
             depAirport: depAirport.toUpperCase(),
             arrAirport: arrAirport.toUpperCase(),
+            start: depTime,
+            end: arrTime,
             depTime,
             arrTime,
             userNote
