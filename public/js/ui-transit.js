@@ -2335,7 +2335,7 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
                                 <button type="button" onclick="setTransitDuration('1시간')" class="flex-1 px-3 py-2 bg-gray-100 hover:bg-primary/10 dark:bg-gray-700 dark:hover:bg-primary/20 rounded-lg text-sm font-bold transition-colors">1시간</button>
                                 <button type="button" onclick="setTransitDuration('2시간')" class="flex-1 px-3 py-2 bg-gray-100 hover:bg-primary/10 dark:bg-gray-700 dark:hover:bg-primary/20 rounded-lg text-sm font-bold transition-colors">2시간</button>
                             </div>
-                            <input type="text" id="route-edit-duration" value="${item.duration || '30분'}" placeholder="30분" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">
+                            <input type="text" id="route-edit-duration" value="${item.duration || '30분'}" placeholder="30분" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" oninput="updateTransitArrivalTime()">
                         </div>
                     </div>
                 </div>
@@ -3301,3 +3301,30 @@ window.closeRouteModal = closeRouteModal;
 
 // [Duplicate Removed] saveRouteExpense used to be here but was incomplete.
 // Using the definition around line 2525 instread.
+export function updateTransitArrivalTime() {
+    const durationInput = document.getElementById('route-edit-duration');
+    if (!durationInput) return;
+
+    const durationStr = durationInput.value;
+    const durationMins = parseDurationStr(durationStr);
+
+    if (!durationMins || durationMins === 0) return;
+
+    // 현재 편집 중인 아이템 가져오기
+    const item = travelData.days[targetDayIndex].timeline[currentRouteItemIndex];
+    if (!item || !item.transitInfo || !item.transitInfo.start) return;
+
+    const startTime = item.transitInfo.start;
+    const startMinutes = parseTimeStr(startTime);
+
+    if (startMinutes === null) return;
+
+    const endMinutes = startMinutes + durationMins;
+    const endTime = minutesTo24Hour(endMinutes);
+
+    // 도착 시간 표시 업데이트 (모달에 표시되는 부분이 있다면)
+    const arrivalTimeDisplay = document.getElementById('route-arrival-time-display');
+    if (arrivalTimeDisplay) {
+        arrivalTimeDisplay.textContent = endTime;
+    }
+}
