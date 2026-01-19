@@ -17,7 +17,9 @@ import * as Helpers from './ui/helpers.js';
 import { doc, getDoc, updateDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 
 // [IMPORTS UPDATED] Explicitly import loading functions
+// [IMPORTS UPDATED] Explicitly import loading functions
 import { showLoading, hideLoading } from './ui/modals.js';
+import * as Header from './ui/header.js';
 
 // ... (existing imports) ...
 
