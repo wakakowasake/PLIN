@@ -19,8 +19,8 @@ function handleTimeWheel(e) {
     let nextVal = currentVal + direction;
 
     if (container.id === 'time-hour-list') {
-        if (nextVal > 12) nextVal = 1;
-        if (nextVal < 1) nextVal = 12;
+        if (nextVal > 23) nextVal = 0;
+        if (nextVal < 0) nextVal = 23;
     } else {
         if (nextVal > 59) nextVal = 0;
         if (nextVal < 0) nextVal = 59;
@@ -58,7 +58,7 @@ function handleTimeDblClick(e) {
 
     // Set range
     if (container.id === 'time-hour-list') {
-        input.min = 1; input.max = 12;
+        input.min = 0; input.max = 23;
     } else {
         input.min = 0; input.max = 59;
     }
@@ -73,8 +73,8 @@ function handleTimeDblClick(e) {
         // Validate and clamp to range
         if (!isNaN(val)) {
             if (container.id === 'time-hour-list') {
-                if (val < 1) val = 1;
-                if (val > 12) val = 12;
+                if (val < 0) val = 0;
+                if (val > 23) val = 23;
             } else {
                 if (val < 0) val = 0;
                 if (val > 59) val = 59;
@@ -113,7 +113,7 @@ export function initTimeModal() {
     const mList = document.getElementById('time-minute-list');
 
     if (hList.children.length === 0) {
-        for (let i = 1; i <= 12; i++) {
+        for (let i = 0; i <= 23; i++) {
             const li = document.createElement('li');
             li.className = "h-10 flex items-center justify-center snap-center text-lg font-bold text-gray-600 dark:text-gray-300 cursor-pointer transition-colors";
             li.innerText = String(i).padStart(2, '0');
@@ -178,10 +178,8 @@ export function openTimeModal() {
     // Parse current input value and set defaults
     const currentVal = document.getElementById('item-time').value;
     if (currentVal) {
-        const isPM = currentVal.includes('오후');
-        const timeParts = currentVal.replace(/[^0-9:]/g, '').split(':');
+        const timeParts = currentVal.split(':');
         if (timeParts.length >= 2) {
-            setPickerScroll('time-ampm-list', isPM ? '오후' : '오전');
             setPickerScroll('time-hour-list', parseInt(timeParts[0]));
             setPickerScroll('time-minute-list', parseInt(timeParts[1]));
         }
@@ -199,9 +197,8 @@ export function closeTimeModal() {
  * Confirm time selection and update the input field
  */
 export function confirmTimeSelection() {
-    const ampm = getPickerValue('time-ampm-list') || '오전';
-    const h = getPickerValue('time-hour-list') || 12;
+    const h = getPickerValue('time-hour-list') || 0;
     const m = getPickerValue('time-minute-list') || 0;
-    document.getElementById('item-time').value = `${ampm} ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    document.getElementById('item-time').value = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
     closeTimeModal();
 }

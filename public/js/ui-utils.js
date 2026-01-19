@@ -17,13 +17,7 @@ export function parseTimeStr(str) {
 export function formatTimeStr(totalMinutes) {
     let h = Math.floor(totalMinutes / 60) % 24;
     let m = totalMinutes % 60;
-    let period = "오전";
-    if (h >= 12) {
-        period = "오후";
-        if (h > 12) h -= 12;
-    }
-    if (h === 0) h = 12;
-    return `${period} ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
 export function minutesTo24Hour(totalMinutes) {

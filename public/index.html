@@ -1148,20 +1148,7 @@
             </div>
 
             <div class="p-8 flex items-center justify-center gap-2">
-                <div class="flex flex-col items-center gap-2">
-                    <div class="relative h-32 w-20 overflow-hidden text-center bg-gray-50 dark:bg-gray-800 rounded-xl">
-                        <div
-                            class="absolute inset-x-0 top-1/2 -translate-y-1/2 h-10 border-y border-primary/30 bg-primary/5 pointer-events-none z-10">
-                        </div>
-                        <ul id="time-ampm-list" class="h-full overflow-y-auto snap-y snap-mandatory no-scrollbar py-11">
-                            <li class="h-10 flex items-center justify-center snap-center text-lg font-bold text-gray-600 dark:text-gray-300 cursor-pointer transition-colors"
-                                data-value="오전">오전</li>
-                            <li class="h-10 flex items-center justify-center snap-center text-lg font-bold text-gray-600 dark:text-gray-300 cursor-pointer transition-colors"
-                                data-value="오후">오후</li>
-                        </ul>
-                    </div>
-                    <span class="text-xs font-bold text-transparent uppercase">--</span>
-                </div>
+                <!-- AM/PM Picker Removed for 24h format -->
                 <div class="flex flex-col items-center gap-2">
                     <div class="relative h-32 w-20 overflow-hidden text-center bg-gray-50 dark:bg-gray-800 rounded-xl">
                         <div
@@ -1610,6 +1597,93 @@
                     class="w-full mt-3 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 py-2">
                     취소
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Flight Input Modal -->
+    <div id="flight-input-modal"
+        class="hidden fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+        <div
+            class="bg-white dark:bg-card-dark rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] overflow-y-auto modal-slide-in">
+            <div class="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                <h3 class="text-xl font-bold text-text-main dark:text-white">항공편 추가</h3>
+                <button type="button" onclick="closeFlightInputModal()" class="text-gray-400 hover:text-gray-600"><span
+                        class="material-symbols-outlined">close</span></button>
+            </div>
+            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Flight Number -->
+                <div class="col-span-2 md:col-span-1">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">편명</label>
+                    <div class="flex gap-2">
+                        <input id="flight-number" type="text"
+                            class="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 uppercase"
+                            placeholder="KE123">
+                        <button type="button" onclick="searchFlightNumber()"
+                            class="bg-primary/10 text-primary px-3 py-2 rounded-lg font-bold hover:bg-primary/20 transition-colors">검색</button>
+                    </div>
+                </div>
+                <!-- PNR -->
+                <div class="col-span-2 md:col-span-1">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">예약번호 (PNR)</label>
+                    <input id="flight-pnr" type="text"
+                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 uppercase"
+                        placeholder="ABC1234">
+                </div>
+
+                <!-- Departure/Arrival Airport -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">출발 공항</label>
+                    <input id="flight-dep-airport" type="text"
+                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800"
+                        placeholder="ICN">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">도착 공항</label>
+                    <input id="flight-arr-airport" type="text"
+                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800"
+                        placeholder="KIX">
+                </div>
+
+                <!-- Departure/Arrival Time -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">출발 시간</label>
+                    <input id="flight-dep-time" type="time"
+                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 font-bold">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">도착 시간</label>
+                    <input id="flight-arr-time" type="time"
+                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 font-bold">
+                </div>
+
+                <!-- Terminal/Gate -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">터미널</label>
+                    <input id="flight-terminal" type="text"
+                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800"
+                        placeholder="T1">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">게이트</label>
+                    <input id="flight-gate" type="text"
+                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800"
+                        placeholder="101">
+                </div>
+
+                <!-- Note -->
+                <div class="col-span-2">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">메모</label>
+                    <textarea id="flight-note" rows="3"
+                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 resize-none"
+                        placeholder="좌석 번호 등 메모"></textarea>
+                </div>
+            </div>
+            <div class="p-6 border-t border-gray-100 dark:border-gray-700 flex justify-end gap-3">
+                <button type="button" onclick="closeFlightInputModal()"
+                    class="px-6 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">취소</button>
+                <button type="button" onclick="saveFlightItem()"
+                    class="px-6 py-3 rounded-xl font-bold bg-primary text-white hover:bg-orange-600 transition-colors shadow-lg">저장</button>
             </div>
         </div>
     </div>

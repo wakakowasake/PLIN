@@ -1,5 +1,5 @@
-// Flight Manager Module
-// Handles flight information input, editing, and validation
+import { formatDuration, parseTimeStr, minutesTo24Hour } from '../ui-utils.js';
+
 
 // Module state
 let flightInputIndex = null;
@@ -114,8 +114,15 @@ export function openFlightInputModal(index, isEdit, travelData, targetDayIndex) 
             if (parts.length === 2) arrInput.value = parts[1].trim();
         }
 
-        if (info.depTime) depTimeInput.value = info.depTime;
-        if (info.arrTime) arrTimeInput.value = info.arrTime;
+        if (info.depTime) {
+            const min = parseTimeStr(info.depTime);
+            depTimeInput.value = min !== null ? minutesTo24Hour(min) : info.depTime;
+        }
+        if (info.arrTime) {
+            const min = parseTimeStr(info.arrTime);
+            arrTimeInput.value = min !== null ? minutesTo24Hour(min) : info.arrTime;
+        }
+
         if (info.terminal) terminalInput.value = info.terminal;
         if (info.gate) gateInput.value = info.gate;
         if (info.userNote) noteInput.value = info.userNote;
