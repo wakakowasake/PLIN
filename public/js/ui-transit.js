@@ -1344,6 +1344,7 @@ export async function addFastestTransitItem() {
 
                 const newItem = {
                     time: durationStr,
+                    duration: durationMins, // [Fix] 시간 재계산 시 유지를 위해 분 단위 소요시간 저장
                     title: title,
                     location: "",
                     icon: icon,
@@ -1905,6 +1906,7 @@ function processSelectedRoute(route, insertIdx) {
 
     const summaryItem = {
         time: totalDuration || "시간 미정",
+        duration: totalMinutes, // [Fix] 시간 재계산 시 유지를 위해 분 단위 소요시간 저장
         title: summaryTitle,
         location: "",
         icon: summaryIcon,

@@ -173,6 +173,103 @@ export function reorderTimeline(dayIndex, sortByTime = false) {
     autoSave();
 }
 
+// [New] 시간 재계산 정렬: 순서는 유지하면서 첫 번째 카드의 시작 시간부터 연속으로 시간 재계산
+export function recalculateTimeline(dayIndex) {
+    if (dayIndex === null || dayIndex === -1) return;
+    const day = travelData.days[dayIndex];
+    if (!day || !day.timeline || day.timeline.length === 0) return;
+
+    const timeline = day.timeline;
+
+    // 첫 번째 아이템의 시작 시간을 기준으로 삼음
+    let currentTime = null;
+
+    // 첫 번째 아이템의 시작 시간 찾기
+    for (let i = 0; i < timeline.length; i++) {
+        const item = timeline[i];
+        if (item.isTransit && item.transitInfo?.start) {
+            currentTime = parseTimeStr(item.transitInfo.start);
+            break;
+        } else if (item.time) {
+            currentTime = parseTimeStr(item.time);
+            break;
+        }
+    }
+
+    // 시작 시간이 없으면 오전 9:00로 기본값 설정
+    if (currentTime === null) currentTime = 9 * 60;
+
+    // 각 아이템 순회하며 시간 재계산
+    for (let i = 0; i < timeline.length; i++) {
+        const item = timeline[i];
+
+        if (item.isTransit) {
+            // 이동수단: 현재 시간을 시작으로, duration 만큼 더해서 종료 시간 계산
+            const startTimeStr = minutesTo24Hour(currentTime);
+            const duration = typeof item.duration === 'number' ? item.duration : (parseDurationStr(item.duration) || 30);
+            const endTime = currentTime + duration;
+            const endTimeStr = minutesTo24Hour(endTime);
+
+            // transitInfo 업데이트
+            if (!item.transitInfo) item.transitInfo = {};
+            item.transitInfo.start = startTimeStr;
+            item.transitInfo.end = endTimeStr;
+
+            // time 필드도 업데이트 (표시용)
+            item.time = formatDuration(duration);
+
+            currentTime = endTime;
+        } else {
+            // 장소: 현재 시간을 시작으로, duration(체류시간) 만큼 더해서 종료 시간 계산
+            const startTimeStr = formatTimeStr(currentTime);
+            item.time = startTimeStr;
+
+            // duration이 있으면 체류시간으로 계산, 없으면 기본 30분
+            const duration = typeof item.duration === 'number' ? item.duration : 30;
+            currentTime = currentTime + duration;
+        }
+    }
+
+    renderItinerary();
+    autoSave();
+}
+window.recalculateTimeline = recalculateTimeline;
+
+
+// [New] 정렬 선택 모달 관련
+let pendingSortDayIndex = null;
+
+export function openSortMethodModal(dayIndex) {
+    pendingSortDayIndex = dayIndex;
+    const modal = document.getElementById('sort-method-modal');
+    if (modal) {
+        modal.classList.remove('hidden');
+    }
+}
+window.openSortMethodModal = openSortMethodModal;
+
+export function closeSortMethodModal() {
+    pendingSortDayIndex = null;
+    const modal = document.getElementById('sort-method-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+window.closeSortMethodModal = closeSortMethodModal;
+
+export function confirmSort(type) {
+    if (pendingSortDayIndex === null) return;
+
+    if (type === 'time') {
+        reorderTimeline(pendingSortDayIndex, true);
+    } else if (type === 'recalc') {
+        recalculateTimeline(pendingSortDayIndex);
+    }
+
+    closeSortMethodModal();
+}
+window.confirmSort = confirmSort;
+
 // 날짜 탭 변경
 export function selectDay(index) {
     setCurrentDayIndex(index);

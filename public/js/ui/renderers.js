@@ -140,7 +140,6 @@ function buildTransitCard(item, index, dayIndex, editClass) {
                     </div>
                     ${showMemoryBtn ? `<button type="button" onclick="event.stopPropagation(); addMemoryItem(${index}, ${dayIndex})" class="text-gray-400 hover:text-primary p-2 rounded-full flex-shrink-0"><span class="material-symbols-outlined text-2xl">photo_camera</span></button>` : ''}
                 </div>
-                ${item.transitInfo?.summary ? `<p class="text-xs text-text-muted dark:text-gray-400 pl-[76px] md:pl-[86px]">${item.transitInfo.summary}</p>` : ''}
                 ${renderMemoriesHtml(item, dayIndex, index)}
             </div>`;
 }
@@ -290,15 +289,15 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
             
             <!-- 시간 카드 (기존 아이콘 위치) -->
             <div class="relative flex flex-col" data-timeline-icon="true">
-                <div class="relative z-10 h-full flex flex-col items-center justify-between bg-white dark:bg-card-dark border-2 border-primary/30 rounded-xl px-3 py-3 shadow-sm w-[74px] shrink-0 mt-1" style="width: 74px; min-width: 74px;">
-                    <div class="font-bold text-primary text-sm planner-time-label leading-tight tabular-nums" style="font-variant-numeric: tabular-nums;">${startTime}</div>
-                    <div class="text-xs text-primary/50">↓</div>
-                    <div class="font-bold text-primary text-sm planner-time-label leading-tight tabular-nums" style="font-variant-numeric: tabular-nums;">${endTime}</div>
+                <div class="relative z-10 h-full flex flex-col items-center justify-between bg-white dark:bg-card-dark rounded-xl px-2 py-2 shadow-sm w-[60px] shrink-0" style="width: 60px; min-width: 60px;">
+                    <div class="font-bold text-gray-900 dark:text-white text-xs planner-time-label leading-tight tabular-nums" style="font-variant-numeric: tabular-nums;">${startTime}</div>
+                    <div class="text-xs text-gray-400">↓</div>
+                    <div class="font-bold text-gray-900 dark:text-white text-xs planner-time-label leading-tight tabular-nums" style="font-variant-numeric: tabular-nums;">${endTime}</div>
                 </div>
             </div>
             
             <!-- 카드 내용 -->
-            <div class="pb-2 pt-1 flex flex-col justify-center min-w-0">
+            <div class="pb-2 flex flex-col justify-center min-w-0">
     `;
 
     // Content variants (Same as simple mode but without icon)
@@ -324,7 +323,7 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
             <div class="relative flex items-center gap-3 my-4">
                 <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
                 <button type="button" onclick="openAddModal(${index}, ${dayIndex})" 
-                    class="w-8 h-8 rounded-full bg-white dark:bg-card-dark border-2 border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-400 hover:text-primary hover:border-primary transition-colors shadow-sm cursor-pointer transform hover:scale-110 z-10" 
+                    class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-primary transition-colors cursor-pointer transform hover:scale-110 z-10" 
                     title="일정 추가">
                     <span class="material-symbols-outlined text-lg">add</span>
                 </button>
@@ -399,9 +398,9 @@ export function renderItinerary() {
                     <div class="flex items-center gap-4 mb-4 pl-2">
                         ${dayBadge}
                         <div class="h-px bg-gray-200 dark:bg-gray-700 flex-1"></div>
-                        <button type="button" onclick="reorderTimeline(${dayIdx}, true)" class="text-xs text-primary hover:bg-primary/10 px-2 py-1 rounded-lg transition-colors flex items-center gap-1" title="시간순 재정렬">
+                        <button type="button" onclick="openSortMethodModal(${dayIdx})" class="text-xs text-primary hover:bg-primary/10 px-2 py-1 rounded-lg transition-colors flex items-center gap-1" title="정렬">
                             <span class="material-symbols-outlined text-sm">sort</span>
-                            <span class="hidden sm:inline">시간순 정렬</span>
+                            <span class="hidden sm:inline">정렬</span>
                         </button>
                         <div class="text-xs text-gray-400">${day.date}</div>
                     </div>
@@ -438,9 +437,9 @@ export function renderItinerary() {
                     <div class="flex items-center gap-4 mb-4 pl-2">
                         <div class="bg-primary/10 text-primary px-3 py-1 rounded-lg font-bold text-sm">${currentDayIndex + 1}일차</div>
                         <div class="h-px bg-gray-200 dark:bg-gray-700 flex-1"></div>
-                        <button type="button" onclick="reorderTimeline(${currentDayIndex}, true)" class="text-xs text-primary hover:bg-primary/10 px-2 py-1 rounded-lg transition-colors flex items-center gap-1" title="시간순 재정렬">
+                        <button type="button" onclick="openSortMethodModal(${currentDayIndex})" class="text-xs text-primary hover:bg-primary/10 px-2 py-1 rounded-lg transition-colors flex items-center gap-1" title="정렬">
                             <span class="material-symbols-outlined text-sm">sort</span>
-                            <span class="hidden sm:inline">시간순 정렬</span>
+                            <span class="hidden sm:inline">정렬</span>
                         </button>
                         <div class="text-xs text-gray-400">${day.date}</div>
                     </div>

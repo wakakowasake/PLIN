@@ -1459,6 +1459,54 @@
         </div>
     </div>
 
+    <!-- 정렬 선택 모달 -->
+    <div id="sort-method-modal" class="fixed inset-0 bg-black/50 z-[9999] hidden flex items-center justify-center p-4">
+        <div
+            class="bg-white dark:bg-card-dark rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-fade-in-up">
+            <div class="p-6">
+                <h3 class="font-bold text-xl text-center text-gray-800 dark:text-white mb-2">일정 정렬</h3>
+                <p class="text-sm text-gray-500 text-center mb-6">원하시는 정렬 방식을 선택해주세요.</p>
+
+                <div class="space-y-3">
+                    <button type="button" onclick="confirmSort('time')"
+                        class="w-full flex items-center gap-4 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-primary hover:bg-gray-50 dark:hover:bg-gray-800 hover:shadow-md transition-all group text-left">
+                        <div
+                            class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-300">
+                            <span class="material-symbols-outlined">sort</span>
+                        </div>
+                        <div>
+                            <div
+                                class="font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors">
+                                시간순 정렬</div>
+                            <div class="text-xs text-gray-500 mt-0.5">입력된 시간을 기준으로 순서를 정리합니다.</div>
+                        </div>
+                    </button>
+
+                    <button type="button" onclick="confirmSort('recalc')"
+                        class="w-full flex items-center gap-4 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-primary hover:bg-gray-50 dark:hover:bg-gray-800 hover:shadow-md transition-all group text-left">
+                        <div
+                            class="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-300">
+                            <span class="material-symbols-outlined">schedule</span>
+                        </div>
+                        <div>
+                            <div
+                                class="font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors">
+                                시간 재계산</div>
+                            <div class="text-xs text-gray-500 mt-0.5">순서를 유지하고 시간을 자동으로 재계산합니다.</div>
+                        </div>
+                    </button>
+                </div>
+
+                <div class="mt-6 flex justify-center">
+                    <button onclick="closeSortMethodModal()"
+                        class="text-gray-400 hover:text-gray-600 text-sm font-medium px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+                        취소
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Logout Confirm Modal -->
     <div id="logout-modal"
         class="hidden fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
