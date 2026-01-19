@@ -6,6 +6,13 @@
 
 ## 2026-01-19
 
+### 10:18 - [AI] 이동수단 추가 시 자동 시간 계산 구현
+- `addTransitItem` 함수에서 이전 장소 종료 시간 기반으로 `transitInfo` 자동 생성
+- 이전 아이템이 이동수단이면 `transitInfo.end` 사용
+- 일반 장소면 `time + duration`으로 종료 시간 계산
+- 기본 30분 duration으로 도착 시간 자동 계산
+- **변경 파일**: public/js/ui-transit.js
+
 ### 10:10 - [AI] 플래너 모드 렌더러 문법 오류 수정 및 이동수단 시간 표시 구현
 - 중복된 `if (item.time)` 조건문 제거
 - 변수 선언을 조건문 밖으로 이동
