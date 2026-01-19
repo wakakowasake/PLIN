@@ -6,6 +6,51 @@
 
 ## 2026-01-19
 
+### 12:20 - [AI] 데이터 지속성 로직 재수정 및 파일 복구
+- schedule `ui.js` 구문 오류(중복 함수 선언, 잘못된 brace) 수정
+- 데이터 병합 로직(`saveNewItem`) 정상 복구 및 ID 생성 로직 적용
+
+### 14:05 - [AI] 구형 모달 제거 및 로직 클린업
+- `index.html`: 더 이상 사용하지 않는 `flight-input-modal`, `transit-input-modal` HTML 코드 완전 제거
+- `ui.js`: `editTimelineItem` 함수에서 구형 모달 호출 로직 제거 및 상세 모달(`openTransitDetailModal`)로 리다이렉트 처리
+
+### 13:55 - [AI] 컨텍스트 메뉴 및 이동수단 수정 동선 개선
+- 최적 경로 자동 생성 항목(`routeGroupId` 보유)에 대해 컨텍스트 메뉴 '수정' 버튼 제거
+- 이동수단(일반/비행기) 우클릭 '수정' 시 구형 입력 모달 대신 상세 모달(`openTransitDetailModal`)이 열리도록 변경
+- 사용자 요청 "상세 모달에서 수정 버튼을 누를 상태" 반영을 위한 동선 변경
+
+### 13:45 - [AI] 비행기 도착 시간 표시 오류 수정
+- 플래너 모드에서 비행기 도착 시간이 `NaN:NaN`으로 표시되는 문제 해결
+- `flight-manager.js`: `transitInfo`에 `start`, `end` 속성 추가 (기존 `depTime`, `arrTime`과 병행 저장)
+- `renderers.js`: `transitInfo` 시간 데이터 참조 시 `depTime`/`arrTime` fallback 로직 추가
+
+### 12:15 - [AI] 데이터 지속성 및 버그 수정 (Fixing)
+- 일정 수정 시 지출 내역, 추억, 첨부파일 등이 초기화되는 문제 수정 (ID 기반 데이터 병합 로직 추가)
+- `saveNewItem` 함수 리팩토링: 기존 데이터 보존 로직 구현
+- `ui.js` 내 `showLoading` ReferenceError 수정 (모달 함수 명시적 import)
+- **변경 파일**: public/js/ui.js
+
+### 12:02 - [AI] 추억 모달 사진 업로드 오류 수정
+- 추억 남기기 모달 열 때 미리보기 영역 초기화 로직 오류 수정
+- 필수 DOM 요소(`#memory-photo-img` 등)까지 삭제되어 클릭 시 오류가 발생하는 문제 해결
+- **변경 파일**: public/js/ui/memories.js
+
+### 11:55 - [AI] 시간 카드 너비 및 폰트 인라인 스타일 강제 적용
+- CSS 빌드 누락 시에도 스타일이 적용되도록 인라인 스타일(`style="..."`) 추가
+- `width: 74px; min-width: 74px;` 강제 적용
+- `font-variant-numeric: tabular-nums;` 강제 적용
+- **변경 파일**: public/js/ui/renderers.js
+
+### 11:45 - [AI] 시간 카드 너비 고정 (w-74px)
+- `tabular-nums`로 해결되지 않은 미세한 너비 차이 해결
+- `min-w-[70px]`(최소 너비)를 `w-[74px]`(고정 너비)로 변경하여 강제 통일
+- **변경 파일**: public/js/ui/renderers.js
+
+### 11:42 - [AI] 시간 카드 숫자에 고정폭 글꼴(tabular-nums) 적용
+- 플래너 모드 시간 카드에서 숫자 '0' 너비 차이로 인한 정렬 문제 해결
+- CSS `tabular-nums` 클래스 추가로 모든 숫자가 동일한 너비를 갖도록 수정
+- **변경 파일**: public/js/ui/renderers.js
+
 ### 10:45 - [AI] 플래너 모드 마지막 플러스 버튼 추가 및 이동수단 소요시간 입력 개선
 - 플래너 모드에서 마지막 아이템 뒤에도 플러스 버튼 추가
 - 이동수단 소요시간 입력을 숫자만 받도록 변경 (장소 카드와 동일)

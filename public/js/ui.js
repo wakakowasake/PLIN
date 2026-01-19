@@ -1601,18 +1601,12 @@ export function editTimelineItem(index, dayIndex = currentDayIndex) {
 
     const item = travelData.days[targetDayIndex].timeline[index];
 
-    // 이동 수단(Transit)인 경우 전용 모달(상세 모달) 호출
+    // 이동 수단(Transit)인 경우 전용 입력/수정 모달(구형) 호출
     if (item.isTransit) {
-        if (window.openTransitDetailModal) {
-            window.openTransitDetailModal(item, index, targetDayIndex);
-
-            // [User Request] Trigger 'Edit Mode' if possible
-            // Currently, openTransitDetailModal opens the detail view. 
-            // The user requested "edit button pressed state" but as per plan, we redirect to detail modal first.
-            // If we wanted to immediately trigger edit:
-            // setTimeout(() => { if(window.editCurrentTransitItem) window.editCurrentTransitItem(); }, 200);
-            // However, editCurrentTransitItem currently opens the OLD modal which we are deleting. 
-            // So we just stop at opening the detail modal which is the new "hub" for these items.
+        if (item.tag === '비행기' && window.openFlightInputModal) {
+            window.openFlightInputModal(index);
+        } else if (window.openTransitInputModal) {
+            window.openTransitInputModal(index);
         }
         return;
     }
@@ -2602,12 +2596,11 @@ window.touchEnd = touchEnd;
 window.openAddModal = openAddModal;
 window.closeAddModal = closeAddModal;
 window.reorderTimeline = reorderTimeline;
-window.openTransitDetailModal = openTransitDetailModal;
-window.closeTransitDetailModal = closeTransitDetailModal;
-window.editCurrentTransitItem = editCurrentTransitItem;
-window.saveTransitDetailItem = saveTransitDetailItem; // [Added]
-window.deleteCurrentTransitItem = deleteCurrentTransitItem;
-window.closeDeleteTransitModal = closeDeleteTransitModal;
+window.selectAddType = Modals.selectAddType;
+window.openLocationSearch = openLocationSearch;
+window.addTimelineItem = addTimelineItem;
+window.editTimelineItem = editTimelineItem;
+window.closeModal = closeModal;
 window.setDuration = setDuration;
 window.addNoteItem = addNoteItem;
 window.saveNewItem = saveNewItem;

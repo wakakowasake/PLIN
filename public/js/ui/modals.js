@@ -579,7 +579,7 @@ export function ensureMemoryModal() {
         // 이벤트 리스너 연결
         document.getElementById('memory-photo-preview').addEventListener('click', () => {
             const img = document.getElementById('memory-photo-img');
-            if (img && img.classList.contains('hidden')) {
+            if (img.classList.contains('hidden')) {
                 document.getElementById('memory-photo-input').click();
             }
         });

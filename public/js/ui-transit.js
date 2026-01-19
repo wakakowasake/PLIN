@@ -507,151 +507,19 @@ export function saveTransitItem() {
 
 // [Transit Detail Modal Logic]
 export function openTransitDetailModal(item, index, dayIndex) {
-
     setViewingItemIndex(index);
     setTargetDayIndex(dayIndex);
-    const modal = document.getElementById('transit-detail-modal');
 
-    document.getElementById('transit-detail-icon').innerText = item.icon;
-    document.getElementById('transit-detail-title').innerHTML = item.title;
-    document.getElementById('transit-detail-time').innerText = item.time;
+    // Use the Unified Detail Modal (item-detail-modal) instead of the old one
+    const modal = document.getElementById('item-detail-modal');
 
-    const tInfo = item.transitInfo || {};
-    document.getElementById('transit-detail-start-val').value = tInfo.start || '';
-    document.getElementById('transit-detail-end-val').value = tInfo.end || '';
+    // 1. Basic Info Population
+    document.getElementById('detail-tag').innerText = item.tag || '이동';
+    document.getElementById('detail-time').innerText = item.time || '';
+    document.getElementById('detail-title').innerHTML = item.title;
+    document.getElementById('detail-note').value = item.note || "";
 
-    let publicInfoEl = document.getElementById('transit-detail-public-info');
-    if (!publicInfoEl) {
-        publicInfoEl = document.createElement('div');
-        publicInfoEl.id = 'transit-detail-public-info';
-        publicInfoEl.className = "w-full mb-6 bg-gray-50 dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700 hidden";
-        const timeEl = document.getElementById('transit-detail-time').parentElement;
-        timeEl.after(publicInfoEl);
-    }
-
-    if (['버스', '전철', '기차', '지하철'].some(t => item.tag && item.tag.includes(t)) && (tInfo.depStop || tInfo.arrStop)) {
-        publicInfoEl.classList.remove('hidden');
-
-        let statusHtml = '';
-        if (tInfo.start) {
-            const dayDate = travelData.days[dayIndex].date;
-            if (dayDate) {
-                const [h, m] = tInfo.start.split(':').map(Number);
-                const target = new Date(dayDate);
-                target.setHours(h, m, 0, 0);
-                const now = new Date();
-
-                if (target.toDateString() === now.toDateString()) {
-                    const diff = Math.floor((target - now) / 60000);
-                    if (diff > 0) statusHtml = `<span class="text-red-500 font-bold animate-pulse">${diff}분 후 도착</span>`;
-                    else if (diff > -10) statusHtml = `<span class="text-gray-500 font-bold">도착/출발함</span>`;
-                }
-            }
-        }
-
-        publicInfoEl.innerHTML = `
-            <div class="grid grid-cols-[1fr_auto_1fr] gap-2 items-center text-center mb-3">
-                <div class="flex flex-col items-center min-w-0">
-                    <span class="text-[10px] text-gray-400 uppercase font-bold mb-1">출발</span>
-                    <span class="font-bold text-sm text-gray-800 dark:text-white leading-tight truncate w-full">${tInfo.depStop || '출발지'}</span>
-                    <span class="text-xs text-primary font-bold mt-1">${tInfo.start || '--:--'}</span>
-                </div>
-                <div class="text-gray-300"><span class="material-symbols-outlined">arrow_forward</span></div>
-                <div class="flex flex-col items-center min-w-0">
-                    <span class="text-[10px] text-gray-400 uppercase font-bold mb-1">도착</span>
-                    <span class="font-bold text-sm text-gray-800 dark:text-white leading-tight truncate w-full">${tInfo.arrStop || '도착지'}</span>
-                    <span class="text-xs text-gray-500 mt-1">${tInfo.end || '--:--'}</span>
-                </div>
-            </div>
-            ${tInfo.headsign ? `
-            <div class="flex justify-between items-center border-t border-gray-200 dark:border-gray-600 pt-3">
-                <span class="text-xs text-gray-500">방향</span>
-                <span class="text-sm font-bold text-gray-800 dark:text-white truncate ml-2">${tInfo.headsign}</span>
-            </div>` : ''}
-            ${statusHtml ? `
-            <div class="flex justify-between items-center mt-2">
-                <span class="text-xs text-gray-500">실시간 현황</span>
-                ${statusHtml}
-            </div>` : ''}
-        `;
-    } else {
-        publicInfoEl.classList.add('hidden');
-    }
-
-    const flightInfoEl = document.getElementById('transit-detail-flight-info');
-    const searchBtnEl = document.getElementById('transit-detail-search-btn');
-
-    if (item.tag === '비행기') {
-        const info = item.transitInfo || {};
-
-        document.getElementById('transit-detail-pnr').innerText = info.pnr ? info.pnr.toUpperCase() : '미정';
-        document.getElementById('transit-detail-terminal').innerText = info.terminal ? info.terminal.toUpperCase() : '미정';
-        document.getElementById('transit-detail-gate').innerText = info.gate ? info.gate.toUpperCase() : '미정';
-
-        flightInfoEl.classList.remove('hidden');
-
-        let flightNum = info.flightNum || (item.title.match(/\(([^)]+)\)/) ? item.title.match(/\(([^)]+)\)/)[1] : '');
-        flightNum = flightNum.toUpperCase();
-
-        if (flightNum) {
-            searchBtnEl.classList.remove('hidden');
-            searchBtnEl.innerHTML = `<span class="material-symbols-outlined text-base">search</span> 항공편 검색`;
-            searchBtnEl.onclick = () => window.open(`https://www.google.com/search?q=${encodeURIComponent(flightNum + " 항공편")}`, '_blank');
-        } else {
-            searchBtnEl.classList.add('hidden');
-        }
-    } else {
-        if (flightInfoEl) flightInfoEl.classList.add('hidden');
-
-        if (searchBtnEl) {
-            const timeline = travelData.days[dayIndex].timeline;
-
-            const findLocItem = (start, dir) => {
-                let i = start;
-                while (i >= 0 && i < timeline.length) {
-                    const it = timeline[i];
-                    if ((it.lat && it.lng) || (!it.isTransit && it.tag !== '메모' && it.location && it.location !== '위치')) {
-                        return it;
-                    }
-                    i += dir;
-                }
-                return null;
-            };
-
-            const originItem = findLocItem(index - 1, -1);
-            const destItem = findLocItem(index + 1, 1);
-
-            if (originItem && destItem) {
-                searchBtnEl.classList.remove('hidden');
-                searchBtnEl.innerHTML = `<span class="material-symbols-outlined text-base">map</span> 경로 보기`;
-                searchBtnEl.onclick = () => {
-                    const getLocStr = (it) => {
-                        if (it.location && it.location !== '위치') {
-                            return it.location;
-                        }
-                        if (it.title) {
-                            return it.title;
-                        }
-                        if (it.lat && it.lng) {
-                            return `${it.lat},${it.lng}`;
-                        }
-                        return '';
-                    };
-                    const origin = encodeURIComponent(getLocStr(originItem));
-                    const destination = encodeURIComponent(getLocStr(destItem));
-
-                    let mode = 'transit';
-                    if (item.tag === '도보') mode = 'walking';
-                    else if (item.tag === '차량') mode = 'driving';
-
-                    window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=${mode}`, '_blank');
-                };
-            } else {
-                searchBtnEl.classList.add('hidden');
-            }
-        }
-    }
-
+    // 2. Route Text (Location)
     const timeline = travelData.days[dayIndex].timeline;
     const prevItem = index > 0 ? timeline[index - 1] : null;
     const nextItem = index < timeline.length - 1 ? timeline[index + 1] : null;
@@ -659,98 +527,139 @@ export function openTransitDetailModal(item, index, dayIndex) {
     const nextLoc = nextItem ? (nextItem.title || "도착지") : "도착지";
 
     let routeText = `${prevLoc} ➡️ ${nextLoc}`;
+    const tInfo = item.transitInfo || {};
 
-    // 비행기인 경우 공항 정보 우선 표시
     if (item.tag === '비행기' && item.location && item.location.includes('✈️')) {
         routeText = item.location;
-    }
-    // 대중교통인 경우 환승지 정보가 있으면 표시
-    else if (tInfo.depStop && tInfo.arrStop && ['버스', '전철', '기차', '지하철'].some(t => item.tag && item.tag.includes(t))) {
+    } else if (tInfo.depStop && tInfo.arrStop) {
         routeText = `${tInfo.depStop} ➡️ ${tInfo.arrStop}`;
     }
+    document.getElementById('detail-location-text').innerText = routeText;
 
-    document.getElementById('transit-detail-route').innerText = routeText;
-
-    document.getElementById('transit-detail-note').innerText = item.note || "메모가 없습니다.";
-
-    // Detailed Steps (Ekispert 등 다단계 경로)
-    const stepsContainer = document.getElementById('transit-detail-steps');
-    const stepsList = document.getElementById('transit-detail-steps-list');
-
-    if (item.detailedSteps && item.detailedSteps.length > 0) {
-        stepsContainer.classList.remove('hidden');
-        stepsList.innerHTML = '';
-
-        item.detailedSteps.forEach((step, idx) => {
-            const stepCard = document.createElement('div');
-            stepCard.className = 'bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center gap-3';
-
-            // 태그 색상 처리 (노선명/번호)
-            let tagHtml = '';
-            if (step.color && (step.color.startsWith('rgb') || step.color.startsWith('#'))) {
-                // RGB 색상값(Ekispert) 또는 Hex 색상값(Google Maps) 사용
-                const bgColor = step.color;
-                const txtColor = step.textColor || 'white';
-                tagHtml = `<span style="background-color: ${bgColor}; color: ${txtColor};" class="px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">${step.tag}</span>`;
-            } else if (step.tagColor && step.tagColor.startsWith('rgb')) {
-                // 하위 호환성
-                tagHtml = `<span style="background-color: ${step.tagColor}; color: white;" class="px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">${step.tag}</span>`;
-            } else {
-                // Tailwind 클래스 사용
-                const colorMap = {
-                    'blue': 'bg-blue-500 text-white',
-                    'green': 'bg-green-500 text-white',
-                    'red': 'bg-red-500 text-white',
-                    'orange': 'bg-orange-500 text-white',
-                    'purple': 'bg-purple-500 text-white',
-                    'gray': 'bg-gray-500 text-white'
-                };
-                const tagClass = colorMap[step.tagColor] || 'bg-blue-500 text-white';
-                tagHtml = `<span class="px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap ${tagClass}">${step.tag}</span>`;
-            }
-
-            // 이동수단 타입 태그 생성 (오른쪽)
-            let typeTagHtml = '';
-            if (step.type) {
-                const typeMap = {
-                    'walk': { label: '도보', class: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' },
-                    'bus': { label: '버스', class: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' },
-                    'subway': { label: '전철', class: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
-                    'train': { label: '기차', class: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300' },
-                    'airplane': { label: '비행기', class: 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300' },
-                    'ship': { label: '배', class: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300' },
-                    'car': { label: '차량', class: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' }
-                };
-                const typeInfo = typeMap[step.type] || { label: step.type, class: 'bg-gray-100 text-gray-700' };
-                typeTagHtml = `<span class="px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap ${typeInfo.class}">${typeInfo.label}</span>`;
-            }
-
-            // 오른쪽에 항상 타입 태그가 붙도록 렌더링
-            stepCard.innerHTML = `
-                <span class="material-symbols-outlined text-gray-600 dark:text-gray-300">${step.icon}</span>
-                <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2 mb-1">
-                        ${tagHtml}
-                        <span class="text-xs text-gray-500 dark:text-gray-400">${step.time}</span>
-                    </div>
-                    <p class="text-sm font-bold text-gray-800 dark:text-white truncate">${step.title}</p>
-                    ${step.transitInfo?.depStop && step.transitInfo?.arrStop ? `
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        ${step.transitInfo.depStop} → ${step.transitInfo.arrStop}
-                        ${step.transitInfo.stopCount ? ` (${step.transitInfo.stopCount}정거장)` : ''}
-                    </p>
-                    ` : ''}
-                </div>
-                <div class="flex-shrink-0">${typeTagHtml}</div>
-            `;
-            stepsList.appendChild(stepCard);
-        });
+    // 3. Inject Transit Specific Info (Flight Stats, Steps)
+    // Check if we already injected a container
+    let transitContainer = document.getElementById('detail-transit-container');
+    if (transitContainer) {
+        transitContainer.innerHTML = '';
+        transitContainer.classList.remove('hidden');
     } else {
-        stepsContainer.classList.add('hidden');
+        transitContainer = document.createElement('div');
+        transitContainer.id = 'detail-transit-container';
+        transitContainer.className = 'flex flex-col gap-4 mb-4';
+        // Insert before Note section
+        const noteSection = document.getElementById('detail-note').parentElement;
+        noteSection.before(transitContainer);
     }
 
-    renderAttachments(item, 'transit-attachment-list');
+    // A. Flight Info
+    if (item.tag === '비행기') {
+        const info = item.transitInfo || {};
+        const flightHtml = `
+            <div class="grid grid-cols-3 gap-2">
+                <div class="bg-gray-50 dark:bg-gray-800 p-2 rounded-xl text-center">
+                    <p class="text-[10px] font-bold text-gray-400 uppercase mb-1">예약번호</p>
+                    <p class="text-sm font-bold text-text-main dark:text-white truncate">${info.pnr ? info.pnr.toUpperCase() : '-'}</p>
+                </div>
+                <div class="bg-gray-50 dark:bg-gray-800 p-2 rounded-xl text-center">
+                    <p class="text-[10px] font-bold text-gray-400 uppercase mb-1">터미널</p>
+                    <p class="text-sm font-bold text-text-main dark:text-white truncate">${info.terminal ? info.terminal.toUpperCase() : '-'}</p>
+                </div>
+                <div class="bg-gray-50 dark:bg-gray-800 p-2 rounded-xl text-center">
+                    <p class="text-[10px] font-bold text-gray-400 uppercase mb-1">게이트</p>
+                    <p class="text-sm font-bold text-text-main dark:text-white truncate">${info.gate ? info.gate.toUpperCase() : '-'}</p>
+                </div>
+            </div>
+            ${info.flightNum ? `
+            <button type="button" onclick="window.open('https://www.google.com/search?q=${encodeURIComponent(info.flightNum + " 항공편")}', '_blank')"
+                class="w-full py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300 rounded-xl font-bold hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors flex items-center justify-center gap-2 text-sm">
+                <span class="material-symbols-outlined text-base">search</span> 항공편 검색
+            </button>` : ''}
+        `;
+        transitContainer.innerHTML = flightHtml;
+    }
+    // B. Transit Steps (Ekispert)
+    else if (item.detailedSteps && item.detailedSteps.length > 0) {
+        const stepsHtml = `
+            <div class="w-full text-left">
+                <p class="text-xs font-bold text-gray-400 uppercase mb-3">경로 상세</p>
+                <div class="space-y-2">
+                    ${item.detailedSteps.map(step => {
+            // Tag generation logic reused
+            let tagHtml = '';
+            if (step.color) {
+                tagHtml = `<span style="background-color: ${step.color}; color: ${step.textColor || 'white'};" class="px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">${step.tag}</span>`;
+            } else {
+                tagHtml = `<span class="px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap bg-blue-500 text-white">${step.tag}</span>`;
+            }
 
+            return `
+                        <div class="bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center gap-3">
+                            <span class="material-symbols-outlined text-gray-600 dark:text-gray-300">${step.icon}</span>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-1">
+                                    ${tagHtml}
+                                    <span class="text-xs text-gray-500 dark:text-gray-400">${step.time}</span>
+                                </div>
+                                <p class="text-sm font-bold text-gray-800 dark:text-white truncate">${step.title}</p>
+                            </div>
+                        </div>`;
+        }).join('')}
+                </div>
+            </div>
+       `;
+        transitContainer.innerHTML = stepsHtml;
+    } else {
+        // No specific transit info to show
+        transitContainer.classList.add('hidden');
+    }
+
+    // 4. Map Handling
+    // Hide default map section for transit unless we have coordinates or can search
+    const mapSection = document.getElementById('detail-map-section');
+    /* 
+       For transit, usually we check 'detailedSteps' or simple start/end.
+       We can try to show a Google Maps Embed if we have coords, but typically transit items represent a path.
+       We'll disable the embedded map for transit to avoid confusion, or implement route display later.
+       For now, focusing on cleaning up the modal.
+    */
+    mapSection.classList.add('hidden');
+
+    // 5. Hide Expense/Memories for now (or keep them if user wants?)
+    // Transit items *can* have expenses attached. So we should render them.
+    // The unified modal has #detail-expense-list.
+    // We need to ensure ui.js functions populate these. 
+    // Since we are not calling ui.js's openDetailModal, we must manually populate expenses.
+
+    // Render Expenses
+    const expenseList = document.getElementById('detail-expense-list');
+    const totalBudgetEl = document.getElementById('detail-total-budget');
+    expenseList.innerHTML = '';
+    let total = 0;
+
+    if (item.expenses && item.expenses.length > 0) {
+        item.expenses.forEach((exp, idx) => {
+            total += Number(exp.amount || 0);
+            const div = document.createElement('div');
+            div.className = 'flex justify-between items-center bg-gray-50 dark:bg-gray-800 p-3 rounded-xl';
+            div.innerHTML = `
+               <div class="flex flex-col">
+                   <span class="text-sm font-medium text-gray-800 dark:text-gray-200">${exp.description}</span>
+                   <span class="text-xs text-gray-400">${exp.category || '기타'}</span>
+               </div>
+               <div class="flex items-center gap-2">
+                   <span class="text-sm font-bold text-gray-800 dark:text-gray-200">₩${Number(exp.amount).toLocaleString()}</span>
+                   <button onclick="deleteExpenseFromDetail(${dayIndex}, ${index}, ${idx})" class="text-gray-400 hover:text-red-500"><span class="material-symbols-outlined text-sm">close</span></button>
+               </div>
+            `;
+            expenseList.appendChild(div);
+        });
+    }
+    totalBudgetEl.value = total.toLocaleString();
+
+    // Render Attachments
+    renderAttachments(item, 'detail-attachment-list');
+
+    // 6. Show Modal
     modal.classList.remove('hidden');
 }
 
@@ -760,148 +669,21 @@ export function closeTransitDetailModal(fromHistory = false) {
 }
 
 export function editCurrentTransitItem() {
-    if (viewingItemIndex === null) return;
+    if (viewingItemIndex !== null) {
+        const idx = viewingItemIndex;
 
-    const modal = document.getElementById('transit-detail-modal');
-    const container = modal.querySelector('.p-8');
-    if (!container) return;
+        const savedStart = document.getElementById('transit-detail-start-val').value;
+        const savedEnd = document.getElementById('transit-detail-end-val').value;
 
-    // 1. 이미 수정 모드인지 확인 (저장 버튼이 있는지 확인)
-    const saveBtn = document.getElementById('btn-save-transit-detail');
-    if (saveBtn) return; // 이미 수정 모드임
-
-    // 2. 현재 값 가져오기
-    const startVal = document.getElementById('transit-detail-start-val').value;
-    const endVal = document.getElementById('transit-detail-end-val').value;
-    const noteVal = document.getElementById('transit-detail-note').innerText;
-    const isNoteEmpty = noteVal === "메모가 없습니다.";
-
-    // 3. UI 변환 (Display -> Input)
-
-    // 3-1. 시간 관련 UI 숨기기
-    const durationEl = document.getElementById('transit-detail-time').parentElement; // 소요시간 박스
-    const routeEl = document.getElementById('transit-detail-route'); // 경로 텍스트
-    const publicInfoEl = document.getElementById('transit-detail-public-info'); // 대중교통 정보 박스
-
-    durationEl.classList.add('hidden');
-    routeEl.classList.add('hidden');
-    if (publicInfoEl) publicInfoEl.classList.add('hidden');
-
-    // 3-2. 시간 입력 UI 삽입 (소요시간 박스 위치에)
-    const timeInputHtml = `
-        <div id="transit-edit-time-container" class="w-full bg-gray-50 dark:bg-gray-800 rounded-2xl p-4 mb-6 animate-fade-in-up">
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">출발 시간</label>
-                    <input id="edit-transit-start" type="time" value="${startVal}"
-                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-lg font-bold text-center">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">도착 시간</label>
-                    <input id="edit-transit-end" type="time" value="${endVal}"
-                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-lg font-bold text-center">
-                </div>
-            </div>
-            <p id="edit-transit-duration" class="text-center text-primary font-bold mt-3 text-lg">--</p>
-        </div>
-    `;
-    durationEl.insertAdjacentHTML('afterend', timeInputHtml);
-
-    // 시간 변경 시 소요시간 자동 계산 리스너 등록
-    const startInput = document.getElementById('edit-transit-start');
-    const endInput = document.getElementById('edit-transit-end');
-
-    const updateDuration = () => {
-        const s = startInput.value;
-        const e = endInput.value;
-        const disp = document.getElementById('edit-transit-duration');
-        if (s && e) {
-            const [h1, m1] = s.split(':').map(Number);
-            const [h2, m2] = e.split(':').map(Number);
-            let diff = (h2 * 60 + m2) - (h1 * 60 + m1);
-            if (diff < 0) diff += 24 * 60;
-            const h = Math.floor(diff / 60);
-            const m = diff % 60;
-            disp.innerText = (h > 0 ? `${h}시간 ` : '') + `${m}분`;
-        } else {
-            disp.innerText = '--';
-        }
-    };
-
-    startInput.addEventListener('change', updateDuration);
-    endInput.addEventListener('change', updateDuration);
-    updateDuration(); // 초기 계산
-
-    // 3-3. 메모 UI 변환
-    const noteNoteContainer = document.getElementById('transit-detail-note').parentElement;
-    noteNoteContainer.classList.add('hidden');
-
-    const noteInputHtml = `
-        <div id="transit-edit-note-container" class="w-full mb-6">
-            <label class="block text-xs font-bold text-gray-400 uppercase mb-1">메모 수정</label>
-            <textarea id="edit-transit-note" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 h-24 resize-none" placeholder="메모를 입력하세요">${isNoteEmpty ? '' : noteVal}</textarea>
-        </div>
-    `;
-    noteNoteContainer.insertAdjacentHTML('afterend', noteInputHtml);
-
-    // 3-4. 버튼 변경 (수정 -> 저장)
-    const editBtn = container.querySelector('button[onclick="editCurrentTransitItem()"]');
-    if (editBtn) {
-        editBtn.innerHTML = `<span class="material-symbols-outlined text-sm">save</span> 저장`;
-        editBtn.setAttribute('onclick', 'saveTransitDetailItem()');
-        editBtn.id = 'btn-save-transit-detail';
-        editBtn.classList.remove('bg-gray-100', 'hover:bg-gray-200', 'dark:bg-gray-700', 'dark:hover:bg-gray-600', 'text-gray-700', 'dark:text-gray-200');
-        editBtn.classList.add('bg-primary', 'text-white', 'hover:bg-orange-500', 'shadow-lg');
+        setIsEditingFromDetail(true);
+        closeTransitDetailModal();
+        setTimeout(() => {
+            editTimelineItem(idx, targetDayIndex);
+            if (savedStart) document.getElementById('transit-start-time').value = savedStart;
+            if (savedEnd) document.getElementById('transit-end-time').value = savedEnd;
+            calculateTransitDuration();
+        }, 50);
     }
-}
-
-export function saveTransitDetailItem() {
-    if (viewingItemIndex === null) return;
-
-    const start = document.getElementById('edit-transit-start').value;
-    const end = document.getElementById('edit-transit-end').value;
-    const note = document.getElementById('edit-transit-note').value;
-
-    if (!start) {
-        alert("출발 시간을 입력해주세요.");
-        return;
-    }
-
-    // 데이터 업데이트
-    const item = travelData.days[targetDayIndex].timeline[viewingItemIndex];
-
-    // 시간 계산 및 업데이트
-    let durationStr = "30분";
-    if (start && end) {
-        const [h1, m1] = start.split(':').map(Number);
-        const [h2, m2] = end.split(':').map(Number);
-        let diff = (h2 * 60 + m2) - (h1 * 60 + m1);
-        if (diff < 0) diff += 24 * 60;
-        const h = Math.floor(diff / 60);
-        const m = diff % 60;
-        durationStr = (h > 0 ? `${h}시간 ` : '') + `${m}분`;
-    }
-
-    item.time = durationStr;
-    item.duration = durationStr; // 혹시 몰라 같이 업데이트
-    item.note = note;
-
-    // transitInfo 업데이트 (기존 정보 유지하면서 시간만 변경)
-    if (!item.transitInfo) item.transitInfo = {};
-    item.transitInfo.start = start;
-    item.transitInfo.end = end; // end가 비어있으면 undefined 들어가도 괜찮음 (렌더링 시 체크함)
-
-    setTravelData(travelData);
-    autoSave();
-
-    // UI 복구 및 갱신 (모달을 닫았다가 다시 열거나, View 모드로 전환)
-    // 여기서는 간단하게 모달을 닫고 타임라인을 갱신
-    closeTransitDetailModal();
-    renderItinerary();
-
-    // 만약 사용자가 수정을 했음을 명확히 알리고 싶다면
-    // 다시 openTransitDetailModal(item, viewingItemIndex, targetDayIndex) 호출 가능
-    // 하지만 보통 저장 후엔 목록으로 돌아가는 것이 깔끔
 }
 
 export function deleteCurrentTransitItem() {
