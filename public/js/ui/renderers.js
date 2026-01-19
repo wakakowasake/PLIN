@@ -279,22 +279,17 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
 
     let html = `
         <div ${draggableAttr} ontouchstart="touchStart(event, ${index}, 'item')" ontouchmove="touchMove(event)" ontouchend="touchEnd(event)" data-index="${index}" style="z-index: ${zIndex};" 
-            class="relative grid grid-cols-[auto_1fr] gap-x-3 md:gap-x-6 group/timeline-item pb-8 timeline-item-transition rounded-xl" ${contextHandler}>
+            class="relative grid grid-cols-[auto_1fr] gap-x-3 md:gap-x-6 group/timeline-item timeline-item-transition rounded-xl" ${contextHandler}>
             <div class="drag-indicator absolute -top-3 left-0 right-0 h-1 bg-primary rounded-full hidden z-50 shadow-sm pointer-events-none"></div>
             
             <!-- 시간 카드 (기존 아이콘 위치) -->
-            <div class="relative flex flex-col items-center" data-timeline-icon="true">
+            <div class="relative flex flex-col" data-timeline-icon="true">
                 <div class="absolute ${linePosition} w-0.5 ${lineStyle} timeline-vertical-line"></div>
-                <div class="relative z-10 flex flex-col items-center justify-center bg-white dark:bg-card-dark border-2 border-primary/30 rounded-xl px-3 py-2 shadow-sm min-w-[70px] mt-1">
+                <div class="relative z-10 h-full flex flex-col items-center justify-start bg-white dark:bg-card-dark border-2 border-primary/30 rounded-xl px-3 py-3 shadow-sm min-w-[70px] mt-1">
                     <div class="font-bold text-primary text-sm planner-time-label leading-tight">${startTime}</div>
                     <div class="text-xs text-primary/50 my-0.5">↓</div>
                     <div class="font-bold text-primary text-sm planner-time-label leading-tight">${endTime}</div>
                 </div>
-                ${!isMemoryLocked ? `<div class="absolute -bottom-8 left-1/2 -translate-x-1/2 z-20 add-item-btn-container transition-opacity duration-200">
-                    <button type="button" onclick="openAddModal(${index}, ${dayIndex})" class="w-8 h-8 rounded-full bg-white dark:bg-card-dark border border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-400 hover:text-primary hover:border-primary transition-colors shadow-sm cursor-pointer transform hover:scale-110" title="일정 추가">
-                        <span class="material-symbols-outlined text-lg">add</span>
-                    </button>
-                </div>` : ''}
             </div>
             
             <!-- 카드 내용 -->
@@ -316,6 +311,22 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
             </div>
         </div>
     `;
+
+
+    // 플래너 모드에서 마지막 아이템이 아니면 플러스 버튼과 함께 구분선 추가
+    if (!isLast && !isMemoryLocked) {
+        html += `
+            <div class="relative flex items-center gap-3 my-4">
+                <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+                <button type="button" onclick="openAddModal(${index}, ${dayIndex})" 
+                    class="w-8 h-8 rounded-full bg-white dark:bg-card-dark border-2 border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-400 hover:text-primary hover:border-primary transition-colors shadow-sm cursor-pointer transform hover:scale-110 z-10" 
+                    title="일정 추가">
+                    <span class="material-symbols-outlined text-lg">add</span>
+                </button>
+                <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+            </div>
+        `;
+    }
 
     return html;
 }
