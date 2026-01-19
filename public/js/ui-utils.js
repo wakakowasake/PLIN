@@ -1,16 +1,16 @@
 // d:\SoongSil Univ\piln\public\js\ui-utils.js
 export function parseTimeStr(str) {
-    if(!str) return null;
+    if (!str) return null;
     let isPM = str.includes('오후') || str.toLowerCase().includes('pm');
     let isAM = str.includes('오전') || str.toLowerCase().includes('am');
     let timeParts = str.replace(/[^0-9:]/g, '').split(':');
-    if(timeParts.length < 2) return null;
+    if (timeParts.length < 2) return null;
     let h = parseInt(timeParts[0]);
     let m = parseInt(timeParts[1]);
-    
+
     if (isPM && h < 12) h += 12;
     if (isAM && h === 12) h = 0;
-    
+
     return h * 60 + m;
 }
 
@@ -45,7 +45,8 @@ export function parseDurationStr(str) {
 export function formatDuration(minutes) {
     const h = Math.floor(minutes / 60);
     const m = minutes % 60;
-    if (h > 0) return `${h}시간 ${m}분`;
+    if (h > 0 && m > 0) return `${h}시간 ${m}분`;
+    if (h > 0) return `${h}시간`;
     return `${m}분`;
 }
 
@@ -61,8 +62,8 @@ export function calculateStraightDistance(p1, p2) {
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLng = (lng2 - lng1) * Math.PI / 180;
     const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLng / 2) * Math.sin(dLng / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
 }
