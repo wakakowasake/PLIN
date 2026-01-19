@@ -272,23 +272,33 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
         }
     }
 
-    // border 스타일 - 마지막 아이템은 border 없음
-    const borderClass = isLast ? '' : 'border-b border-gray-100 dark:border-gray-800';
+    // 세로선 스타일 (간단 모드와 동일)
+    const lineStyle = isLast ? `bg-gradient-to-b from-gray-200 to-transparent dark:from-gray-700` : `bg-gray-200 dark:bg-gray-700`;
+    const linePosition = isFirst ? 'top-6 -bottom-8' : 'top-0 -bottom-8';
+    const zIndex = 100 - index;
 
     let html = `
-        <div ${draggableAttr} ontouchstart="touchStart(event, ${index}, 'item')" ontouchmove="touchMove(event)" ontouchend="touchEnd(event)" data-index="${index}" 
-            class="group/timeline-item grid grid-cols-[120px_1fr] gap-3 md:gap-6 py-4 ${borderClass}" ${contextHandler}>
+        <div ${draggableAttr} ontouchstart="touchStart(event, ${index}, 'item')" ontouchmove="touchMove(event)" ontouchend="touchEnd(event)" data-index="${index}" style="z-index: ${zIndex};" 
+            class="relative grid grid-cols-[auto_1fr] gap-x-3 md:gap-x-6 group/timeline-item pb-8 timeline-item-transition rounded-xl" ${contextHandler}>
             <div class="drag-indicator absolute -top-3 left-0 right-0 h-1 bg-primary rounded-full hidden z-50 shadow-sm pointer-events-none"></div>
             
-            <!-- 시간 레이블 -->
-            <div class="flex flex-col items-end justify-start pr-4 border-r-2 border-primary/20 dark:border-primary/30">
-                <div class="font-bold text-primary text-sm planner-time-label">${startTime}</div>
-                <div class="text-xs text-gray-400 my-0.5">↓</div>
-                <div class="font-bold text-primary text-sm planner-time-label">${endTime}</div>
+            <!-- 시간 카드 (기존 아이콘 위치) -->
+            <div class="relative flex flex-col items-center" data-timeline-icon="true">
+                <div class="absolute ${linePosition} w-0.5 ${lineStyle} timeline-vertical-line"></div>
+                <div class="relative z-10 flex flex-col items-center justify-center bg-white dark:bg-card-dark border-2 border-primary/30 rounded-xl px-3 py-2 shadow-sm min-w-[70px]">
+                    <div class="font-bold text-primary text-sm planner-time-label leading-tight">${startTime}</div>
+                    <div class="text-xs text-primary/50 my-0.5">↓</div>
+                    <div class="font-bold text-primary text-sm planner-time-label leading-tight">${endTime}</div>
+                </div>
+                ${!isMemoryLocked ? `<div class="absolute -bottom-8 left-1/2 -translate-x-1/2 z-20 add-item-btn-container transition-opacity duration-200">
+                    <button type="button" onclick="openAddModal(${index}, ${dayIndex})" class="w-8 h-8 rounded-full bg-white dark:bg-card-dark border border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-400 hover:text-primary hover:border-primary transition-colors shadow-sm cursor-pointer transform hover:scale-110" title="일정 추가">
+                        <span class="material-symbols-outlined text-lg">add</span>
+                    </button>
+                </div>` : ''}
             </div>
             
             <!-- 카드 내용 -->
-            <div class="min-w-0">
+            <div class="pb-2 pt-1 flex flex-col justify-center min-w-0">
     `;
 
     // Content variants (Same as simple mode but without icon)
