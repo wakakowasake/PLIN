@@ -16,11 +16,9 @@ import { parseTimeStr, formatTimeStr, parseDurationStr, formatDuration, minutesT
 import * as Helpers from './ui/helpers.js';
 import { doc, getDoc, updateDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 
-// [IMPORTS UPDATED] Explicitly import loading functions
-// [IMPORTS UPDATED] Explicitly import loading functions
 import { showLoading, hideLoading } from './ui/modals.js';
+import * as Modals from './ui/modals.js';
 import * as Header from './ui/header.js';
-
 // ... (existing imports) ...
 
 import * as Renderers from './ui/renderers.js?v=1.1.7';
