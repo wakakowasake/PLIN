@@ -4,7 +4,22 @@
 
 ---
 
+## 2026-01-20
+
+### 09:37 - [AI] 비행기 모달 z-index 및 출발시간 기본값 버그 수정
+- **z-index 계층 수정**: 비행기 입력 모달의 z-index를 z-[120]에서 z-[130]으로 상향 조정하여, 커스텀 시간 선택 모달(z-[140])이 비행기 모달 위에 정상적으로 표시되도록 계층 구조 개선
+- **출발시간 필드 버그 수정**: 비행기 편집 모달에서 `item.time`(소요시간, 예: "30분")이 출발시간 필드에 잘못 들어가는 버그 수정. `departureTime`이 없으면 빈 문자열 표시하도록 변경
+- **변경 파일**: public/index.html, public/js/ui-transit.js
+
+### 09:26 - [AI] index.html CSP 설정에 Ekispert 프록시 주소 추가
+- **CSP 정책 수정**: Content Security Policy의 `connect-src`에 `https://api-hkrwkegcrq-uc.a.run.app` 추가
+- **효과**: Ekispert API 프록시 서버 호출 시 발생하던 "Failed to fetch" CSP 위반 오류 해결
+- **변경 파일**: public/index.html
+
+---
+
 ## 2026-01-19
+
 
 ### 23:45 - [AI] 비행 소요 시간 계산 변수 스코프 수정
 - **버그 수정**: `saveFlightItem` 함수 내 `diff` 변수의 스코프 문제로 인해 소요 시간이 제대로 저장되지 않던 문제를 최종 수정

@@ -2220,7 +2220,7 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
     if (!modal) {
         modal = document.createElement('div');
         modal.id = 'route-detail-modal';
-        modal.className = 'fixed inset-0 bg-black/50 z-[99999] hidden flex items-center justify-center p-4';
+        modal.className = 'fixed inset-0 bg-black/50 z-[130] hidden flex items-center justify-center p-4';
         modal.onclick = (e) => {
             if (e.target === modal) closeRouteDetailModal();
         };
