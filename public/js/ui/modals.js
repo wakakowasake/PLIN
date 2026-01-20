@@ -370,13 +370,23 @@ export function openLightbox(dayIndex, itemIndex, memoryIndex) {
             if (day.timeline) {
                 day.timeline.forEach((item, iIdx) => {
                     if (item.memories && item.memories.length > 0) {
+                        // [Fix] 이동수단인 경우 "출발지 -> 도착지" 형태로 표시
+                        let displayTitle = item.title;
+                        if (item.isTransit) {
+                            const prevItem = iIdx > 0 ? day.timeline[iIdx - 1] : null;
+                            const nextItem = iIdx < day.timeline.length - 1 ? day.timeline[iIdx + 1] : null;
+                            const prevTitle = prevItem ? (prevItem.title || "출발지") : "출발지";
+                            const nextTitle = nextItem ? (nextItem.title || "도착지") : "도착지";
+                            displayTitle = `${prevTitle} ➡️ ${nextTitle}`;
+                        }
+
                         item.memories.forEach((mem, mIdx) => {
                             lightboxMemories.push({
                                 ...mem,
                                 dayIndex: dIdx,
                                 itemIndex: iIdx,
                                 memoryIndex: mIdx,
-                                placeTitle: item.title,
+                                placeTitle: displayTitle,
                                 date: day.date
                             });
                         });

@@ -357,3 +357,102 @@ export function toggleMemoryLock() {
     autoSave(true);
     renderItinerary();
 }
+
+/**
+ * Render memories list into a specific container
+ * @param {string} containerId - DOM ID of the container to render into
+ * @param {object} item - Timeline item object
+ * @param {number} itemIndex - Index of the item
+ * @param {number} dayIndex - Index of the day
+ */
+export function renderMemoriesList(containerId, item, itemIndex, dayIndex) {
+    const listContainer = document.getElementById(containerId);
+    if (!listContainer) return;
+
+    const memories = item.memories || [];
+
+    // Parent section (to show/hide title)
+    const section = listContainer.parentElement;
+    if (section && section.id.includes('section')) {
+        section.classList.remove('hidden');
+
+        // [Header Injection] Add "Add (+)" button to header if not present
+        const header = section.querySelector('h4');
+        const headerContainerId = `${containerId}-header-wrapper`;
+        let headerWrapper = section.querySelector(`#${headerContainerId}`);
+
+        if (header && !headerWrapper) {
+            // Create wrapper
+            headerWrapper = document.createElement('div');
+            headerWrapper.id = headerContainerId;
+            headerWrapper.className = "flex justify-between items-center mb-3";
+
+            // Move h4 into wrapper
+            header.parentNode.insertBefore(headerWrapper, header);
+            headerWrapper.appendChild(header);
+
+            // Create Add Button
+            const addBtn = document.createElement('button');
+            addBtn.type = 'button';
+            addBtn.className = "text-xs bg-primary/10 hover:bg-primary/20 text-primary px-3 py-1.5 rounded-xl font-bold transition-colors flex items-center gap-1";
+            addBtn.innerHTML = '<span class="material-symbols-outlined text-sm">add_a_photo</span> 추가';
+            addBtn.onclick = () => addMemoryItem(itemIndex, dayIndex); // Use global function
+
+            headerWrapper.appendChild(addBtn);
+
+            // Remove margin from h4 as wrapper handles it
+            header.classList.remove('mb-3');
+        } else if (headerWrapper) {
+            // Update button onclick just in case index changed
+            const btn = headerWrapper.querySelector('button');
+            if (btn) btn.onclick = () => addMemoryItem(itemIndex, dayIndex);
+        }
+    }
+
+    // Clear existing list content
+    listContainer.innerHTML = '';
+
+    // [Layout] Horizontal Scroll, Max 1 Row
+    listContainer.className = 'grid grid-rows-1 grid-flow-col gap-2 overflow-x-auto py-1 auto-cols-[4rem] scrollbar-hide';
+
+    if (memories.length === 0) {
+        listContainer.className = 'flex flex-col gap-2';
+        listContainer.innerHTML = '<div class="text-xs text-center text-gray-400 py-2">등록된 추억이 없습니다.</div>';
+        return;
+    }
+
+    // Render Photos
+    memories.forEach((mem, memIdx) => {
+        if (!mem.photoUrl) return;
+
+        const photoDiv = document.createElement('div');
+        photoDiv.className = 'relative aspect-square w-16 h-16 rounded-xl overflow-hidden group cursor-pointer bg-gray-100 dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 isolate shrink-0';
+
+        const img = document.createElement('img');
+        img.src = mem.photoUrl;
+        img.className = 'w-full h-full object-cover transition-transform duration-500 group-hover:scale-110';
+        img.alt = mem.comment || '추억 사진';
+
+        img.onclick = (e) => {
+            e.stopPropagation();
+            if (window.openLightbox) {
+                window.openLightbox(itemIndex, dayIndex, memIdx);
+            } else {
+                addMemoryItem(itemIndex, dayIndex);
+            }
+        };
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'absolute top-1 right-1 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 z-10';
+        deleteBtn.innerHTML = '<span class="material-symbols-outlined text-[10px]">close</span>';
+        deleteBtn.onclick = (e) => {
+            e.stopPropagation();
+            deleteMemory(itemIndex, dayIndex, memIdx);
+            setTimeout(() => renderMemoriesList(containerId, travelData.days[dayIndex].timeline[itemIndex], itemIndex, dayIndex), 100);
+        };
+
+        photoDiv.appendChild(img);
+        photoDiv.appendChild(deleteBtn);
+        listContainer.appendChild(photoDiv);
+    });
+}

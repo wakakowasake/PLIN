@@ -8,7 +8,9 @@ import { parseTimeStr, formatTimeStr, calculateStraightDistance, minutesTo24Hour
 import { airports, searchAirports, getAirportByCode, formatAirport } from './airports.js';
 import logger from './logger.js';
 import { translateStation, translateLine } from './station-translations.js';
+
 import { openUserProfile } from './ui/profile.js';
+import { renderMemoriesList } from './ui/memories.js';
 
 // Break circular dependency by using window functions
 const renderItinerary = (...args) => window.renderItinerary && window.renderItinerary(...args);
@@ -723,7 +725,14 @@ export function openTransitDetailModal(item, index, dayIndex) {
         document.getElementById('transit-detail-note').innerText = item.note || "메모가 없습니다.";
     }
 
-    // Detailed Steps (Ekispert 등 다단계 경로)
+    // Memories integration
+    const memSection = document.getElementById('transit-detail-memories-section');
+    if (memSection) {
+        memSection.classList.remove('hidden');
+        renderMemoriesList('transit-detail-memories-list', item, index, dayIndex);
+    }
+
+    // Detailed Steps (multi-step transit like Ekispert)
     const stepsContainer = document.getElementById('transit-detail-steps');
     const stepsList = document.getElementById('transit-detail-steps-list');
 
@@ -2551,6 +2560,12 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
     // 메모/지출/파일첨부 섹션 (장소 상세 모달에서 가져옴)
     const detailSectionsHTML = `
         <div class="flex-1 bg-white dark:bg-card-dark overflow-y-auto p-6 flex flex-col gap-6">
+            <!-- 추억 섹션 -->
+            <div id="route-detail-memories-section" class="hidden">
+                <h4 class="text-xs font-bold text-gray-500 uppercase mb-3">추억</h4>
+                <div id="route-detail-memories-list"></div>
+            </div>
+
             <!-- 메모 섹션 -->
             <div class="bg-gray-50 dark:bg-gray-800/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700">
                 <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">메모 / 설명</h4>
@@ -2662,6 +2677,13 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
                 window.open(url, '_blank');
             };
         }
+    }
+
+    // Memories integration for Route Detail
+    const routeMemSection = document.getElementById('route-detail-memories-section');
+    if (routeMemSection) {
+        routeMemSection.classList.remove('hidden');
+        renderMemoriesList('route-detail-memories-list', item, index, targetDayIndex);
     }
 
     modal.classList.remove('hidden');

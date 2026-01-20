@@ -433,8 +433,14 @@ export function viewTimelineItem(index, dayIndex = currentDayIndex) {
     // Attachments
     renderAttachments(item, 'detail-attachment-list');
 
-    // Memories 섹션 숨김 (타임라인 카드로 이동됨)
-    document.getElementById('detail-memories-section')?.classList.add('hidden');
+    // Memories (Restored via User Request)
+    const memSection = document.getElementById('detail-memories-section');
+    if (memSection) {
+        memSection.classList.remove('hidden');
+        if (Memories.renderMemoriesList) {
+            Memories.renderMemoriesList('detail-memories-list', item, index, dayIndex);
+        }
+    }
 
     // Map Logic - 맨 밑으로 이동
     const mapSection = document.getElementById('detail-map-section');
