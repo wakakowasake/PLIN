@@ -2322,11 +2322,11 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
                         <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <label class="text-xs font-bold text-gray-500 mb-1 block">출발 시간</label>
-                                <input type="time" id="route-edit-departure-time" value="${item.flightInfo?.departureTime || item.time || ''}" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" onchange="calculateArrivalTime()">
+                                <input type="text" readonly onclick="openTimeModal('route-edit-departure-time')" id="route-edit-departure-time" value="${item.flightInfo?.departureTime || ''}" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm cursor-pointer" onchange="calculateArrivalTime()">
                             </div>
                             <div>
                                 <label class="text-xs font-bold text-gray-500 mb-1 block">도착 시간</label>
-                                <input type="time" id="route-edit-arrival-time" value="${item.flightInfo?.arrivalTime || ''}" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" onchange="calculateFlightDuration()">
+                                <input type="text" readonly onclick="openTimeModal('route-edit-arrival-time')" id="route-edit-arrival-time" value="${item.flightInfo?.arrivalTime || ''}" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm cursor-pointer" onchange="calculateFlightDuration()">
                             </div>
                         </div>
                         

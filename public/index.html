@@ -13,7 +13,7 @@
         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
         img-src 'self' data: blob: https://*.googleapis.com https://*.googleusercontent.com https://*.gstatic.com https://*.ggpht.com https://images.unsplash.com https://plindb93d.web.app https://www.google.com https://placehold.co https://api.dicebear.com https://www.googletagmanager.com;
         font-src 'self' https://fonts.gstatic.com;
-        connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://api.open-meteo.com https://nominatim.openstreetmap.org wss://*.firebaseio.com http://localhost:* ws://localhost:* https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com;
+        connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://api.open-meteo.com https://nominatim.openstreetmap.org wss://*.firebaseio.com http://localhost:* ws://localhost:* https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://api-hkrwkegcrq-uc.a.run.app;
         worker-src 'self' blob:;
         frame-src 'self' https://*.firebaseapp.com http://localhost:* https://www.google.com;
         object-src 'none';
@@ -1603,7 +1603,7 @@
 
     <!-- Flight Input Modal -->
     <div id="flight-input-modal"
-        class="hidden fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+        class="hidden fixed inset-0 z-[130] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
         <div
             class="bg-white dark:bg-card-dark rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] overflow-y-auto modal-slide-in">
             <div class="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
@@ -1648,13 +1648,15 @@
                 <!-- Departure/Arrival Time -->
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-1">출발 시간</label>
-                    <input id="flight-dep-time" type="time"
-                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 font-bold">
+                    <input id="flight-dep-time" type="text" readonly onclick="openTimeModal('flight-dep-time')"
+                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 font-bold cursor-pointer"
+                        placeholder="시간 선택">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-1">도착 시간</label>
-                    <input id="flight-arr-time" type="time"
-                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 font-bold">
+                    <input id="flight-arr-time" type="text" readonly onclick="openTimeModal('flight-arr-time')"
+                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 font-bold cursor-pointer"
+                        placeholder="시간 선택">
                 </div>
 
                 <!-- Terminal/Gate -->

@@ -215,10 +215,11 @@ export function saveFlightItem(travelData, targetDayIndex, reorderTimeline, open
 
     // Calculate duration
     let durationStr = "2시간"; // default
+    let diff = 120; // default 2 hours (minutes)
     if (depTime && arrTime) {
         const [h1, m1] = depTime.split(':').map(Number);
         const [h2, m2] = arrTime.split(':').map(Number);
-        let diff = (h2 * 60 + m2) - (h1 * 60 + m1);
+        diff = (h2 * 60 + m2) - (h1 * 60 + m1);
         if (diff < 0) diff += 24 * 60; // assume next day arrival
 
         const h = Math.floor(diff / 60);
@@ -245,6 +246,7 @@ export function saveFlightItem(travelData, targetDayIndex, reorderTimeline, open
         isTransit: true,
         image: null,
         note: noteStr,
+        duration: diff, // 저장된 소요 시간 (분 단위)
         transitInfo: {
             terminal: terminal.toUpperCase(),
             gate: gate.toUpperCase(),

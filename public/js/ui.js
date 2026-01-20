@@ -799,7 +799,9 @@ export const closeCategoryModal = CategoryPicker.closeCategoryModal;
 export const selectCategory = CategoryPicker.selectCategory;
 
 export const initTimeModal = TimePicker.initTimeModal;
-export const openTimeModal = TimePicker.openTimeModal;
+export function openTimeModal(targetId) {
+    TimePicker.openTimeModal(targetId);
+}
 export const closeTimeModal = TimePicker.closeTimeModal;
 export const confirmTimeSelection = TimePicker.confirmTimeSelection;
 
@@ -1659,7 +1661,7 @@ export function addTimelineItem(insertIndex = null, dayIndex = currentDayIndex) 
     document.getElementById('item-title').value = "";
     document.getElementById('item-location').value = "";
 
-    // 이전 항목 시간 + 10분 자동 설정
+    // 이전 항목 시간 + 종료 시간(체류 시간) 자동 설정
     let defaultTime = "오후 12:00";
     const timeline = travelData.days[targetDayIndex].timeline;
     if (timeline.length > 0) {
@@ -1667,9 +1669,22 @@ export function addTimelineItem(insertIndex = null, dayIndex = currentDayIndex) 
         let referenceIndex = (insertIndex !== null && insertIndex >= 0) ? insertIndex : timeline.length - 1;
         const referenceItem = timeline[referenceIndex];
         if (referenceItem) {
-            const refMinutes = parseTimeStr(referenceItem.time);
-            if (refMinutes !== null) {
-                defaultTime = formatTimeStr(refMinutes + 10);
+            const refStart = parseTimeStr(referenceItem.time);
+            if (refStart !== null) {
+                // 종료 시간 계산
+                let refDuration = 30; // 기본값
+                if (referenceItem.isTransit) {
+                    if (typeof referenceItem.duration === 'number') {
+                        refDuration = referenceItem.duration;
+                    } else if (referenceItem.duration) {
+                        refDuration = parseDurationStr(referenceItem.duration) || 30;
+                    }
+                } else {
+                    if (typeof referenceItem.duration === 'number') {
+                        refDuration = referenceItem.duration;
+                    }
+                }
+                defaultTime = formatTimeStr(refStart + refDuration);
             }
         }
     }
@@ -1904,7 +1919,20 @@ export function addNoteItem(insertIndex) {
     if (prevItem) {
         const prevMinutes = parseTimeStr(prevItem.time);
         if (prevMinutes !== null) {
-            defaultTime = formatTimeStr(prevMinutes + 10);
+            // 종료 시간 계산
+            let prevDuration = 30; // 기본값
+            if (prevItem.isTransit) {
+                if (typeof prevItem.duration === 'number') {
+                    prevDuration = prevItem.duration;
+                } else if (prevItem.duration) {
+                    prevDuration = parseDurationStr(prevItem.duration) || 30;
+                }
+            } else {
+                if (typeof prevItem.duration === 'number') {
+                    prevDuration = prevItem.duration;
+                }
+            }
+            defaultTime = formatTimeStr(prevMinutes + prevDuration);
         }
     }
 

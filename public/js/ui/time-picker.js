@@ -171,18 +171,31 @@ function getPickerValue(elementId) {
 /**
  * Open the time selection modal
  */
-export function openTimeModal() {
+let currentTargetId = 'item-time';
+
+/**
+ * Open the time selection modal
+ * @param {string} targetId - ID of the input element to receive the time value
+ */
+export function openTimeModal(targetId = 'item-time') {
+    currentTargetId = targetId;
     initTimeModal();
     document.getElementById('time-selection-modal').classList.remove('hidden');
 
     // Parse current input value and set defaults
-    const currentVal = document.getElementById('item-time').value;
+    const input = document.getElementById(currentTargetId);
+    const currentVal = input ? input.value : '';
+
     if (currentVal) {
         const timeParts = currentVal.split(':');
         if (timeParts.length >= 2) {
             setPickerScroll('time-hour-list', parseInt(timeParts[0]));
             setPickerScroll('time-minute-list', parseInt(timeParts[1]));
         }
+    } else {
+        // Default to 12:00 or current time if needed
+        setPickerScroll('time-hour-list', 12);
+        setPickerScroll('time-minute-list', 0);
     }
 }
 
@@ -191,6 +204,7 @@ export function openTimeModal() {
  */
 export function closeTimeModal() {
     document.getElementById('time-selection-modal').classList.add('hidden');
+    currentTargetId = 'item-time'; // Reset to default
 }
 
 /**
@@ -199,6 +213,14 @@ export function closeTimeModal() {
 export function confirmTimeSelection() {
     const h = getPickerValue('time-hour-list') || 0;
     const m = getPickerValue('time-minute-list') || 0;
-    document.getElementById('item-time').value = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+
+    const input = document.getElementById(currentTargetId);
+    if (input) {
+        input.value = timeStr;
+        // Dispatch change event to trigger listeners (e.g. auto-calculation in flight modal)
+        input.dispatchEvent(new Event('change'));
+    }
+
     closeTimeModal();
 }
