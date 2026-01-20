@@ -82,7 +82,11 @@ export async function initAuthStateObserver() {
             userProfile?.classList.remove('hidden');
 
             const userRef = doc(db, "users", user.uid);
-            const userData = { email: user.email, displayName: user.displayName };
+            const userData = {
+                email: user.email,
+                displayName: user.displayName,
+                photoURL: user.photoURL
+            };
 
             getDoc(userRef).then((docSnap) => {
                 let customPhotoURL = null;
