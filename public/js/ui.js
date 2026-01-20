@@ -3604,3 +3604,13 @@ window.Trips = Trips;
 window.Memories = Memories;
 
 console.debug('[UI] Window global bindings initialized');
+
+// [Redirect] Legacy Share Link Support
+(function () {
+    const urlParams = new URLSearchParams(window.location.search);
+    const shareId = urlParams.get('share');
+    if (shareId) {
+        console.log("Redirecting to dedicated viewer...");
+        window.location.replace(`/openview.html?id=${shareId}`);
+    }
+})();

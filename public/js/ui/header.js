@@ -140,7 +140,8 @@ export async function togglePublicShare(tripId) {
         // 링크 입력창 업데이트
         if (input) {
             const inviteLink = `${window.location.origin}${window.location.pathname}?invite=${tripId}`;
-            const publicLink = `${window.location.origin}${window.location.pathname}?share=${tripId}`;
+            // [Modified] 공개 링크는 전용 뷰어(openview.html)로 연결
+            const publicLink = `${window.location.origin}/openview.html?id=${tripId}`;
             input.value = isPublic ? publicLink : inviteLink;
 
             // 흔들림 효과 등으로 링크가 바뀌었음을 알림
