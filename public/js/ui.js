@@ -212,6 +212,11 @@ export function recalculateTimeline(dayIndex) {
 
             // transitInfo 업데이트
             if (!item.transitInfo) item.transitInfo = {};
+
+            // [Fix] Ekispert API 등에서 depTime/arrTime에 역 이름 텍스트 등을 넣는 경우가 있어 오염된 필드 제거
+            if (item.transitInfo.depTime) delete item.transitInfo.depTime;
+            if (item.transitInfo.arrTime) delete item.transitInfo.arrTime;
+
             item.transitInfo.start = startTimeStr;
             item.transitInfo.end = endTimeStr;
 
@@ -290,7 +295,13 @@ export function selectDay(index) {
         fetchWeather(travelData.meta.lat, travelData.meta.lng, day.date);
     }
 
-    renderItinerary();
+    // [Fix] 단순 렌더링 대신 재계산을 통해 데이터 정합성 보장 (오염된 필드 자동 제거)
+    // recalculateTimeline 내부에서 renderItinerary와 autoSave가 호출됨
+    if (index !== -1) {
+        recalculateTimeline(index);
+    } else {
+        renderItinerary();
+    }
 }
 
 // [Detail Modal Logic]

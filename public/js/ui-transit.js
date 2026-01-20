@@ -20,6 +20,7 @@ const renderAttachments = (...args) => window.renderAttachments && window.render
 const getMapsApiKey = (...args) => window.getMapsApiKey && window.getMapsApiKey(...args);
 const autoSave = (...args) => window.autoSave && window.autoSave(...args);
 const updateTotalBudget = (...args) => window.updateTotalBudget && window.updateTotalBudget(...args);
+const recalculateTimeline = (...args) => window.recalculateTimeline && window.recalculateTimeline(...args);
 
 // 현재 보고 있는 경로 아이템 인덱스
 let currentRouteItemIndex = null;
@@ -526,6 +527,13 @@ export function saveTransitItem() {
         travelData.days[targetDayIndex].timeline.splice(transitInputIndex + 1, 0, newItem);
     }
 
+    // [Fix] 이동수단 저장 시 전체 타임라인 재계산/정화 로직 실행 (Ekispert 오염 데이터 방지)
+    if (typeof window.recalculateTimeline === 'function') {
+        window.recalculateTimeline(targetDayIndex);
+    } else {
+        console.error("Critical Error: recalculateTimeline function not found via window wrapper.");
+    }
+
     reorderTimeline(targetDayIndex);
     closeTransitInputModal();
 
@@ -562,7 +570,7 @@ export function openTransitDetailModal(item, index, dayIndex) {
         timeEl.after(publicInfoEl);
     }
 
-    if (['버스', '전철', '기차', '지하철'].some(t => item.tag && item.tag.includes(t)) && (tInfo.depStop || tInfo.arrStop)) {
+    if (['버스', '전철', '기차', '지하철'].some(t => item.tag && item.tag.includes(t)) && (tInfo.depStop || tInfo.arrStop || tInfo.depStation || tInfo.arrStation)) {
         publicInfoEl.classList.remove('hidden');
 
         let statusHtml = '';
@@ -586,13 +594,13 @@ export function openTransitDetailModal(item, index, dayIndex) {
             <div class="grid grid-cols-[1fr_auto_1fr] gap-2 items-center text-center mb-3">
                 <div class="flex flex-col items-center min-w-0">
                     <span class="text-[10px] text-gray-400 uppercase font-bold mb-1">출발</span>
-                    <span class="font-bold text-sm text-gray-800 dark:text-white leading-tight truncate w-full">${tInfo.depStop || '출발지'}</span>
+                    <span class="font-bold text-sm text-gray-800 dark:text-white leading-tight truncate w-full">${tInfo.depStop || tInfo.depStation || '출발지'}</span>
                     <span class="text-xs text-primary font-bold mt-1">${tInfo.start || '--:--'}</span>
                 </div>
                 <div class="text-gray-300"><span class="material-symbols-outlined">arrow_forward</span></div>
                 <div class="flex flex-col items-center min-w-0">
                     <span class="text-[10px] text-gray-400 uppercase font-bold mb-1">도착</span>
-                    <span class="font-bold text-sm text-gray-800 dark:text-white leading-tight truncate w-full">${tInfo.arrStop || '도착지'}</span>
+                    <span class="font-bold text-sm text-gray-800 dark:text-white leading-tight truncate w-full">${tInfo.arrStop || tInfo.arrStation || '도착지'}</span>
                     <span class="text-xs text-gray-500 mt-1">${tInfo.end || '--:--'}</span>
                 </div>
             </div>
@@ -3341,9 +3349,54 @@ async function getEkispertRoute(fromItem, toItem) {
         const startStation = translateStation(startStationJa);
         const endStation = translateStation(endStationJa);
 
+        // [Fix] 시작 시간 사전 계산 (fromItem 활용)
+        let startTime = "";
+        let endTime = "";
+
+        if (fromItem) {
+            // 1. 이전 아이템이 이동수단인 경우
+            if (fromItem.isTransit && fromItem.transitInfo && fromItem.transitInfo.end) {
+                startTime = fromItem.transitInfo.end;
+            }
+            // 2. 이전 아이템이 장소인 경우
+            else if (fromItem.time) {
+                const t = parseTimeStr(fromItem.time);
+                if (t !== null) {
+                    // [Fix] Handle both number and string durations (e.g. "90", "1시간 30분")
+                    let d = 30;
+                    if (fromItem.duration !== undefined && fromItem.duration !== null) {
+                        if (typeof fromItem.duration === 'number') {
+                            d = fromItem.duration;
+                        } else {
+                            // Try parsing "1시간 30분" format first
+                            const parsed = parseDurationStr(fromItem.duration);
+                            if (parsed > 0) {
+                                d = parsed;
+                            } else {
+                                // Fallback to simple number parsing for "90" string
+                                const num = Number(fromItem.duration);
+                                if (!isNaN(num)) d = num;
+                            }
+                        }
+                    }
+                    const resultTime = t + d;
+                    startTime = minutesTo24Hour(resultTime);
+                }
+            }
+        }
+
+        // 시작 시간이 있고, 소요시간(totalMinutes)이 있으면 종료 시간 계산
+        if (startTime && (totalMinutes || totalMinutes === 0)) {
+            const s = parseTimeStr(startTime);
+            if (s !== null) {
+                endTime = minutesTo24Hour(s + totalMinutes);
+            }
+        }
+
         // 통합 카드 생성
         return [{
             time: durationStr,
+            duration: totalMinutes, // [Fix] 필수 필드 추가: 시간 재계산을 위한 소요 시간(분)
             title: `${startStation} → ${endStation}`,
             location: '',
             icon: 'train',
@@ -3355,8 +3408,10 @@ async function getEkispertRoute(fromItem, toItem) {
             note: `환승 ${transferCount}회\n\n${routeSteps.join('\n')}`,
             fixedDuration: true,
             transitInfo: {
-                start: startStation,
-                end: endStation,
+                start: startTime, // [Fix] 초기 시간 할당
+                end: endTime,     // [Fix] 초기 시간 할당
+                depStation: startStation, // [Fix] start(시간) 대신 depStation(역이름) 사용
+                arrStation: endStation,   // [Fix] end(시간) 대신 arrStation(역이름) 사용
                 steps: routeSteps,
                 transferCount: transferCount
             },

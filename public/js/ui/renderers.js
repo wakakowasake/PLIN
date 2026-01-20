@@ -261,8 +261,17 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
         endTime = item.flightInfo.arrivalTime || '--:--';
     } else if (item.isTransit && item.transitInfo) {
         // 일반 이동수단: transitInfo 사용
-        startTime = item.transitInfo.start || item.transitInfo.depTime || '--:--';
-        endTime = item.transitInfo.end || item.transitInfo.arrTime || '--:--';
+        // [Fix] 시간 형식이 아닌 텍스트("천만교" 등)가 들어있는 경우 무시하여 UI 깨짐 방지
+        const isValidTime = (t) => /^\d{1,2}:\d{2}$/.test(t);
+
+        if (isValidTime(item.transitInfo.start)) {
+            startTime = item.transitInfo.start;
+            endTime = item.transitInfo.end || '--:--';
+        } else {
+            // 오염된 데이터(텍스트) 감지 시 초기화
+            startTime = '--:--';
+            endTime = '--:--';
+        }
     } else if (item.time) {
 
         // "오전 09:00", "09:00 - 10:30", "09:00" 등 다양한 형식 처리
