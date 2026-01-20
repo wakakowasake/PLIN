@@ -162,10 +162,10 @@ Profile.initDarkMode();
 // 바디 페이드인 애니메이션
 document.body.style.opacity = '1';
 
-// [New] 페이지 로드 시, 로그인 여부와 관계없이 공유 링크가 있는지 확인
-if (window.checkShareLink) {
-    window.checkShareLink();
-}
+// [Removed] 페이지 로드 시 자동 실행 제거 (auth.js에서 초기화 후 실행됨)
+// if (window.checkShareLink) {
+//     window.checkShareLink();
+// }
 
 // ========================================
 // Drag & Drop Logic (Re-exported from module)
