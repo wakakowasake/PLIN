@@ -6,6 +6,13 @@
 
 ## 2026-01-20
 
+### 21:05 - [AI] 공개 링크 전용 뷰어(openview.html) 구현 및 구조 개선
+- **기능 개선**: `index.html` 기반의 뷰어 모드 대신 전용 페이지 `openview.html` 도입으로 로딩 속도 및 보안 강화
+- **파일 추가**: `openview.html` (경량 뷰어 HTML), `public/js/viewer.js` (읽기 전용 로직)
+- **로직 수정**: `header.js`에서 링크 생성 시 뷰어 페이지로 연결, `ui.js`에서 구버전 링크 자동 리다이렉트 처리
+- **문서화**: 모든 기술 문서(`task.md`, `view.html` 등) 한글화 완료
+- **변경 파일**: header.js, ui.js, openview.html, viewer.js, *.md
+
 ### 15:05 - [AI] 로그인 없이 보기 가능한 '공개 공유' 모드 구현
 - **기능 추가**: 로그인 없이 여행 일정만 확인할 수 있는 **공개 보기(View-Only)** 기능 추가
 - **UI 변경**: 

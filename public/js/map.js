@@ -196,22 +196,39 @@ export function setupWizardAutocomplete() {
     });
 }
 
+// [Sync Warning] 이 로직은 viewer.js의 initViewerMap과 동일하게 유지되어야 합니다. (지도 미리보기 -> 모달 이동)
+export let mapEl; // Export mapEl to check current container
+
 export async function initMap() {
-    const mapEl = document.getElementById("map-bg");
+    // 1. Try to render in the card background first (Preview Mode)
+    mapEl = document.getElementById("map-bg");
+    let isPreview = true;
+
+    // If map-bg doesn't exist, check modal container
+    if (!mapEl) {
+        mapEl = document.getElementById("route-map-container");
+        isPreview = false;
+    }
+
     if (mapEl && window.google) {
         const lat = Number(travelData.meta.lat) || 37.5665;
         const lng = Number(travelData.meta.lng) || 126.9780;
 
-        // [Fix] AdvancedMarkerElement 사용을 위해 mapId 추가 (필수)
-        // DEMO_MAP_ID는 테스트용이며, 실제 배포 시 Google Cloud Console에서 생성한 Map ID로 교체 권장
-        map = new google.maps.Map(mapEl, {
+        // Remove background image if map is being loaded
+        mapEl.style.backgroundImage = 'none';
+
+        const mapOptions = {
             center: { lat, lng },
             zoom: 13,
-            disableDefaultUI: true,
-            mapId: "4504f8b37365c3d0" // Vector Map 활성화를 위한 Map ID (styles 속성 제거)
-        });
+            mapId: "4504f8b37365c3d0",
+            disableDefaultUI: isPreview,
+            gestureHandling: isPreview ? 'none' : 'cooperative',
+            keyboardShortcuts: !isPreview,
+            fullscreenControl: !isPreview,
+        };
 
-        // [Fix] AdvancedMarkerElement 사용 (Marker Deprecation 대응)
+        map = new google.maps.Map(mapEl, mapOptions);
+
         try {
             const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
             mapMarker = new AdvancedMarkerElement({
@@ -219,15 +236,178 @@ export async function initMap() {
                 position: { lat, lng },
             });
         } catch (e) {
-            console.warn("AdvancedMarkerElement load failed, falling back to legacy Marker", e);
+            console.warn("AdvancedMarkerElement load failed", e);
             mapMarker = new google.maps.Marker({
                 position: { lat, lng },
                 map: map
             });
         }
     }
-    setupAutocomplete(); // 지도가 로드되면 검색 기능도 바로 준비
-    isMapInitialized = true; // [Added] 지도 초기화 완료
+    setupAutocomplete();
+    isMapInitialized = true;
+
+    // [Added] 초기화 시 경로 렌더링 (프리뷰용)
+    renderRouteOnMap();
+}
+
+// [Added] 경로 렌더링 (Preview & Modal 공용)
+export async function renderRouteOnMap() {
+    if (!map || !travelData.days) return;
+
+    // 기존 마커/폴리라인 제거
+    if (window.routeMarkers) {
+        window.routeMarkers.forEach(m => m.setMap(null));
+    }
+    window.routeMarkers = [];
+
+    if (window.routePolyline) {
+        window.routePolyline.setMap(null);
+        window.routePolyline = null;
+    }
+
+    const dayIndex = currentDayIndex === -1 ? 0 : currentDayIndex; // Default to first day if 'All' view
+    if (!travelData.days[dayIndex] || !travelData.days[dayIndex].timeline) return;
+
+    const timeline = travelData.days[dayIndex].timeline;
+    const bounds = new google.maps.LatLngBounds();
+    const path = [];
+    const geocoder = new google.maps.Geocoder();
+    let transitBuffer = [];
+
+    // InfoWindow (재사용)
+    if (!window.sharedInfoWindow) {
+        window.sharedInfoWindow = new google.maps.InfoWindow();
+    }
+
+    const getPoint = async (item) => {
+        if (item.lat && item.lng) {
+            return { lat: Number(item.lat), lng: Number(item.lng) };
+        }
+        // 위치 정보가 없거나 텍스트만 있는 경우 (Geocoding 필요) -> 프리뷰에서는 성능상 건너뛰거나 필요시 구현
+        return null;
+    };
+
+    for (let i = 0; i < timeline.length; i++) {
+        const item = timeline[i];
+        if (item.isTransit) continue;
+
+        const pos = await getPoint(item);
+        if (pos) {
+            path.push(pos);
+            bounds.extend(pos);
+
+            // 마커 생성
+            let marker;
+            try {
+                // Try Advanced Marker
+                const { AdvancedMarkerElement, PinElement } = await google.maps.importLibrary("marker");
+                const pin = new PinElement({
+                    glyph: `${path.length}`,
+                    background: "#774b00",
+                    borderColor: "#ffffff",
+                    glyphColor: "#ffffff",
+                });
+                marker = new AdvancedMarkerElement({
+                    map: map,
+                    position: pos,
+                    title: item.title,
+                    content: pin.element
+                });
+            } catch (e) {
+                // Fallback
+                marker = new google.maps.Marker({
+                    position: pos,
+                    map: map,
+                    label: { text: path.length.toString(), color: 'white' }
+                });
+            }
+
+            marker.addListener('click', () => {
+                window.sharedInfoWindow.setContent(`
+                    <div style="padding: 8px;">
+                        <h4 style="font-weight: bold;">${item.title}</h4>
+                        <p>${item.location || ''}</p>
+                    </div>
+                `);
+                window.sharedInfoWindow.open(map, marker);
+            });
+            window.routeMarkers.push(marker);
+        }
+    }
+
+    // 폴리라인 그리기
+    if (path.length > 1) {
+        window.routePolyline = new google.maps.Polyline({
+            path: path,
+            geodesic: true,
+            strokeColor: '#774b00',
+            strokeOpacity: 0.8,
+            strokeWeight: 4,
+            map: map
+        });
+    }
+
+    // 지도 범위 조정
+    if (!bounds.isEmpty()) {
+        map.fitBounds(bounds);
+        // 줌 레벨 조정 (너무 확대되지 않도록)
+        /*
+        const listener = google.maps.event.addListener(map, "idle", () => { 
+            if (map.getZoom() > 15) map.setZoom(15); 
+            google.maps.event.removeListener(listener); 
+        });
+        */
+    }
+}
+
+// [Sync Warning] 이 함수는 viewer.js와 로직이 유사해야 합니다.
+export function transferMapToModal() {
+    if (map) {
+        // 배경 이미지 제거 (혹시 남아있다면)
+        const mapBg = document.getElementById("map-bg");
+        if (mapBg) mapBg.style.backgroundImage = 'none';
+
+        const modalContainer = document.getElementById("route-map-container");
+        if (modalContainer && mapEl !== modalContainer) {
+            modalContainer.appendChild(map.getDiv());
+            mapEl = modalContainer;
+
+            map.setOptions({
+                disableDefaultUI: false,
+                gestureHandling: 'cooperative',
+                keyboardShortcuts: true,
+                fullscreenControl: true
+            });
+
+            google.maps.event.trigger(map, 'resize');
+            // Re-center logic if needed
+            const lat = Number(travelData.meta.lat) || 37.5665;
+            const lng = Number(travelData.meta.lng) || 126.9780;
+            map.setCenter({ lat, lng });
+        }
+    }
+}
+
+export function transferMapToPreview() {
+    if (map) {
+        const previewContainer = document.getElementById("map-bg");
+        if (previewContainer && mapEl !== previewContainer) {
+            previewContainer.appendChild(map.getDiv());
+            mapEl = previewContainer;
+
+            map.setOptions({
+                disableDefaultUI: true,
+                gestureHandling: 'none',
+                keyboardShortcuts: false,
+                fullscreenControl: false
+            });
+
+            const lat = Number(travelData.meta.lat) || 37.5665;
+            const lng = Number(travelData.meta.lng) || 126.9780;
+            map.setCenter({ lat, lng });
+            map.setZoom(13);
+        }
+    }
 }
 
 function fillInAddress() {

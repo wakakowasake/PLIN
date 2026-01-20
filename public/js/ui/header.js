@@ -64,26 +64,28 @@ export async function openShareModal(tripId = null) {
     }
 
     // Add Toggle UI
-    if (memberListEl) {
-        // 기존 헤더 부분에 토글 추가 (HTML 구조를 약간 수정하거나 prepend)
-        // 여기서는 리스트 상단에 컨트롤 패널을 추가함
+    const toggleContainer = document.getElementById('public-share-toggle-container');
+    if (toggleContainer) {
+        // [Modified] 토글 위치 변경 (링크 바로 아래)
+        const helpText = isPublic ? '로그인 없이 누구나 여행 계획을 볼 수 있습니다. (보기 전용)' : '초대된 멤버만 여행을 수정할 수 있습니다. (수정 권한)';
+
         const controlHtml = `
-            <div class="mb-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl flex items-center justify-between">
+            <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded-xl flex items-center justify-between">
                 <div>
                     <h4 class="font-bold text-sm text-gray-900 dark:text-white">공개 링크 공유</h4>
-                    <p class="text-xs text-gray-500">로그인 없이 누구나 여행 계획을 볼 수 있습니다.</p>
+                    <p id="share-help-text" class="text-xs text-gray-500">${helpText}</p>
                 </div>
                 <label class="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" id="public-share-toggle" class="sr-only peer" ${isPublic ? 'checked' : ''} onchange="window.togglePublicShare('${targetTripId}')">
                     <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/30 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                 </label>
             </div>
-            <div id="share-link-label" class="text-xs font-bold text-gray-500 mb-1 ml-1">
-                ${isPublic ? '🔗 공개 링크 (보기 전용)' : '📩 초대 링크 (수정 권한)'}
-            </div>
          `;
+        toggleContainer.innerHTML = controlHtml;
+    }
 
-        // 멤버 리스트 HTML 생성
+    if (memberListEl) {
+        // 멤버 리스트 HTML 생성 (토글 제외)
         let listHtml = '<div class="space-y-2">';
         for (const uid of memberUIDs) {
             try {
@@ -115,20 +117,21 @@ export async function openShareModal(tripId = null) {
         }
         listHtml += '</div>';
 
-        memberListEl.innerHTML = controlHtml + listHtml;
+        memberListEl.innerHTML = listHtml;
     }
 }
 
 export async function togglePublicShare(tripId) {
     const toggle = document.getElementById('public-share-toggle');
     const input = document.getElementById('share-link-input');
-    const label = document.getElementById('share-link-label');
+    const helpText = document.getElementById('share-help-text');
 
     if (!toggle) return;
 
     const isPublic = toggle.checked;
 
     try {
+        await firebaseReady; // Firebase 초기화 대기
         const docRef = doc(db, 'plans', tripId);
         await updateDoc(docRef, { isPublic: isPublic });
 
@@ -149,14 +152,14 @@ export async function togglePublicShare(tripId) {
             setTimeout(() => input.classList.remove('shake'), 300);
         }
 
-        if (label) {
-            label.textContent = isPublic ? '🔗 공개 링크 (보기 전용)' : '📩 초대 링크 (수정 권한)';
-            label.className = isPublic ? "text-xs font-bold text-primary mb-1 ml-1" : "text-xs font-bold text-gray-500 mb-1 ml-1";
+        if (helpText) {
+            helpText.textContent = isPublic ? '로그인 없이 누구나 여행 계획을 볼 수 있습니다. (보기 전용)' : '초대된 멤버만 여행을 수정할 수 있습니다. (수정 권한)';
         }
 
     } catch (e) {
         console.error("Error toggling public share:", e);
-        alert("설정 변경 중 오류가 발생했습니다.");
+        // 에러 메시지를 좀 더 구체적으로 표시
+        alert(`설정 변경 중 오류가 발생했습니다: ${e.message || e}`);
         toggle.checked = !isPublic; // Revert
     }
 }

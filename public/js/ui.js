@@ -94,8 +94,20 @@ export async function openTrip(tripId, options = {}) {
             ExpenseManager.updateTotalBudget(travelData);
             selectDay(0); // 첫째날로 초기화
 
+            selectDay(0); // 첫째날로 초기화
+
             // [New] Apply Read-Only UI restrictions
             applyReadOnlyUI();
+
+            // [Fix] Call renderRouteOnMap to update the map preview with trip route
+            // renderRouteOnMap is imported from map.js
+            if (window.renderRouteOnMap) { // Check if function is available globally or imported
+                // Since it's imported in this module, we can call it directly if imported.
+                // But wait, it was imported as `renderRouteOnMap`.
+            }
+            // Actually I need to check if I imported it.
+            // In step 377, `import { ..., renderRouteOnMap } from './map.js'` was added.
+            renderRouteOnMap();
 
         } else {
             console.error("Trip not found:", tripId);
@@ -2592,173 +2604,31 @@ let routePolyline = null;
 let routeMarkers = [];
 let routePopup = null;
 
+// [Modified] Map handling synced with viewer.js
+import { transferMapToModal, transferMapToPreview, renderRouteOnMap } from './map.js';
+
 export async function openRouteModal() {
     const modal = document.getElementById('route-modal');
-    modal.classList.remove('hidden');
+    if (modal) {
+        modal.classList.remove('hidden');
 
-    const container = document.getElementById('route-map-container');
+        // 1. 지도 이동 (Preview -> Modal)
+        transferMapToModal();
 
-    // 지도 초기화 (최초 1회)
-    if (!routeMap && window.mapboxgl) {
-        routeMap = new mapboxgl.Map({
-            container: container,
-            style: 'mapbox://styles/mapbox/streets-v12',
-            center: [126.9780, 37.5665],
-            zoom: 10,
-            attributionControl: false
-        });
+        // 2. 경로 데이터 최신화
+        await renderRouteOnMap();
     }
-
-    if (!routeMap) return;
-
-    const timeline = travelData.days[currentDayIndex].timeline;
-    const bounds = new google.maps.LatLngBounds();
-    const path = [];
-    const geocoder = new google.maps.Geocoder();
-    let lastPlacePos = null;
-    let transitBuffer = [];
-
-    // [Modified] 지도 스타일 로드 대기 후 레이어 조작
-    const updateMapLayer = () => {
-        if (!routeMap.getStyle()) return; // 스타일이 없으면 중단
-
-        // 기존 마커 및 경로 제거
-        if (routeMap.getSource('route-path')) {
-            routeMap.getSource('route-path').setData({ type: 'FeatureCollection', features: [] });
-        }
-        routeMarkers.forEach(m => m.remove());
-        routeMarkers = [];
-        if (routePopup) routePopup.remove();
-
-        // 경로 그리기 로직은 데이터 처리가 끝난 후(아래) 호출됨
-    };
-
-    if (routeMap.loaded()) updateMapLayer();
-    else routeMap.once('load', updateMapLayer);
-
-    // 좌표 가져오기 헬퍼 (저장된 좌표가 없으면 주소로 검색)
-    const getPoint = async (item) => {
-        if (item.lat && item.lng) {
-            return { lat: Number(item.lat), lng: Number(item.lng) };
-        }
-        // 이동수단이 아니고 위치 정보가 유효한 경우
-        if (item.location && item.location.length > 1 && !item.isTransit && item.location !== "위치") {
-            return new Promise((resolve) => {
-                geocoder.geocode({ address: item.location }, (results, status) => {
-                    if (status === 'OK' && results[0]) {
-                        resolve(results[0].geometry.location);
-                    } else {
-                        resolve(null);
-                    }
-                });
-            });
-        }
-        return null;
-    };
-
-    // 순차적으로 좌표 처리 및 마커 생성
-    for (let i = 0; i < timeline.length; i++) {
-        const item = timeline[i];
-
-        if (item.isTransit) {
-            transitBuffer.push(item);
-            continue;
-        }
-
-        try {
-            const pos = await getPoint(item);
-            if (pos) {
-                const lngLat = [pos.lng, pos.lat]; // Mapbox uses [lng, lat]
-                path.push(lngLat);
-                bounds.extend(lngLat);
-
-                // 장소 마커 생성
-                const el = document.createElement('div');
-                el.className = 'w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center font-bold shadow-lg border-2 border-white';
-                el.innerText = path.length.toString();
-
-                const marker = new mapboxgl.Marker(el)
-                    .setLngLat(lngLat)
-                    .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(`
-                        <div class="p-2">
-                            <h4 class="font-bold text-sm mb-1">${item.title}</h4>
-                            <p class="text-xs text-gray-500 mb-2">${item.location}</p>
-                            <span class="inline-block bg-purple-50 text-purple-700 border border-purple-100 text-xs font-bold px-2 py-0.5 rounded">${item.time}</span>
-                        </div>
-                    `))
-                    .addTo(routeMap);
-
-                routeMarkers.push(marker);
-
-                // 이전 장소와 현재 장소 사이에 이동수단이 있었다면 중간 지점에 마커 표시
-                if (lastPlacePos && transitBuffer.length > 0) {
-                    const count = transitBuffer.length;
-                    for (let j = 0; j < count; j++) {
-                        const tItem = transitBuffer[j];
-                        const fraction = (j + 1) / (count + 1);
-
-                        // 선형 보간 (Linear Interpolation)
-                        const lat = lastPlacePos.lat + (pos.lat - lastPlacePos.lat) * fraction;
-                        const lng = lastPlacePos.lng + (pos.lng - lastPlacePos.lng) * fraction;
-                        const transitPos = [lng, lat];
-
-                        const tEl = document.createElement('div');
-                        tEl.className = 'w-6 h-6 bg-white text-purple-700 rounded-full flex items-center justify-center shadow-md border border-purple-700';
-                        tEl.innerHTML = `<span class="material-symbols-outlined text-[16px]">${tItem.icon}</span>`;
-
-                        const tMarker = new mapboxgl.Marker(tEl)
-                            .setLngLat(transitPos)
-                            .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(`
-                                <div class="p-2 min-w-[150px]">
-                                    <div class="flex items-center gap-2 mb-1">
-                                        <span class="material-symbols-outlined text-primary">${tItem.icon}</span>
-                                        <h4 class="font-bold text-sm text-gray-900">${tItem.title}</h4>
-                                    </div>
-                                    ${tItem.time ? `<span class="inline-block bg-blue-50 text-blue-700 border border-blue-100 text-xs font-bold px-2 py-0.5 rounded mt-1">${tItem.time}</span>` : ''}
-                                    ${tItem.note ? `<p class="text-xs text-gray-500 mt-1">📝 ${tItem.note}</p>` : ''}
-                                </div>
-                            `))
-                            .addTo(routeMap);
-
-                        routeMarkers.push(tMarker);
-                    }
-                }
-
-                lastPlacePos = pos;
-                transitBuffer = []; // 버퍼 초기화
-            }
-        } catch (e) {
-            console.error("Route processing error:", e);
-        }
-    }
-
-    // 경로 그리기
-    if (path.length > 0) {
-        routePolyline = new google.maps.Polyline({
-            path: path,
-            geodesic: true,
-            strokeColor: '#774b00',
-            strokeOpacity: 0.8,
-            strokeWeight: 5
-        });
-        routePolyline.setMap(routeMap);
-        routeMap.fitBounds(bounds);
-
-    } else if (travelData.meta.lat && travelData.meta.lng) {
-        // 경로가 없으면 여행지 중심으로 이동
-        routeMap.setCenter({ lat: Number(travelData.meta.lat), lng: Number(travelData.meta.lng) });
-        routeMap.setZoom(12);
-    }
-
-    // 모달이 뜬 직후 지도 리사이즈 트리거 (깨짐 방지)
-    setTimeout(() => {
-        google.maps.event.trigger(routeMap, 'resize');
-    }, 100);
 }
 
 export function closeRouteModal() {
-    document.getElementById('route-modal').classList.add('hidden');
+    const modal = document.getElementById('route-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        transferMapToPreview();
+    }
 }
+
+
 
 // 화면 아무곳이나 클릭하면 열린 메뉴 닫기
 window.addEventListener('click', (e) => {

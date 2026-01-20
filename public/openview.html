@@ -95,7 +95,11 @@
             </div>
 
             <div class="flex items-center gap-3">
-                <a href="/" class="text-sm font-bold text-primary hover:text-orange-600 transition-colors">나도 계획 만들기</a>
+                <a href="/"
+                    class="bg-primary text-white px-8 py-2.5 rounded-xl font-bold text-sm shadow-md hover:bg-orange-600 hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center gap-2">
+                    <span class="material-symbols-outlined text-lg">edit_square</span>
+                    나도 계획 만들기
+                </a>
             </div>
         </div>
     </header>
@@ -170,7 +174,7 @@
                         <div
                             class="absolute bottom-4 right-4 bg-white dark:bg-card-dark text-text-main dark:text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-md flex items-center gap-1">
                             <span class="material-symbols-outlined text-sm">map</span>
-                            지도 보기
+                            경로 보기
                         </div>
                     </div>
                 </div>
@@ -244,6 +248,31 @@
             <div class="flex-1 relative bg-gray-100 dark:bg-gray-800">
                 <div id="route-map-container" class="w-full h-full"></div>
             </div>
+        </div>
+    </div>
+
+    <!-- Lightbox Modal -->
+    <div id="lightbox-modal"
+        class="hidden fixed inset-0 z-[200] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
+        onclick="closeLightbox()">
+        <button type="button" onclick="closeLightbox()"
+            class="absolute top-4 right-4 text-white hover:text-gray-300 p-2 z-[210]">
+            <span class="material-symbols-outlined text-4xl">close</span>
+        </button>
+        <button type="button" onclick="event.stopPropagation(); navigateLightbox(-1)"
+            class="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 p-2 z-[210] hidden"
+            id="lightbox-prev">
+            <span class="material-symbols-outlined text-4xl">chevron_left</span>
+        </button>
+        <button type="button" onclick="event.stopPropagation(); navigateLightbox(1)"
+            class="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 p-2 z-[210] hidden"
+            id="lightbox-next">
+            <span class="material-symbols-outlined text-4xl">chevron_right</span>
+        </button>
+        <div class="max-w-7xl max-h-[90vh] relative flex flex-col items-center" onclick="event.stopPropagation()">
+            <img id="lightbox-image" src="" alt="확대된 이미지"
+                class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl">
+            <p id="lightbox-caption" class="text-white text-center mt-4 text-lg font-medium"></p>
         </div>
     </div>
 

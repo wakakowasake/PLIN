@@ -1,28 +1,291 @@
-import { initFirebase, db, firebaseReady } from './firebase.js';
+import { db, firebaseReady } from './firebase.js';
 import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
-import { setTravelData, travelData, setCurrentTripId, setCurrentDayIndex, setReadOnlyMode } from './state.js'; // setReadOnlyMode might need to be added or simulated
+import { setTravelData, travelData, setCurrentTripId, setCurrentDayIndex } from './state.js'; // setReadOnlyMode might need to be added or simulated
 import { renderItinerary, renderLists, renderWeeklyWeather } from './ui/renderers.js';
-import { loadWeather } from './ui/weather.js'; // Optional: if we want weather
 import { formatTime } from './ui/time-helpers.js';
+
+import { BACKEND_URL } from './config.js';
 
 // Global context for renderers (simulating ui.js environment)
 window.renderLists = renderLists;
 window.updateLocalTimeWidget = () => { }; // Viewer doesn't need complex local time widget updates for now or can implement simple one
 window.viewTimelineItem = (index, dayIndex) => {
-    // Basic view wrapper - maybe show simple modal or just nothing for now
     console.log("View item:", index, dayIndex);
-    // In viewer, maybe we don't open modals, or we implement a read-only modal later.
-    // For now, let's keep it simple.
 };
-window.openRouteModal = () => {
+
+// Map State
+let map;
+let mapEl; // Current map container
+let mapMarkers = [];
+let mapPolyline = null;
+let isMapInitialized = false;
+
+function initViewerMap() {
+    // [Sync Warning] 이 로직은 map.js의 initMap과 동일하게 유지되어야 합니다. (지도 미리보기 -> 모달 이동)
+    // 1. Try to render in the card background first (Preview Mode)
+    mapEl = document.getElementById("map-bg");
+    let isPreview = true;
+
+    // If map-bg doesn't exist (e.g., hidden), fallback to modal container immediately (unlikely in this flow)
+    if (!mapEl) {
+        mapEl = document.getElementById("route-map-container");
+        isPreview = false;
+    }
+
+    if (!mapEl) return;
+
+    const lat = Number(travelData.meta.lat) || 37.5665;
+    const lng = Number(travelData.meta.lng) || 126.9780;
+
+    const mapOptions = {
+        center: { lat, lng },
+        zoom: 13,
+        mapId: "4504f8b37365c3d0",
+        disableDefaultUI: isPreview, // Disable UI in preview
+        gestureHandling: isPreview ? 'none' : 'cooperative', // No interaction in preview
+        keyboardShortcuts: !isPreview,
+        fullscreenControl: !isPreview,
+    };
+
+    map = new google.maps.Map(mapEl, mapOptions);
+
+    renderMapMarkers();
+    isMapInitialized = true;
+
+    // If initialized in preview, we need to handle moving it to modal when clicked
+}
+
+// Google Maps API 동적 로드
+async function loadGoogleMapsAPI() {
+    try {
+        if (window.google && window.google.maps) {
+            initViewerMap();
+            return;
+        }
+
+        const response = await fetch(`${BACKEND_URL}/config`);
+        const config = await response.json();
+        const mapsApiKey = config.googleMapsApiKey;
+
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${mapsApiKey}&libraries=places,marker&loading=async&language=ko&callback=initViewerMap`;
+        script.async = true;
+        window.initViewerMap = initViewerMap; // Global callback
+        document.head.appendChild(script);
+
+    } catch (error) {
+        console.error("Failed to load Google Maps API:", error);
+        alert("지도를 불러오는 데 실패했습니다.");
+    }
+}
+
+// Move map between containers
+window.openRouteModal = async () => {
     const modal = document.getElementById('route-modal');
     if (modal) modal.classList.remove('hidden');
-    // Map init logic would go here if needed, or simple static map
+
+    if (!isMapInitialized) {
+        await loadGoogleMapsAPI();
+        // After load, initViewerMap is called. 
+        // If we want it in the modal immediately because it was just opened:
+        // logic inside initViewerMap might defaulting to map-bg. 
+        // We should move it if needed.
+    }
+
+    // Move map to modal container if it exists and is initialized
+    if (map) {
+        const modalContainer = document.getElementById("route-map-container");
+        if (modalContainer && mapEl !== modalContainer) {
+            modalContainer.appendChild(map.getDiv());
+            mapEl = modalContainer;
+
+            // Enable interactions for modal view
+            map.setOptions({
+                disableDefaultUI: false,
+                gestureHandling: 'cooperative',
+                keyboardShortcuts: true,
+                fullscreenControl: true
+            });
+
+            // Trigger resize
+            google.maps.event.trigger(map, 'resize');
+            fitMapToBounds();
+        }
+    }
 };
+
 window.closeRouteModal = () => {
     const modal = document.getElementById('route-modal');
     if (modal) modal.classList.add('hidden');
+
+    // Move map back to preview container?
+    // User might want to see the preview again.
+    // Yes, move it back to #map-bg
+    if (map) {
+        const previewContainer = document.getElementById("map-bg");
+        if (previewContainer && mapEl !== previewContainer) {
+            previewContainer.appendChild(map.getDiv());
+            mapEl = previewContainer;
+
+            // Disable interactions for preview view
+            map.setOptions({
+                disableDefaultUI: true,
+                gestureHandling: 'none',
+                keyboardShortcuts: false,
+                fullscreenControl: false
+            });
+
+            // Reset center/zoom if needed or keep last state? 
+            // Maybe reset to fit bounds of trip
+            setTimeout(() => fitMapToBounds(), 100);
+        }
+    }
 };
+
+async function renderMapMarkers() {
+    if (!map || !travelData.days) return;
+
+    // Clear existing
+    mapMarkers.forEach(marker => marker.map = null);
+    mapMarkers = [];
+    if (mapPolyline) mapPolyline.setMap(null);
+
+    const bounds = new google.maps.LatLngBounds();
+    const pathCoordinates = [];
+
+    // Import AdvancedMarker if available
+    let AdvancedMarkerElement;
+    let PinElement;
+    try {
+        const markerLib = await google.maps.importLibrary("marker");
+        AdvancedMarkerElement = markerLib.AdvancedMarkerElement;
+        PinElement = markerLib.PinElement;
+    } catch (e) {
+        console.warn("Advanced Marker not supported");
+    }
+
+    // Iterate all days and items
+    travelData.days.forEach((day, dIdx) => {
+        if (!day.timeline) return;
+
+        day.timeline.forEach((item, iIdx) => {
+            // Check if item has location data (exclude plain notes or transits without coords if unmapped)
+            // Note: Current data structure might not explicitly store lat/lng in timeline items individually unless added.
+            // Assuming simplified viewer logic: If we want to show ALL points, we need lat/lng on items.
+            // If items don't have lat/lng stored (only text location), we can't map them without geocoding.
+            // BUT: travelData.meta has lat/lng for the main destination.
+
+            // Checking if timeline items have lat/lng is crucial. 
+            // If the user's data doesn't have lat/lng on items, we can only show the main trip location.
+            // Let's assume for now we plot what we have, or maybe just the main location if items lack coords.
+
+            // However, looking at map.js, it seems new items get lat/lng saved? 
+            // Let's check state.js default data... it doesn't show lat/lng on timeline items example.
+            // If items lack lat/lng, this feature is limited. 
+            // BUT, usually map integration implies items HAVE coords.
+
+            // Let's implement robust checking.
+            if (item.lat && item.lng) {
+                const position = { lat: Number(item.lat), lng: Number(item.lng) };
+                pathCoordinates.push(position);
+                bounds.extend(position);
+
+                // Create Marker
+                if (AdvancedMarkerElement) {
+                    const pin = new PinElement({
+                        glyph: `${iIdx + 1}`,
+                        background: dIdx % 2 === 0 ? "#FF6B00" : "#3579F6", // Colors for different days? Or just uniform.
+                        borderColor: "#ffffff",
+                    });
+
+                    const marker = new AdvancedMarkerElement({
+                        map: map,
+                        position: position,
+                        title: item.title,
+                        content: pin.element
+                    });
+                    mapMarkers.push(marker);
+                } else {
+                    const marker = new google.maps.Marker({
+                        map: map,
+                        position: position,
+                        title: item.title,
+                        label: `${iIdx + 1}`
+                    });
+                    mapMarkers.push(marker);
+                }
+            }
+        });
+    });
+
+    // If no specific item markers, show main trip location
+    if (pathCoordinates.length === 0 && travelData.meta.lat && travelData.meta.lng) {
+        const position = { lat: Number(travelData.meta.lat), lng: Number(travelData.meta.lng) };
+        bounds.extend(position);
+
+        if (AdvancedMarkerElement) {
+            new AdvancedMarkerElement({
+                map: map,
+                position: position,
+                title: "Main Location"
+            });
+        } else {
+            new google.maps.Marker({
+                map: map,
+                position: position
+            });
+        }
+    }
+
+    // Draw Polyline
+    if (pathCoordinates.length > 1) {
+        mapPolyline = new google.maps.Polyline({
+            path: pathCoordinates,
+            geodesic: true,
+            strokeColor: "#FF6B00",
+            strokeOpacity: 1.0,
+            strokeWeight: 4,
+            icons: [{
+                icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW },
+                offset: '100%',
+                repeat: '100px'
+            }],
+            map: map
+        });
+    }
+
+    // Fit Bounds
+    if (!bounds.isEmpty()) {
+        map.fitBounds(bounds);
+        // Avoid too much zoom if only 1 point
+        if (pathCoordinates.length <= 1) {
+            const listener = google.maps.event.addListener(map, "idle", () => {
+                map.setZoom(13);
+                google.maps.event.removeListener(listener);
+            });
+        }
+    }
+}
+
+function fitMapToBounds() {
+    if (!map || mapMarkers.length === 0) return;
+    const bounds = new google.maps.LatLngBounds();
+
+    // Add marker positions
+    mapMarkers.forEach(m => {
+        if (m.position) bounds.extend(m.position); // Legacy
+        if (m.position) bounds.extend(m.position); // Advanced (requires access, usually position property works)
+    });
+
+    // Add meta location if needed
+    if (mapMarkers.length === 0 && travelData.meta.lat) {
+        bounds.extend({ lat: Number(travelData.meta.lat), lng: Number(travelData.meta.lng) });
+    }
+
+    if (!bounds.isEmpty()) {
+        map.fitBounds(bounds);
+    }
+}
 
 async function initViewer() {
     try {
@@ -77,9 +340,12 @@ async function loadTrip(tripId) {
             renderItinerary();
             renderLists();
 
+            // [Fix] Update Map with loaded data (Load API for preview)
+            loadGoogleMapsAPI();
+
             // Weather (Optional)
             if (data.days && data.days.length > 0) {
-                // loadWeather(data.days[0].date); // weather.js might need adaptation
+                // Weather loading logic can be added here if needed
             }
 
         } else {
@@ -107,15 +373,102 @@ window.selectDay = (index) => {
 };
 
 // Lightbox (Memories)
+// Lightbox (Memories)
+let currentLightboxImages = []; // { url, comment, index }
+let currentLightboxIndex = 0;
+
 window.openLightbox = (dayIndex, itemIndex, memIndex) => {
-    // Simple alert or implement simple lightbox if needed
-    // For MVP viewer, maybe just ignore or open image in new tab
-    const item = travelData.days[dayIndex].timeline[itemIndex];
-    const mem = item.memories[memIndex];
-    if (mem && mem.photoUrl) {
-        window.open(mem.photoUrl, '_blank');
+    // Collect all images from the current trip for navigation
+    currentLightboxImages = [];
+
+    // Iterate through all days and items to build a flat list of images
+    if (travelData.days) {
+        travelData.days.forEach((day, dIdx) => {
+            if (day.timeline) {
+                day.timeline.forEach((item, iIdx) => {
+                    if (item.memories) {
+                        item.memories.forEach((mem, mIdx) => {
+                            if (mem.photoUrl) {
+                                currentLightboxImages.push({
+                                    url: mem.photoUrl,
+                                    comment: mem.comment,
+                                    date: day.date,
+                                    originalIndices: { d: dIdx, i: iIdx, m: mIdx }
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+        });
+    }
+
+    // Find the starting index matching the clicked memory
+    currentLightboxIndex = currentLightboxImages.findIndex(img =>
+        img.originalIndices.d === dayIndex &&
+        img.originalIndices.i === itemIndex &&
+        img.originalIndices.m === memIndex
+    );
+
+    if (currentLightboxIndex === -1 && currentLightboxImages.length > 0) {
+        currentLightboxIndex = 0; // Fallback
+    }
+
+    if (currentLightboxImages.length > 0) {
+        updateLightboxUI();
+        const modal = document.getElementById('lightbox-modal');
+        if (modal) modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden'; // Prevent background scrolling
     }
 };
+
+window.closeLightbox = () => {
+    const modal = document.getElementById('lightbox-modal');
+    if (modal) modal.classList.add('hidden');
+    document.body.style.overflow = '';
+};
+
+window.navigateLightbox = (direction) => {
+    const newIndex = currentLightboxIndex + direction;
+    if (newIndex >= 0 && newIndex < currentLightboxImages.length) {
+        currentLightboxIndex = newIndex;
+        updateLightboxUI();
+    }
+};
+
+function updateLightboxUI() {
+    const imgData = currentLightboxImages[currentLightboxIndex];
+    if (!imgData) return;
+
+    const imgEl = document.getElementById('lightbox-image');
+    const captionEl = document.getElementById('lightbox-caption');
+    const prevBtn = document.getElementById('lightbox-prev');
+    const nextBtn = document.getElementById('lightbox-next');
+
+    if (imgEl) imgEl.src = imgData.url;
+    if (captionEl) captionEl.textContent = imgData.comment || '';
+
+    // Navigation buttons visibility
+    if (prevBtn) {
+        if (currentLightboxIndex > 0) prevBtn.classList.remove('hidden');
+        else prevBtn.classList.add('hidden');
+    }
+
+    if (nextBtn) {
+        if (currentLightboxIndex < currentLightboxImages.length - 1) nextBtn.classList.remove('hidden');
+        else nextBtn.classList.add('hidden');
+    }
+}
+
+// Keyboard navigation support
+document.addEventListener('keydown', (e) => {
+    const modal = document.getElementById('lightbox-modal');
+    if (!modal || modal.classList.contains('hidden')) return;
+
+    if (e.key === 'Escape') window.closeLightbox();
+    if (e.key === 'ArrowLeft') window.navigateLightbox(-1);
+    if (e.key === 'ArrowRight') window.navigateLightbox(1);
+});
 
 // Start
 initViewer();
