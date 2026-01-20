@@ -617,8 +617,7 @@ export function updateItemNote(value) {
 // [Invite Link Logic]
 let pendingInviteId = null;
 
-// [Invite Link Logic]
-let pendingInviteId = null;
+// [Invite Link Logic] (Using existing pendingInviteId from above)
 
 export async function checkInviteLink() {
     console.log("[Invite] Checking for invite link...");
