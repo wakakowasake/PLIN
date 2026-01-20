@@ -60,9 +60,14 @@ export async function getMapsApiKey() {
 }
 
 
-export async function openTrip(tripId) {
+// [Modified] Added options parameter for readOnly mode
+export let isReadOnlyMode = false;
+
+export async function openTrip(tripId, options = {}) {
     try {
         Modals.showLoading();
+        isReadOnlyMode = options.readOnly || false; // Set global read-only flag
+
         const docRef = doc(db, "plans", tripId);
         const docSnap = await getDoc(docRef);
 
@@ -76,11 +81,22 @@ export async function openTrip(tripId) {
             document.getElementById('main-view').classList.add('hidden');
             document.getElementById('detail-view').classList.remove('hidden');
             document.getElementById('back-btn').classList.remove('hidden');
-            document.getElementById('share-btn').classList.remove('hidden');
+
+            // 공유 버튼은 읽기 전용 모드에서는 숨김
+            const shareBtn = document.getElementById('share-btn');
+            if (isReadOnlyMode) {
+                shareBtn.classList.add('hidden');
+            } else {
+                shareBtn.classList.remove('hidden');
+            }
 
             // [Fix] Recalculate budget on load to fix potential legacy errors
             ExpenseManager.updateTotalBudget(travelData);
             selectDay(0); // 첫째날로 초기화
+
+            // [New] Apply Read-Only UI restrictions
+            applyReadOnlyUI();
+
         } else {
             console.error("Trip not found:", tripId);
             alert("여행 계획을 찾을 수 없습니다.");
@@ -92,6 +108,20 @@ export async function openTrip(tripId) {
         backToMain();
     } finally {
         Modals.hideLoading();
+    }
+}
+
+function applyReadOnlyUI() {
+    const body = document.body;
+    if (isReadOnlyMode) {
+        body.classList.add('read-only-mode');
+        // CSS로 제어하기 위해 클래스 추가.
+        // 추가로 JS로 제어해야 할 부분들:
+        // 1. DND 비활성화 (renderers.js에서 처리하거나 CSS pointer-events로 막음)
+        // 2. 추가 버튼 숨김 (CSS)
+        // 3. 컨텍스트 메뉴 비활성화 (oncontextmenu 이벤트 막기)
+    } else {
+        body.classList.remove('read-only-mode');
     }
 }
 
@@ -131,6 +161,11 @@ Profile.initDarkMode();
 
 // 바디 페이드인 애니메이션
 document.body.style.opacity = '1';
+
+// [New] 페이지 로드 시, 로그인 여부와 관계없이 공유 링크가 있는지 확인
+if (window.checkShareLink) {
+    window.checkShareLink();
+}
 
 // ========================================
 // Drag & Drop Logic (Re-exported from module)
@@ -582,6 +617,9 @@ export function updateItemNote(value) {
 // [Invite Link Logic]
 let pendingInviteId = null;
 
+// [Invite Link Logic]
+let pendingInviteId = null;
+
 export async function checkInviteLink() {
     console.log("[Invite] Checking for invite link...");
     const urlParams = new URLSearchParams(window.location.search);
@@ -589,6 +627,7 @@ export async function checkInviteLink() {
     console.log("[Invite] Invite ID:", inviteId);
 
     if (inviteId && currentUser) {
+        // ... (Existing Logic) ...
         console.log("[Invite] User is logged in, processing invite...");
         try {
             const planRef = doc(db, "plans", inviteId);
@@ -599,7 +638,6 @@ export async function checkInviteLink() {
                 console.log("[Invite] Trip found:", data.meta.title);
 
                 if (data.members && data.members[currentUser.uid]) {
-                    // 이미 멤버임
                     console.log("[Invite] User is already a member. Opening trip.");
                     openTrip(inviteId);
                     window.history.replaceState({}, document.title, window.location.pathname);
@@ -619,6 +657,48 @@ export async function checkInviteLink() {
         console.log("[Invite] No invite ID or user not logged in.");
     }
 }
+
+// [Share (Read-Only) Link Logic]
+export async function checkShareLink() {
+    console.log("[Share] Checking for share link...");
+    const urlParams = new URLSearchParams(window.location.search);
+    const shareId = urlParams.get('share');
+    console.log("[Share] Share ID:", shareId);
+
+    if (shareId) {
+        console.log("[Share] Share ID found. Attempting to load public trip...");
+        try {
+            // 로그인 여부와 관계없이 접근 시도 (Firestore Rules가 isPublic 체크함)
+            const planRef = doc(db, "plans", shareId);
+            const planSnap = await getDoc(planRef);
+
+            if (planSnap.exists()) {
+                const data = planSnap.data();
+                if (data.isPublic) {
+                    console.log("[Share] Public trip found. Opening in READ-ONLY mode.");
+                    // 로그인 상태라도 공유 링크로 들어왔으면 일단 읽기 전용으로 보여줌 (원하면 '수정 모드로 전환' 버튼을 나중에 추가 가능)
+                    openTrip(shareId, { readOnly: true });
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                } else {
+                    console.warn("[Share] Trip exists but is NOT public.");
+                    alert("비공개 여행 계획입니다.");
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                }
+            } else {
+                console.error("[Share] Trip not found.");
+                alert("여행 계획을 찾을 수 없습니다.");
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        } catch (e) {
+            console.error("[Share] Error loading shared trip:", e);
+            // 권한 에러일 가능성 높음 (isPublic이 false이거나 규칙 문제)
+            if (e.code === 'permission-denied') {
+                alert("접근 권한이 없거나 비공개된 여행입니다.");
+            }
+        }
+    }
+}
+window.checkShareLink = checkShareLink;
 
 export function openInviteModal(title, inviteId) {
     pendingInviteId = inviteId;

@@ -290,6 +290,31 @@
         body.modal-open {
             overflow: hidden;
         }
+
+        /* [Read-Only Mode Styles] */
+        .read-only-mode .add-item-btn-container,
+        .read-only-mode .drag-handle,
+        .read-only-mode .context-menu-trigger,
+        .read-only-mode #memory-lock-btn-container,
+        /* 추억 잠금 버튼도 숨김 */
+        .read-only-mode [onclick="openRouteModal()"],
+        /* 경로 보기 버튼 (수정 가능성 있어서?) -> 보기는 허용? 일단 유지 */
+        .read-only-mode [onclick="createNewTrip()"],
+        .read-only-mode [onclick="addListItem('shopping')"],
+        .read-only-mode [onclick="addListItem('check')"] {
+            display: none !important;
+        }
+
+        /* 읽기 전용 모드에서는 DND 비활성화 */
+        .read-only-mode .timeline-item {
+            cursor: default !important;
+            user-select: text !important;
+            /* 텍스트 선택 허용 */
+        }
+
+        .read-only-mode .item-icon {
+            cursor: default !important;
+        }
     </style>
 </head>
 

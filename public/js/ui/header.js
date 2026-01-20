@@ -34,39 +34,129 @@ export async function openShareModal(tripId = null) {
         return 0;
     });
 
-    const link = `${window.location.origin}${window.location.pathname}?invite=${targetTripId}`;
-    const input = document.getElementById('share-link-input');
-    if (input) input.value = link;
-
-    let html = '';
-    for (const uid of memberUIDs) {
+    // [New] Fetch isPublic state
+    let isPublic = false;
+    if (targetTripId) {
         try {
-            const userRef = doc(db, 'users', uid);
-            const userSnap = await getDoc(userRef);
-            if (userSnap.exists()) {
-                const userData = userSnap.data();
-                const role = members[uid];
-                const isMe = currentUser && currentUser.uid === uid;
-                const displayName = isMe ? `${userData.displayName} (나)` : userData.displayName;
-                html += `
-                <div class="flex justify-between items-center bg-gray-50 dark:bg-gray-800 p-2 rounded-lg">
-                    <div class="flex items-center gap-3">
-                        <img src="${userData.photoURL}" class="w-8 h-8 rounded-full">
-                        <div>
-                            <p class="text-sm font-bold">${displayName}</p>
-                            <p class="text-xs text-gray-500">${userData.email}</p>
-                        </div>
-                    </div>
-                    <span class="text-xs font-semibold text-gray-500">${role}</span>
-                </div>
-            `;
+            const docRef = doc(db, 'plans', targetTripId);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                isPublic = docSnap.data().isPublic || false;
             }
         } catch (e) {
-            console.error('Error loading member user:', e);
+            console.error('Error fetching isPublic state:', e);
         }
     }
-    if (memberListEl) memberListEl.innerHTML = html;
+
+    // [New] Generate Share Link based on isPublic
+    // 초대 링크 (협업용): invite=...
+    // 공개 링크 (보기용): share=...
+    const inviteLink = `${window.location.origin}${window.location.pathname}?invite=${targetTripId}`;
+    const publicLink = `${window.location.origin}${window.location.pathname}?share=${targetTripId}`;
+
+    // 현재 표시할 링크 결정 (공개 모드면 공개 링크, 아니면 초대 링크)
+    // 단, 이 부분은 사용자가 "어떤 링크를 복사하고 싶은지" 명확히 해야 하므로,
+    // 공개 모드가 켜져있으면 공개 링크를 우선 보여주거나, 두 링크를 따로 제공하는 것이 좋음.
+    // 여기서는 심플하게: 공개 모드가 켜져있으면 공개 링크를 input에 넣음.
+    const input = document.getElementById('share-link-input');
+    if (input) {
+        input.value = isPublic ? publicLink : inviteLink;
+    }
+
+    // Add Toggle UI
+    if (memberListEl) {
+        // 기존 헤더 부분에 토글 추가 (HTML 구조를 약간 수정하거나 prepend)
+        // 여기서는 리스트 상단에 컨트롤 패널을 추가함
+        const controlHtml = `
+            <div class="mb-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl flex items-center justify-between">
+                <div>
+                    <h4 class="font-bold text-sm text-gray-900 dark:text-white">공개 링크 공유</h4>
+                    <p class="text-xs text-gray-500">로그인 없이 누구나 여행 계획을 볼 수 있습니다.</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="public-share-toggle" class="sr-only peer" ${isPublic ? 'checked' : ''} onchange="window.togglePublicShare('${targetTripId}')">
+                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/30 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                </label>
+            </div>
+            <div id="share-link-label" class="text-xs font-bold text-gray-500 mb-1 ml-1">
+                ${isPublic ? '🔗 공개 링크 (보기 전용)' : '📩 초대 링크 (수정 권한)'}
+            </div>
+         `;
+
+        // 멤버 리스트 HTML 생성
+        let listHtml = '<div class="space-y-2">';
+        for (const uid of memberUIDs) {
+            try {
+                const userRef = doc(db, 'users', uid);
+                const userSnap = await getDoc(userRef);
+                if (userSnap.exists()) {
+                    const userData = userSnap.data();
+                    const role = members[uid];
+                    const isMe = currentUser && currentUser.uid === uid;
+                    const displayName = isMe ? `${userData.displayName} (나)` : userData.displayName;
+                    const photoURL = userData.photoURL || '/images/icon-192.png';
+
+                    listHtml += `
+                    <div class="flex justify-between items-center bg-white dark:bg-gray-700 p-2 rounded-lg border border-gray-100 dark:border-gray-600">
+                        <div class="flex items-center gap-3">
+                            <img src="${photoURL}" class="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-gray-600" onerror="this.src='/images/icon-192.png'">
+                            <div>
+                                <p class="text-sm font-bold text-gray-900 dark:text-white">${displayName}</p>
+                                <p class="text-xs text-gray-500">${userData.email}</p>
+                            </div>
+                        </div>
+                        <span class="text-xs font-semibold text-gray-500 bg-gray-100 dark:bg-gray-600 px-2 py-1 rounded text-center min-w-[50px]">${role}</span>
+                    </div>
+                `;
+                }
+            } catch (e) {
+                console.error('Error loading member user:', e);
+            }
+        }
+        listHtml += '</div>';
+
+        memberListEl.innerHTML = controlHtml + listHtml;
+    }
 }
+
+export async function togglePublicShare(tripId) {
+    const toggle = document.getElementById('public-share-toggle');
+    const input = document.getElementById('share-link-input');
+    const label = document.getElementById('share-link-label');
+
+    if (!toggle) return;
+
+    const isPublic = toggle.checked;
+
+    try {
+        const docRef = doc(db, 'plans', tripId);
+        await updateDoc(docRef, { isPublic: isPublic });
+
+        // 링크 입력창 업데이트
+        if (input) {
+            const inviteLink = `${window.location.origin}${window.location.pathname}?invite=${tripId}`;
+            const publicLink = `${window.location.origin}${window.location.pathname}?share=${tripId}`;
+            input.value = isPublic ? publicLink : inviteLink;
+
+            // 흔들림 효과 등으로 링크가 바뀌었음을 알림
+            input.classList.add('shake');
+            setTimeout(() => input.classList.remove('shake'), 300);
+        }
+
+        if (label) {
+            label.textContent = isPublic ? '🔗 공개 링크 (보기 전용)' : '📩 초대 링크 (수정 권한)';
+            label.className = isPublic ? "text-xs font-bold text-primary mb-1 ml-1" : "text-xs font-bold text-gray-500 mb-1 ml-1";
+        }
+
+    } catch (e) {
+        console.error("Error toggling public share:", e);
+        alert("설정 변경 중 오류가 발생했습니다.");
+        toggle.checked = !isPublic; // Revert
+    }
+}
+
+// Window assignment for onclick handler
+window.togglePublicShare = togglePublicShare;
 
 export function closeShareModal() {
     const el = document.getElementById('share-modal');

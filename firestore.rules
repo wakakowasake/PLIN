@@ -22,14 +22,16 @@ service cloud.firestore {
     
     // 사용자 프로필 문서
     match /users/{userId} {
-      // 본인만 읽기/쓰기 가능
-      allow read, write: if isUser(userId);
+      // 읽기: 로그인한 사용자 누구나 가능 (멤버 목록 표시용)
+      allow read: if isAuthenticated();
+      // 쓰기: 본인만 가능
+      allow write: if isUser(userId);
     }
     
     // 여행 계획 문서 (Plans)
     match /plans/{planId} {
-      // 읽기: 로그인한 사용자 누구나 가능 (초대 링크 확인용)
-      allow read: if isAuthenticated();
+      // 읽기: 로그인한 사용자 OR 공개 설정된 여행
+      allow read: if isAuthenticated() || (resource.data.isPublic == true);
       
       // 생성: 로그인한 사용자
       allow create: if isAuthenticated();
