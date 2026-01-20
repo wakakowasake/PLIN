@@ -289,7 +289,7 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
 
     let html = `
         <div ${draggableAttr} ontouchstart="touchStart(event, ${index}, 'item')" ontouchmove="touchMove(event)" ontouchend="touchEnd(event)" data-index="${index}" style="z-index: ${zIndex};" 
-            class="relative grid grid-cols-[auto_1fr] gap-x-3 md:gap-x-6 group/timeline-item timeline-item-transition rounded-xl" ${contextHandler}>
+            class="relative grid grid-cols-[auto_1fr] gap-x-3 md:gap-x-6 group/timeline-item timeline-item-transition rounded-xl ${isMemoryLocked ? 'mb-3' : ''}" ${contextHandler}>
             <div class="drag-indicator absolute -top-3 left-0 right-0 h-1 bg-primary rounded-full hidden z-50 shadow-sm pointer-events-none"></div>
             
             <!-- 시간 카드 (기존 아이콘 위치) -->
@@ -512,14 +512,15 @@ export function renderItinerary() {
 
             if (isLocked) {
                 // 잠금 상태: 편집 아이콘만
-                memoryLockBtn.className = 'px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm bg-primary text-white hover:bg-orange-500';
+                memoryLockBtn.className = 'w-full min-[400px]:w-auto px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm bg-primary text-white hover:bg-orange-500';
                 if (iconSpan) iconSpan.textContent = 'edit';
                 if (textSpan) textSpan.textContent = '';
             } else {
-                // 잠금 해제 상태: 완료 버튼
-                memoryLockBtn.className = 'px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm bg-green-500 text-white hover:bg-green-600';
+                // 잠금 해제 상태: 완료 아이콘만
+                // 초록색 대신 테마에 어울리는 색상 (흰색 배경 + 주황 테두리)
+                memoryLockBtn.className = 'w-full min-[400px]:w-auto px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm bg-white border-2 border-primary text-primary hover:bg-orange-50';
                 if (iconSpan) iconSpan.textContent = 'check_circle';
-                if (textSpan) textSpan.textContent = '추억 저장 완료';
+                if (textSpan) textSpan.textContent = '';
             }
         } else {
             // 여행 진행 중이면 버튼 숨김
