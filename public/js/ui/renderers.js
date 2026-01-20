@@ -254,8 +254,13 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
     let startTime = '--:--';
     let endTime = '--:--';
 
-    // 이동수단은 transitInfo 사용, 일반 아이템은 time 필드 파싱
-    if (item.isTransit && item.transitInfo) {
+    // 이동수단 시간 파싱: 비행기는 flightInfo, 일반 이동수단은 transitInfo 사용
+    if (item.isTransit && item.transitType === 'airplane' && item.flightInfo) {
+        // 비행기: flightInfo의 출발/도착 시간 사용
+        startTime = item.flightInfo.departureTime || '--:--';
+        endTime = item.flightInfo.arrivalTime || '--:--';
+    } else if (item.isTransit && item.transitInfo) {
+        // 일반 이동수단: transitInfo 사용
         startTime = item.transitInfo.start || item.transitInfo.depTime || '--:--';
         endTime = item.transitInfo.end || item.transitInfo.arrTime || '--:--';
     } else if (item.time) {
