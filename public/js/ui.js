@@ -1469,6 +1469,12 @@ export function saveFlightItem() {
 let autoSaveTimeout = null;
 
 export async function autoSave(immediate = false) {
+    // [Fix] Read-Only 모드에서는 자동 저장 방지
+    if (isReadOnlyMode) {
+        console.debug('[AutoSave] Skipped: Read-Only Mode');
+        return;
+    }
+
     if (!isEditing && currentUser && currentTripId) {
         const saveTask = async () => {
             // [Added] 저장 중복 방지 (데이터 일관성)
