@@ -225,7 +225,14 @@ export function recalculateTimeline(dayIndex) {
             item.time = startTimeStr;
 
             // duration이 있으면 체류시간으로 계산, 없으면 기본 30분
-            const duration = typeof item.duration === 'number' ? item.duration : 30;
+            // [Fix] "0" 문자열도 0으로 처리되도록 수정 (기존 로직은 typeof check로 인해 "0"이 30이 됨)
+            let duration = 30;
+            if (item.duration !== undefined && item.duration !== null && item.duration !== '') {
+                const parsed = Number(item.duration);
+                if (!isNaN(parsed)) {
+                    duration = parsed;
+                }
+            }
             currentTime = currentTime + duration;
         }
     }

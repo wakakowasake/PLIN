@@ -66,7 +66,12 @@ export function addTransitItem(index, type, dayIndex = currentDayIndex) {
                 // 일반 장소면 time + duration으로 종료 시간 계산
                 const prevTimeMinutes = parseTimeStr(prevItem.time);
                 if (prevTimeMinutes !== null) {
-                    const prevDuration = prevItem.duration || 30;
+                    // [Fix] 0분도 유효한 값이므로 || 연산자 대신 명시적 체크 사용
+                    let prevDuration = 30;
+                    if (prevItem.duration !== undefined && prevItem.duration !== null && prevItem.duration !== '') {
+                        const parsed = Number(prevItem.duration);
+                        if (!isNaN(parsed)) prevDuration = parsed;
+                    }
                     const endMinutes = prevTimeMinutes + prevDuration;
                     startTime = minutesTo24Hour(endMinutes);
                 }
