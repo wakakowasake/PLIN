@@ -159,16 +159,25 @@ export async function initAuthStateObserver() {
             if (window.loadTripList) window.loadTripList(user.uid);
             if (window.checkInviteLink) window.checkInviteLink();
         } else {
-            loginBtn?.classList.remove('hidden');
-            userProfile?.classList.add('hidden');
-            // 로그아웃 상태에서도 기본 여행가 아바타 표시
-            if (userAvatar) userAvatar.style.backgroundImage = `url('${defaultTravelData.meta.userImage}')`;
-            if (mainTitle) mainTitle.innerText = '나의 여행 계획';
+            // [Modified] Check for public share link
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('share')) {
+                console.log("[Auth] Public share link detected. Skipping login screen.");
+                loginView?.classList.add('hidden');
+                // checkShareLink will be called by ui.js or we can ensure it's called here
+                if (window.checkShareLink) window.checkShareLink();
+            } else {
+                loginBtn?.classList.remove('hidden');
+                userProfile?.classList.add('hidden');
+                // 로그아웃 상태에서도 기본 여행가 아바타 표시
+                if (userAvatar) userAvatar.style.backgroundImage = `url('${defaultTravelData.meta.userImage}')`;
+                if (mainTitle) mainTitle.innerText = '나의 여행 계획';
 
-            loginView?.classList.remove('hidden');
-            mainView?.classList.add('hidden');
-            detailView?.classList.add('hidden');
-            backBtn?.classList.add('hidden');
+                loginView?.classList.remove('hidden');
+                mainView?.classList.add('hidden');
+                detailView?.classList.add('hidden');
+                backBtn?.classList.add('hidden');
+            }
         }
     });
 }
