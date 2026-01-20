@@ -694,7 +694,9 @@ export async function checkShareLink() {
             console.error("[Share] Error loading shared trip:", e);
             // 권한 에러일 가능성 높음 (isPublic이 false이거나 규칙 문제)
             if (e.code === 'permission-denied') {
-                alert("접근 권한이 없거나 비공개된 여행입니다.");
+                alert("접근 권한이 없거나 비공개된 여행입니다.\n\n여행 소유자에게 '공개 링크 공유' 설정이 켜져 있는지 확인해주세요.");
+            } else {
+                alert("여행 계획을 불러오는 중 오류가 발생했습니다: " + e.message);
             }
         }
     }
@@ -1492,7 +1494,8 @@ export async function autoSave(immediate = false) {
                 setIsSaving(true);
                 // [핵심] JSON 변환을 통해 undefined 값을 가진 필드를 자동으로 제거함
                 const cleanData = JSON.parse(JSON.stringify(travelData));
-                await setDoc(doc(db, "plans", currentTripId), cleanData);
+                // [Fix] merge: true 옵션을 사용하여 isPublic 등 로컬 state에 없는 필드가 삭제되지 않도록 함
+                await setDoc(doc(db, "plans", currentTripId), cleanData, { merge: true });
                 console.debug('AutoSave completed:', new Date().toLocaleTimeString());
             } catch (e) {
                 console.error("Auto-save failed", e);

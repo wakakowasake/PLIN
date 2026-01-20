@@ -132,6 +132,11 @@ export async function togglePublicShare(tripId) {
         const docRef = doc(db, 'plans', tripId);
         await updateDoc(docRef, { isPublic: isPublic });
 
+        // [Fix] 로컬 상태 동기화 (AutoSave 시 덮어쓰기 방지)
+        if (window.currentTripId === tripId && travelData) {
+            travelData.isPublic = isPublic;
+        }
+
         // 링크 입력창 업데이트
         if (input) {
             const inviteLink = `${window.location.origin}${window.location.pathname}?invite=${tripId}`;

@@ -31,7 +31,7 @@ service cloud.firestore {
     // 여행 계획 문서 (Plans)
     match /plans/{planId} {
       // 읽기: 로그인한 사용자 OR 공개 설정된 여행
-      allow read: if isAuthenticated() || (resource.data.isPublic == true);
+      allow read: if isAuthenticated() || (resource != null && resource.data.isPublic == true);
       
       // 생성: 로그인한 사용자
       allow create: if isAuthenticated();
