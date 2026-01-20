@@ -667,6 +667,8 @@ export async function checkShareLink() {
     if (shareId) {
         console.log("[Share] Share ID found. Attempting to load public trip...");
         try {
+            await firebaseReady; // [Fix] Wait for Firebase DB initialization
+
             // 로그인 여부와 관계없이 접근 시도 (Firestore Rules가 isPublic 체크함)
             const planRef = doc(db, "plans", shareId);
             const planSnap = await getDoc(planRef);
