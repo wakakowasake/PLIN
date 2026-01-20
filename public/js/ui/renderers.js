@@ -406,8 +406,15 @@ export function renderItinerary() {
                     </div>
                     <div class="flex flex-col">`;
             if (day.timeline && day.timeline.length > 0) {
-                const isPlannerMode = travelData.meta?.viewMode === 'planner';
-                const renderFunc = isPlannerMode ? renderTimelineItemHtmlPlanner : renderTimelineItemHtml;
+                // ============================================================
+                // 🔒 PLANNER MODE ONLY (간단 모드 비활성화)
+                // ============================================================
+                // [간단 모드 활성화 방법]
+                // 아래 3줄의 주석을 해제하고, 그 아래 1줄을 주석 처리하세요.
+                // const isPlannerMode = travelData.meta?.viewMode === 'planner';
+                // const renderFunc = isPlannerMode ? renderTimelineItemHtmlPlanner : renderTimelineItemHtml;
+                // ============================================================
+                const renderFunc = renderTimelineItemHtmlPlanner; // 🔒 항상 플래너 모드
 
                 day.timeline.forEach((item, index) => {
                     const isLast = index === day.timeline.length - 1;
@@ -445,8 +452,15 @@ export function renderItinerary() {
                     </div>
                     <div class="flex flex-col">`;
         }
-        const isPlannerMode = travelData.meta?.viewMode === 'planner';
-        const renderFunc = isPlannerMode ? renderTimelineItemHtmlPlanner : renderTimelineItemHtml;
+        // ============================================================
+        // 🔒 PLANNER MODE ONLY (간단 모드 비활성화)
+        // ============================================================
+        // [간단 모드 활성화 방법]
+        // 아래 2줄의 주석을 해제하고, 그 아래 1줄을 주석 처리하세요.
+        // const isPlannerMode = travelData.meta?.viewMode === 'planner';
+        // const renderFunc = isPlannerMode ? renderTimelineItemHtmlPlanner : renderTimelineItemHtml;
+        // ============================================================
+        const renderFunc = renderTimelineItemHtmlPlanner; // 🔒 항상 플래너 모드
 
         currentTimeline.forEach((item, index) => {
             const isLast = index === currentTimeline.length - 1;
