@@ -493,6 +493,39 @@ export function renderItinerary() {
     listEl.innerHTML = html;
     window.renderLists && window.renderLists();
     window.updateLocalTimeWidget && window.updateLocalTimeWidget();
+
+    // [Memory Lock Button] 추억 잠금 버튼 상태 업데이트
+    const memoryLockContainer = document.getElementById('memory-lock-btn-container');
+    const memoryLockBtn = document.getElementById('memory-lock-btn');
+
+    if (memoryLockContainer && memoryLockBtn) {
+        // 여행 완료 상태 확인
+        const tripCompleted = isTripCompleted();
+
+        if (tripCompleted) {
+            // 여행 완료 상태면 버튼 표시
+            memoryLockContainer.classList.remove('hidden');
+
+            const isLocked = travelData.meta?.memoryLocked || false;
+            const iconSpan = memoryLockBtn.querySelector('.material-symbols-outlined');
+            const textSpan = memoryLockBtn.querySelector('.text-sm');
+
+            if (isLocked) {
+                // 잠금 상태: 편집 버튼
+                memoryLockBtn.className = 'px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm bg-primary text-white hover:bg-orange-500';
+                if (iconSpan) iconSpan.textContent = 'edit';
+                if (textSpan) textSpan.textContent = '추억 수정하기';
+            } else {
+                // 잠금 해제 상태: 완료 버튼
+                memoryLockBtn.className = 'px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm bg-green-500 text-white hover:bg-green-600';
+                if (iconSpan) iconSpan.textContent = 'check_circle';
+                if (textSpan) textSpan.textContent = '추억 저장 완료';
+            }
+        } else {
+            // 여행 진행 중이면 버튼 숨김
+            memoryLockContainer.classList.add('hidden');
+        }
+    }
 }
 
 export function renderLists() {
