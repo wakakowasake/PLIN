@@ -302,7 +302,7 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
             </div>
             
             <!-- 카드 내용 -->
-            <div class="pb-2 flex flex-col justify-center min-w-0">
+            <div class="flex flex-col justify-center min-w-0">
     `;
 
     // Content variants (Same as simple mode but without icon)
@@ -325,15 +325,15 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
     // 플래너 모드에서 플러스 버튼과 함께 구분선 추가 (마지막 아이템 포함)
     if (!isMemoryLocked) {
         html += `
-            <div class="relative flex items-center gap-3 my-4">
-                <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
-                <button type="button" onclick="openAddModal(${index}, ${dayIndex})" 
-                    class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-primary transition-colors cursor-pointer transform hover:scale-110 z-10" 
-                    title="일정 추가">
+            <button type="button" onclick="openAddModal(${index}, ${dayIndex})" 
+                class="relative flex items-center gap-3 h-8 my-2 w-full text-gray-400 hover:text-primary transition-colors cursor-pointer group" 
+                title="일정 추가">
+                <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700 group-hover:bg-primary/30 transition-colors"></div>
+                <div class="w-8 h-8 flex items-center justify-center transform group-hover:scale-110 transition-transform">
                     <span class="material-symbols-outlined text-lg">add</span>
-                </button>
-                <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
-            </div>
+                </div>
+                <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700 group-hover:bg-primary/30 transition-colors"></div>
+            </button>
         `;
     }
 
@@ -511,10 +511,10 @@ export function renderItinerary() {
             const textSpan = memoryLockBtn.querySelector('.text-sm');
 
             if (isLocked) {
-                // 잠금 상태: 편집 버튼
+                // 잠금 상태: 편집 아이콘만
                 memoryLockBtn.className = 'px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm bg-primary text-white hover:bg-orange-500';
                 if (iconSpan) iconSpan.textContent = 'edit';
-                if (textSpan) textSpan.textContent = '추억 수정하기';
+                if (textSpan) textSpan.textContent = '';
             } else {
                 // 잠금 해제 상태: 완료 버튼
                 memoryLockBtn.className = 'px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm bg-green-500 text-white hover:bg-green-600';
