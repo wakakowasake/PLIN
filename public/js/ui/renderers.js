@@ -511,14 +511,13 @@ export function renderItinerary() {
             const textSpan = memoryLockBtn.querySelector('.text-sm');
 
             if (isLocked) {
-                // 잠금 상태: 편집 아이콘만
-                memoryLockBtn.className = 'w-full min-[400px]:w-auto px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm bg-primary text-white hover:bg-orange-500';
+                // 잠금 상태: 편집 아이콘만 (연한 색, 보조 느낌)
+                memoryLockBtn.className = 'w-full custom-w-auto px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm bg-white border-2 border-primary text-primary hover:bg-orange-50';
                 if (iconSpan) iconSpan.textContent = 'edit';
                 if (textSpan) textSpan.textContent = '';
             } else {
-                // 잠금 해제 상태: 완료 아이콘만
-                // 초록색 대신 테마에 어울리는 색상 (흰색 배경 + 주황 테두리)
-                memoryLockBtn.className = 'w-full min-[400px]:w-auto px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm bg-white border-2 border-primary text-primary hover:bg-orange-50';
+                // 잠금 해제 상태: 완료 아이콘만 (진한 색, 확정 느낌)
+                memoryLockBtn.className = 'w-full custom-w-auto px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm bg-primary text-white hover:bg-orange-500';
                 if (iconSpan) iconSpan.textContent = 'check_circle';
                 if (textSpan) textSpan.textContent = '';
             }

@@ -101,6 +101,20 @@
             scrollbar-width: none;
         }
 
+        /* 400px 기준 반응형 레이아웃 헬퍼 (Tailwind JIT 미지원 대비) */
+        @media (min-width: 400px) {
+            .custom-flex-row {
+                flex-direction: row !important;
+                align-items: flex-end !important;
+            }
+
+            .custom-w-auto {
+                width: auto !important;
+            }
+        }
+
+
+
         /* 컨텍스트 메뉴 애니메이션 */
         .context-menu-enter {
             opacity: 0;
@@ -406,7 +420,7 @@
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
             <div class="lg:col-span-8 flex flex-col gap-6">
-                <div class="flex flex-col min-[400px]:flex-row min-[400px]:items-end justify-between gap-4">
+                <div class="flex flex-col custom-flex-row justify-between gap-4">
                     <div class="flex flex-col gap-2 select-none p-2 -m-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                         oncontextmenu="openContextMenu(event, 'trip_info')"
                         ontouchstart="touchStart(event, -1, 'trip_info')" ontouchend="touchEnd(event)"
@@ -424,9 +438,9 @@
                             12일</p>
                     </div>
                     <!-- 추억 잠금 버튼 (여행 완료 상태일 때만 표시) -->
-                    <div id="memory-lock-btn-container" class="hidden w-full min-[400px]:w-auto">
+                    <div id="memory-lock-btn-container" class="hidden w-full custom-w-auto">
                         <button type="button" id="memory-lock-btn" onclick="toggleMemoryLock()"
-                            class="w-full min-[400px]:w-auto px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm">
+                            class="w-full custom-w-auto px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm">
                             <span class="material-symbols-outlined text-xl"></span>
                             <span class="text-sm"></span>
                         </button>
