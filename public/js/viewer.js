@@ -1,17 +1,24 @@
 import { db, firebaseReady } from './firebase.js';
 import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
-import { setTravelData, travelData, setCurrentTripId, setCurrentDayIndex } from './state.js'; // setReadOnlyMode might need to be added or simulated
+import { setTravelData, travelData, setCurrentTripId, setCurrentDayIndex, setIsReadOnlyMode } from './state.js'; // setReadOnlyMode might need to be added or simulated
 import { renderItinerary, renderLists, renderWeeklyWeather } from './ui/renderers.js';
 import { formatTime } from './ui/time-helpers.js';
 
 import { BACKEND_URL } from './config.js';
 
 // Global context for renderers (simulating ui.js environment)
+// Global context for renderers (simulating ui.js environment)
 window.renderLists = renderLists;
-window.updateLocalTimeWidget = () => { }; // Viewer doesn't need complex local time widget updates for now or can implement simple one
-window.viewTimelineItem = (index, dayIndex) => {
-    console.log("View item:", index, dayIndex);
-};
+window.updateLocalTimeWidget = () => { };
+
+// [Fix] Stub functions to prevent ReferenceError in Viewer
+window.viewTimelineItem = (index, dayIndex) => { console.log("View item:", index, dayIndex); };
+window.viewRouteDetail = (index, dayIndex) => { console.log("View route:", index, dayIndex); }; // TODO: Implement route detail view if needed
+window.openAddModal = () => { }; // Prevent action in viewer
+window.deleteTimelineItem = () => { }; // Prevent action in viewer
+window.addMemoryItem = () => { }; // Prevent action in viewer
+window.deleteListItem = () => { }; // Prevent action in viewer
+window.toggleListCheck = () => { }; // Prevent action in viewer
 
 // Map State
 let map;
@@ -326,6 +333,7 @@ async function loadTrip(tripId) {
             setCurrentDayIndex(-1); // Default to 'All' view
 
             // Force Read-Only State
+            setIsReadOnlyMode(true); // [Added] 뷰어 모드 활성화 (UI 버튼 숨김)
             // state.js의 isEditing은 초기값이 false이므로 별도 설정 불필요하지만 명시적으로
             // (state.js에 export가 없다면 직접 수정 불가, 하지만 renderers는 readonly 상태로 동작함)
 

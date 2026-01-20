@@ -1,4 +1,4 @@
-import { travelData, currentDayIndex, isEditing } from '../state.js';
+import { travelData, currentDayIndex, isEditing, isReadOnlyMode } from '../state.js';
 import { calculateEndTime, formatTime } from './time-helpers.js';
 import { formatDuration } from '../ui-utils.js';
 
@@ -41,7 +41,7 @@ function renderMemoriesHtml(item, dayIndex, itemIndex) {
 function buildImageCard(item, editClass, clickHandler, index, dayIndex) {
     const isCompleted = isTripCompleted();
     const isMemoryLocked = travelData.meta?.memoryLocked || false;
-    const showMemoryBtn = isCompleted && !isMemoryLocked && !isEditing;
+    const showMemoryBtn = isCompleted && !isMemoryLocked && !isEditing && !isReadOnlyMode;
 
     return `
             <div class="bg-card-light dark:bg-card-dark rounded-xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-800 ${editClass}" ${clickHandler}>
@@ -73,7 +73,7 @@ function buildImageCard(item, editClass, clickHandler, index, dayIndex) {
 function buildMemoCard(item, index, dayIndex, editClass) {
     const isCompleted = isTripCompleted();
     const isMemoryLocked = travelData.meta?.memoryLocked || false;
-    const showMemoryBtn = isCompleted && !isMemoryLocked && !isEditing;
+    const showMemoryBtn = isCompleted && !isMemoryLocked && !isEditing && !isReadOnlyMode;
 
     return `
             <div class="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-700/30 rounded-lg p-3 ${editClass}" onclick="viewTimelineItem(${index}, ${dayIndex})">
@@ -93,7 +93,7 @@ function buildMemoCard(item, index, dayIndex, editClass) {
 function buildTransitCard(item, index, dayIndex, editClass) {
     const isCompleted = isTripCompleted();
     const isMemoryLocked = travelData.meta?.memoryLocked || false;
-    const showMemoryBtn = isCompleted && !isMemoryLocked && !isEditing;
+    const showMemoryBtn = isCompleted && !isMemoryLocked && !isEditing && !isReadOnlyMode;
 
     let contentHtml;
 
@@ -147,7 +147,7 @@ function buildTransitCard(item, index, dayIndex, editClass) {
 function buildDefaultCard(item, index, dayIndex, editClass, clickHandler) {
     const isCompleted = isTripCompleted();
     const isMemoryLocked = travelData.meta?.memoryLocked || false;
-    const showMemoryBtn = isCompleted && !isMemoryLocked && !isEditing;
+    const showMemoryBtn = isCompleted && !isMemoryLocked && !isEditing && !isReadOnlyMode;
 
     return `
             <div class="bg-card-light dark:bg-card-dark rounded-xl p-3 md:p-5 shadow-sm border border-gray-100 dark:border-gray-800 ${editClass}" ${clickHandler}>
@@ -215,7 +215,7 @@ export function renderTimelineItemHtml(item, index, dayIndex, isLast, isFirst) {
             <div class="w-10 h-10 rounded-full ${iconBg} border-2 border-primary/30 flex items-center justify-center z-10 shadow-sm relative shrink-0 mt-1" style="${iconStyle}">
                 <span class="material-symbols-outlined ${iconColor} text-xl" style="${item.color ? 'color: inherit' : ''}">${item.icon}</span>
             </div>
-            ${!isMemoryLocked ? `<div class="absolute -bottom-8 left-1/2 -translate-x-1/2 z-20 add-item-btn-container transition-opacity duration-200">
+            ${(!isMemoryLocked && !isReadOnlyMode) ? `<div class="absolute -bottom-8 left-1/2 -translate-x-1/2 z-20 add-item-btn-container transition-opacity duration-200">
                 <button type="button" onclick="openAddModal(${index}, ${dayIndex})" class="w-8 h-8 rounded-full bg-white dark:bg-card-dark border border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-400 hover:text-primary hover:border-primary transition-colors shadow-sm cursor-pointer transform hover:scale-110" title="일정 추가">
                     <span class="material-symbols-outlined text-lg">add</span>
                 </button>
@@ -298,7 +298,7 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
 
     let html = `
         <div ${draggableAttr} ontouchstart="touchStart(event, ${index}, 'item')" ontouchmove="touchMove(event)" ontouchend="touchEnd(event)" data-index="${index}" style="z-index: ${zIndex};" 
-            class="relative grid grid-cols-[auto_1fr] gap-x-3 md:gap-x-6 group/timeline-item timeline-item-transition rounded-xl ${isMemoryLocked ? 'mb-3' : ''}" ${contextHandler}>
+            class="relative grid grid-cols-[auto_1fr] gap-x-3 md:gap-x-6 group/timeline-item timeline-item-transition rounded-xl mb-6" ${contextHandler}>
             <div class="drag-indicator absolute -top-3 left-0 right-0 h-1 bg-primary rounded-full hidden z-50 shadow-sm pointer-events-none"></div>
             
             <!-- 시간 카드 (기존 아이콘 위치) -->
@@ -332,7 +332,7 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
 
 
     // 플래너 모드에서 플러스 버튼과 함께 구분선 추가 (마지막 아이템 포함)
-    if (!isMemoryLocked) {
+    if (!isMemoryLocked && !isReadOnlyMode) {
         html += `
             <button type="button" onclick="openAddModal(${index}, ${dayIndex})" 
                 class="relative flex items-center gap-3 h-8 my-2 w-full text-gray-400 hover:text-primary transition-colors cursor-pointer group" 
@@ -412,10 +412,10 @@ export function renderItinerary() {
                     <div class="flex items-center gap-4 mb-4 pl-2">
                         ${dayBadge}
                         <div class="h-px bg-gray-200 dark:bg-gray-700 flex-1"></div>
-                        <button type="button" onclick="openSortMethodModal(${dayIdx})" class="text-xs text-primary hover:bg-primary/10 px-2 py-1 rounded-lg transition-colors flex items-center gap-1" title="정렬">
+                        ${!isReadOnlyMode ? `<button type="button" onclick="openSortMethodModal(${dayIdx})" class="text-xs text-primary hover:bg-primary/10 px-2 py-1 rounded-lg transition-colors flex items-center gap-1" title="정렬">
                             <span class="material-symbols-outlined text-sm">sort</span>
                             <span class="hidden sm:inline">정렬</span>
-                        </button>
+                        </button>` : ''}
                         <div class="text-xs text-gray-400">${day.date}</div>
                     </div>
                     <div class="flex flex-col">`;
@@ -439,7 +439,7 @@ export function renderItinerary() {
                 html += `<div class="text-center py-4 text-gray-400 text-sm">일정이 없습니다.</div>`;
             }
             const isMemoryLocked = travelData.meta?.memoryLocked || false;
-            if (!isMemoryLocked) {
+            if (!isMemoryLocked && !isReadOnlyMode) {
                 html += `
                     <div class="flex justify-center mt-2">
                         <button type="button" onclick="openAddModal(${day.timeline.length}, ${dayIdx})" class="text-xs text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1">
@@ -458,10 +458,10 @@ export function renderItinerary() {
                     <div class="flex items-center gap-4 mb-4 pl-2">
                         <div class="bg-primary/10 text-primary px-3 py-1 rounded-lg font-bold text-sm">${currentDayIndex + 1}일차</div>
                         <div class="h-px bg-gray-200 dark:bg-gray-700 flex-1"></div>
-                        <button type="button" onclick="openSortMethodModal(${currentDayIndex})" class="text-xs text-primary hover:bg-primary/10 px-2 py-1 rounded-lg transition-colors flex items-center gap-1" title="정렬">
+                        ${!isReadOnlyMode ? `<button type="button" onclick="openSortMethodModal(${currentDayIndex})" class="text-xs text-primary hover:bg-primary/10 px-2 py-1 rounded-lg transition-colors flex items-center gap-1" title="정렬">
                             <span class="material-symbols-outlined text-sm">sort</span>
                             <span class="hidden sm:inline">정렬</span>
-                        </button>
+                        </button>` : ''}
                         <div class="text-xs text-gray-400">${day.date}</div>
                     </div>
                     <div class="flex flex-col">`;
@@ -491,10 +491,10 @@ export function renderItinerary() {
             html += `
             <div class="col-span-2 flex flex-col items-center justify-center py-10 text-gray-400">
                 <span class="material-symbols-outlined text-4xl mb-2">edit_calendar</span>
-                <p class="text-sm">아직 일정이 없습니다. 첫 일정을 추가해보세요!</p>
-                <button type="button" onclick="openAddModal(-1, ${currentDayIndex})" class="mt-4 flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-full font-bold shadow-lg hover:bg-orange-500 transition-colors transform hover:scale-105">
+                <p class="text-sm">아직 일정이 없습니다.${!isReadOnlyMode ? ' 첫 일정을 추가해보세요!' : ''}</p>
+                ${!isReadOnlyMode ? `<button type="button" onclick="openAddModal(-1, ${currentDayIndex})" class="mt-4 flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-full font-bold shadow-lg hover:bg-orange-500 transition-colors transform hover:scale-105">
                     <span class="material-symbols-outlined">add</span> 일정 시작하기
-                </button>
+                </button>` : ''}
             </div>`;
         }
     }
@@ -543,16 +543,16 @@ export function renderLists() {
     const scrollPosition = window.scrollY || document.documentElement.scrollTop;
     const renderItem = (item, index, type, shouldSparkle = false) => `
         <div class="bg-white dark:bg-card-dark border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2.5 flex items-center gap-2 group hover:shadow-sm transition-shadow ${shouldSparkle ? 'sparkle-item' : ''}">
-            <button onclick="toggleListCheck('${type}', ${index})" class="flex-shrink-0 text-gray-400 hover:text-primary transition-colors">
+            <button onclick="toggleListCheck('${type}', ${index})" class="flex-shrink-0 text-gray-400 hover:text-primary transition-colors ${isReadOnlyMode ? 'cursor-default pointer-events-none' : ''}">
                 <span class="material-symbols-outlined text-xl">${item.checked ? 'check_box' : 'check_box_outline_blank'}</span>
             </button>
             <div class="flex-1 min-w-0">
                 <span class="text-sm block ${item.checked ? 'text-gray-400 line-through' : 'text-gray-700 dark:text-gray-300'}">${item.text}</span>
                 ${item.location ? `<span class="text-xs text-gray-500 block truncate"><span class="material-symbols-outlined text-xs align-middle">location_on</span> ${item.location}</span>` : ''}
             </div>
-            <button onclick="deleteListItem('${type}', ${index})" class="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+            ${!isReadOnlyMode ? `<button onclick="deleteListItem('${type}', ${index})" class="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                 <span class="material-symbols-outlined text-lg">close</span>
-            </button>
+            </button>` : ''}
         </div>`;
 
     if (shoppingContainer) {
@@ -607,9 +607,9 @@ export function renderAttachments(item, containerId) {
                     <button onclick="openAttachment('${fileData}', '${att.type}')" class="text-white hover:text-primary p-1" title="열기">
                         <span class="material-symbols-outlined">visibility</span>
                     </button>
-                    <button onclick="deleteAttachment(${index}, '${containerId}')" class="text-white hover:text-red-500 p-1" title="삭제">
+                    ${!isReadOnlyMode ? `<button onclick="deleteAttachment(${index}, '${containerId}')" class="text-white hover:text-red-500 p-1" title="삭제">
                         <span class="material-symbols-outlined">delete</span>
-                    </button>
+                    </button>` : ''}
                 </div>
             </div>
         `;
