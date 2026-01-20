@@ -177,7 +177,10 @@ export function reorderTimeline(dayIndex, sortByTime = false) {
 export function recalculateTimeline(dayIndex) {
     if (dayIndex === null || dayIndex === -1) return;
     const day = travelData.days[dayIndex];
-    if (!day || !day.timeline || day.timeline.length === 0) return;
+    if (!day || !day.timeline || day.timeline.length === 0) {
+        renderItinerary();
+        return;
+    }
 
     const timeline = day.timeline;
 
