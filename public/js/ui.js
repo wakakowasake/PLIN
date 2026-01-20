@@ -580,35 +580,91 @@ export function updateItemNote(value) {
 }
 
 // [Invite Link Logic]
+let pendingInviteId = null;
+
 export async function checkInviteLink() {
+    console.log("[Invite] Checking for invite link...");
     const urlParams = new URLSearchParams(window.location.search);
     const inviteId = urlParams.get('invite');
+    console.log("[Invite] Invite ID:", inviteId);
 
     if (inviteId && currentUser) {
+        console.log("[Invite] User is logged in, processing invite...");
         try {
             const planRef = doc(db, "plans", inviteId);
             const planSnap = await getDoc(planRef);
 
             if (planSnap.exists()) {
                 const data = planSnap.data();
+                console.log("[Invite] Trip found:", data.meta.title);
+
                 if (data.members && data.members[currentUser.uid]) {
                     // 이미 멤버임
+                    console.log("[Invite] User is already a member. Opening trip.");
                     openTrip(inviteId);
+                    window.history.replaceState({}, document.title, window.location.pathname);
                 } else {
-                    if (confirm(`'${data.meta.title}' 여행 계획에 참여하시겠습니까?`)) {
-                        await updateDoc(planRef, { [`members.${currentUser.uid}`]: 'editor' });
-                        alert("여행 계획에 참여했습니다!");
-                        openTrip(inviteId);
-                    }
+                    console.log("[Invite] Opening custom invite modal...");
+                    openInviteModal(data.meta.title, inviteId);
                 }
+            } else {
+                console.error("[Invite] Trip document not found for ID:", inviteId);
+                alert("여행 계획을 찾을 수 없습니다.");
+                window.history.replaceState({}, document.title, window.location.pathname);
             }
-            // URL 정리
-            window.history.replaceState({}, document.title, window.location.pathname);
         } catch (e) {
             console.error("Invite processing error", e);
         }
+    } else {
+        console.log("[Invite] No invite ID or user not logged in.");
     }
 }
+
+export function openInviteModal(title, inviteId) {
+    pendingInviteId = inviteId;
+    const modal = document.getElementById('invite-modal');
+    const titleEl = document.getElementById('invite-trip-title');
+    if (modal && titleEl) {
+        titleEl.textContent = title || '여행 계획';
+        modal.classList.remove('hidden');
+    }
+}
+
+export function closeInviteModal() {
+    pendingInviteId = null;
+    const modal = document.getElementById('invite-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+    // 사용자가 거절했거나 닫았을 때 URL 파라미터 정리
+    window.history.replaceState({}, document.title, window.location.pathname);
+}
+
+export async function confirmJoinTrip() {
+    if (!pendingInviteId || !currentUser) return;
+
+    try {
+        Modals.showLoading();
+        const planRef = doc(db, "plans", pendingInviteId);
+        await updateDoc(planRef, { [`members.${currentUser.uid}`]: 'editor' });
+
+        closeInviteModal();
+        Modals.hideLoading();
+
+        // 성공 메시지는 간단히 토스트나 알림으로 대체 가능하지만 일단 alert 유지
+        // alert("여행 계획에 참여했습니다!"); 
+        openTrip(pendingInviteId);
+    } catch (e) {
+        console.error("Error joining trip:", e);
+        alert("여행 참여 중 오류가 발생했습니다.");
+        Modals.hideLoading();
+    }
+}
+
+// Window assignments
+window.openInviteModal = openInviteModal;
+window.closeInviteModal = closeInviteModal;
+window.confirmJoinTrip = confirmJoinTrip;
 
 // [Sharing Logic]
 export async function openShareModal(tripId = null) {

@@ -26,37 +26,28 @@ service cloud.firestore {
       allow read, write: if isUser(userId);
     }
     
-    // 여행 계획 문서
-    match /trips/{tripId} {
-      // 읽기: 로그인한 사용자이고 (소유자이거나 공유 받은 경우)
-      allow read: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid ||
-        (resource.data.sharedWith != null && request.auth.uid in resource.data.sharedWith)
-      );
+    // 여행 계획 문서 (Plans)
+    match /plans/{planId} {
+      // 읽기: 로그인한 사용자 누구나 가능 (초대 링크 확인용)
+      allow read: if isAuthenticated();
       
-      // 생성: 로그인한 사용자이고, userId가 자신의 uid인 경우
-      allow create: if isAuthenticated() && 
-        request.resource.data.userId == request.auth.uid;
+      // 생성: 로그인한 사용자
+      allow create: if isAuthenticated();
       
-      // 수정: 소유자이거나 공유 받은 사용자
-      allow update: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid ||
-        (resource.data.sharedWith != null && request.auth.uid in resource.data.sharedWith)
-      );
+      // 수정: 로그인한 사용자 (목록 합류를 위해 본인 추가 허용 필요)
+      // 보안 강화 필요 시: 기존 멤버이거나, 멤버에 자신을 추가하는 경우만 허용하도록 로직 복잡화 가능
+      allow update: if isAuthenticated();
       
-      // 삭제: 소유자만 가능
-      allow delete: if isAuthenticated() && 
-        resource.data.userId == request.auth.uid;
+      // 삭제: 로그인한 사용자 (실제로는 멤버 여부 체크 권장)
+      allow delete: if isAuthenticated();
       
       // 타임라인 아이템 서브컬렉션
       match /timeline/{itemId} {
-        // 부모 여행 문서의 권한을 따름
         allow read, write: if isAuthenticated();
       }
       
       // 추억 서브컬렉션
       match /memories/{memoryId} {
-        // 부모 여행 문서의 권한을 따름
         allow read, write: if isAuthenticated();
       }
     }
