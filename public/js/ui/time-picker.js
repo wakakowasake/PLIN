@@ -50,17 +50,28 @@ function handleTimeDblClick(e) {
     if (highlight) highlight.classList.add('hidden');
 
     const input = document.createElement('input');
-    input.type = 'number';
-    input.className = "w-full h-full text-center text-2xl font-bold bg-white dark:bg-card-dark border-2 border-primary rounded-xl outline-none z-20 absolute inset-0";
-    input.value = currentVal;
-    // Prevent click event propagation (prevent modal close)
-    input.onclick = (ev) => ev.stopPropagation();
+    input.type = 'text';
+    input.inputMode = 'numeric'; // Show number pad on mobile
+    input.pattern = '[0-9]*'; // iOS numeric keypad
+    // Removed z-50 to avoid potential stacking context issues, z-20 is enough to cover z-10 highlight
+    input.className = "w-full h-full text-center text-2xl font-bold bg-white dark:bg-gray-800 text-gray-800 dark:text-white border-2 border-primary rounded-xl outline-none z-20 absolute inset-0 p-0 m-0";
 
-    // Set range
+    // Clear value for immediate typing, use placeholder for reference
+    input.value = '';
+    input.placeholder = currentVal;
+
+    // Robust event handling to prevent accidental closing
+    const stopEvent = (ev) => ev.stopPropagation();
+    input.onclick = stopEvent;
+    input.ondblclick = stopEvent;
+    input.onmousedown = stopEvent;
+    input.onwheel = stopEvent;
+
+    // Set range attributes for reference
     if (container.id === 'time-hour-list') {
-        input.min = 0; input.max = 23;
+        input.setAttribute('min', '0'); input.setAttribute('max', '23');
     } else {
-        input.min = 0; input.max = 59;
+        input.setAttribute('min', '0'); input.setAttribute('max', '59');
     }
 
     let isFinished = false;
@@ -68,9 +79,16 @@ function handleTimeDblClick(e) {
         if (isFinished) return;
         isFinished = true;
 
-        let val = parseInt(input.value);
+        let valStr = input.value.trim();
+        let val = parseInt(valStr);
 
         // Validate and clamp to range
+        // Restore UI FIRST to ensure scrollTop works
+        input.remove();
+        container.classList.remove('hidden');
+        if (highlight) highlight.classList.remove('hidden');
+
+        // Validate and apply value
         if (!isNaN(val)) {
             if (container.id === 'time-hour-list') {
                 if (val < 0) val = 0;
@@ -84,14 +102,12 @@ function handleTimeDblClick(e) {
             const items = Array.from(container.children);
             const index = items.findIndex(item => parseInt(item.dataset.value) === val);
             if (index !== -1) {
-                container.scrollTop = index * 40;
+                // Use setTimeout to ensure layout is updated after unhiding
+                setTimeout(() => {
+                    container.scrollTop = index * 40;
+                }, 0);
             }
         }
-
-        // Restore UI
-        input.remove();
-        container.classList.remove('hidden');
-        if (highlight) highlight.classList.remove('hidden');
     };
 
     input.onblur = finishEdit;

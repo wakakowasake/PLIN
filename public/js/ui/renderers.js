@@ -406,10 +406,10 @@ export function renderItinerary() {
     let html = '';
     if (currentDayIndex === -1 || isSingleDay) {
         travelData.days.forEach((day, dayIdx) => {
-            const dayBadge = isSingleDay ? '' : `<div class="bg-primary/10 text-primary px-3 py-1 rounded-lg font-bold text-sm">${dayIdx + 1}일차</div>`;
+            const dayBadge = isSingleDay ? '' : `<div class="bg-primary/10 text-primary w-[60px] py-1 rounded-lg font-bold text-sm flex items-center justify-center shrink-0">${dayIdx + 1}일차</div>`;
             html += `
                 <div class="mb-8">
-                    <div class="flex items-center gap-4 mb-4 pl-2">
+                    <div class="flex items-center gap-4 mb-4">
                         ${dayBadge}
                         <div class="h-px bg-gray-200 dark:bg-gray-700 flex-1"></div>
                         ${!isReadOnlyMode ? `<button type="button" onclick="openSortMethodModal(${dayIdx})" class="text-xs text-primary hover:bg-primary/10 px-2 py-1 rounded-lg transition-colors flex items-center gap-1" title="정렬">
@@ -455,8 +455,8 @@ export function renderItinerary() {
         if (currentTimeline.length > 0 && day) {
             html += `
                 <div class="mb-8">
-                    <div class="flex items-center gap-4 mb-4 pl-2">
-                        <div class="bg-primary/10 text-primary px-3 py-1 rounded-lg font-bold text-sm">${currentDayIndex + 1}일차</div>
+                    <div class="flex items-center gap-4 mb-4">
+                        <div class="bg-primary/10 text-primary w-[60px] py-1 rounded-lg font-bold text-sm flex items-center justify-center shrink-0">${currentDayIndex + 1}일차</div>
                         <div class="h-px bg-gray-200 dark:bg-gray-700 flex-1"></div>
                         ${!isReadOnlyMode ? `<button type="button" onclick="openSortMethodModal(${currentDayIndex})" class="text-xs text-primary hover:bg-primary/10 px-2 py-1 rounded-lg transition-colors flex items-center gap-1" title="정렬">
                             <span class="material-symbols-outlined text-sm">sort</span>

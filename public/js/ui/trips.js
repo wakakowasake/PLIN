@@ -1,7 +1,7 @@
 // d:\SoongSil Univ\piln\public\js\ui\trips.js
 
 import { db } from '../firebase.js';
-import { collection, query, where, getDocs, addDoc, doc, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+import { collection, query, where, getDocs, addDoc, getDoc, doc, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 import { currentUser, newTripDataTemp, defaultTravelData, setNewTripDataTemp } from '../state.js';
 import { showLoading, hideLoading, showToast } from './modals.js';
 import logger from '../logger.js';
@@ -170,6 +170,9 @@ export async function loadTripList(uid) {
                     <div id="trip-menu-${id}" class="hidden absolute top-12 left-3 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 py-2 w-36 z-20 animate-fade-in">
                         <button onclick="event.stopPropagation(); openShareModal('${id}')" class="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors">
                             <span class="material-symbols-outlined text-base text-primary">share</span> 공유
+                        </button>
+                        <button onclick="event.stopPropagation(); duplicateTrip('${id}')" class="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors">
+                            <span class="material-symbols-outlined text-base text-blue-500">content_copy</span> 복제
                         </button>
                         <button onclick="event.stopPropagation(); deleteTrip('${id}')" class="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors">
                             <span class="material-symbols-outlined text-base">delete</span> 삭제
@@ -361,3 +364,202 @@ export async function deleteTrip(tripId) {
         hideLoading();
     }
 }
+
+// [Duplicate Trip Logic]
+
+let pendingDuplicateTripId = null;
+let pendingDuplicateData = null;
+
+function ensureCopyOptionsModal() {
+    let modal = document.getElementById('copy-options-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'copy-options-modal';
+        modal.className = 'fixed inset-0 bg-black/50 z-[9999] hidden flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in';
+        modal.innerHTML = `
+            <div class="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl transform transition-all scale-100">
+                <div class="p-6">
+                    <h3 class="text-xl font-bold mb-2 text-gray-800 dark:text-white">여행 복제하기</h3>
+                    <p class="text-sm text-gray-500 mb-6">복제할 항목을 선택해주세요.</p>
+                    
+                    <div class="space-y-3 mb-8">
+                        <label class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                            <input type="checkbox" id="copy-opt-region" checked class="w-5 h-5 text-primary rounded focus:ring-primary border-gray-300">
+                            <div>
+                                <span class="block font-bold text-gray-700 dark:text-gray-200">지역 및 날짜</span>
+                                <span class="text-xs text-gray-400">여행지 정보와 기간 설정</span>
+                            </div>
+                        </label>
+                        <label class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                            <input type="checkbox" id="copy-opt-places" checked class="w-5 h-5 text-primary rounded focus:ring-primary border-gray-300">
+                            <div>
+                                <span class="block font-bold text-gray-700 dark:text-gray-200">일정 (장소)</span>
+                                <span class="text-xs text-gray-400">방문할 장소와 이동 수단</span>
+                            </div>
+                        </label>
+                        <label class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                            <input type="checkbox" id="copy-opt-memos" checked class="w-5 h-5 text-primary rounded focus:ring-primary border-gray-300">
+                            <div>
+                                <span class="block font-bold text-gray-700 dark:text-gray-200">메모</span>
+                                <span class="text-xs text-gray-400">작성한 메모 사항</span>
+                            </div>
+                        </label>
+                        <label class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                            <input type="checkbox" id="copy-opt-budget" checked class="w-5 h-5 text-primary rounded focus:ring-primary border-gray-300">
+                            <div>
+                                <span class="block font-bold text-gray-700 dark:text-gray-200">예산 및 지출</span>
+                                <span class="text-xs text-gray-400">가계부 내역 및 예산 설정</span>
+                            </div>
+                        </label>
+                         <label class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                            <input type="checkbox" id="copy-opt-shopping" checked class="w-5 h-5 text-primary rounded focus:ring-primary border-gray-300">
+                            <div>
+                                <span class="block font-bold text-gray-700 dark:text-gray-200">쇼핑리스트</span>
+                                <span class="text-xs text-gray-400">구매할 물품 목록</span>
+                            </div>
+                        </label>
+                        <label class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                            <input type="checkbox" id="copy-opt-supplies" checked class="w-5 h-5 text-primary rounded focus:ring-primary border-gray-300">
+                            <div>
+                                <span class="block font-bold text-gray-700 dark:text-gray-200">준비물</span>
+                                <span class="text-xs text-gray-400">체크리스트</span>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="flex justify-end gap-3">
+                        <button onclick="closeCopyOptionsModal()" class="px-5 py-2.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl font-bold transition-colors">취소</button>
+                        <button onclick="executeDuplicate()" class="px-5 py-2.5 bg-primary text-white rounded-xl font-bold hover:bg-orange-600 transition-colors shadow-lg shadow-orange-200 dark:shadow-none flex items-center gap-2">
+                            <span class="material-symbols-outlined text-sm">content_copy</span> 복제 완료
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    return modal;
+}
+
+export function closeCopyOptionsModal() {
+    const modal = document.getElementById('copy-options-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        // Reset selections to default
+        setTimeout(() => {
+            modal.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
+        }, 300);
+    }
+    pendingDuplicateTripId = null;
+    pendingDuplicateData = null;
+}
+window.closeCopyOptionsModal = closeCopyOptionsModal;
+
+export async function duplicateTrip(tripId) {
+    try {
+        showLoading();
+        const docRef = doc(db, "plans", tripId);
+        const snapshot = await getDoc(docRef);
+
+        if (!snapshot.exists()) {
+            throw new Error("여행 계획을 찾을 수 없습니다.");
+        }
+
+        pendingDuplicateData = snapshot.data();
+        pendingDuplicateTripId = tripId;
+
+        ensureCopyOptionsModal().classList.remove('hidden');
+    } catch (e) {
+        console.error(e);
+        alert("데이터 로드 실패: " + e.message);
+    } finally {
+        hideLoading();
+    }
+}
+window.duplicateTrip = duplicateTrip;
+
+export async function executeDuplicate() {
+    if (!pendingDuplicateData) return;
+
+    const optRegion = document.getElementById('copy-opt-region').checked;
+    const optPlaces = document.getElementById('copy-opt-places').checked;
+    const optMemos = document.getElementById('copy-opt-memos').checked;
+    const optBudget = document.getElementById('copy-opt-budget').checked;
+    const optShopping = document.getElementById('copy-opt-shopping').checked;
+    const optSupplies = document.getElementById('copy-opt-supplies').checked;
+
+    try {
+        showLoading();
+        const data = pendingDuplicateData;
+
+        // 1. Meta Logic
+        const newMeta = { ...data.meta };
+        newMeta.title = `[복제] ${newMeta.title}`;
+        if (newMeta.docId) delete newMeta.docId;
+
+        // 지역 체크 해제 시: 위치 정보만 제거 (제목, 날짜는 유지)
+        if (!optRegion) {
+            newMeta.location = "";
+            newMeta.subInfo = newMeta.subInfo.split('•')[1] ? `위치 미정 • ${newMeta.subInfo.split('•')[1]}` : newMeta.subInfo;
+            newMeta.lat = null;
+            newMeta.lng = null;
+            newMeta.mapImage = "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=600&h=400&fit=crop";
+        }
+
+        if (!optBudget) {
+            newMeta.budget = 0;
+        }
+
+        // 2. Days & Timeline Logic
+        const newDays = data.days.map(day => {
+            const newDay = { ...day };
+            if (newDay.timeline) {
+                newDay.timeline = newDay.timeline.filter(item => {
+                    const isMemo = item.tag === '메모';
+                    if (isMemo) return optMemos;
+                    return optPlaces; // 장소 (메모 아님)
+                }).map(item => {
+                    // Deep copy item
+                    const newItem = JSON.parse(JSON.stringify(item));
+
+                    // Budget strip
+                    if (!optBudget) {
+                        delete newItem.budget;
+                        delete newItem.expenses;
+                    }
+                    return newItem;
+                });
+            }
+            return newDay;
+        });
+
+        // 3. Construct New Trip
+        const newTrip = {
+            ...data,
+            meta: newMeta,
+            days: newDays,
+            members: { [currentUser.uid]: 'owner' },
+            createdAt: new Date().toISOString(),
+            createdBy: currentUser.uid,
+            isPublic: false
+        };
+
+        // 4. Shopping List & Checklist
+        if (!optShopping) newTrip.shoppingList = [];
+        if (!optSupplies) newTrip.checklist = [];
+
+        await addDoc(collection(db, "plans"), newTrip);
+
+        closeCopyOptionsModal();
+        if (currentUser) loadTripList(currentUser.uid);
+
+        showToast("여행이 성공적으로 복제되었습니다! 📋");
+
+    } catch (e) {
+        console.error(e);
+        alert("복제 생성 실패: " + e.message);
+    } finally {
+        hideLoading();
+    }
+}
+window.executeDuplicate = executeDuplicate;

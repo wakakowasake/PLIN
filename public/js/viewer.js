@@ -27,19 +27,37 @@ let mapMarkers = [];
 let mapPolyline = null;
 let isMapInitialized = false;
 
+const MAP_CANVAS_ID = 'viewer-map-canvas';
+
 function initViewerMap() {
     // [Sync Warning] 이 로직은 map.js의 initMap과 동일하게 유지되어야 합니다. (지도 미리보기 -> 모달 이동)
     // 1. Try to render in the card background first (Preview Mode)
-    mapEl = document.getElementById("map-bg");
+    let container = document.getElementById("map-bg");
     let isPreview = true;
 
-    // If map-bg doesn't exist (e.g., hidden), fallback to modal container immediately (unlikely in this flow)
-    if (!mapEl) {
-        mapEl = document.getElementById("route-map-container");
+    // If map-bg doesn't exist (e.g., hidden), fallback to modal container immediately
+    if (!container) {
+        container = document.getElementById("route-map-container");
         isPreview = false;
     }
 
-    if (!mapEl) return;
+    if (!container) return;
+
+    mapEl = container; // Track current parent container
+
+    // Create a dedicated map div
+    let mapDiv = document.getElementById(MAP_CANVAS_ID);
+    if (!mapDiv) {
+        mapDiv = document.createElement("div");
+        mapDiv.id = MAP_CANVAS_ID;
+        mapDiv.style.width = "100%";
+        mapDiv.style.height = "100%";
+        container.appendChild(mapDiv);
+    }
+    // If it exists but is elsewhere, move it here (though init usually only happens once)
+    if (mapDiv.parentElement !== container) {
+        container.appendChild(mapDiv);
+    }
 
     const lat = Number(travelData.meta.lat) || 37.5665;
     const lng = Number(travelData.meta.lng) || 126.9780;
@@ -54,12 +72,10 @@ function initViewerMap() {
         fullscreenControl: !isPreview,
     };
 
-    map = new google.maps.Map(mapEl, mapOptions);
+    map = new google.maps.Map(mapDiv, mapOptions);
 
     renderMapMarkers();
     isMapInitialized = true;
-
-    // If initialized in preview, we need to handle moving it to modal when clicked
 }
 
 // Google Maps API 동적 로드
@@ -93,15 +109,13 @@ window.openRouteModal = async () => {
 
     if (!isMapInitialized) {
         await loadGoogleMapsAPI();
-        // After load, initViewerMap is called. 
-        // If we want it in the modal immediately because it was just opened:
-        // logic inside initViewerMap might defaulting to map-bg. 
-        // We should move it if needed.
     }
 
     // Move map to modal container if it exists and is initialized
     if (map) {
         const modalContainer = document.getElementById("route-map-container");
+        // Check if map is already in the modal container
+        // mapEl tracks the current parent. 
         if (modalContainer && mapEl !== modalContainer) {
             modalContainer.appendChild(map.getDiv());
             mapEl = modalContainer;
@@ -116,7 +130,7 @@ window.openRouteModal = async () => {
 
             // Trigger resize
             google.maps.event.trigger(map, 'resize');
-            fitMapToBounds();
+            fitMapToBounds(); // Fit bounds when opening modal
         }
     }
 };
@@ -125,9 +139,7 @@ window.closeRouteModal = () => {
     const modal = document.getElementById('route-modal');
     if (modal) modal.classList.add('hidden');
 
-    // Move map back to preview container?
-    // User might want to see the preview again.
-    // Yes, move it back to #map-bg
+    // Move map back to preview container
     if (map) {
         const previewContainer = document.getElementById("map-bg");
         if (previewContainer && mapEl !== previewContainer) {
@@ -142,8 +154,8 @@ window.closeRouteModal = () => {
                 fullscreenControl: false
             });
 
-            // Reset center/zoom if needed or keep last state? 
-            // Maybe reset to fit bounds of trip
+            // Reset center/zoom to initial or fit bounds?
+            // Usually preview fits bounds too.
             setTimeout(() => fitMapToBounds(), 100);
         }
     }
@@ -201,8 +213,9 @@ async function renderMapMarkers() {
                 if (AdvancedMarkerElement) {
                     const pin = new PinElement({
                         glyph: `${iIdx + 1}`,
-                        background: dIdx % 2 === 0 ? "#FF6B00" : "#3579F6", // Colors for different days? Or just uniform.
+                        background: "#774b00",
                         borderColor: "#ffffff",
+                        glyphColor: "#ffffff",
                     });
 
                     const marker = new AdvancedMarkerElement({
@@ -217,7 +230,7 @@ async function renderMapMarkers() {
                         map: map,
                         position: position,
                         title: item.title,
-                        label: `${iIdx + 1}`
+                        label: { text: `${iIdx + 1}`, color: 'white' }
                     });
                     mapMarkers.push(marker);
                 }
@@ -249,14 +262,9 @@ async function renderMapMarkers() {
         mapPolyline = new google.maps.Polyline({
             path: pathCoordinates,
             geodesic: true,
-            strokeColor: "#FF6B00",
-            strokeOpacity: 1.0,
+            strokeColor: "#774b00",
+            strokeOpacity: 0.8,
             strokeWeight: 4,
-            icons: [{
-                icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW },
-                offset: '100%',
-                repeat: '100px'
-            }],
             map: map
         });
     }
