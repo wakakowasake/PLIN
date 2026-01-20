@@ -6,6 +6,11 @@
 
 ## 2026-01-20
 
+### 13:51 - [AI] 여행 계획 페이지 장소 카드 체류 시간 표시 개선
+- **UI 개선**: 장소 카드의 체류 시간(duration)을 기존 분 단위 숫자(예: "80분")에서 읽기 편한 텍스트 형식(예: "1시간 20분")으로 변경
+- **저장 로직 유지**: 내부 데이터는 여전히 분 단위(80)로 저장되어 계산 로직에 영향 없음, 표시 방식만 `formatDuration` 포매터 적용
+- **변경 파일**: public/js/ui/renderers.js
+
 ### 13:48 - [AI] 일본 대중교통(Ekispert) 시작 시간 계산 오류 수정
 - **버그 수정**: Ekispert API 경로 추가 시, 이전 장소의 소요 시간(예: "1시간 30분")을 파싱하지 못해 시작 시간이 잘못 계산되던 문제 수정
 - **로직 개선**: `ui-transit.js` 내 `getEkispertRoute` 함수에서 `parseDurationStr` 함수를 활용해 다양한 형식의 시간 문자열을 정확히 분 단위로 변환하도록 개선
@@ -203,7 +208,7 @@
 - 시간 계산 헬퍼 함수 추가 (time-helpers.js)
 - viewMode를 meta에 저장하고 Firebase 동기화
 - 렌더링 로직을 viewMode에 따라 분기 처리
-- **변경 파일**: public/js/state.js, public/js/ui/profile.js, public/js/ui/renderers.js, public/js/ui/time-helpers.js, public/js/ui.js
+- **변경 파일**: public/js/ui/state.js, public/js/ui/profile.js, public/js/ui/renderers.js, public/js/ui/time-helpers.js, public/js/ui.js
 
 ### 09:11 - [AI] DND 고스트 가시성 대폭 개선 - 투명도 0.98로 상향
 - 드래그 중인 고스트 카드 투명도를 0.98로 대폭 증가 (거의 불투명)

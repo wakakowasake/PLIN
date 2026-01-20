@@ -171,7 +171,7 @@ function buildDefaultCard(item, index, dayIndex, editClass, clickHandler) {
                     ${item.duration !== undefined && item.duration !== null ? `
                     <div class="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-2 py-1 rounded text-xs font-bold flex-shrink-0">
                         <span class="material-symbols-outlined text-[14px]">timer</span>
-                        ${item.duration}분
+                        ${formatDuration(item.duration)}
                     </div>` : ''}
                     ${item.note ? `
                     <div class="text-xs text-gray-500 flex items-center gap-1 min-w-0">
