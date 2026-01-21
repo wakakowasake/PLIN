@@ -25,9 +25,12 @@ let app, analytics, db, auth, provider;
 async function initFirebase() {
     const config = await loadConfig();
 
+    const isLocalhost = location.hostname === "localhost" || location.hostname === "127.0.0.1";
+
     const firebaseConfig = {
         apiKey: config.firebaseApiKey,
-        authDomain: "plin.ink",
+        // [Fix] Use default firebaseapp domain for localhost to avoid COOP issues with custom domain
+        authDomain: isLocalhost ? "plin-db93d.firebaseapp.com" : "plin.ink",
         projectId: "plin-db93d",
         storageBucket: "plin-db93d.firebasestorage.app",
         messagingSenderId: "68227359192",
@@ -42,11 +45,12 @@ async function initFirebase() {
     provider = new GoogleAuthProvider();
 
     // [Localhost 감지 시 에뮬레이터 연결]
-    if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
-        connectFirestoreEmulator(db, 'localhost', 8080);
-        connectAuthEmulator(auth, "http://localhost:9099");
-        console.log("🔥 Connected to Firebase Emulators (Firestore & Auth)");
-    }
+    // [Localhost 감지 시 에뮬레이터 연결]
+    // if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+    //     connectFirestoreEmulator(db, 'localhost', 8080);
+    //     connectAuthEmulator(auth, "http://localhost:9099");
+    //     console.log("🔥 Connected to Firebase Emulators (Firestore & Auth)");
+    // }
 }
 
 // Firebase 초기화 프로미스를 export

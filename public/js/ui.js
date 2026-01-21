@@ -38,7 +38,7 @@ import * as Weather from './ui/weather.js';
 import * as ExpenseManager from './ui/expense-manager.js';
 import * as TripInfo from './ui/trip-info.js';
 import * as TimelineDetail from './ui/timeline-detail.js';
-import { ensureItemDetailModal } from './ui/timeline-detail.js'; // Explicit import for clarity if needed, or use TimelineDetail.ensureItemDetailModal
+// import { ensureItemDetailModal } from './ui/timeline-detail.js'; // Removed to avoid duplicate import issues
 import * as ExpenseDetail from './ui/expense-detail.js';
 import * as FlightManager from './ui/flight-manager.js';
 import * as DnD from './ui/dnd.js';

@@ -144,39 +144,50 @@ function buildTransitCard(item, index, dayIndex, editClass) {
             </div>`;
 }
 
+// 세로선 스타일 (간단 모드와 동일) - 점선으로 변경
+const lineStyle = isLast ? `bg-gradient-to-b from-gray-300 to-transparent dark:from-gray-600 border-l-2 border-dashed border-gray-300 dark:border-gray-600 bg-transparent w-0` : `border-l-2 border-dashed border-gray-300 dark:border-gray-600 h-full absolute left-0 top-0 w-0`;
+const linePosition = isFirst ? 'top-6 -bottom-8' : 'top-0 -bottom-8';
+
+// ... (rest of the function) ... actually I need to be careful with replacing the whole function.
+// Let's target specific blocks. 
+
+// I'll rewrite the buildDefaultCard function first to use the new styles.
 function buildDefaultCard(item, index, dayIndex, editClass, clickHandler) {
     const isCompleted = isTripCompleted();
     const isMemoryLocked = travelData.meta?.memoryLocked || false;
     const showMemoryBtn = isCompleted && !isMemoryLocked && !isEditing && !isReadOnlyMode;
 
     return `
-            <div class="bg-card-light dark:bg-card-dark rounded-xl p-3 md:p-5 shadow-sm border border-gray-100 dark:border-gray-800 ${editClass}" ${clickHandler}>
+            <div class="bg-white dark:bg-card-dark rounded-sm p-3 md:p-5 paper-shadow border border-gray-200 dark:border-gray-700 ${editClass} relative transform transition-transform hover:-rotate-1" ${clickHandler}>
+                <!-- Tape effect (visual only) -->
+                <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-6 bg-white/30 backdrop-blur-sm border border-white/40 shadow-sm rotate-[-2deg] z-10 pointer-events-none"></div>
+
                 <div class="flex justify-between items-start mb-2 gap-2">
                     <div class="flex-1 min-w-0">
-                        <h3 class="text-lg font-bold text-text-main dark:text-white break-words">${item.title}</h3>
-                        <p class="text-sm text-text-muted dark:text-gray-400 flex items-center gap-1 mt-1 min-w-0">
-                            <span class="material-symbols-outlined text-[16px] flex-shrink-0">location_on</span>
-                            <span class="truncate flex-1">${item.location || ''}</span>
+                        <h3 class="text-xl font-hand font-bold text-text-main dark:text-white break-words tracking-wide leading-tight">${item.title}</h3>
+                        <p class="text-xs font-hand text-text-muted dark:text-gray-400 flex items-center gap-1 mt-1 min-w-0">
+                            <span class="material-symbols-outlined text-[14px] flex-shrink-0">location_on</span>
+                            <span class="truncate flex-1 text-base">${item.location || ''}</span>
                         </p>
                     </div>
-                    ${item.tag ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 flex-shrink-0 whitespace-nowrap">${item.tag}</span>` : ''}
+                    ${item.tag ? `<span class="inline-flex items-center px-2 py-0.5 rounded-sm text-lg font-hand font-bold bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 flex-shrink-0 whitespace-nowrap transform rotate-2 shadow-sm">${item.tag}</span>` : ''}
                     ${showMemoryBtn ? `<button type="button" onclick="event.stopPropagation(); addMemoryItem(${index}, ${dayIndex})" class="text-gray-400 hover:text-primary p-2 rounded-full flex-shrink-0"><span class="material-symbols-outlined text-2xl">photo_camera</span></button>` : ''}
                     ${isEditing ? `<button type="button" onclick="event.stopPropagation(); deleteTimelineItem(${index}, ${dayIndex})" class="text-red-500 hover:bg-red-50 p-1 rounded flex-shrink-0"><span class="material-symbols-outlined text-lg">delete</span></button>` : ''}
                 </div>
                 <div class="flex items-center gap-2 text-sm font-medium text-text-main dark:text-gray-300 flex-wrap">
-                    <div class="flex items-center gap-1 bg-gray-100 dark:bg-gray-700/50 px-2 py-1 rounded flex-shrink-0">
-                        <span class="material-symbols-outlined text-[18px]">schedule</span>
-                        ${item.time || ''}
+                    <div class="flex items-center gap-1 bg-gray-50 dark:bg-gray-700/50 px-2 py-1 rounded-sm border border-gray-100 dark:border-gray-600 flex-shrink-0">
+                        <span class="material-symbols-outlined text-[16px]">schedule</span>
+                        <span class="font-hand text-lg">${item.time || ''}</span>
                     </div>
                     ${item.duration !== undefined && item.duration !== null ? `
-                    <div class="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-2 py-1 rounded text-xs font-bold flex-shrink-0">
+                    <div class="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-sm border border-blue-100 dark:border-blue-800 text-xs font-bold flex-shrink-0">
                         <span class="material-symbols-outlined text-[14px]">timer</span>
-                        ${formatDuration(item.duration)}
+                        <span class="font-hand text-lg">${formatDuration(item.duration)}</span>
                     </div>` : ''}
                     ${item.note ? `
-                    <div class="text-xs text-gray-500 flex items-center gap-1 min-w-0">
-                        <span class="material-symbols-outlined text-[14px] flex-shrink-0">info</span>
-                        <span class="truncate">${item.note}</span>
+                    <div class="text-xs text-gray-500 flex items-center gap-1 min-w-0 bg-yellow-50 dark:bg-yellow-900/10 px-2 py-1 rounded-sm border border-yellow-100 dark:border-yellow-800">
+                        <span class="material-symbols-outlined text-[14px] flex-shrink-0 text-yellow-600">edit_note</span>
+                        <span class="truncate font-hand text-lg text-gray-700 dark:text-gray-300">${item.note}</span>
                     </div>` : ''}
                 </div>
                 ${renderMemoriesHtml(item, dayIndex, index)}

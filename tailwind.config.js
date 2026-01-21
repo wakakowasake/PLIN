@@ -16,6 +16,7 @@ module.exports = {
       fontFamily: {
         'display': ['Plus Jakarta Sans', 'sans-serif'],
         'body': ['Noto Sans', 'sans-serif'],
+        'hand': ['"Nanum Pen Script"', 'cursive'],
       },
     },
   },

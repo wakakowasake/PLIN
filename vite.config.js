@@ -18,6 +18,11 @@ export default defineConfig({
     server: {
         port: 5173,
         open: true,
+        headers: {
+            // [Fix] Google Login COOP Error
+            'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+            // 'Cross-Origin-Embedder-Policy': 'credentialless' // Removed to minimize conflicts
+        }
     },
     resolve: {
         alias: {
