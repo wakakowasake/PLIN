@@ -149,32 +149,35 @@ export async function loadTripList(uid) {
             const memberCount = Object.keys(plan.members || {}).length;
 
             html += `
-                <div class="group bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 dark:border-gray-700 relative cursor-pointer transform hover:-translate-y-1" onclick="openTrip('${id}')" oncontextmenu="event.preventDefault(); event.stopPropagation(); toggleTripMenu('${id}'); return false;">
+                <div class="group bg-white dark:bg-gray-800 rounded-sm overflow-hidden paper-shadow border border-gray-200 dark:border-gray-700 relative cursor-pointer transform transition-transform hover:-rotate-1 hover:-translate-y-1" onclick="openTrip('${id}')" oncontextmenu="event.preventDefault(); event.stopPropagation(); toggleTripMenu('${id}'); return false;">
+                    <!-- Tape effect -->
+                    <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-6 bg-white/30 backdrop-blur-sm border border-white/40 shadow-sm rotate-[-2deg] z-20 pointer-events-none"></div>
+
                     <div class="h-48 bg-gray-200 relative overflow-hidden">
                         <div class="absolute inset-0 bg-cover bg-center transform group-hover:scale-110 transition-transform duration-700" style="background-image: url('${image}');"></div>
                         <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
-                        <div class="absolute top-3 right-3 bg-black/30 backdrop-blur-md text-white text-xs px-2 py-1 rounded-lg flex items-center gap-1 border border-white/10">
+                        <div class="absolute top-3 right-3 bg-black/30 backdrop-blur-md text-white text-xs px-2 py-1 rounded-sm flex items-center gap-1 border border-white/10 font-hand text-lg">
                             <span class="material-symbols-outlined text-[14px]">group</span> ${memberCount}
                         </div>
-                        <button onclick="event.stopPropagation(); toggleTripMenu('${id}')" class="absolute top-3 left-3 text-white/80 hover:text-white p-1.5 rounded-full hover:bg-black/30 transition-colors backdrop-blur-sm">
+                        <button onclick="event.stopPropagation(); toggleTripMenu('${id}')" class="absolute top-3 left-3 text-white/80 hover:text-white p-1.5 rounded-full hover:bg-black/30 transition-colors backdrop-blur-sm z-30">
                             <span class="material-symbols-outlined">more_vert</span>
                         </button>
                         <div class="absolute bottom-4 left-4 right-4">
-                            <h3 class="font-bold text-xl text-white mb-1 truncate leading-tight shadow-black drop-shadow-md">${title}</h3>
-                            <p class="text-xs text-white/80 flex items-center gap-1">
-                                <span class="material-symbols-outlined text-[14px]">calendar_today</span> ${dateDisplay}
+                            <h3 class="font-bold text-2xl font-hand text-white mb-1 truncate leading-tight shadow-black drop-shadow-md tracking-wide">${title}</h3>
+                            <p class="text-sm font-hand text-white/90 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[16px]">calendar_today</span> ${dateDisplay}
                             </p>
                         </div>
                     </div>
                     
-                    <div id="trip-menu-${id}" class="hidden absolute top-12 left-3 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 py-2 w-36 z-20 animate-fade-in">
-                        <button onclick="event.stopPropagation(); openShareModal('${id}')" class="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors">
+                    <div id="trip-menu-${id}" class="hidden absolute top-12 left-3 bg-white dark:bg-gray-800 rounded-sm shadow-xl border border-gray-100 dark:border-gray-700 py-2 w-36 z-30 animate-fade-in">
+                        <button onclick="event.stopPropagation(); openShareModal('${id}')" class="w-full text-left px-4 py-2.5 text-lg font-hand text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors">
                             <span class="material-symbols-outlined text-base text-primary">share</span> 공유
                         </button>
-                        <button onclick="event.stopPropagation(); duplicateTrip('${id}')" class="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors">
+                        <button onclick="event.stopPropagation(); duplicateTrip('${id}')" class="w-full text-left px-4 py-2.5 text-lg font-hand text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors">
                             <span class="material-symbols-outlined text-base text-blue-500">content_copy</span> 복제
                         </button>
-                        <button onclick="event.stopPropagation(); deleteTrip('${id}')" class="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors">
+                        <button onclick="event.stopPropagation(); deleteTrip('${id}')" class="w-full text-left px-4 py-2.5 text-lg font-hand text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors">
                             <span class="material-symbols-outlined text-base">delete</span> 삭제
                         </button>
                     </div>
@@ -184,11 +187,14 @@ export async function loadTripList(uid) {
 
         // 새 여행 만들기 카드 추가 (리스트 맨 앞이나 뒤에)
         html = `
-            <div onclick="createNewTrip()" class="group bg-gray-50 dark:bg-gray-800/50 rounded-2xl overflow-hidden border-2 border-dashed border-gray-200 dark:border-gray-700 relative cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all flex flex-col items-center justify-center min-h-[200px]">
-                <div class="w-16 h-16 rounded-full bg-white dark:bg-gray-800 shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                    <span class="material-symbols-outlined text-3xl text-primary">add</span>
+            <div onclick="createNewTrip()" class="group bg-white dark:bg-gray-800 rounded-sm overflow-hidden paper-shadow border border-gray-200 dark:border-gray-700 relative cursor-pointer transform transition-transform hover:-rotate-1 hover:-translate-y-1 flex flex-col items-center justify-center min-h-[200px]">
+                <!-- Tape effect -->
+                <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-6 bg-white/30 backdrop-blur-sm border border-white/40 shadow-sm rotate-[-2deg] z-20 pointer-events-none"></div>
+
+                <div class="w-16 h-16 rounded-full bg-gray-50 dark:bg-gray-700 shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 transition-transform border border-gray-100 dark:border-gray-600">
+                    <span class="material-symbols-outlined text-3xl text-primary font-hand">add</span>
                 </div>
-                <span class="font-bold text-gray-600 dark:text-gray-300 group-hover:text-primary transition-colors">새 여행 만들기</span>
+                <span class="font-bold text-xl font-hand text-gray-600 dark:text-gray-300 group-hover:text-primary transition-colors tracking-wide">새 여행 만들기</span>
             </div>
         ` + html;
 
@@ -243,7 +249,7 @@ export function closeNewTripModal() {
 
 export function nextWizardStep(step) {
     document.querySelectorAll('[id^="wizard-step-"]').forEach(el => el.classList.add('hidden'));
-    const nextStep = document.getElementById(`wizard-step-${step}`);
+    const nextStep = document.getElementById(`wizard - step - ${step} `);
     if (nextStep) nextStep.classList.remove('hidden');
 
     if (step === 2) {
@@ -303,7 +309,7 @@ export async function finishNewTripWizard() {
         const end = new Date(endDate);
         const diffTime = Math.abs(end - start);
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        const dayCountText = (diffDays === 0) ? "당일치기" : `${diffDays}박 ${diffDays + 1}일`;
+        const dayCountText = (diffDays === 0) ? "당일치기" : `${diffDays}박 ${diffDays + 1} 일`;
 
         const days = [];
         for (let i = 0; i <= diffDays; i++) {
@@ -321,7 +327,7 @@ export async function finishNewTripWizard() {
                 ...defaultTravelData.meta,
                 title: title,
                 dayCount: dayCountText,
-                subInfo: `${location} • ${startDate} - ${endDate}`,
+                subInfo: `${location} • ${startDate} - ${endDate} `,
                 mapImage: newTripDataTemp.mapImage || "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=600&h=400&fit=crop",
                 lat: newTripDataTemp.lat || null,
                 lng: newTripDataTemp.lng || null,
@@ -377,65 +383,65 @@ function ensureCopyOptionsModal() {
         modal.id = 'copy-options-modal';
         modal.className = 'fixed inset-0 bg-black/50 z-[9999] hidden flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in';
         modal.innerHTML = `
-            <div class="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl transform transition-all scale-100">
-                <div class="p-6">
-                    <h3 class="text-xl font-bold mb-2 text-gray-800 dark:text-white">여행 복제하기</h3>
-                    <p class="text-sm text-gray-500 mb-6">복제할 항목을 선택해주세요.</p>
-                    
-                    <div class="space-y-3 mb-8">
-                        <label class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                            <input type="checkbox" id="copy-opt-region" checked class="w-5 h-5 text-primary rounded focus:ring-primary border-gray-300">
-                            <div>
-                                <span class="block font-bold text-gray-700 dark:text-gray-200">지역 및 날짜</span>
-                                <span class="text-xs text-gray-400">여행지 정보와 기간 설정</span>
-                            </div>
-                        </label>
-                        <label class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                            <input type="checkbox" id="copy-opt-places" checked class="w-5 h-5 text-primary rounded focus:ring-primary border-gray-300">
-                            <div>
-                                <span class="block font-bold text-gray-700 dark:text-gray-200">일정 (장소)</span>
-                                <span class="text-xs text-gray-400">방문할 장소와 이동 수단</span>
-                            </div>
-                        </label>
-                        <label class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                            <input type="checkbox" id="copy-opt-memos" checked class="w-5 h-5 text-primary rounded focus:ring-primary border-gray-300">
-                            <div>
-                                <span class="block font-bold text-gray-700 dark:text-gray-200">메모</span>
-                                <span class="text-xs text-gray-400">작성한 메모 사항</span>
-                            </div>
-                        </label>
-                        <label class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                            <input type="checkbox" id="copy-opt-budget" checked class="w-5 h-5 text-primary rounded focus:ring-primary border-gray-300">
-                            <div>
-                                <span class="block font-bold text-gray-700 dark:text-gray-200">예산 및 지출</span>
-                                <span class="text-xs text-gray-400">가계부 내역 및 예산 설정</span>
-                            </div>
-                        </label>
-                         <label class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                            <input type="checkbox" id="copy-opt-shopping" checked class="w-5 h-5 text-primary rounded focus:ring-primary border-gray-300">
-                            <div>
-                                <span class="block font-bold text-gray-700 dark:text-gray-200">쇼핑리스트</span>
-                                <span class="text-xs text-gray-400">구매할 물품 목록</span>
-                            </div>
-                        </label>
-                        <label class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                            <input type="checkbox" id="copy-opt-supplies" checked class="w-5 h-5 text-primary rounded focus:ring-primary border-gray-300">
-                            <div>
-                                <span class="block font-bold text-gray-700 dark:text-gray-200">준비물</span>
-                                <span class="text-xs text-gray-400">체크리스트</span>
-                            </div>
-                        </label>
-                    </div>
+                < div class="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl transform transition-all scale-100" >
+                    <div class="p-6">
+                        <h3 class="text-xl font-bold mb-2 text-gray-800 dark:text-white">여행 복제하기</h3>
+                        <p class="text-sm text-gray-500 mb-6">복제할 항목을 선택해주세요.</p>
 
-                    <div class="flex justify-end gap-3">
-                        <button onclick="closeCopyOptionsModal()" class="px-5 py-2.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl font-bold transition-colors">취소</button>
-                        <button onclick="executeDuplicate()" class="px-5 py-2.5 bg-primary text-white rounded-xl font-bold hover:bg-orange-600 transition-colors shadow-lg shadow-orange-200 dark:shadow-none flex items-center gap-2">
-                            <span class="material-symbols-outlined text-sm">content_copy</span> 복제 완료
-                        </button>
+                        <div class="space-y-3 mb-8">
+                            <label class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                <input type="checkbox" id="copy-opt-region" checked class="w-5 h-5 text-primary rounded focus:ring-primary border-gray-300">
+                                    <div>
+                                        <span class="block font-bold text-gray-700 dark:text-gray-200">지역 및 날짜</span>
+                                        <span class="text-xs text-gray-400">여행지 정보와 기간 설정</span>
+                                    </div>
+                            </label>
+                            <label class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                <input type="checkbox" id="copy-opt-places" checked class="w-5 h-5 text-primary rounded focus:ring-primary border-gray-300">
+                                    <div>
+                                        <span class="block font-bold text-gray-700 dark:text-gray-200">일정 (장소)</span>
+                                        <span class="text-xs text-gray-400">방문할 장소와 이동 수단</span>
+                                    </div>
+                            </label>
+                            <label class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                <input type="checkbox" id="copy-opt-memos" checked class="w-5 h-5 text-primary rounded focus:ring-primary border-gray-300">
+                                    <div>
+                                        <span class="block font-bold text-gray-700 dark:text-gray-200">메모</span>
+                                        <span class="text-xs text-gray-400">작성한 메모 사항</span>
+                                    </div>
+                            </label>
+                            <label class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                <input type="checkbox" id="copy-opt-budget" checked class="w-5 h-5 text-primary rounded focus:ring-primary border-gray-300">
+                                    <div>
+                                        <span class="block font-bold text-gray-700 dark:text-gray-200">예산 및 지출</span>
+                                        <span class="text-xs text-gray-400">가계부 내역 및 예산 설정</span>
+                                    </div>
+                            </label>
+                            <label class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                <input type="checkbox" id="copy-opt-shopping" checked class="w-5 h-5 text-primary rounded focus:ring-primary border-gray-300">
+                                    <div>
+                                        <span class="block font-bold text-gray-700 dark:text-gray-200">쇼핑리스트</span>
+                                        <span class="text-xs text-gray-400">구매할 물품 목록</span>
+                                    </div>
+                            </label>
+                            <label class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                <input type="checkbox" id="copy-opt-supplies" checked class="w-5 h-5 text-primary rounded focus:ring-primary border-gray-300">
+                                    <div>
+                                        <span class="block font-bold text-gray-700 dark:text-gray-200">준비물</span>
+                                        <span class="text-xs text-gray-400">체크리스트</span>
+                                    </div>
+                            </label>
+                        </div>
+
+                        <div class="flex justify-end gap-3">
+                            <button onclick="closeCopyOptionsModal()" class="px-5 py-2.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl font-bold transition-colors">취소</button>
+                            <button onclick="executeDuplicate()" class="px-5 py-2.5 bg-primary text-white rounded-xl font-bold hover:bg-orange-600 transition-colors shadow-lg shadow-orange-200 dark:shadow-none flex items-center gap-2">
+                                <span class="material-symbols-outlined text-sm">content_copy</span> 복제 완료
+                            </button>
+                        </div>
                     </div>
-                </div>
-            </div>
-        `;
+            </div >
+                `;
         document.body.appendChild(modal);
     }
     return modal;
@@ -494,13 +500,13 @@ export async function executeDuplicate() {
 
         // 1. Meta Logic
         const newMeta = { ...data.meta };
-        newMeta.title = `[복제] ${newMeta.title}`;
+        newMeta.title = `[복제] ${newMeta.title} `;
         if (newMeta.docId) delete newMeta.docId;
 
         // 지역 체크 해제 시: 위치 정보만 제거 (제목, 날짜는 유지)
         if (!optRegion) {
             newMeta.location = "";
-            newMeta.subInfo = newMeta.subInfo.split('•')[1] ? `위치 미정 • ${newMeta.subInfo.split('•')[1]}` : newMeta.subInfo;
+            newMeta.subInfo = newMeta.subInfo.split('•')[1] ? `위치 미정 • ${newMeta.subInfo.split('•')[1]} ` : newMeta.subInfo;
             newMeta.lat = null;
             newMeta.lng = null;
             newMeta.mapImage = "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=600&h=400&fit=crop";

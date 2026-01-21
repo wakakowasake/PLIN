@@ -796,7 +796,7 @@ function generatePDFContent() {
     let html = `
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif; }
+            body { font-family: 'MemomentKkukkukk', sans-serif; }
             .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 3px solid #3579f6; }
             .header h1 { font-size: 32px; font-weight: bold; color: #3579f6; margin-bottom: 12px; }
             .header p { font-size: 14px; color: #666; margin: 5px 0; }

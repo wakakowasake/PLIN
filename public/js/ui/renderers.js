@@ -123,16 +123,19 @@ function buildTransitCard(item, index, dayIndex, editClass) {
 
         // 상세 경로가 있는 경우(태그가 여러 개일 수 있음)에는 제목(역 정보/중복 노선명)을 숨기고 태그만 표시
         const showTitle = !hasDetailedTransit;
-        const titleText = (showTitle && item.title) ? `<p class="text-sm font-bold text-text-main dark:text-white truncate ml-2">${item.title}</p>` : '';
+        const titleText = (showTitle && item.title) ? `<p class="text-xl font-bold font-hand text-text-main dark:text-white truncate ml-2 tracking-wide">${item.title}</p>` : '';
         contentHtml = `${tagsHtml} ${titleText}`;
     }
 
     return `
-            <div class="bg-blue-50/50 dark:bg-card-dark/40 border border-blue-100 dark:border-gray-800 rounded-lg p-3 flex flex-col gap-2 ${editClass}" onclick="viewRouteDetail(${index}, ${dayIndex})">
+            <div class="bg-white dark:bg-card-dark rounded-sm p-3 border border-gray-200 dark:border-gray-700 paper-shadow flex flex-col gap-2 ${editClass} relative transform transition-transform hover:-rotate-1" onclick="viewRouteDetail(${index}, ${dayIndex})">
+                <!-- Tape effect (visual only) -->
+                <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-6 bg-white/30 backdrop-blur-sm border border-white/40 shadow-sm rotate-[-2deg] z-10 pointer-events-none"></div>
+
                 <div class="flex items-center gap-2 md:gap-4 justify-between">
                     <div class="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
-                        <div class="flex flex-col items-center justify-center bg-white dark:bg-card-dark rounded px-2 md:px-3 py-1 shadow-sm text-xs font-bold text-gray-900 dark:text-white min-w-[60px] md:min-w-[70px] flex-shrink-0 whitespace-nowrap">
-                            <span>${typeof item.duration === 'number' ? formatDuration(item.duration) : (item.duration || item.time || '30분')}</span>
+                        <div class="flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-800 rounded-sm px-2 md:px-3 py-1 border border-gray-200 dark:border-gray-700 text-xs font-bold text-gray-900 dark:text-white min-w-[60px] md:min-w-[70px] flex-shrink-0 whitespace-nowrap">
+                            <span class="font-hand text-lg">${typeof item.duration === 'number' ? formatDuration(item.duration) : (item.duration || item.time || '30분')}</span>
                         </div>
                         <div class="flex items-center gap-2 flex-1 min-w-0 flex-wrap">
                             ${contentHtml}
@@ -144,14 +147,7 @@ function buildTransitCard(item, index, dayIndex, editClass) {
             </div>`;
 }
 
-// 세로선 스타일 (간단 모드와 동일) - 점선으로 변경
-const lineStyle = isLast ? `bg-gradient-to-b from-gray-300 to-transparent dark:from-gray-600 border-l-2 border-dashed border-gray-300 dark:border-gray-600 bg-transparent w-0` : `border-l-2 border-dashed border-gray-300 dark:border-gray-600 h-full absolute left-0 top-0 w-0`;
-const linePosition = isFirst ? 'top-6 -bottom-8' : 'top-0 -bottom-8';
 
-// ... (rest of the function) ... actually I need to be careful with replacing the whole function.
-// Let's target specific blocks. 
-
-// I'll rewrite the buildDefaultCard function first to use the new styles.
 function buildDefaultCard(item, index, dayIndex, editClass, clickHandler) {
     const isCompleted = isTripCompleted();
     const isMemoryLocked = travelData.meta?.memoryLocked || false;
@@ -306,8 +302,8 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
         }
     }
 
-    // 세로선 스타일 (간단 모드와 동일)
-    const lineStyle = isLast ? `bg-gradient-to-b from-gray-200 to-transparent dark:from-gray-700` : `bg-gray-200 dark:bg-gray-700`;
+    // 세로선 스타일 (간단 모드와 동일) - 점선으로 변경
+    const lineStyle = isLast ? `bg-gradient-to-b from-gray-300 to-transparent dark:from-gray-600 border-l-2 border-dashed border-gray-300 dark:border-gray-600 bg-transparent w-0` : `border-l-2 border-dashed border-gray-300 dark:border-gray-600 h-full absolute left-0 top-0 w-0`;
     const linePosition = isFirst ? 'top-6 -bottom-8' : 'top-0 -bottom-8';
     const zIndex = 100 - index;
 
@@ -318,10 +314,10 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
             
             <!-- 시간 카드 (기존 아이콘 위치) -->
             <div class="relative flex flex-col" data-timeline-icon="true">
-                <div class="relative z-10 h-full flex flex-col items-center justify-between bg-white dark:bg-card-dark rounded-xl px-2 py-2 shadow-sm w-[60px] shrink-0" style="width: 60px; min-width: 60px;">
-                    <div class="font-bold text-gray-900 dark:text-white text-xs planner-time-label leading-tight tabular-nums" style="font-variant-numeric: tabular-nums;">${startTime}</div>
-                    <div class="text-xs text-gray-400">↓</div>
-                    <div class="font-bold text-gray-900 dark:text-white text-xs planner-time-label leading-tight tabular-nums" style="font-variant-numeric: tabular-nums;">${endTime}</div>
+                <div class="relative z-10 h-full flex flex-col items-center justify-between bg-white dark:bg-card-dark rounded-sm px-2 py-2 shadow-sm w-[60px] shrink-0 border border-gray-100 dark:border-gray-700" style="width: 60px; min-width: 60px;">
+                    <div class="font-bold font-hand text-xl text-gray-900 dark:text-white leading-tight tabular-nums" style="font-variant-numeric: tabular-nums;">${startTime}</div>
+                    <div class="text-xs text-gray-300">↓</div>
+                    <div class="font-bold font-hand text-xl text-gray-900 dark:text-white leading-tight tabular-nums" style="font-variant-numeric: tabular-nums;">${endTime}</div>
                 </div>
             </div>
             

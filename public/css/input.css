@@ -1,17 +1,42 @@
-@import url('https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap');
+@font-face {
+    font-family: 'MemomentKkukkukk';
+    src: url('/MemomentKkukkukk.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+
+    body,
+    input,
+    textarea,
+    button,
+    select {
+        font-family: 'MemomentKkukkukk', sans-serif;
+    }
+}
+
 @layer components {
-    .bg-dot-grid {
-        background-size: 24px 24px;
-        background-image: radial-gradient(circle, #cbd5e1 1.5px, transparent 1.5px);
+    .bg-manuscript {
+        background-color: #f9f5eb;
+        background-size: 40px 40px;
+        background-image:
+            linear-gradient(to right, #d4d4d4 1px, transparent 1px),
+            linear-gradient(to bottom, #d4d4d4 1px, transparent 1px);
+        border: 1px solid #d4d4d4;
     }
 
-    .dark .bg-dot-grid {
-        background-image: radial-gradient(circle, #334155 1.5px, transparent 1.5px);
+    .dark .bg-manuscript {
+        background-color: #1a2632;
+        background-image:
+            linear-gradient(to right, #334155 1px, transparent 1px),
+            linear-gradient(to bottom, #334155 1px, transparent 1px);
+        border: 1px solid #334155;
     }
 
     .paper-shadow {

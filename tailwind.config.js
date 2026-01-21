@@ -14,9 +14,10 @@ module.exports = {
         'text-muted': '#617989',
       },
       fontFamily: {
-        'display': ['Plus Jakarta Sans', 'sans-serif'],
-        'body': ['Noto Sans', 'sans-serif'],
-        'hand': ['"Nanum Pen Script"', 'cursive'],
+        'sans': ['"MemomentKkukkukk"', 'sans-serif'],
+        'display': ['"MemomentKkukkukk"', 'sans-serif'],
+        'body': ['"MemomentKkukkukk"', 'sans-serif'],
+        'hand': ['"MemomentKkukkukk"', 'cursive'],
       },
     },
   },
