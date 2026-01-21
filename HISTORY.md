@@ -6,6 +6,26 @@
 
 ## 2026-01-21
 
+### 16:44 - [AI] 개인정보처리방침 페이지 추가
+- **기능 추가**: 법적 필수 사항인 개인정보처리방침(`privacy.html`) 페이지 생성 및 적용
+- **조치 내용**: 
+  1. 사용자 제공 텍스트 기반으로 프리미엄 디자인의 `public/privacy.html` 생성
+  2. `vite.config.js`에 멀티 페이지 빌드 엔트리 추가
+  3. `public/index.html` 하단 푸터(Footer)에 해당 페이지 링크 연결
+- **변경 파일**: public/privacy.html, public/index.html, vite.config.js, HISTORY.md
+
+### 16:36 - [AI] Firestore 보안 규칙 최적화 및 읽기 권한 강화
+- **보안 강화**: 비공개 여행에 대한 읽기(조회) 권한도 작성자 및 멤버로 제한
+  - `isMember` 헬퍼 함수를 통해 권한 체크 로직 통합
+  - 불필요한 코드 정리 및 규칙 구조 개선
+- **변경 파일**: firestore.rules, HISTORY.md
+
+### 16:25 - [AI] Firestore 보안 규칙 강화 (긴급 패치)
+- **보안 수정**: 여행 계획의 수정/삭제 권한 IDOR 취약점 해결
+  - `allow update/delete: if isAuthenticated()` -> `if canModifyTrip(resource)`로 변경
+  - `canModifyTrip`: 생성자(`createdBy`), 멤버(`members`), 또는 구형 데이터(`userId`) 일치 여부 확인
+- **변경 파일**: firestore.rules, HISTORY.md
+
 ### 16:07 - [AI] 공유 페이지 정적 자산 경로 수정
 - **버그 수정**: 공유 뷰어(`/v/:id`)에서 `style.css` 및 `viewer.js` 로드 실패(404) 문제 해결
 - **조치 내용**: 

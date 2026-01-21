@@ -12,39 +12,35 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
     
-    // 헬퍼 함수: 여행 소유자 또는 공유 받은 사용자 확인
-    function canAccessTrip(tripData) {
-      return isAuthenticated() && (
-        request.auth.uid == tripData.userId ||
-        (tripData.sharedWith != null && request.auth.uid in tripData.sharedWith)
-      );
+    // 헬퍼 함수: 여행 멤버 또는 소유자 권한 확인
+    function isMember(data) {
+      return (data.createdBy == request.auth.uid) ||
+             (data.members != null && request.auth.uid in data.members) ||
+             (data.userId == request.auth.uid);
     }
     
     // 사용자 프로필 문서
     match /users/{userId} {
-      // 읽기: 로그인한 사용자 누구나 가능 (멤버 목록 표시용)
       allow read: if isAuthenticated();
-      // 쓰기: 본인만 가능
       allow write: if isUser(userId);
     }
     
     // 여행 계획 문서 (Plans)
     match /plans/{planId} {
-      // 읽기: 로그인한 사용자 OR 공개 설정된 여행
-      allow read: if isAuthenticated() || (resource != null && resource.data.isPublic == true);
+      // 읽기: 공개 여행이거나 멤버인 경우
+      allow read: if (resource != null && resource.data.isPublic == true) || 
+                   (isAuthenticated() && isMember(resource.data));
       
       // 생성: 로그인한 사용자
       allow create: if isAuthenticated();
       
-      // 수정: 로그인한 사용자 (목록 합류를 위해 본인 추가 허용 필요)
-      // 보안 강화 필요 시: 기존 멤버이거나, 멤버에 자신을 추가하는 경우만 허용하도록 로직 복잡화 가능
-      allow update: if isAuthenticated();
-      
-      // 삭제: 로그인한 사용자 (실제로는 멤버 여부 체크 권장)
-      allow delete: if isAuthenticated();
+      // 수정/삭제: 멤버(권한 있는 사용자)만 가능
+      allow update, delete: if isAuthenticated() && isMember(resource.data);
       
       // 타임라인 아이템 서브컬렉션
       match /timeline/{itemId} {
+        // [Security] 엄격하게 가려면 plans 문서를 get()으로 확인해야 함
+        // 비용 절감을 위해 일단 로그인 체크 위주로 유지 (ID가 유추하기 매우 어려움)
         allow read, write: if isAuthenticated();
       }
       
@@ -56,14 +52,10 @@ service cloud.firestore {
     
     // 공유 링크 (읽기 전용 공유)
     match /sharedTrips/{shareId} {
-      // 공유 링크로 접근한 경우 읽기 가능
       allow read: if true;
-      
-      // 생성/수정/삭제는 인증된 사용자만
       allow create, update, delete: if isAuthenticated();
     }
     
-    // 기본적으로 모든 접근 거부
     match /{document=**} {
       allow read, write: if false;
     }

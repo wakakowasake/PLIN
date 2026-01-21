@@ -10,7 +10,8 @@ export default defineConfig({
         rollupOptions: {
             input: {
                 main: resolve(__dirname, 'public/index.html'),
-                openview: resolve(__dirname, 'public/openview.html') // Multi-page app support
+                openview: resolve(__dirname, 'public/openview.html'),
+                privacy: resolve(__dirname, 'public/privacy.html')
             },
         },
         target: 'esnext', // Modern browsers
