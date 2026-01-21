@@ -52,7 +52,7 @@ export async function openShareModal(tripId = null) {
     // 초대 링크 (협업용): invite=...
     // 공개 링크 (보기용): share=...
     const inviteLink = `${window.location.origin}${window.location.pathname}?invite=${targetTripId}`;
-    const publicLink = `${window.location.origin}${window.location.pathname}?share=${targetTripId}`;
+    const publicLink = `${window.location.origin}/v/${targetTripId}`;
 
     // 현재 표시할 링크 결정 (공개 모드면 공개 링크, 아니면 초대 링크)
     // 단, 이 부분은 사용자가 "어떤 링크를 복사하고 싶은지" 명확히 해야 하므로,
@@ -143,8 +143,8 @@ export async function togglePublicShare(tripId) {
         // 링크 입력창 업데이트
         if (input) {
             const inviteLink = `${window.location.origin}${window.location.pathname}?invite=${tripId}`;
-            // [Modified] 공개 링크는 전용 뷰어(openview.html)로 연결
-            const publicLink = `${window.location.origin}/openview.html?id=${tripId}`;
+            // [Modified] 공개 링크는 동적 OG 태그를 지원하는 SSR 엔드포인트(/v/)로 연결
+            const publicLink = `${window.location.origin}/v/${tripId}`;
             input.value = isPublic ? publicLink : inviteLink;
 
             // 흔들림 효과 등으로 링크가 바뀌었음을 알림

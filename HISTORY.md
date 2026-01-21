@@ -6,6 +6,10 @@
 
 ## 2026-01-21
 
+### 13:16 - [AI] 오픈 뷰어 버튼 디자인 미세 조정
+- **UI 최적화**: '나도 계획 만들기' 버튼의 좌우 패딩을 줄여(`px-8` -> `px-5`) 버튼 폭을 슬림하게 조정
+- **변경 파일**: public/openview.html, HISTORY.md
+
 ### 13:15 - [AI] 배포 오류 조치 및 UI 반영
 - **부분 배포 완료**: Functions의 Pub/Sub API 지연으로 인한 전체 배포 실패를 Hosting 단독 배포로 우회하여 UI 변경 사항 반영 완료
 - **조치 내용**: `dist` 빌드 후 `firebase deploy --only hosting` 실행

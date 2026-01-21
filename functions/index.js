@@ -1,8 +1,11 @@
 const { onRequest } = require("firebase-functions/v2/https");
 const { defineSecret } = require('firebase-functions/params');
 const express = require("express");
-// const fetch = require("node-fetch"); // [수정] Node.js 18 이상은 내장 fetch를 사용하므로 이 줄은 삭제하거나 주석 처리
+const fs = require("fs");
+const path = require("path");
+const admin = require("firebase-admin");
 const cors = require('cors')({ origin: true });
+// const fetch = require("node-fetch"); 
 require("dotenv").config();
 
 // Secret 정의
@@ -21,6 +24,80 @@ if (!global.fetch) {
     console.warn("Warning: Native fetch is missing and node-fetch is not installed. Unsplash proxy may fail.");
   }
 }
+
+// [Global] Firebase Admin SDK 초기화
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
+
+// [Global] HTML 템플릿 캐시
+let openViewTemplate = null;
+
+function getOpenViewTemplate() {
+  if (openViewTemplate) return openViewTemplate;
+  try {
+    // Hosting public 디렉토리 내의 openview.html 위치 확인
+    // Functions에서는 환경에 따라 상대 경로가 다를 수 있음
+    const filePath = path.join(__dirname, "public", "openview.html");
+    if (fs.existsSync(filePath)) {
+      openViewTemplate = fs.readFileSync(filePath, "utf8");
+    } else {
+      // 대체 경로 (빌드 아티팩트 위치 등)
+      openViewTemplate = fs.readFileSync(path.join(__dirname, "openview.html"), "utf8");
+    }
+    return openViewTemplate;
+  } catch (err) {
+    console.error("Template read error:", err);
+    return null;
+  }
+}
+
+// 동적 OG 태그 주입 라우트 (/v/:id)
+app.get("/v/:tripId", async (req, res) => {
+  const { tripId } = req.params;
+  const db = admin.firestore();
+
+  try {
+    // 1. Firestore에서 프로젝트 데이터 조회
+    const docRef = db.collection("plans").doc(tripId);
+    const docSnap = await docRef.get();
+
+    let title = "PLIN - 여행 계획 보기";
+    let description = "설레는 계획부터 소중한 추억까지. 당신의 여행을 한 권의 책처럼 남겨보세요.";
+    let imageUrl = "https://plin-db93d.web.app/images/og-image.png";
+
+    if (docSnap.exists) {
+      const data = docSnap.data();
+      if (data.meta) {
+        title = `${data.meta.title || "여행 제목"} | PLIN`;
+        description = `${data.meta.dayCount || ""} - ${data.meta.subInfo || ""} 여행 계획을 확인해 보세요.`;
+        if (data.meta.image) {
+          imageUrl = data.meta.image;
+        }
+      }
+    }
+
+    // 2. 템플릿 불러오기 및 태그 치환
+    let html = getOpenViewTemplate();
+    if (!html) throw new Error("Template not found");
+
+    // 메타 태그 치환 (정규표현식으로 교체)
+    html = html.replace(/<title>.*?<\/title>/, `<title>${title}</title>`);
+    html = html.replace(/<meta name="description" content=".*?">/, `<meta name="description" content="${description}">`);
+    html = html.replace(/<meta property="og:title" content=".*?">/, `<meta property="og:title" content="${title}">`);
+    html = html.replace(/<meta property="og:description" content=".*?">/, `<meta property="og:description" content="${description}">`);
+    html = html.replace(/<meta property="og:image" content=".*?">/, `<meta property="og:image" content="${imageUrl}">`);
+
+    // 3. 응답 반환
+    res.set("Content-Type", "text/html");
+    res.status(200).send(html);
+
+  } catch (error) {
+    console.error("OG injection error:", error);
+    // 에러 발생 시 원래의 openview.html로 리다이렉트하거나 정적 파일 응답
+    res.redirect(`/openview.html?id=${tripId}`);
+  }
+});
 
 // API 키 제공 엔드포인트 (보안 강화)
 app.get("/config", async (req, res) => {

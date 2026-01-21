@@ -309,7 +309,13 @@ async function initViewer() {
         // URL Parameter Check
         const urlParams = new URLSearchParams(window.location.search);
         // Supports ?share=ID, ?id=ID, ?invite=ID (all treated as read-only view)
-        const tripId = urlParams.get('id') || urlParams.get('share') || urlParams.get('invite');
+        let tripId = urlParams.get('id') || urlParams.get('share') || urlParams.get('invite');
+
+        // [Modified] SSR 주소 형식(/v/:id) 지원
+        if (!tripId && window.location.pathname.startsWith('/v/')) {
+            const parts = window.location.pathname.split('/');
+            tripId = parts[parts.length - 1];
+        }
 
         if (!tripId) {
             showError("잘못된 접근입니다.");
