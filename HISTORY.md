@@ -6,6 +6,17 @@
 
 ## 2026-01-21
 
+### 16:07 - [AI] 공유 페이지 정적 자산 경로 수정
+- **버그 수정**: 공유 뷰어(`/v/:id`)에서 `style.css` 및 `viewer.js` 로드 실패(404) 문제 해결
+- **조치 내용**: 
+  1. `openview.html`의 리소스 경로를 절대 경로(`/`)로 수정
+  2. `copy` 명령을 통해 `public/js` 및 `public/css/style.css`를 `assets/` 디렉토리로 강제 동기화 (배포 시 포함되도록 조치)
+- **변경 파일**: functions/openview.html, assets/ (파일 복사), HISTORY.md
+
+### 15:58 - [AI] Firebase Performance 초기화 오류 수정
+- **버그 수정**: `Firebase: No Firebase App '[DEFAULT]'` 오류 해결을 위해 성능 모니터링(`getPerformance`) 호출 시점을 `firebaseReady` 완료 이후로 지연시킴
+- **변경 파일**: public/js/performance.js
+
 ### 15:52 - [AI] UI 여백 및 삭제 모달 개선
 - **UX 개선**: 추억 사진 및 여행 목록 삭제 시 브라우저 기본창 대신 커스텀 삭제 모달(`openConfirmationModal`) 적용하여 일관성 확보
 - **UI 개선**: 계획 페이지 하단(`detail-view`)에 충분한 여백(`pb-64` + Spacer)을 추가하여 푸터와의 간격 확보
