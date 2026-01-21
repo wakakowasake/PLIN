@@ -1,1 +1,0 @@
-export const BACKEND_URL = "https://us-central1-plin-db93d.cloudfunctions.net/api";

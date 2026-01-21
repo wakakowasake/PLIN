@@ -3,7 +3,6 @@ import { resolve } from 'path';
 
 export default defineConfig({
     root: 'public', // Root directory for Vite (source)
-    publicDir: '../assets', // (Optional) If you have other static assets outside public
     build: {
         outDir: '../dist', // Output directory relative to root
         emptyOutDir: true, // Clean dist before build
@@ -18,6 +17,10 @@ export default defineConfig({
     },
     server: {
         port: 5173,
+        host: true, // 네트워크 인터페이스 허용
+        hmr: {
+            host: 'localhost',
+        },
         open: true,
         headers: {
             // [Fix] Google Login COOP Error

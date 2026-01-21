@@ -102,7 +102,7 @@
             color: white;
             padding: 16px 24px;
             border-radius: 12px;
-            z-index: 99999;
+            z-index: ${Z_INDEX.MODAL_MAX};
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
             font-family: 'MemomentKkukkukk', sans-serif;
             font-weight: 500;

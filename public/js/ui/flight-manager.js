@@ -165,7 +165,11 @@ export function openFlightInputModal(index, isEdit, travelData, targetDayIndex) 
     depInput.onkeydown = handleAirportEnter;
     arrInput.onkeydown = handleAirportEnter;
 
-    document.getElementById('flight-input-modal').classList.remove('hidden');
+    const modal = document.getElementById('flight-input-modal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        if (window.pushModalState) window.pushModalState();
+    }
     setTimeout(() => flightNumInput.focus(), 100);
 }
 

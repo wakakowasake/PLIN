@@ -2,6 +2,7 @@
 // Handles desktop drag-drop, mobile touch drag with custom visual feedback
 
 import { travelData, setTravelData } from '../state.js';
+import { Z_INDEX } from './constants.js';
 
 // Desktop drag state
 let draggingIndex = null;
@@ -240,7 +241,7 @@ function createCustomDragGhost(sourceElement) {
     ghost.id = 'custom-drag-ghost';
     ghost.style.cssText = `
         position: fixed;
-        z-index: 10000;
+        z-index: ${Z_INDEX.DRAG_GHOST};
         opacity: 0.98;
         transform: rotate(2deg) scale(1.0);
         pointer-events: none;

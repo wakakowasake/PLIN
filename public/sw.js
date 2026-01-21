@@ -1,9 +1,10 @@
-const CACHE_NAME = 'plin-v1.1.0';
+const CACHE_NAME = 'plin-v1.1.1';
 const STATIC_CACHE = [
   '/',
   '/index.html',
   '/css/style.css',
   '/js/ui.js',
+  '/js/ui-transit.js',
   '/js/firebase.js',
   '/js/map.js',
   '/js/logger.js',

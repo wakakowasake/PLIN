@@ -91,23 +91,18 @@ export async function openTrip(tripId, options = {}) {
                 shareBtn.classList.remove('hidden');
             }
 
+            // [Modified] Push state when opening trip for back button support
+            if (options.pushState !== false) {
+                history.pushState({ page: 'trip', tripId: tripId }, '', window.location.pathname);
+            }
+
             // [Fix] Recalculate budget on load to fix potential legacy errors
             ExpenseManager.updateTotalBudget(travelData);
-            selectDay(0); // 첫째날로 초기화
-
             selectDay(0); // 첫째날로 초기화
 
             // [New] Apply Read-Only UI restrictions
             applyReadOnlyUI();
 
-            // [Fix] Call renderRouteOnMap to update the map preview with trip route
-            // renderRouteOnMap is imported from map.js
-            if (window.renderRouteOnMap) { // Check if function is available globally or imported
-                // Since it's imported in this module, we can call it directly if imported.
-                // But wait, it was imported as `renderRouteOnMap`.
-            }
-            // Actually I need to check if I imported it.
-            // In step 377, `import { ..., renderRouteOnMap } from './map.js'` was added.
             renderRouteOnMap();
 
         } else {
@@ -138,12 +133,18 @@ function applyReadOnlyUI() {
     }
 }
 
-export function backToMain() {
+export function backToMain(options = {}) {
     document.getElementById('detail-view').classList.add('hidden');
     document.getElementById('main-view').classList.remove('hidden');
     document.getElementById('back-btn').classList.add('hidden');
     document.getElementById('share-btn').classList.add('hidden');
     setCurrentTripId(null);
+
+    // [New] Handle navigation state
+    if (options.fromPopState !== true) {
+        history.pushState({ page: 'main' }, '', window.location.pathname);
+    }
+
     // 현재 사용자 정보가 있으면 여행 목록을 다시 로드합니다.
     if (currentUser) {
         loadTripList(currentUser.uid);
@@ -175,10 +176,71 @@ Profile.initDarkMode();
 // 바디 페이드인 애니메이션
 document.body.style.opacity = '1';
 
-// [Removed] 페이지 로드 시 자동 실행 제거 (auth.js에서 초기화 후 실행됨)
-// if (window.checkShareLink) {
-//     window.checkShareLink();
-// }
+// [New] Navigation Handling (Back Button Support)
+window.addEventListener('popstate', (event) => {
+    const state = event.state;
+    console.log("[Navigation] Popstate:", state);
+
+    // 1. 모달이 열려 있는지 확인하고 닫음
+    if (window.closeAllModals) {
+        const closed = window.closeAllModals();
+        if (closed) return; // 모달을 닫았으면 여기서 중단 (뒤로가기 한 단계 소모)
+    }
+
+    // 2. 페이지 전환 핸들링
+    if (state && state.page === 'trip' && state.tripId) {
+        openTrip(state.tripId, { pushState: false });
+    } else {
+        backToMain({ fromPopState: true });
+    }
+});
+
+/**
+ * 열려있는 모든 모달을 닫는 함수
+ * @returns {boolean} 모달을 하나라도 닫았는지 여부
+ */
+window.closeAllModals = () => {
+    let closedAny = false;
+    const modals = [
+        'item-detail-modal', 'memo-detail-modal', 'add-selection-modal',
+        'copy-item-modal', 'general-delete-modal', 'share-modal',
+        'sort-method-modal', 'trip-info-modal', 'invite-modal',
+        'lightbox-modal', 'expense-modal', 'shopping-selector-modal',
+        'transit-detail-modal', 'flight-input-modal'
+    ];
+
+    modals.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el.classList.contains('hidden')) {
+            // 특정 모달 닫기 함수 호출 또는 클래스 명시적 제거
+            if (id === 'item-detail-modal') closeDetailModal();
+            else if (id === 'memo-detail-modal') closeMemoModal();
+            else if (id === 'add-selection-modal') closeAddModal();
+            else if (id === 'copy-item-modal') Modals.closeCopyItemModal();
+            else if (id === 'general-delete-modal') Modals.closeGeneralDeleteModal();
+            else if (id === 'share-modal') Header.closeShareModal();
+            else if (id === 'sort-method-modal') closeSortMethodModal();
+            else if (id === 'trip-info-modal') Header.closeTripInfoModal ? Header.closeTripInfoModal() : el.classList.add('hidden');
+            else if (id === 'invite-modal') closeInviteModal();
+            else if (id === 'lightbox-modal') Modals.closeLightbox();
+            else if (id === 'expense-modal') Modals.closeExpenseModal();
+            else if (id === 'shopping-selector-modal') Modals.closeShoppingListSelector();
+            else if (id === 'transit-detail-modal') window.closeRouteDetail ? window.closeRouteDetail() : el.classList.add('hidden');
+            else if (id === 'flight-input-modal') window.closeFlightInputModal ? window.closeFlightInputModal() : el.classList.add('hidden');
+            else el.classList.add('hidden');
+
+            closedAny = true;
+        }
+    });
+
+    if (closedAny && Modals.unlockBodyScroll) Modals.unlockBodyScroll();
+    return closedAny;
+};
+
+// [New] Helper to push modal state
+window.pushModalState = () => {
+    history.pushState({ modal: true }, '', window.location.pathname);
+};
 
 // ========================================
 // Drag & Drop Logic (Re-exported from module)
@@ -307,6 +369,8 @@ export function openSortMethodModal(dayIndex) {
     const modal = document.getElementById('sort-method-modal');
     if (modal) {
         modal.classList.remove('hidden');
+        window.pushModalState();
+        lockBodyScroll();
     }
 }
 window.openSortMethodModal = openSortMethodModal;
@@ -462,6 +526,8 @@ export function viewTimelineItem(index, dayIndex = currentDayIndex) {
     }
 
     document.getElementById('item-detail-modal').classList.remove('hidden');
+    window.pushModalState();
+    lockBodyScroll();
 }
 
 export function openAddModal(index, dayIndex) {
@@ -2505,7 +2571,7 @@ export function openAttachment(data, type) {
     if (!modal) {
         modal = document.createElement('div');
         modal.id = 'attachment-lightbox-modal';
-        modal.className = 'fixed inset-0 bg-black/90 z-[99999] hidden flex items-center justify-center p-4';
+        modal.className = `fixed inset-0 bg-black/90 z-[300] hidden flex items-center justify-center p-4`;
         modal.innerHTML = `
             <button onclick="closeAttachmentLightbox()" class="absolute top-4 right-4 text-white hover:text-gray-300 z-10 p-2">
                 <span class="material-symbols-outlined text-3xl">close</span>

@@ -4,9 +4,36 @@
 
 ---
 
-## 2026-01-21
+## [2.3.2] - 2026-01-21
+### Fixed
+- Firebase Performance SDK API 오용 수정 (`perf.trace is not a function` 에러 해결)
+- `performance.js` 파일을 최신 Modular API 방식으로 리팩토링
+- 안드로이드 자산 내 `performance.js` 동기화 및 문법 오류 수정
+- Vite WebSocket(HMR) 연결 오류 수정 (`host: true` 및 `hmr` 설정 추가)
+- 이동 수단 상세 모달 내 하위 모달(추억 추가 등) `z-index` 겹침 현상 수정
 
-### 16:51 - [AI] Firebase Performance SDK 사용 방식 재수정 (최종)
+## [2.3.1] - 2026-01-21
+### Added
+- 모바일 내비게이션 및 모달 뒤로가기 버튼 연동 기능 구현
+    - `history.pushState` 및 `popstate` 이벤트를 이용한 SPA 방식의 내비게이션 관리
+    - 모달 오픈 시 브라우저 히스토리 상태를 저장하여 뒤로가기 시 모달만 닫히도록 개선
+    - 여행 계획 페이지에서 뒤로가기 시 메인 목록으로 자연스럽게 이동하도록 처리
+    - `ui.js` 내 중앙 집중식 모달 관리 함수 `closeAllModals` 추가
+
+### Fixed
+- `modals.js` 내 쇼핑 리스트 선택 모달 렌더링 코드 깨짐 현상 수정
+- `flight-manager.js`와 `ui-transit.js` 간의 모달 오픈 로직 일관성 확보
+
+## [2.3.0] - 2026-01-21
+
+### 16:51 - [x] 이동 수단 모달 z-index 문제 수정 `2026-01-21`
+    - [x] 모달 간 z-index 계층 분석
+    - [x] CSS 및 HTML 클래스 수정
+    - [x] 레이어 겹침 현상 검증
+### 16:51 - [x] Firebase Performance 에러 수정 `2026-01-21`
+    - [x] `assets/js/performance.js` 리팩토링
+    - [x] `android/` 자산 내 파일 동기화
+- [x] `HISTORY.md` 업데이트 및 커밋
 - **버그 수정**: `stopTrace is not an export` (SyntaxError) 해결
   - 원인: `PerformanceTrace`는 인스턴스 메서드(`.start()`, `.stop()`)를 사용해야 함을 간과함
   - 조치: `trace(perf, name)` 함수로 객체 생성 후 인스턴스 메서드 호출 방식으로 최종 수정

@@ -11,6 +11,8 @@ import { translateStation, translateLine } from './station-translations.js';
 
 import { openUserProfile } from './ui/profile.js';
 import { renderMemoriesList } from './ui/memories.js';
+import { Z_INDEX } from './ui/constants.js';
+
 
 // Break circular dependency by using window functions
 const renderItinerary = (...args) => window.renderItinerary && window.renderItinerary(...args);
@@ -177,6 +179,7 @@ export function openTransitInputModal(index, type = null) {
     }
 
     modal.classList.remove('hidden');
+    if (window.pushModalState) window.pushModalState();
 }
 
 export function closeTransitInputModal() {
@@ -554,11 +557,11 @@ export function ensureTransitDetailModal() {
 
     const modal = document.createElement('div');
     modal.id = 'transit-detail-modal';
-    modal.className = 'hidden fixed inset-0 z-[160] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
+    modal.className = `fixed inset-0 z-[${Z_INDEX.MODAL_VIEW}] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm`;
     modal.innerHTML = `
         <div class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100 relative">
             <button type="button" onclick="closeTransitDetailModal()"
-                class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 rounded-full transition-colors z-50">
+                class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 rounded-full transition-colors z-[${Z_INDEX.MODAL_INNER}]">
                 <span class="material-symbols-outlined">close</span>
             </button>
 
@@ -638,7 +641,7 @@ export function ensureTransitDetailModal() {
                     <span class="material-symbols-outlined">search</span> 구글에서 항공편 검색하기
                 </button>
 
-                <div class="flex gap-3 w-full relative z-10">
+                <div class="flex gap-3 w-full relative z-[${Z_INDEX.UI_BASE}]">
                     <button type="button" onclick="editCurrentTransitItem()"
                         class="flex-1 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-bold rounded-xl transition-colors flex items-center justify-center gap-2">
                         <span class="material-symbols-outlined text-sm">edit</span> 수정
@@ -927,6 +930,7 @@ export function openTransitDetailModal(item, index, dayIndex) {
     }
 
     modal.classList.remove('hidden');
+    if (window.pushModalState) window.pushModalState();
 }
 
 export function closeTransitDetailModal(fromHistory = false) {
@@ -951,7 +955,7 @@ export function deleteCurrentTransitItem() {
     if (itemIndex !== null && targetDayIndex !== null) {
         const modal = document.getElementById('delete-transit-modal');
         if (modal) {
-            modal.style.zIndex = 99999;
+            modal.style.zIndex = Z_INDEX.MODAL_CONFIRM;
             modal.classList.remove('hidden');
         }
     }
@@ -1015,7 +1019,7 @@ export function ensureFlightInputModal() {
 
     const modal = document.createElement('div');
     modal.id = 'flight-input-modal';
-    modal.className = 'hidden fixed inset-0 z-[130] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
+    modal.className = `hidden fixed inset-0 z-[${Z_INDEX.MODAL_INPUT}] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm`;
     modal.innerHTML = `
         <div class="bg-white dark:bg-card-dark rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] overflow-y-auto modal-slide-in">
             <div class="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
@@ -1212,7 +1216,11 @@ export function openFlightInputModal(index, isEdit = false) {
     depInput.onkeydown = handleAirportEnter;
     arrInput.onkeydown = handleAirportEnter;
 
-    document.getElementById('flight-input-modal').classList.remove('hidden');
+    // [Fix] Ensure it's at the end of body and has highest z-index
+    document.body.appendChild(modal);
+    modal.style.zIndex = Z_INDEX.MODAL_INPUT;
+    modal.classList.remove('hidden');
+    if (window.pushModalState) window.pushModalState();
     setTimeout(() => flightNumInput.focus(), 100);
 }
 
@@ -1720,7 +1728,7 @@ export function openRouteSelectionModal(routes, insertIdx, searchMode = null) {
     if (!modal) {
         modal = document.createElement('div');
         modal.id = 'route-selection-modal';
-        modal.className = 'fixed inset-0 bg-black/50 z-[99999] hidden flex items-center justify-center p-4';
+        modal.className = `fixed inset-0 bg-black/50 z-[${Z_INDEX.MODAL_VIEW}] hidden flex items-center justify-center p-4`;
         modal.innerHTML = `
             <div class="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[80vh] animate-fade-in-up">
                 <div class="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50">
@@ -1741,7 +1749,7 @@ export function openRouteSelectionModal(routes, insertIdx, searchMode = null) {
         `;
         document.body.appendChild(modal);
     } else {
-        modal.className = 'fixed inset-0 bg-black/50 z-[99999] hidden flex items-center justify-center p-4';
+        modal.className = `fixed inset-0 bg-black/50 z-[${Z_INDEX.MODAL_VIEW}] hidden flex items-center justify-center p-4`;
     }
 
     const list = document.getElementById('route-selection-list');
@@ -2448,7 +2456,7 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
     if (!modal) {
         modal = document.createElement('div');
         modal.id = 'route-detail-modal';
-        modal.className = 'fixed inset-0 bg-black/50 z-[130] hidden flex items-center justify-center p-4';
+        modal.className = `fixed inset-0 bg-black/50 z-[${Z_INDEX.MODAL_VIEW}] hidden flex items-center justify-center p-4`;
         modal.onclick = (e) => {
             if (e.target === modal) closeRouteDetailModal();
         };
@@ -2952,7 +2960,7 @@ window.openRouteExpenseModal = function () {
         if (window.ensureExpenseModal) window.ensureExpenseModal();
         const modal = document.getElementById('expense-modal');
         modal.classList.remove('hidden');
-        modal.style.zIndex = '2147483647';
+        modal.style.zIndex = Z_INDEX.MODAL_INPUT;
         document.body.appendChild(modal);
         if (window.hasOwnProperty('isAddingFromDetail')) window.isAddingFromDetail = false;
     }

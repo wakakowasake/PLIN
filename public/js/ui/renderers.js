@@ -1,4 +1,5 @@
 import { travelData, currentDayIndex, isEditing, isReadOnlyMode } from '../state.js';
+import { Z_INDEX } from './constants.js';
 import { calculateEndTime, formatTime } from './time-helpers.js';
 import { formatDuration } from '../ui-utils.js';
 
@@ -35,7 +36,7 @@ function renderMemoriesHtml(item, dayIndex, itemIndex) {
                  onclick="event.stopPropagation(); window.openLightbox(${dayIndex}, ${itemIndex}, ${memIdx})"
                  oncontextmenu="event.stopPropagation(); window.openContextMenu(event, 'memory', ${itemIndex}, ${dayIndex}, ${memIdx})">
                 <!-- 테이프 효과 -->
-                <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-10 h-5 bg-white/40 backdrop-blur-[2px] border border-white/30 shadow-sm ${tapeRotation} z-20 pointer-events-none"></div>
+                <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-10 h-5 bg-white/40 backdrop-blur-[2px] border border-white/30 shadow-sm ${tapeRotation} z-[${Z_INDEX.MODAL_INNER}] pointer-events-none"></div>
                 <div class="w-full h-full overflow-hidden rounded-sm">
                     ${content}
                 </div>
@@ -63,7 +64,7 @@ function buildImageCard(item, editClass, clickHandler, index, dayIndex) {
                             <span class="truncate flex-1">${item.location}</span>
                         </div>
                     </div>
-                    ${showMemoryBtn ? `<button type="button" onclick="event.stopPropagation(); addMemoryItem(${index}, ${dayIndex})" class="absolute top-2 right-2 bg-black/30 hover:bg-black/50 text-white p-2 rounded-full backdrop-blur-sm transition-colors z-10">
+                    ${showMemoryBtn ? `<button type="button" onclick="event.stopPropagation(); addMemoryItem(${index}, ${dayIndex})" class="absolute top-2 right-2 bg-black/30 hover:bg-black/50 text-white p-2 rounded-full backdrop-blur-sm transition-colors z-[${Z_INDEX.UI_BASE}]">
                         <span class="material-symbols-outlined text-2xl">photo_camera</span>
                     </button>` : ''}
                 </div>
@@ -93,7 +94,7 @@ function buildMemoCard(item, index, dayIndex, editClass, clickHandler) {
             <div class="relative bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-700/30 rounded-lg p-3 ${editClass} ${rotation} shadow-sm hover:shadow-md transition-shadow" 
                 onclick="event.stopPropagation(); ${clickHandler ? clickHandler.replace('onclick="', '').replace('"', '') : `viewTimelineItem(${index}, ${dayIndex})`}" ${contextHandler}>
                 <!-- 테이프 효과 -->
-                <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-10 h-6 bg-yellow-200/40 backdrop-blur-[2px] border border-yellow-300/30 shadow-sm ${tapeRotation} z-20 pointer-events-none"></div>
+                <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-10 h-6 bg-yellow-200/40 backdrop-blur-[2px] border border-yellow-300/30 shadow-sm ${tapeRotation} z-[${Z_INDEX.MODAL_INNER}] pointer-events-none"></div>
                 
                 <div class="flex items-center gap-3 justify-between">
                     <div class="flex-1 min-w-0">
@@ -146,7 +147,7 @@ function buildTransitCard(item, index, dayIndex, editClass) {
     return `
             <div class="bg-white dark:bg-card-dark rounded-sm p-3 border border-gray-200 dark:border-gray-700 paper-shadow flex flex-col gap-2 ${editClass} relative transform transition-transform hover:-rotate-1" onclick="viewRouteDetail(${index}, ${dayIndex})">
                 <!-- Tape effect (visual only) -->
-                <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-6 bg-white/30 backdrop-blur-sm border border-white/40 shadow-sm rotate-[-2deg] z-10 pointer-events-none"></div>
+                <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-6 bg-white/30 backdrop-blur-sm border border-white/40 shadow-sm rotate-[-2deg] z-[${Z_INDEX.UI_BASE}] pointer-events-none"></div>
 
                 <div class="flex items-center gap-2 md:gap-4 justify-between">
                     <div class="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
@@ -171,7 +172,7 @@ function buildDefaultCard(item, index, dayIndex, editClass, clickHandler) {
     return `
             <div class="bg-white dark:bg-card-dark rounded-sm p-3 md:p-5 paper-shadow border border-gray-200 dark:border-gray-700 ${editClass} relative transform transition-transform hover:-rotate-1" ${clickHandler}>
                 <!-- Tape effect (visual only) -->
-                <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-6 bg-white/30 backdrop-blur-sm border border-white/40 shadow-sm rotate-[-2deg] z-10 pointer-events-none"></div>
+                <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-6 bg-white/30 backdrop-blur-sm border border-white/40 shadow-sm rotate-[-2deg] z-[${Z_INDEX.UI_BASE}] pointer-events-none"></div>
 
                 <div class="flex justify-between items-start mb-2 gap-2">
                     <div class="flex-1 min-w-0">
@@ -229,14 +230,14 @@ export function renderTimelineItemHtml(item, index, dayIndex, isLast, isFirst, a
 
     let html = `
         <div ${draggableAttr} ontouchstart="touchStart(event, ${index}, 'item')" ontouchmove="touchMove(event)" ontouchend="touchEnd(event)" data-index="${index}" style="z-index: ${zIndex};" class="relative grid grid-cols-[auto_1fr] gap-x-3 md:gap-x-6 group/timeline-item pb-4 timeline-item-transition rounded-xl" ${contextHandler}>
-        <div class="drag-indicator absolute -top-3 left-0 right-0 h-1 bg-primary rounded-full hidden z-50 shadow-sm pointer-events-none"></div>
+        <div class="drag-indicator absolute -top-3 left-0 right-0 h-1 bg-primary rounded-full hidden z-[${Z_INDEX.DRAG_INDICATOR}] shadow-sm pointer-events-none"></div>
 
         <div class="relative flex flex-col items-center" data-timeline-icon="true">
             <div class="absolute ${linePosition} w-0.5 ${lineStyle} timeline-vertical-line"></div>
-            <div class="w-10 h-10 rounded-full ${iconBg} border-2 border-primary/30 flex items-center justify-center z-10 shadow-sm relative shrink-0 mt-1" style="${iconStyle}">
+            <div class="w-10 h-10 rounded-full ${iconBg} border-2 border-primary/30 flex items-center justify-center z-[${Z_INDEX.UI_BASE}] shadow-sm relative shrink-0 mt-1" style="${iconStyle}">
                 <span class="material-symbols-outlined ${iconColor} text-xl" style="${item.color ? 'color: inherit' : ''}">${item.icon}</span>
             </div>
-            ${(!isMemoryLocked && !isReadOnlyMode) ? `<div class="absolute -bottom-8 left-1/2 -translate-x-1/2 z-20 add-item-btn-container transition-opacity duration-200">
+            ${(!isMemoryLocked && !isReadOnlyMode) ? `<div class="absolute -bottom-8 left-1/2 -translate-x-1/2 z-[${Z_INDEX.MODAL_INNER}] add-item-btn-container transition-opacity duration-200">
                 <button type="button" onclick="openAddModal(${index}, ${dayIndex})" class="w-8 h-8 rounded-full bg-white dark:bg-card-dark border border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-400 hover:text-primary hover:border-primary transition-colors shadow-sm cursor-pointer transform hover:scale-110" title="일정 추가">
                     <span class="material-symbols-outlined text-lg">add</span>
                 </button>
@@ -596,7 +597,7 @@ export function renderItinerary() {
         if (currentTimeline.length > 0) {
             html += `
                 <div ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="timelineContainerDrop(event, ${currentDayIndex})" class="h-8 relative mx-6" style="z-index: 1;">
-                    <div class="drag-indicator absolute -top-3 left-0 right-0 h-1 bg-primary rounded-full hidden z-50 shadow-sm pointer-events-none"></div>
+                    <div class="drag-indicator absolute -top-3 left-0 right-0 h-1 bg-primary rounded-full hidden z-[${Z_INDEX.MODAL_INNER}] shadow-sm pointer-events-none"></div>
                 </div>`;
         }
         if (currentTimeline.length === 0) {

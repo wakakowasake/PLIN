@@ -9,7 +9,10 @@ export async function openShareModal(tripId = null) {
     const memberListEl = document.getElementById('member-list');
     if (memberListEl) memberListEl.innerHTML = '로딩 중...';
     const modalEl = document.getElementById('share-modal');
-    if (modalEl) modalEl.classList.remove('hidden');
+    if (modalEl) {
+        modalEl.classList.remove('hidden');
+        if (window.pushModalState) window.pushModalState();
+    }
 
     let targetTripId = tripId || window.currentTripId || travelData.id;
     let members = {};
@@ -189,7 +192,7 @@ export async function downloadTripAsPDF() {
             min-height: 297mm;
             background: white;
             padding: 20mm;
-            z-index: 99999;
+            z-index: ${Z_INDEX.MODAL_INNER};
             box-shadow: 0 0 0 9999px rgba(0,0,0,0.8);
             font-family: 'MemomentKkukkukk', sans-serif;
         `;

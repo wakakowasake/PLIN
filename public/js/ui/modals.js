@@ -1,5 +1,5 @@
-import { setIsEditingFromDetail, setViewingItemIndex, setTargetDayIndex, setInsertingItemIndex, insertingItemIndex, targetDayIndex, viewingItemIndex } from '../state.js';
 import { travelData } from '../state.js';
+import { Z_INDEX } from './constants.js';
 
 export function lockBodyScroll() {
     document.body.classList.add('modal-open');
@@ -23,7 +23,10 @@ export function openAddModal(index, dayIndex = null) {
     setInsertingItemIndex(Number(index));
     if (dayIndex !== null) setTargetDayIndex(dayIndex);
     const el = document.getElementById('add-selection-modal');
-    if (el) el.classList.remove('hidden');
+    if (el) {
+        el.classList.remove('hidden');
+        if (window.pushModalState) window.pushModalState();
+    }
     lockBodyScroll();
 }
 
@@ -82,6 +85,7 @@ export function openCopyItemModal() {
     }
 
     modal.classList.remove('hidden');
+    if (window.pushModalState) window.pushModalState();
     lockBodyScroll();
 }
 
@@ -163,7 +167,7 @@ function ensureGeneralDeleteModal() {
     if (!modal) {
         modal = document.createElement('div');
         modal.id = 'general-delete-modal';
-        modal.className = 'hidden fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
+        modal.className = `hidden fixed inset-0 z-[${Z_INDEX.MODAL_CONFIRM}] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm`;
         modal.innerHTML = `
             <div class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden text-center p-8 modal-slide-in">
                 <div class="w-16 h-16 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center mx-auto mb-4">
@@ -186,6 +190,7 @@ export function openGeneralDeleteModal(index, dayIndex) {
     pendingGeneralDeleteIndex = index;
     pendingGeneralDeleteDayIndex = dayIndex;
     document.getElementById('general-delete-modal').classList.remove('hidden');
+    if (window.pushModalState) window.pushModalState();
     lockBodyScroll();
 }
 
@@ -231,12 +236,12 @@ export function showToast(message, type = 'info') {
     if (!toast) {
         toast = document.createElement('div');
         toast.id = 'global-toast';
-        toast.className = "fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 z-[10000] transition-all duration-300 transform translate-y-20 opacity-0 font-bold text-sm pointer-events-none";
+        toast.className = `fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 z-[${Z_INDEX.MODAL_SYSTEM}] transition-all duration-300 transform translate-y-20 opacity-0 font-bold text-sm pointer-events-none`;
         document.body.appendChild(toast);
     }
 
     // Reset styles
-    toast.className = "fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 z-[10000] transition-all duration-300 transform translate-y-20 opacity-0 font-bold text-sm pointer-events-none";
+    toast.className = `fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 z-[${Z_INDEX.MODAL_SYSTEM}] transition-all duration-300 transform translate-y-20 opacity-0 font-bold text-sm pointer-events-none`;
 
     let icon = 'info';
     let bgClass = 'bg-gray-900 text-white';
@@ -277,7 +282,7 @@ export function showUndoToast(message, onUndo) {
     if (!toast) {
         toast = document.createElement('div');
         toast.id = 'undo-toast';
-        toast.className = "fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-4 z-[10000] transition-all duration-300 transform translate-y-20 opacity-0";
+        toast.className = `fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-4 z-[${Z_INDEX.MODAL_SYSTEM}] transition-all duration-300 transform translate-y-20 opacity-0`;
         toast.innerHTML = `
             <span id="undo-toast-msg"></span>
             <button id="undo-toast-btn" class="text-yellow-400 font-bold hover:text-yellow-300 transition-colors">실행 취소</button>
@@ -314,19 +319,19 @@ export function openLightbox(dayIndex, itemIndex, memoryIndex) {
     if (!modal) {
         modal = document.createElement('div');
         modal.id = 'lightbox-modal';
-        modal.className = 'fixed inset-0 z-[300] bg-black/90 hidden flex items-center justify-center p-4 backdrop-blur-sm transition-opacity duration-300 opacity-0';
+        modal.className = `fixed inset-0 z-[${Z_INDEX.MODAL_LIGHTBOX}] bg-black/90 hidden flex items-center justify-center p-4 backdrop-blur-sm transition-opacity duration-300 opacity-0`;
         modal.onclick = (e) => {
             if (e.target === modal || e.target.closest('.close-btn')) closeLightbox();
         };
         modal.innerHTML = `
             <div class="relative w-full h-full flex items-center justify-center">
                 <!-- Close Button -->
-                <button class="close-btn absolute top-4 left-4 z-[310] text-white/80 hover:text-white transition-colors p-2 bg-black/20 hover:bg-black/40 rounded-full backdrop-blur-sm">
+                <button class="close-btn absolute top-4 left-4 z-[${Z_INDEX.MODAL_INNER + 10}] text-white/80 hover:text-white transition-colors p-2 bg-black/20 hover:bg-black/40 rounded-full backdrop-blur-sm">
                     <span class="material-symbols-outlined text-3xl">close</span>
                 </button>
 
                 <!-- Menu Button -->
-                <div class="absolute top-4 right-4 z-[310]">
+                <div class="absolute top-4 right-4 z-[${Z_INDEX.MODAL_INNER + 10}]">
                     <button onclick="event.stopPropagation(); toggleLightboxMenu()" class="text-white/80 hover:text-white transition-colors p-2 bg-black/20 hover:bg-black/40 rounded-full backdrop-blur-sm">
                         <span class="material-symbols-outlined text-3xl">more_vert</span>
                     </button>
@@ -339,10 +344,10 @@ export function openLightbox(dayIndex, itemIndex, memoryIndex) {
                 </div>
 
                 <!-- Navigation Buttons -->
-                <button onclick="event.stopPropagation(); navigateLightbox(-1)" class="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 z-[305] text-white/90 hover:text-white p-2 bg-black/20 hover:bg-black/40 rounded-full backdrop-blur-sm transition-all">
+                <button onclick="event.stopPropagation(); navigateLightbox(-1)" class="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 z-[${Z_INDEX.MODAL_INNER + 5}] text-white/90 hover:text-white p-2 bg-black/20 hover:bg-black/40 rounded-full backdrop-blur-sm transition-all">
                     <span class="material-symbols-outlined text-3xl md:text-5xl">chevron_left</span>
                 </button>
-                <button onclick="event.stopPropagation(); navigateLightbox(1)" class="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 z-[305] text-white/90 hover:text-white p-2 bg-black/20 hover:bg-black/40 rounded-full backdrop-blur-sm transition-all">
+                <button onclick="event.stopPropagation(); navigateLightbox(1)" class="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 z-[${Z_INDEX.MODAL_INNER + 5}] text-white/90 hover:text-white p-2 bg-black/20 hover:bg-black/40 rounded-full backdrop-blur-sm transition-all">
                     <span class="material-symbols-outlined text-3xl md:text-5xl">chevron_right</span>
                 </button>
 
@@ -409,6 +414,7 @@ export function openLightbox(dayIndex, itemIndex, memoryIndex) {
     modal.classList.remove('hidden');
     void modal.offsetWidth;
     modal.classList.remove('opacity-0');
+    if (window.pushModalState) window.pushModalState();
 
     // Keyboard navigation
     document.addEventListener('keydown', handleLightboxKeydown);
@@ -546,7 +552,7 @@ export function ensureMemoryModal() {
     if (!document.getElementById('memory-modal')) {
         const modal = document.createElement('div');
         modal.id = 'memory-modal';
-        modal.className = 'hidden fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
+        modal.className = 'hidden fixed inset-0 z-[210] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
         modal.innerHTML = `
             <div class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
                 <div class="p-6 border-b border-gray-100 dark:border-gray-700">
@@ -593,6 +599,11 @@ export function ensureMemoryModal() {
                 document.getElementById('memory-photo-input').click();
             }
         });
+
+        modal.style.zIndex = Z_INDEX.MODAL_INPUT;
+        modal.classList.remove('hidden');
+        if (window.pushModalState) window.pushModalState();
+        lockBodyScroll();
     }
 }
 
@@ -601,7 +612,7 @@ export function ensureMemoModal() {
     if (!document.getElementById('memo-detail-modal')) {
         const modal = document.createElement('div');
         modal.id = 'memo-detail-modal';
-        modal.className = 'hidden fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
+        modal.className = 'hidden fixed inset-0 z-[210] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
         // 배경 클릭 시 닫기
         modal.onclick = (e) => {
             if (e.target === modal) closeMemoModal();
@@ -662,6 +673,11 @@ export function openMemoModal(item, index = null) {
     }
 
     modal.classList.remove('hidden');
+    // [Fix] Ensure it's at the end of body and has highest z-index
+    document.body.appendChild(modal);
+    modal.style.zIndex = Z_INDEX.MODAL_VIEW;
+
+    if (window.pushModalState) window.pushModalState();
     lockBodyScroll();
 }
 
@@ -769,7 +785,7 @@ export function ensureExpenseModal() {
         const modal = document.createElement('div');
         modal.id = 'expense-modal';
         modal.className = 'hidden fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
-        modal.style.zIndex = '9999';
+        modal.style.zIndex = Z_INDEX.MODAL_INPUT;
         modal.innerHTML = `
             <div class="bg-white dark:bg-card-dark rounded-xl shadow-2xl w-full max-w-sm overflow-hidden">
                 <div class="p-5 border-b border-gray-100 dark:border-gray-700">
@@ -825,7 +841,7 @@ export function openExpenseModal(dayIdx = null, fromDetail = false) {
 
     const modal = document.getElementById('expense-modal');
     // [Fix] Force highest z-index (Max Int) and move to end of body
-    modal.style.zIndex = '2147483647';
+    modal.style.zIndex = Z_INDEX.MODAL_INPUT;
     document.body.appendChild(modal);
 
     // [Fix] Reset Save Button to default behavior (generic expense)
@@ -884,6 +900,7 @@ export function openExpenseModal(dayIdx = null, fromDetail = false) {
     document.getElementById('expense-desc').value = "";
     document.getElementById('expense-cost').value = "";
     modal.classList.remove('hidden');
+    if (window.pushModalState) window.pushModalState();
     setTimeout(() => document.getElementById('expense-desc').focus(), 100);
     lockBodyScroll();
 }
@@ -973,7 +990,7 @@ export function ensureShoppingSelectorModal() {
     if (!document.getElementById('shopping-selector-modal')) {
         const modal = document.createElement('div');
         modal.id = 'shopping-selector-modal';
-        modal.className = 'hidden fixed inset-0 z-[130] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
+        modal.className = 'hidden fixed inset-0 z-[210] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
         modal.innerHTML = `
             <div class="bg-white dark:bg-card-dark rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
                 <div class="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
@@ -1011,6 +1028,7 @@ export function openShoppingListSelector() {
     }
 
     modal.classList.remove('hidden');
+    if (window.pushModalState) window.pushModalState();
     lockBodyScroll();
 }
 
@@ -1040,7 +1058,7 @@ export function openConfirmationModal(title, message, onConfirm) {
     if (!modal) {
         modal = document.createElement('div');
         modal.id = 'global-confirmation-modal';
-        modal.className = 'hidden fixed inset-0 z-[300] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
+        modal.className = `hidden fixed inset-0 z-[${Z_INDEX.MODAL_CONFIRM}] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm`;
         modal.innerHTML = `
             <div class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden text-center p-8 modal-slide-in">
                 <div class="w-16 h-16 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center mx-auto mb-4">

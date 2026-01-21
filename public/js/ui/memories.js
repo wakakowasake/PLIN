@@ -3,6 +3,7 @@ import {
     viewingItemIndex, setViewingItemIndex, currentTripId
 } from '../state.js';
 import { showLoading, hideLoading, ensureMemoryModal } from './modals.js';
+import { Z_INDEX } from './constants.js';
 import { BACKEND_URL } from '../config.js';
 
 // 순환 참조 방지를 위해 window 객체 함수 사용
@@ -120,6 +121,9 @@ export function addMemoryItem(index, dayIndex) {
             if (existingGrid) existingGrid.remove();
         }
 
+        // [Fix] Ensure it's at the end of body and has clear hierarchy
+        document.body.appendChild(modal);
+        modal.style.zIndex = Z_INDEX.MODAL_INPUT;
         modal.classList.remove('hidden');
     }
 }
@@ -173,7 +177,6 @@ export async function handleMemoryPhotoChange(arg) {
             // Multiple images - Grid view
             const grid = document.createElement('div');
             grid.className = 'preview-grid w-full h-full overflow-x-auto flex gap-2 p-2 items-center';
-
             Array.from(input.files).forEach(file => {
                 const reader = new FileReader();
                 reader.onload = function (e) {
@@ -457,7 +460,9 @@ export function renderMemoriesList(containerId, item, itemIndex, dayIndex) {
         };
 
         const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'absolute top-1 right-1 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 z-10';
+        // [Fix] Ensure delete button is always visible on top of photo
+        // Set higher than MODAL_INNER(50) to be safe within the isolate context
+        deleteBtn.className = `absolute top-1 right-1 p-1 bg-black/50 text-white rounded-full opacity-100 hover:bg-red-500 z-[${Z_INDEX.MODAL_INNER + 10}]`;
         deleteBtn.innerHTML = '<span class="material-symbols-outlined text-[10px]">close</span>';
         deleteBtn.onclick = (e) => {
             e.stopPropagation();
