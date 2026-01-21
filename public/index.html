@@ -313,6 +313,12 @@
         .read-only-mode .item-icon {
             cursor: default !important;
         }
+
+        /* [Performance] 터치 이벤트 Violation 경고 해결 */
+        #trip-hero,
+        #trip-info-container {
+            touch-action: none !important;
+        }
     </style>
 </head>
 
