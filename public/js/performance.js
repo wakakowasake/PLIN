@@ -1,4 +1,4 @@
-import { getPerformance, trace, startTrace, stopTrace, putMetric } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-performance.js';
+import { getPerformance, trace } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-performance.js';
 import { app, firebaseReady } from './firebase.js';
 import logger from './logger.js';
 
@@ -28,9 +28,9 @@ export function measureWebVitals() {
             // Firebase Performance에 기록 (Custom Trace)
             if (perf) {
                 const t = trace(perf, 'lcp');
-                startTrace(t);
-                putMetric(t, 'value', Math.round(val));
-                stopTrace(t);
+                t.start();
+                t.putMetric('value', Math.round(val));
+                t.stop();
             }
         });
 
@@ -49,9 +49,9 @@ export function measureWebVitals() {
 
                 if (perf) {
                     const t = trace(perf, 'fid');
-                    startTrace(t);
-                    putMetric(t, 'value', Math.round(fid));
-                    stopTrace(t);
+                    t.start();
+                    t.putMetric('value', Math.round(fid));
+                    t.stop();
                 }
             });
         });
@@ -76,9 +76,9 @@ export function measureWebVitals() {
             if (perf) {
                 // CLS는 소수점이므로 정수 메트릭으로 변환 (예: * 1000)
                 const t = trace(perf, 'cls');
-                startTrace(t);
-                putMetric(t, 'scaled_value', Math.round(clsValue * 1000));
-                stopTrace(t);
+                t.start();
+                t.putMetric('scaled_value', Math.round(clsValue * 1000));
+                t.stop();
             }
         });
 
@@ -110,11 +110,11 @@ export function measurePageLoad() {
                 // Firebase Performance에 기록
                 if (perf) {
                     const t = trace(perf, 'page_load');
-                    startTrace(t);
+                    t.start();
                     Object.keys(metrics).forEach(key => {
-                        putMetric(t, key, Math.round(metrics[key]));
+                        t.putMetric(key, Math.round(metrics[key]));
                     });
-                    stopTrace(t);
+                    t.stop();
                 }
             }
         }, 0);

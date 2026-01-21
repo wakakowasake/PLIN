@@ -6,6 +6,12 @@
 
 ## 2026-01-21
 
+### 16:51 - [AI] Firebase Performance SDK 사용 방식 재수정 (최종)
+- **버그 수정**: `stopTrace is not an export` (SyntaxError) 해결
+  - 원인: `PerformanceTrace`는 인스턴스 메서드(`.start()`, `.stop()`)를 사용해야 함을 간과함
+  - 조치: `trace(perf, name)` 함수로 객체 생성 후 인스턴스 메서드 호출 방식으로 최종 수정
+- **변경 파일**: public/js/performance.js, HISTORY.md
+
 ### 16:50 - [AI] Firebase Performance SDK API 사용 방식 수정
 - **버그 수정**: `ve.trace is not a function` (TypeError) 오류 해결
   - 원인: Modular SDK(v10)를 사용하면서 Namespaced 방식(`.trace()`)으로 호출함
