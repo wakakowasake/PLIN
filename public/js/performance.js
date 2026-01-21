@@ -1,7 +1,4 @@
-// Performance Monitoring Utility
-// Firebase Performance와 Web Vitals를 활용한 성능 측정
-
-import { getPerformance } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-performance.js';
+import { getPerformance, trace, startTrace, stopTrace, putMetric } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-performance.js';
 import { app, firebaseReady } from './firebase.js';
 import logger from './logger.js';
 
@@ -24,14 +21,16 @@ export function measureWebVitals() {
         const observer = new PerformanceObserver((list) => {
             const entries = list.getEntries();
             const lastEntry = entries[entries.length - 1];
+            const val = lastEntry.renderTime || lastEntry.loadTime;
 
-            logger.log('LCP:', lastEntry.renderTime || lastEntry.loadTime);
+            logger.log('LCP:', val);
 
             // Firebase Performance에 기록 (Custom Trace)
             if (perf) {
-                const trace = perf.trace('lcp');
-                trace.putMetric('value', lastEntry.renderTime || lastEntry.loadTime);
-                trace.record();
+                const t = trace(perf, 'lcp');
+                startTrace(t);
+                putMetric(t, 'value', Math.round(val));
+                stopTrace(t);
             }
         });
 
@@ -49,9 +48,10 @@ export function measureWebVitals() {
                 logger.log('FID:', fid);
 
                 if (perf) {
-                    const trace = perf.trace('fid');
-                    trace.putMetric('value', fid);
-                    trace.record();
+                    const t = trace(perf, 'fid');
+                    startTrace(t);
+                    putMetric(t, 'value', Math.round(fid));
+                    stopTrace(t);
                 }
             });
         });
@@ -74,9 +74,11 @@ export function measureWebVitals() {
             logger.log('CLS:', clsValue);
 
             if (perf) {
-                const trace = perf.trace('cls');
-                trace.putMetric('value', clsValue);
-                trace.record();
+                // CLS는 소수점이므로 정수 메트릭으로 변환 (예: * 1000)
+                const t = trace(perf, 'cls');
+                startTrace(t);
+                putMetric(t, 'scaled_value', Math.round(clsValue * 1000));
+                stopTrace(t);
             }
         });
 
@@ -107,11 +109,12 @@ export function measurePageLoad() {
 
                 // Firebase Performance에 기록
                 if (perf) {
-                    const trace = perf.trace('page_load');
+                    const t = trace(perf, 'page_load');
+                    startTrace(t);
                     Object.keys(metrics).forEach(key => {
-                        trace.putMetric(key, Math.round(metrics[key]));
+                        putMetric(t, key, Math.round(metrics[key]));
                     });
-                    trace.record();
+                    stopTrace(t);
                 }
             }
         }, 0);

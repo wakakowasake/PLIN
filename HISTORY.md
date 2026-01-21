@@ -6,6 +6,12 @@
 
 ## 2026-01-21
 
+### 16:50 - [AI] Firebase Performance SDK API 사용 방식 수정
+- **버그 수정**: `ve.trace is not a function` (TypeError) 오류 해결
+  - 원인: Modular SDK(v10)를 사용하면서 Namespaced 방식(`.trace()`)으로 호출함
+  - 조치: Modular functional 방식(`trace()`, `startTrace()`, `stopTrace()` 등)으로 코드 전면 수정
+- **변경 파일**: public/js/performance.js, HISTORY.md
+
 ### 16:44 - [AI] 개인정보처리방침 페이지 추가
 - **기능 추가**: 법적 필수 사항인 개인정보처리방침(`privacy.html`) 페이지 생성 및 적용
 - **조치 내용**: 
