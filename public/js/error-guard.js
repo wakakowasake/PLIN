@@ -1,9 +1,14 @@
-/**
- * Global Error Guard
- * Catches unhandled errors and promises to prevent white screen of death.
- */
+import logger from './logger.js';
+import { Z_INDEX } from './ui/constants.js';
 
 (function () {
+    const DEFAULT_Z_INDEX = {
+        MODAL_MAX: 10000
+    };
+
+    // Z_INDEX가 로드되지 않았을 경우를 위한 폴백
+    const safeZIndex = typeof Z_INDEX !== 'undefined' ? Z_INDEX : DEFAULT_Z_INDEX;
+
     let errorCount = 0;
     let lastErrorTime = 0;
     const ERROR_THRESHOLD = 3; // Max errors before showing critical message
@@ -102,7 +107,7 @@
             color: white;
             padding: 16px 24px;
             border-radius: 12px;
-            z-index: ${Z_INDEX.MODAL_MAX};
+            z-index: ${safeZIndex.MODAL_MAX};
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
             font-family: 'MemomentKkukkukk', sans-serif;
             font-weight: 500;
@@ -173,5 +178,5 @@
         }, 5000);
     }
 
-    logger.debug('[Global Error Guard] Initialized');
+    // logger.debug('[Global Error Guard] Initialized');
 })();

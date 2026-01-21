@@ -708,10 +708,10 @@ let pendingInviteId = null;
 // [Invite Link Logic] (Using existing pendingInviteId from above)
 
 export async function checkInviteLink() {
-    logger.debug("[Invite] Checking for invite link...");
+    // logger.debug("[Invite] Checking for invite link...");
     const urlParams = new URLSearchParams(window.location.search);
     const inviteId = urlParams.get('invite');
-    logger.debug("[Invite] Invite ID:", inviteId);
+    // logger.debug("[Invite] Invite ID:", inviteId);
 
     if (inviteId && currentUser) {
         // ... (Existing Logic) ...
@@ -741,16 +741,16 @@ export async function checkInviteLink() {
             console.error("Invite processing error", e);
         }
     } else {
-        logger.debug("[Invite] No invite ID or user not logged in.");
+        // logger.debug("[Invite] No invite ID or user not logged in.");
     }
 }
 
 // [Share (Read-Only) Link Logic]
 export async function checkShareLink() {
-    logger.debug("[Share] Checking for share link...");
+    // logger.debug("[Share] Checking for share link...");
     const urlParams = new URLSearchParams(window.location.search);
     const shareId = urlParams.get('share');
-    logger.debug("[Share] Share ID:", shareId);
+    // logger.debug("[Share] Share ID:", shareId);
 
     if (shareId) {
         console.log("[Share] Share ID found. Attempting to load public trip...");
@@ -3584,14 +3584,14 @@ window.Profile = Profile;
 window.Trips = Trips;
 window.Memories = Memories;
 
-console.debug('[UI] Window global bindings initialized');
+// console.debug('[UI] Window global bindings initialized');
 
 // [Redirect] Legacy Share Link Support
 (function () {
     const urlParams = new URLSearchParams(window.location.search);
     const shareId = urlParams.get('share');
     if (shareId) {
-        console.log("Redirecting to dedicated viewer...");
+        // console.log("Redirecting to dedicated viewer...");
         window.location.replace(`/openview.html?id=${shareId}`);
     }
 })();

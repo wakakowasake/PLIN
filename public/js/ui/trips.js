@@ -22,7 +22,7 @@ function ensureTripListContainer() {
             // [Fix] UI 깨짐 방지를 위해 mainView의 마지막에 추가하거나 명시적인 위치 사용
             mainView.appendChild(container);
             listEl = container;
-            logger.debug("[Auto-Fix] Missing #trip-list element was created.");
+            // logger.debug("[Auto-Fix] Missing #trip-list element was created.");
         }
     }
     return listEl;

@@ -8,7 +8,7 @@ let perf = null;
 firebaseReady.then(() => {
     try {
         perf = getPerformance(app);
-        logger.debug('Firebase Performance initialized');
+        // logger.debug('Firebase Performance initialized');
     } catch (e) {
         logger.warn('Firebase Performance not available:', e.message);
     }
@@ -150,11 +150,11 @@ export function measureResources() {
 }
 
 // 자동 초기화
-if (typeof window !== 'undefined') {
-    measureWebVitals();
-    measurePageLoad();
-    measureResources();
-}
+// if (typeof window !== 'undefined') {
+//     measureWebVitals();
+//     measurePageLoad();
+//     measureResources();
+// }
 
 export default {
     measureWebVitals,
