@@ -4,6 +4,18 @@
 
 ---
 
+## 2026-01-21
+
+### 19:00 - [AI] 모달 리팩토링 및 UI 디테일 개선
+- **구조 개선**: `index.html`에 하드코딩된 모달(`item-detail-modal`, `transit-detail-modal`, `flight-input-modal`)을 제거하고 `ui-transit.js`, `ui/timeline-detail.js`에서 동적으로 생성(`ensureModal`)하도록 리팩토링
+- **UI 개선**:
+  - **장소 상세 모달**: "내 위치에서 길찾기" 버튼을 별도 행으로 분리하여 전체 너비 적용, 구글맵 앱 보기 버튼을 지도 하단(`flex-col` footer)에 고정하여 반응형 대응 및 가림 현상 해결
+  - **타임라인**: 편집 모드에서 '+' 버튼 주변의 상하 간격이 불균형하던 문제를 해결하기 위해 카드 하단 여백(`mb-6`)을 조건부로 제거(뷰 모드에선 유지)
+- **효과**: `index.html` 코드량 대폭 감소, 모바일 및 다양한 화면 크기에서의 UI 안정성 확보
+- **변경 파일**: public/index.html, public/js/ui-transit.js, public/js/ui/timeline-detail.js, public/js/ui/renderers.js
+
+---
+
 ## 2026-01-20
 
 ### 21:05 - [AI] 공개 링크 전용 뷰어(openview.html) 구현 및 구조 개선

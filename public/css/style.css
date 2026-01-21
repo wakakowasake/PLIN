@@ -1106,6 +1106,10 @@ video {
   height: 1px;
 }
 
+.h-36 {
+  height: 9rem;
+}
+
 .max-h-40 {
   max-height: 10rem;
 }
@@ -1244,6 +1248,11 @@ video {
 
 .w-px {
   width: 1px;
+}
+
+.w-fit {
+  width: -moz-fit-content;
+  width: fit-content;
 }
 
 .min-w-0 {
@@ -1419,6 +1428,10 @@ video {
 
 .auto-cols-\[4rem\] {
   grid-auto-columns: 4rem;
+}
+
+.auto-cols-\[9rem\] {
+  grid-auto-columns: 9rem;
 }
 
 .grid-flow-col {
@@ -1960,6 +1973,10 @@ video {
 .bg-yellow-50 {
   --tw-bg-opacity: 1;
   background-color: rgb(254 252 232 / var(--tw-bg-opacity, 1));
+}
+
+.bg-white\/90 {
+  background-color: rgb(255 255 255 / 0.9);
 }
 
 .bg-gradient-to-b {
@@ -2810,6 +2827,11 @@ video {
   backdrop-filter: var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);
 }
 
+.backdrop-blur {
+  --tw-backdrop-blur: blur(8px);
+  backdrop-filter: var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);
+}
+
 .transition {
   transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
@@ -3648,6 +3670,10 @@ video {
   background-color: rgb(113 63 18 / 0.4);
 }
 
+.dark\:hover\:bg-blue-900\/40:hover:is(.dark *) {
+  background-color: rgb(30 58 138 / 0.4);
+}
+
 .dark\:hover\:text-gray-200:hover:is(.dark *) {
   --tw-text-opacity: 1;
   color: rgb(229 231 235 / var(--tw-text-opacity, 1));
@@ -3699,12 +3725,24 @@ video {
     display: inline;
   }
 
+  .md\:hidden {
+    display: none;
+  }
+
   .md\:h-80 {
     height: 20rem;
   }
 
   .md\:h-\[600px\] {
     height: 600px;
+  }
+
+  .md\:h-auto {
+    height: auto;
+  }
+
+  .md\:w-1\/2 {
+    width: 50%;
   }
 
   .md\:min-w-\[70px\] {
@@ -3723,6 +3761,10 @@ video {
     flex-direction: row;
   }
 
+  .md\:flex-row-reverse {
+    flex-direction: row-reverse;
+  }
+
   .md\:items-start {
     align-items: flex-start;
   }
@@ -3738,6 +3780,14 @@ video {
   .md\:gap-x-6 {
     -moz-column-gap: 1.5rem;
          column-gap: 1.5rem;
+  }
+
+  .md\:border-r {
+    border-right-width: 1px;
+  }
+
+  .md\:border-t-0 {
+    border-top-width: 0px;
   }
 
   .md\:p-4 {

@@ -38,6 +38,7 @@ import * as Weather from './ui/weather.js';
 import * as ExpenseManager from './ui/expense-manager.js';
 import * as TripInfo from './ui/trip-info.js';
 import * as TimelineDetail from './ui/timeline-detail.js';
+import { ensureItemDetailModal } from './ui/timeline-detail.js'; // Explicit import for clarity if needed, or use TimelineDetail.ensureItemDetailModal
 import * as ExpenseDetail from './ui/expense-detail.js';
 import * as FlightManager from './ui/flight-manager.js';
 import * as DnD from './ui/dnd.js';
@@ -357,6 +358,9 @@ export function selectDay(index) {
 // [Detail Modal Logic]
 export function viewTimelineItem(index, dayIndex = currentDayIndex) {
     if (isEditing) return;
+
+    // [Refactoring] 동적 모달 생성 확인
+    TimelineDetail.ensureItemDetailModal();
 
     setTargetDayIndex(dayIndex);
     setViewingItemIndex(index);
@@ -963,6 +967,16 @@ export function openGoogleMapsExternal() {
     }
 }
 
+export function findDirectionsToPlace() {
+    const loc = document.getElementById('detail-location-text').innerText;
+    if (loc && loc !== '위치 정보 없음') {
+        // [Google Maps Directions API] origin omitted defaults to 'My Location'
+        window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(loc)}`, '_blank');
+    } else {
+        alert('위치 정보가 없어 길찾기를 실행할 수 없습니다.');
+    }
+}
+
 // ========================================
 // Time Picker Logic (Re-exported from module)
 // ========================================
@@ -1483,7 +1497,7 @@ export function saveFlightItem() {
             openTransitDetailModal(newItem, newIndex, targetDayIndex);
         }
     }
-    isEditingFromDetail = false;
+    setIsEditingFromDetail(false);
 }
 
 // 자동 저장 헬퍼 함수

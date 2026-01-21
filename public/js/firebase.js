@@ -24,7 +24,7 @@ let app, analytics, db, auth, provider;
 
 async function initFirebase() {
     const config = await loadConfig();
-    
+
     const firebaseConfig = {
         apiKey: config.firebaseApiKey,
         authDomain: "plin.ink",

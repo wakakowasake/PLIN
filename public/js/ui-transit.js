@@ -549,8 +549,114 @@ export function saveTransitItem() {
 }
 
 // [Transit Detail Modal Logic]
-export function openTransitDetailModal(item, index, dayIndex) {
+export function ensureTransitDetailModal() {
+    if (document.getElementById('transit-detail-modal')) return;
 
+    const modal = document.createElement('div');
+    modal.id = 'transit-detail-modal';
+    modal.className = 'hidden fixed inset-0 z-[160] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
+    modal.innerHTML = `
+        <div class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100 relative">
+            <button type="button" onclick="closeTransitDetailModal()"
+                class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 rounded-full transition-colors z-50">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+
+            <!-- 시간 정보 저장을 위한 hidden input 추가 -->
+            <input type="hidden" id="transit-detail-start-val">
+            <input type="hidden" id="transit-detail-end-val">
+
+            <div class="p-8 flex flex-col items-center text-center">
+                <div
+                    class="w-16 h-16 rounded-full bg-blue-50 dark:bg-blue-900/20 text-primary flex items-center justify-center mb-4">
+                    <span id="transit-detail-icon" class="material-symbols-outlined text-3xl">train</span>
+                </div>
+
+                <h3 id="transit-detail-title" class="text-xl font-bold text-text-main dark:text-white mb-1">기차로 이동</h3>
+                <p id="transit-detail-route" class="text-sm text-gray-500 dark:text-gray-400 mb-6">출발지 ➡️ 도착지</p>
+
+                <div class="bg-gray-50 dark:bg-gray-800 rounded-2xl p-6 w-full mb-6">
+                    <p class="text-xs font-bold text-gray-400 uppercase mb-2">소요 시간</p>
+                    <p id="transit-detail-time" class="text-4xl font-black text-primary">1시간 30분</p>
+                </div>
+
+                <!-- Flight Details (Hidden by default) -->
+                <div id="transit-detail-flight-info" class="hidden w-full grid grid-cols-3 gap-2 mb-6">
+                    <div class="bg-gray-50 dark:bg-gray-800 p-2 rounded-xl text-center">
+                        <p class="text-[10px] font-bold text-gray-400 uppercase mb-1">예약번호</p>
+                        <p id="transit-detail-pnr" class="text-sm font-bold text-text-main dark:text-white truncate">-
+                        </p>
+                    </div>
+                    <div class="bg-gray-50 dark:bg-gray-800 p-2 rounded-xl text-center">
+                        <p class="text-[10px] font-bold text-gray-400 uppercase mb-1">터미널</p>
+                        <p id="transit-detail-terminal"
+                            class="text-sm font-bold text-text-main dark:text-white truncate">-</p>
+                    </div>
+                    <div class="bg-gray-50 dark:bg-gray-800 p-2 rounded-xl text-center">
+                        <p class="text-[10px] font-bold text-gray-400 uppercase mb-1">게이트</p>
+                        <p id="transit-detail-gate" class="text-sm font-bold text-text-main dark:text-white truncate">-
+                        </p>
+                    </div>
+                </div>
+
+                <div
+                    class="w-full text-left bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700 mb-6">
+                    <p class="text-xs font-bold text-gray-400 uppercase mb-1">메모</p>
+                    <textarea id="transit-detail-note"
+                        class="w-full text-sm text-gray-700 dark:text-gray-300 min-h-[3rem] bg-transparent border-none p-0 resize-none focus:ring-0 cursor-pointer"
+                        rows="3" readonly placeholder="메모가 없습니다." ondblclick="enableTransitNoteEdit()"></textarea>
+                </div>
+
+                <!-- Memories Section (Added) -->
+                <div id="transit-detail-memories-section" class="w-full text-left mb-6 hidden">
+                    <h4 class="text-xs font-bold text-gray-500 uppercase mb-3">추억</h4>
+                    <div id="transit-detail-memories-list"></div>
+                </div>
+
+                <!-- Detailed Steps (for multi-step transit like Ekispert) -->
+                <div id="transit-detail-steps" class="w-full text-left mb-6 hidden">
+                    <p class="text-xs font-bold text-gray-400 uppercase mb-3">경로 상세</p>
+                    <div id="transit-detail-steps-list" class="space-y-2">
+                    </div>
+                </div>
+
+                <!-- Transit Attachments -->
+                <div class="w-full text-left mb-6">
+                    <div class="flex justify-between items-center mb-2">
+                        <p class="text-xs font-bold text-gray-400 uppercase">첨부 파일</p>
+                        <button type="button" onclick="document.getElementById('attachment-upload-transit').click()"
+                            class="text-xs text-primary hover:underline">추가</button>
+                        <input type="file" id="attachment-upload-transit" class="hidden"
+                            accept="image/*,application/pdf" onchange="handleAttachmentUpload(this, 'transit')">
+                    </div>
+                    <div id="transit-attachment-list" class="grid grid-cols-2 gap-2">
+                    </div>
+                </div>
+
+                <button id="transit-detail-search-btn" type="button"
+                    class="hidden w-full py-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300 rounded-xl font-bold hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors flex items-center justify-center gap-2 mb-4">
+                    <span class="material-symbols-outlined">search</span> 구글에서 항공편 검색하기
+                </button>
+
+                <div class="flex gap-3 w-full relative z-10">
+                    <button type="button" onclick="editCurrentTransitItem()"
+                        class="flex-1 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-bold rounded-xl transition-colors flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-sm">edit</span> 수정
+                    </button>
+                    <button type="button" onclick="deleteCurrentTransitItem()"
+                        class="flex-1 py-3 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 font-bold rounded-xl transition-colors flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-sm">delete</span> 삭제
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+// [Transit Detail Modal Logic]
+export function openTransitDetailModal(item, index, dayIndex) {
+    ensureTransitDetailModal();
     setViewingItemIndex(index);
     setTargetDayIndex(dayIndex);
     const modal = document.getElementById('transit-detail-modal');
@@ -903,7 +1009,104 @@ const majorAirports = [
     { code: "DXB", name: "두바이 국제공항" },
 ];
 
+// [Refactored] Dynamic Flight Input Modal
+export function ensureFlightInputModal() {
+    if (document.getElementById('flight-input-modal')) return;
+
+    const modal = document.createElement('div');
+    modal.id = 'flight-input-modal';
+    modal.className = 'hidden fixed inset-0 z-[130] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
+    modal.innerHTML = `
+        <div class="bg-white dark:bg-card-dark rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] overflow-y-auto modal-slide-in">
+            <div class="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                <h3 class="text-xl font-bold text-text-main dark:text-white">항공편 추가</h3>
+                <button type="button" onclick="closeFlightInputModal()" class="text-gray-400 hover:text-gray-600"><span
+                        class="material-symbols-outlined">close</span></button>
+            </div>
+            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Flight Number -->
+                <div class="col-span-2 md:col-span-1">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">편명</label>
+                    <div class="flex gap-2">
+                        <input id="flight-number" type="text"
+                            class="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 uppercase"
+                            placeholder="KE123">
+                        <button type="button" onclick="searchFlightNumber()"
+                            class="bg-primary/10 text-primary px-3 py-2 rounded-lg font-bold hover:bg-primary/20 transition-colors">검색</button>
+                    </div>
+                </div>
+                <!-- PNR -->
+                <div class="col-span-2 md:col-span-1">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">예약번호 (PNR)</label>
+                    <input id="flight-pnr" type="text"
+                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 uppercase"
+                        placeholder="ABC1234">
+                </div>
+
+                <!-- Departure/Arrival Airport -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">출발 공항</label>
+                    <input id="flight-dep-airport" type="text"
+                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800"
+                        placeholder="ICN" list="airport-list">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">도착 공항</label>
+                    <input id="flight-arr-airport" type="text"
+                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800"
+                        placeholder="KIX" list="airport-list">
+                </div>
+
+                <!-- Departure/Arrival Time -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">출발 시간</label>
+                    <input id="flight-dep-time" type="text" readonly onclick="openTimeModal('flight-dep-time')"
+                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 font-bold cursor-pointer"
+                        placeholder="시간 선택">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">도착 시간</label>
+                    <input id="flight-arr-time" type="text" readonly onclick="openTimeModal('flight-arr-time')"
+                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 font-bold cursor-pointer"
+                        placeholder="시간 선택">
+                </div>
+
+                <!-- Terminal/Gate -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">터미널</label>
+                    <input id="flight-terminal" type="text"
+                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800"
+                        placeholder="T1">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">게이트</label>
+                    <input id="flight-gate" type="text"
+                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800"
+                        placeholder="101">
+                </div>
+
+                <!-- Note -->
+                <div class="col-span-2">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">메모</label>
+                    <textarea id="flight-note" rows="3"
+                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 resize-none"
+                        placeholder="좌석 번호 등 메모"></textarea>
+                </div>
+            </div>
+            <div class="p-6 border-t border-gray-100 dark:border-gray-700 flex justify-end gap-3">
+                <button type="button" onclick="closeFlightInputModal()"
+                    class="px-6 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">취소</button>
+                <button type="button" onclick="saveFlightItem()"
+                    class="px-6 py-3 rounded-xl font-bold bg-primary text-white hover:bg-orange-600 transition-colors shadow-lg">저장</button>
+            </div>
+        </div>
+        <datalist id="airport-list"></datalist>
+    `;
+    document.body.appendChild(modal);
+}
+
 export function openFlightInputModal(index, isEdit = false) {
+    ensureFlightInputModal();
     flightInputIndex = index;
     isFlightEditing = isEdit;
 

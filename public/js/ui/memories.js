@@ -413,7 +413,7 @@ export function renderMemoriesList(containerId, item, itemIndex, dayIndex) {
     listContainer.innerHTML = '';
 
     // [Layout] Horizontal Scroll, Max 1 Row
-    listContainer.className = 'grid grid-rows-1 grid-flow-col gap-2 overflow-x-auto py-1 auto-cols-[4rem] scrollbar-hide';
+    listContainer.className = 'grid grid-rows-1 grid-flow-col gap-3 overflow-x-auto py-2 auto-cols-[9rem] scrollbar-hide';
 
     if (memories.length === 0) {
         listContainer.className = 'flex flex-col gap-2';
@@ -426,7 +426,7 @@ export function renderMemoriesList(containerId, item, itemIndex, dayIndex) {
         if (!mem.photoUrl) return;
 
         const photoDiv = document.createElement('div');
-        photoDiv.className = 'relative aspect-square w-16 h-16 rounded-xl overflow-hidden group cursor-pointer bg-gray-100 dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 isolate shrink-0';
+        photoDiv.className = 'relative aspect-square w-36 h-36 rounded-xl overflow-hidden group cursor-pointer bg-gray-100 dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 isolate shrink-0';
 
         const img = document.createElement('img');
         img.src = mem.photoUrl;

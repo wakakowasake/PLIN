@@ -250,6 +250,10 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
     const contextHandler = `oncontextmenu="openContextMenu(event, 'item', ${index}, ${dayIndex})"`;
     const draggableAttr = isMemoryLocked ? 'draggable="false"' : `draggable="true" ondragstart="dragStart(event, ${index}, ${dayIndex})" ondragend="dragEnd(event)" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event, ${index})" data-drop-index="${index}"`;
 
+    // [Fix] 편집 모드(플러스 버튼 있음)에서는 균일한 간격을 위해 마진 제거, 뷰 모드(플러스 버튼 없음)에서는 마진 유지
+    const showAddBtn = !isMemoryLocked && !isReadOnlyMode;
+    const marginClass = showAddBtn ? "" : "mb-6";
+
     // 시간 정보 파싱
     let startTime = '--:--';
     let endTime = '--:--';
@@ -298,7 +302,7 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
 
     let html = `
         <div ${draggableAttr} ontouchstart="touchStart(event, ${index}, 'item')" ontouchmove="touchMove(event)" ontouchend="touchEnd(event)" data-index="${index}" style="z-index: ${zIndex};" 
-            class="relative grid grid-cols-[auto_1fr] gap-x-3 md:gap-x-6 group/timeline-item timeline-item-transition rounded-xl mb-6" ${contextHandler}>
+            class="relative grid grid-cols-[auto_1fr] gap-x-3 md:gap-x-6 group/timeline-item timeline-item-transition rounded-xl ${marginClass}" ${contextHandler}>
             <div class="drag-indicator absolute -top-3 left-0 right-0 h-1 bg-primary rounded-full hidden z-50 shadow-sm pointer-events-none"></div>
             
             <!-- 시간 카드 (기존 아이콘 위치) -->
@@ -591,24 +595,33 @@ export function renderAttachments(item, containerId) {
     const container = document.getElementById(containerId);
     if (!container) return;
     if (!item?.attachments || item.attachments.length === 0) {
-        container.innerHTML = '<p class="col-span-full text-xs text-gray-400 text-center py-2">첨부된 파일이 없습니다.</p>';
+        container.className = "text-xs text-gray-400 text-center py-2";
+        container.innerHTML = '첨부된 파일이 없습니다.';
         return;
     }
+
+    // [Layout] Match Memories: Horizontal Scroll
+    const isScrollable = item.attachments.length > 0;
+    container.className = isScrollable
+        ? 'grid grid-rows-1 grid-flow-col gap-3 overflow-x-auto py-2 auto-cols-[9rem] scrollbar-hide'
+        : 'flex flex-col gap-2';
+
     let html = '';
     item.attachments.forEach((att, index) => {
         const isImage = att.type.startsWith('image/');
         const bgClass = isImage ? '' : 'bg-gray-100 dark:bg-gray-700';
         const fileData = att.url || att.data;
-        const content = isImage ? `<div class="w-full h-full bg-cover bg-center" style="background-image: url('${fileData}')"></div>` : `<div class="w-full h-full flex flex-col items-center justify-center text-gray-500"><span class="material-symbols-outlined text-2xl mb-1">picture_as_pdf</span><span class="text-[10px] px-2 truncate w-full text-center">${att.name}</span></div>`;
+        const content = isImage ? `<div class="w-full h-full bg-cover bg-center transition-transform group-hover:scale-110" style="background-image: url('${fileData}')"></div>` : `<div class="w-full h-full flex flex-col items-center justify-center text-gray-500"><span class="material-symbols-outlined text-3xl mb-1">picture_as_pdf</span><span class="text-[10px] px-2 truncate w-full text-center">${att.name}</span></div>`;
+
         html += `
-            <div class="relative group aspect-square rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 ${bgClass}">
+            <div class="relative group aspect-square w-36 h-36 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 isolate shrink-0 ${bgClass}">
                 ${content}
-                <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                    <button onclick="openAttachment('${fileData}', '${att.type}')" class="text-white hover:text-primary p-1" title="열기">
-                        <span class="material-symbols-outlined">visibility</span>
+                <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 z-10 rounded-xl">
+                    <button onclick="openAttachment('${fileData}', '${att.type}')" class="text-white hover:text-primary p-2 bg-black/20 rounded-full backdrop-blur-sm transition-colors" title="열기">
+                        <span class="material-symbols-outlined text-xl">visibility</span>
                     </button>
-                    ${!isReadOnlyMode ? `<button onclick="deleteAttachment(${index}, '${containerId}')" class="text-white hover:text-red-500 p-1" title="삭제">
-                        <span class="material-symbols-outlined">delete</span>
+                    ${!isReadOnlyMode ? `<button onclick="deleteAttachment(${index}, '${containerId}')" class="text-white hover:text-red-500 p-2 bg-black/20 rounded-full backdrop-blur-sm transition-colors" title="삭제">
+                        <span class="material-symbols-outlined text-xl">delete</span>
                     </button>` : ''}
                 </div>
             </div>
