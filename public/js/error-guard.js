@@ -1,13 +1,13 @@
-import logger from './logger.js';
-import { Z_INDEX } from './ui/constants.js';
+/**
+ * Global Error Guard
+ * Catches unhandled errors and promises to prevent white screen of death.
+ * Optimized to be standalone and dependency-free.
+ */
 
 (function () {
     const DEFAULT_Z_INDEX = {
         MODAL_MAX: 10000
     };
-
-    // Z_INDEX가 로드되지 않았을 경우를 위한 폴백
-    const safeZIndex = typeof Z_INDEX !== 'undefined' ? Z_INDEX : DEFAULT_Z_INDEX;
 
     let errorCount = 0;
     let lastErrorTime = 0;
@@ -107,9 +107,9 @@ import { Z_INDEX } from './ui/constants.js';
             color: white;
             padding: 16px 24px;
             border-radius: 12px;
-            z-index: ${safeZIndex.MODAL_MAX};
+            z-index: ${DEFAULT_Z_INDEX.MODAL_MAX};
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            font-family: 'MemomentKkukkukk', sans-serif;
+            font-family: sans-serif;
             font-weight: 500;
             font-size: 14px;
             display: flex;
@@ -117,6 +117,7 @@ import { Z_INDEX } from './ui/constants.js';
             gap: 12px;
             animation: slideUp 0.3s ease-out;
             max-width: 90%;
+            pointer-events: auto;
         `;
 
         const text = document.createElement('span');
@@ -168,15 +169,15 @@ import { Z_INDEX } from './ui/constants.js';
 
         document.body.appendChild(div);
 
-        // Auto-remove after 5 seconds
-        setTimeout(() => {
-            if (div.parentNode) {
-                div.style.opacity = '0';
-                div.style.transition = 'opacity 0.3s ease-out';
-                setTimeout(() => div.remove(), 300);
-            }
-        }, 5000);
+        // Auto-remove after 5 seconds if not critical
+        if (!showRefreshButton) {
+            setTimeout(() => {
+                if (div.parentNode) {
+                    div.style.opacity = '0';
+                    div.style.transition = 'opacity 0.3s ease-out';
+                    setTimeout(() => div.remove(), 300);
+                }
+            }, 5000);
+        }
     }
-
-    // logger.debug('[Global Error Guard] Initialized');
 })();

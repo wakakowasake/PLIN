@@ -63,4 +63,9 @@ export const perf = {
     }
 };
 
+// 전역 접근 허용 (번들링 시 참조 오류 방지용)
+if (typeof window !== 'undefined') {
+    window.logger = logger;
+}
+
 export default logger;

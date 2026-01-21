@@ -11,7 +11,9 @@ const STATIC_CACHE = [
   '/js/performance.js',
   '/js/lazy-load.js',
   '/manifest.json',
-  '/favicon.ico'
+  '/favicon.ico',
+  '/images/icon-180.png',
+  '/images/og-image.png'
 ];
 
 // 캐시할 API 응답 패턴
