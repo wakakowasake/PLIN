@@ -6,6 +6,110 @@
 
 ## 2026-01-21
 
+### 13:15 - [AI] 배포 오류 조치 및 UI 반영
+- **부분 배포 완료**: Functions의 Pub/Sub API 지연으로 인한 전체 배포 실패를 Hosting 단독 배포로 우회하여 UI 변경 사항 반영 완료
+- **조치 내용**: `dist` 빌드 후 `firebase deploy --only hosting` 실행
+- **변경 파일**: HISTORY.md
+
+### 13:10 - [AI] 일차 탭 폰트 크기 상향 조정
+- **가독성 개선**: 일차 별 탭(전체, 1일차 등)의 텍스트 크기 상향 (`text-xs` -> `text-base`)
+- **변경 파일**: public/js/ui/renderers.js, HISTORY.md
+
+### 13:05 - [AI] 오픈 뷰어 배경색 동기화
+- **디자인 일관성**: 오픈 뷰어(`openview.html`)의 배경색을 메인 페이지와 동일한 `bg-manuscript`(#f9f5eb)로 변경
+- **변경 파일**: public/openview.html, HISTORY.md
+
+### 13:00 - [AI] 디자인 미세 조정 (시계 축소 및 볼드 제거)
+- **스타일 최적화**: 타임라인 시계 크기 하향 조정 (`text-lg` -> `text-base`)
+- **스타일 최적화**: 장소 및 이동 수단 카드의 제목, 체류 시간에서 `font-bold` 제거
+- **변경 파일**: public/js/ui/renderers.js, HISTORY.md
+
+### 12:55 - [AI] 메모 상세 수정 연동 및 스크롤 버그 최종 해결
+- **수정 완결**: 우클릭 '수정' 클릭 시 및 상세 모달 내 '수정' 버튼 작동 불가 문제 해결
+- **내용**: `openMemoModal`에 인덱스 전달 로직 추가 및 `onclick` 핸들러의 전역 참조(`Modals.`) 수정
+- **버그 수정**: 'X' 버튼 클릭 시 스크롤 잠금이 해제되지 않던 문제 해결
+- **변경 파일**: public/js/ui.js, public/js/ui/modals.js, HISTORY.md
+
+### 12:51 - [AI] 메모 상세 수정 연동 및 스크롤 버그 해결
+- **기능 개선**: 메모 수정 시 전용 입력창 대신 상세 모달의 수정 모드가 직접 열리도록 변경 (사용자 요청 반영)
+- **버그 수정**: 메모 상세 모달 종료 후 스크롤이 작동하지 않던 문제 해결 (배경 클릭 닫기 추가 및 스크롤 잠금 해제 보강)
+- **변경 파일**: public/js/ui.js, public/js/ui/modals.js, HISTORY.md
+
+### 12:48 - [AI] 메모 카드 수정 로직 개선 (전용 모달 연동)
+- **기능 개선**: 메모 수정 시 장소 모달 대신 전용 메모 수정 모달(`openManualInputModal`)이 열리도록 개선
+- **수정 내용**: `ui.js`의 `editTimelineItem` 내 메모 분기 추가 및 `buildMemoCard`의 클릭 핸들러 상속 로직 수정
+- **변경 파일**: public/js/ui.js, public/js/ui/renderers.js, HISTORY.md
+
+### 12:45 - [AI] 메모 카드 우클릭 수정 버그 해결
+- **버그 수정**: 종속된 메모 카드 우클릭 시 부모 장소가 수정되던 문제 해결
+- **수정 내용**: `buildMemoCard`에 독립적인 컨텍스트 메뉴 핸들러 추가 및 이벤트 버블링 차단(`stopPropagation`)
+- **변경 파일**: public/js/ui/renderers.js, HISTORY.md
+
+### 12:42 - [AI] 메모 카드 카메라 버튼 제거
+- **기능 조정**: 메모 카드에서 불필요한 추억 추가(카메라 아이콘) 버튼 제거
+- **변경 파일**: public/js/ui/renderers.js, HISTORY.md
+
+### 12:40 - [AI] 추억 및 메모 출력 순서 조정
+- **순서 조정**: 카드 내용 바로 밑에 추억(사진)들이 먼저 나오고, 그 아래에 메모가 오도록 순서 변경
+- **수정 내용**: `renderTimelineItemHtml` 및 `renderTimelineItemHtmlPlanner` 함수 내 렌더링 순서 스왑
+- **변경 파일**: public/js/ui/renderers.js, HISTORY.md
+
+### 12:35 - [AI] 메모 카드 종속형 배치 개선 (레이아웃 최적화)
+- **UI 개선**: 메모 카드를 이전 일정(장소, 이동수단 등) 아래에 종속된 형태로 렌더링
+- **효과**: 시간 레이블 공백 제거 및 다이어리 스타일의 소속감 강화
+- **수정 내용**: `renderItinerary` 루프에서 메모 그룹화 로직 적용 및 통합 렌더링 구현
+- **변경 파일**: public/js/ui/renderers.js, HISTORY.md
+
+### 12:28 - [AI] 메모 카드 디자인 개선 (시간 제거 및 스타일 강화)
+- **UI 개선**: 메모 카드에서 시간(시간 카드/아이콘) 표시 제거
+- **스타일링**: 메모 카드 상단에 테이프 효과 추가 및 무작위 회전 적용하여 감성 스타일 강화
+- **변경 파일**: public/js/ui/renderers.js, HISTORY.md
+
+### 12:25 - [AI] 메모 추가 버그 수정
+- **버그 수정**: 메모 추가 시 도보(Transit) 항목이 자동 생성되던 문제 해결
+- **수정 내용**: `modals.js`의 `selectAddType` 함수에서 `'note'` 타입 처리 추가 및 `index.html` 인자 통일
+- **변경 파일**: public/js/ui/modals.js, public/index.html, HISTORY.md
+
+### 12:21 - [AI] 추억 UI 개선 (감성 스타일 강화)
+- **UI 개선**: 추억(사진/메모) 요소를 타임라인 카드 외부로 분리
+- **스타일링**: 각 추억 요소에 테이프 효과(Tape effect) 및 무작위 회전(rotate) 적용
+- **변경 파일**: public/js/ui/renderers.js, HISTORY.md
+
+### 12:20 - [AI] 배경 격자 제거 및 테마 정리
+- **테마 수정**: `.bg-manuscript` 클래스에서 격자 패턴(linear-gradient) 제거하여 깔끔한 단색 배경 적용
+- **변경 파일**: public/css/input.css, HISTORY.md
+
+### 12:17 - [AI] 폰트 크기 2차 미세 조정 (사용자 피드백 반영)
+- **추가 조정**:
+  - 장소 태그 및 주요 정보 텍스트(시간, 소요시간, 메모 등): `text-lg` → `text-base` (한 단계 더 하향)
+- **변경 파일**: public/js/ui/renderers.js, HISTORY.md
+
+### 11:59 - [AI] 폰트 크기 미세 조정 (사용자 피드백 반영)
+- **미세 조정**:
+  - 타임라인 시계: `text-2xl` → `text-lg` (2단계 하향)
+  - 장소 태그: `text-xl` → `text-lg` (1단계 하향)
+- **변경 파일**: public/js/ui/renderers.js, HISTORY.md
+
+### 11:55 - [AI] 폰트 크기 표준화 및 가독성 개선
+- **표준화**: '메모먼트꾹꾹' 폰트 특성에 맞춰 전역적으로 폰트 크기 위계를 재설정
+  - 타임라인 시계: `text-xl` → `text-2xl`
+  - 카드 제목: `text-xl` → `text-2xl`
+  - 배지 및 본문 텍스트: `text-xs`/`text-sm` → `text-base`/`text-lg`로 상향
+- **가독성**: 이동 수단 상세 모달 및 주소 표시줄의 텍스트 크기를 키워 시각적 균형과 가독성 동시 확보
+- **변경 파일**: public/js/ui/renderers.js, public/js/ui-transit.js, HISTORY.md
+
+### 20:30 - [AI] 플래너 원고지 테마 적용 및 전역 폰트 교체
+- **디자인 테마**: '원고지(Manuscript)' 컨셉 적용
+  - 따뜻한 크림색 배경(`#f9f5eb`)과 부드러운 회색 격자 눈금 구현
+  - 모든 카드(타임라인, 이동수단 등)의 모서리를 직각(`rounded-sm`)으로 변경하여 종이 느낌 강조
+  - 카드 상단에 투명 테이프 효과를 추가하여 다이어리 감성 극대화
+- **폰트 전역 교체**: '나눔손글씨 펜'에서 **'메모먼트꾹꾹'**으로 전격 교체
+  - `tailwind.config.js`를 통해 모든 기본 폰트군을 교체하고, CSS 베이스 레이어에서 버튼 및 입력창까지 강제 적용
+  - PDF 내보내기, 에러 메시지, 404 페이지 등 모든 시스템 영역에 폰트 상속 완료
+- **최적화**: 사용하지 않는 레거시 Google Fonts 임포트 제거로 로딩 성능 개선
+- **한글화**: 사용자의 요청에 따라 모든 개발 문서 및 AI 사고 과정을 한국어로 전환
+- **변경 파일**: public/css/input.css, tailwind.config.js, public/index.html, public/openview.html, public/js/ui.js, public/js/ui/header.js, public/js/ui/renderers.js, public/js/ui/trips.js, *.md
+
 ### 19:00 - [AI] 모달 리팩토링 및 UI 디테일 개선
 - **구조 개선**: `index.html`에 하드코딩된 모달(`item-detail-modal`, `transit-detail-modal`, `flight-input-modal`)을 제거하고 `ui-transit.js`, `ui/timeline-detail.js`에서 동적으로 생성(`ensureModal`)하도록 리팩토링
 - **UI 개선**:

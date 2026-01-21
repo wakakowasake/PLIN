@@ -16,20 +16,28 @@ function isTripCompleted() {
     return today > lastDay;
 }
 
-// [Helper] 추억(사진) 렌더링 HTML 생성
+// [Helper] 추억(사진) 렌더링 HTML 생성 (카드 외부용, 테이프 & 회전 효과)
 function renderMemoriesHtml(item, dayIndex, itemIndex) {
     if (!item.memories || item.memories.length === 0) return '';
 
-    let html = '<div class="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex gap-2 overflow-x-auto pb-1 no-scrollbar">';
+    let html = '<div class="mt-4 flex gap-6 overflow-x-auto pb-4 no-scrollbar px-2">';
     item.memories.forEach((mem, memIdx) => {
-        // [Fix] 사진이 있는 경우와 없는 경우(코멘트만) 구분
+        // 비뚤비뚤한 효과를 위한 회전값 (인덱스에 따라 교차)
+        const rotation = (memIdx % 2 === 0) ? 'rotate-1' : '-rotate-1';
+        const tapeRotation = (memIdx % 2 === 0) ? '-rotate-2' : 'rotate-2';
+
         const content = mem.photoUrl
-            ? `<img src="${mem.photoUrl}" class="w-full h-full object-cover transition-transform group-hover:scale-110" loading="lazy" onerror="this.style.display='none'; this.parentElement.innerHTML='<span class=\\'material-symbols-outlined text-red-400\\'>broken_image</span>'">`
-            : `<div class="w-full h-full flex items-center justify-center bg-yellow-50 dark:bg-yellow-900/20"><span class="material-symbols-outlined text-yellow-600 dark:text-yellow-400">chat</span></div>`;
+            ? `<img src="${mem.photoUrl}" class="w-full h-full object-cover transition-transform group-hover:scale-105" loading="lazy" onerror="this.style.display='none'; this.parentElement.innerHTML='<span class=\\'material-symbols-outlined text-red-400\\'>broken_image</span>'">`
+            : `<div class="w-full h-full flex items-center justify-center bg-yellow-50 dark:bg-yellow-900/10"><span class="material-symbols-outlined text-yellow-600/70 dark:text-yellow-400">chat</span></div>`;
 
         html += `
-            <div class="relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden cursor-pointer group border border-gray-200 dark:border-gray-700" onclick="event.stopPropagation(); window.openLightbox(${dayIndex}, ${itemIndex}, ${memIdx})">
-                ${content}
+            <div class="relative flex-shrink-0 w-24 h-24 bg-white dark:bg-card-dark p-1 shadow-lg border border-gray-100 dark:border-gray-800 ${rotation} cursor-pointer group transition-all hover:scale-105 hover:z-30 hover:-translate-y-1" 
+                 onclick="event.stopPropagation(); window.openLightbox(${dayIndex}, ${itemIndex}, ${memIdx})">
+                <!-- 테이프 효과 -->
+                <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-10 h-5 bg-white/40 backdrop-blur-[2px] border border-white/30 shadow-sm ${tapeRotation} z-20 pointer-events-none"></div>
+                <div class="w-full h-full overflow-hidden rounded-sm">
+                    ${content}
+                </div>
             </div>
         `;
     });
@@ -48,9 +56,9 @@ function buildImageCard(item, editClass, clickHandler, index, dayIndex) {
                 <div class="h-32 w-full bg-cover bg-center relative" style="background-image: url('${item.image}');">
                     <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
                     <div class="absolute bottom-3 left-4 right-4 text-white">
-                        <h3 class="text-lg font-bold truncate">${item.title}</h3>
-                        <div class="flex items-center gap-1 text-xs opacity-90">
-                            <span class="material-symbols-outlined text-[14px] flex-shrink-0">location_on</span>
+                        <h3 class="text-2xl font-hand truncate tracking-wide">${item.title}</h3>
+                        <div class="flex items-center gap-1 text-base font-hand opacity-90 overflow-hidden">
+                            <span class="material-symbols-outlined text-[16px] flex-shrink-0">location_on</span>
                             <span class="truncate flex-1">${item.location}</span>
                         </div>
                     </div>
@@ -65,28 +73,35 @@ function buildImageCard(item, editClass, clickHandler, index, dayIndex) {
                             ${item.time}
                         </div>
                     </div>
-                    ${renderMemoriesHtml(item, dayIndex, index)}
                 </div>
             </div>`;
 }
 
-function buildMemoCard(item, index, dayIndex, editClass) {
+function buildMemoCard(item, index, dayIndex, editClass, clickHandler) {
     const isCompleted = isTripCompleted();
     const isMemoryLocked = travelData.meta?.memoryLocked || false;
-    const showMemoryBtn = isCompleted && !isMemoryLocked && !isEditing && !isReadOnlyMode;
+
+    // 비뚤비뚤한 효과 (인덱스에 따라)
+    const rotation = (index % 2 === 0) ? 'rotate-1' : '-rotate-1';
+    const tapeRotation = (index % 2 === 0) ? '-rotate-3' : 'rotate-3';
+
+    // [New] 메모 카드 전용 컨텍스트 메뉴 핸들러 (부모 장소로 이벤트 버블링 방지)
+    const contextHandler = `oncontextmenu="event.stopPropagation(); openContextMenu(event, 'item', ${index}, ${dayIndex})"`;
 
     return `
-            <div class="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-700/30 rounded-lg p-3 ${editClass}" onclick="viewTimelineItem(${index}, ${dayIndex})">
+            <div class="relative bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-700/30 rounded-lg p-3 ${editClass} ${rotation} shadow-sm hover:shadow-md transition-shadow" 
+                onclick="event.stopPropagation(); ${clickHandler ? clickHandler.replace('onclick="', '').replace('"', '') : `viewTimelineItem(${index}, ${dayIndex})`}" ${contextHandler}>
+                <!-- 테이프 효과 -->
+                <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-10 h-6 bg-yellow-200/40 backdrop-blur-[2px] border border-yellow-300/30 shadow-sm ${tapeRotation} z-20 pointer-events-none"></div>
+                
                 <div class="flex items-center gap-3 justify-between">
                     <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium text-gray-800 dark:text-gray-200 break-words whitespace-pre-wrap leading-relaxed font-body">${item.title}</p>
+                        <p class="text-base font-medium text-yellow-900 dark:text-yellow-100 break-words whitespace-pre-wrap leading-relaxed font-body">${item.title}</p>
                     </div>
                     <div class="flex items-center gap-1">
-                        ${showMemoryBtn ? `<button type="button" onclick="event.stopPropagation(); addMemoryItem(${index}, ${dayIndex})" class="text-yellow-600/70 hover:text-yellow-800 dark:text-yellow-500 dark:hover:text-yellow-300 p-2 rounded-full flex-shrink-0"><span class="material-symbols-outlined text-2xl">photo_camera</span></button>` : ''}
                         ${isEditing ? `<button type="button" onclick="event.stopPropagation(); deleteTimelineItem(${index}, ${dayIndex})" class="text-red-500 hover:bg-red-50 p-2 rounded-full flex-shrink-0"><span class="material-symbols-outlined text-lg">delete</span></button>` : ''}
                     </div>
                 </div>
-                ${renderMemoriesHtml(item, dayIndex, index)}
             </div>`;
 }
 
@@ -123,7 +138,7 @@ function buildTransitCard(item, index, dayIndex, editClass) {
 
         // 상세 경로가 있는 경우(태그가 여러 개일 수 있음)에는 제목(역 정보/중복 노선명)을 숨기고 태그만 표시
         const showTitle = !hasDetailedTransit;
-        const titleText = (showTitle && item.title) ? `<p class="text-xl font-bold font-hand text-text-main dark:text-white truncate ml-2 tracking-wide">${item.title}</p>` : '';
+        const titleText = (showTitle && item.title) ? `<p class="text-xl font-hand text-text-main dark:text-white truncate ml-2 tracking-wide">${item.title}</p>` : '';
         contentHtml = `${tagsHtml} ${titleText}`;
     }
 
@@ -134,16 +149,15 @@ function buildTransitCard(item, index, dayIndex, editClass) {
 
                 <div class="flex items-center gap-2 md:gap-4 justify-between">
                     <div class="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
-                        <div class="flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-800 rounded-sm px-2 md:px-3 py-1 border border-gray-200 dark:border-gray-700 text-xs font-bold text-gray-900 dark:text-white min-w-[60px] md:min-w-[70px] flex-shrink-0 whitespace-nowrap">
-                            <span class="font-hand text-lg">${typeof item.duration === 'number' ? formatDuration(item.duration) : (item.duration || item.time || '30분')}</span>
+                        <div class="flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-800 rounded-sm px-2 md:px-3 py-1 border border-gray-200 dark:border-gray-700 text-sm font-bold text-gray-900 dark:text-white min-w-[60px] md:min-w-[70px] flex-shrink-0 whitespace-nowrap">
+                            <span class="font-hand text-base">${typeof item.duration === 'number' ? formatDuration(item.duration) : (item.duration || item.time || '30분')}</span>
                         </div>
-                        <div class="flex items-center gap-2 flex-1 min-w-0 flex-wrap">
+                        <div class="flex items-center gap-2 flex-1 min-w-0 flex-wrap text-base">
                             ${contentHtml}
                         </div>
                     </div>
                     ${showMemoryBtn ? `<button type="button" onclick="event.stopPropagation(); addMemoryItem(${index}, ${dayIndex})" class="text-gray-400 hover:text-primary p-2 rounded-full flex-shrink-0"><span class="material-symbols-outlined text-2xl">photo_camera</span></button>` : ''}
                 </div>
-                ${renderMemoriesHtml(item, dayIndex, index)}
             </div>`;
 }
 
@@ -160,38 +174,37 @@ function buildDefaultCard(item, index, dayIndex, editClass, clickHandler) {
 
                 <div class="flex justify-between items-start mb-2 gap-2">
                     <div class="flex-1 min-w-0">
-                        <h3 class="text-xl font-hand font-bold text-text-main dark:text-white break-words tracking-wide leading-tight">${item.title}</h3>
-                        <p class="text-xs font-hand text-text-muted dark:text-gray-400 flex items-center gap-1 mt-1 min-w-0">
-                            <span class="material-symbols-outlined text-[14px] flex-shrink-0">location_on</span>
-                            <span class="truncate flex-1 text-base">${item.location || ''}</span>
+                        <h3 class="text-2xl font-hand text-text-main dark:text-white break-words tracking-wide leading-tight">${item.title}</h3>
+                        <p class="text-base font-hand text-text-muted dark:text-gray-400 flex items-center gap-1 mt-1 min-w-0">
+                            <span class="material-symbols-outlined text-[16px] flex-shrink-0">location_on</span>
+                            <span class="truncate flex-1">${item.location || ''}</span>
                         </p>
                     </div>
-                    ${item.tag ? `<span class="inline-flex items-center px-2 py-0.5 rounded-sm text-lg font-hand font-bold bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 flex-shrink-0 whitespace-nowrap transform rotate-2 shadow-sm">${item.tag}</span>` : ''}
+                    ${item.tag ? `<span class="inline-flex items-center px-2 py-0.5 rounded-sm text-base font-hand font-bold bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 flex-shrink-0 whitespace-nowrap transform rotate-2 shadow-sm">${item.tag}</span>` : ''}
                     ${showMemoryBtn ? `<button type="button" onclick="event.stopPropagation(); addMemoryItem(${index}, ${dayIndex})" class="text-gray-400 hover:text-primary p-2 rounded-full flex-shrink-0"><span class="material-symbols-outlined text-2xl">photo_camera</span></button>` : ''}
                     ${isEditing ? `<button type="button" onclick="event.stopPropagation(); deleteTimelineItem(${index}, ${dayIndex})" class="text-red-500 hover:bg-red-50 p-1 rounded flex-shrink-0"><span class="material-symbols-outlined text-lg">delete</span></button>` : ''}
                 </div>
                 <div class="flex items-center gap-2 text-sm font-medium text-text-main dark:text-gray-300 flex-wrap">
                     <div class="flex items-center gap-1 bg-gray-50 dark:bg-gray-700/50 px-2 py-1 rounded-sm border border-gray-100 dark:border-gray-600 flex-shrink-0">
                         <span class="material-symbols-outlined text-[16px]">schedule</span>
-                        <span class="font-hand text-lg">${item.time || ''}</span>
+                        <span class="font-hand text-base">${item.time || ''}</span>
                     </div>
                     ${item.duration !== undefined && item.duration !== null ? `
-                    <div class="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-sm border border-blue-100 dark:border-blue-800 text-xs font-bold flex-shrink-0">
+                    <div class="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-sm border border-blue-100 dark:border-blue-800 text-xs flex-shrink-0">
                         <span class="material-symbols-outlined text-[14px]">timer</span>
-                        <span class="font-hand text-lg">${formatDuration(item.duration)}</span>
+                        <span class="font-hand text-base">${formatDuration(item.duration)}</span>
                     </div>` : ''}
                     ${item.note ? `
                     <div class="text-xs text-gray-500 flex items-center gap-1 min-w-0 bg-yellow-50 dark:bg-yellow-900/10 px-2 py-1 rounded-sm border border-yellow-100 dark:border-yellow-800">
                         <span class="material-symbols-outlined text-[14px] flex-shrink-0 text-yellow-600">edit_note</span>
-                        <span class="truncate font-hand text-lg text-gray-700 dark:text-gray-300">${item.note}</span>
+                        <span class="truncate font-hand text-base text-gray-700 dark:text-gray-300">${item.note}</span>
                     </div>` : ''}
                 </div>
-                ${renderMemoriesHtml(item, dayIndex, index)}
             </div>`;
 }
-export function renderTimelineItemHtml(item, index, dayIndex, isLast, isFirst) {
+export function renderTimelineItemHtml(item, index, dayIndex, isLast, isFirst, attachedMemos = []) {
     // Simplified extraction of the original HTML generation from ui.js
-    const lineStyle = isLast ? `bg-gradient-to-b from-gray-200 to-transparent dark:from-gray-700` : `bg-gray-200 dark:bg-gray-700`;
+    const lineStyle = isLast && attachedMemos.length === 0 ? `bg-gradient-to-b from-gray-200 to-transparent dark:from-gray-700` : `bg-gray-200 dark:bg-gray-700`;
     const linePosition = isFirst ? 'top-6 -bottom-8' : 'top-0 -bottom-8';
     let iconBg = 'bg-white dark:bg-card-dark'; // 장소와 교통 수단 아이콘 배경색 통일
     let iconColor = 'text-primary'; // 모든 아이콘 색상 통일
@@ -214,7 +227,7 @@ export function renderTimelineItemHtml(item, index, dayIndex, isLast, isFirst) {
     const zIndex = 100 - index;
 
     let html = `
-        <div ${draggableAttr} ontouchstart="touchStart(event, ${index}, 'item')" ontouchmove="touchMove(event)" ontouchend="touchEnd(event)" data-index="${index}" style="z-index: ${zIndex};" class="relative grid grid-cols-[auto_1fr] gap-x-3 md:gap-x-6 group/timeline-item pb-8 timeline-item-transition rounded-xl" ${contextHandler}>
+        <div ${draggableAttr} ontouchstart="touchStart(event, ${index}, 'item')" ontouchmove="touchMove(event)" ontouchend="touchEnd(event)" data-index="${index}" style="z-index: ${zIndex};" class="relative grid grid-cols-[auto_1fr] gap-x-3 md:gap-x-6 group/timeline-item pb-4 timeline-item-transition rounded-xl" ${contextHandler}>
         <div class="drag-indicator absolute -top-3 left-0 right-0 h-1 bg-primary rounded-full hidden z-50 shadow-sm pointer-events-none"></div>
 
         <div class="relative flex flex-col items-center" data-timeline-icon="true">
@@ -235,12 +248,35 @@ export function renderTimelineItemHtml(item, index, dayIndex, isLast, isFirst) {
     if (item.image) {
         html += buildImageCard(item, editClass, clickHandler, index, dayIndex);
     } else if (item.tag === '메모') {
-        html += buildMemoCard(item, index, dayIndex, editClass);
+        html += buildMemoCard(item, index, dayIndex, editClass, clickHandler);
     } else if (item.isTransit) {
         html += buildTransitCard(item, index, dayIndex, editClass);
     } else {
         html += buildDefaultCard(item, index, dayIndex, editClass, clickHandler);
     }
+
+    // [New] 카드 외부에 추억 렌더링
+    html += renderMemoriesHtml(item, dayIndex, index);
+
+    // [New] 부착된 메모들 렌더링
+    if (attachedMemos && attachedMemos.length > 0) {
+        html += `<div class="flex flex-col gap-4 mt-4">`;
+        attachedMemos.forEach((memoData) => {
+            const memoClickHandler = isEditing ? `onclick="editTimelineItem(${memoData.index}, ${dayIndex})"` : `onclick="viewTimelineItem(${memoData.index}, ${dayIndex})"`;
+            html += buildMemoCard(memoData.item, memoData.index, dayIndex, editClass, memoClickHandler);
+            // 메모 뒤에도 추가 버튼 (옵션)
+            if (!isMemoryLocked && !isReadOnlyMode) {
+                html += `
+                <div class="flex justify-center -my-2 opacity-0 group-hover/timeline-item:opacity-100 transition-opacity">
+                    <button type="button" onclick="openAddModal(${memoData.index}, ${dayIndex})" class="w-6 h-6 rounded-full bg-white dark:bg-card-dark border border-gray-200 flex items-center justify-center text-gray-400 hover:text-primary transition-all shadow-sm">
+                        <span class="material-symbols-outlined text-xs">add</span>
+                    </button>
+                </div>`;
+            }
+        });
+        html += `</div>`;
+    }
+
 
     html += `</div></div>`;
     return html;
@@ -250,7 +286,7 @@ export function renderTimelineItemHtml(item, index, dayIndex, isLast, isFirst) {
  * 플래너 모드 타임라인 아이템 렌더링
  * 왼쪽에 시간 레이블, 오른쪽에 카드 내용
  */
-export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isFirst) {
+export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isFirst, attachedMemos = []) {
     const isMemoryLocked = travelData.meta?.memoryLocked || false;
     const editClass = isEditing ? "edit-mode-active ring-2 ring-primary/50 ring-offset-2" : "cursor-pointer hover:shadow-md transform transition-all hover:-translate-y-0.5";
     const clickHandler = isEditing ? `onclick="editTimelineItem(${index}, ${dayIndex})"` : `onclick="viewTimelineItem(${index}, ${dayIndex})"`;
@@ -303,7 +339,7 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
     }
 
     // 세로선 스타일 (간단 모드와 동일) - 점선으로 변경
-    const lineStyle = isLast ? `bg-gradient-to-b from-gray-300 to-transparent dark:from-gray-600 border-l-2 border-dashed border-gray-300 dark:border-gray-600 bg-transparent w-0` : `border-l-2 border-dashed border-gray-300 dark:border-gray-600 h-full absolute left-0 top-0 w-0`;
+    const lineStyle = isLast && attachedMemos.length === 0 ? `bg-gradient-to-b from-gray-300 to-transparent dark:from-gray-600 border-l-2 border-dashed border-gray-300 dark:border-gray-600 bg-transparent w-0` : `border-l-2 border-dashed border-gray-300 dark:border-gray-600 h-full absolute left-0 top-0 w-0`;
     const linePosition = isFirst ? 'top-6 -bottom-8' : 'top-0 -bottom-8';
     const zIndex = 100 - index;
 
@@ -314,11 +350,15 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
             
             <!-- 시간 카드 (기존 아이콘 위치) -->
             <div class="relative flex flex-col" data-timeline-icon="true">
-                <div class="relative z-10 h-full flex flex-col items-center justify-between bg-white dark:bg-card-dark rounded-sm px-2 py-2 shadow-sm w-[60px] shrink-0 border border-gray-100 dark:border-gray-700" style="width: 60px; min-width: 60px;">
-                    <div class="font-bold font-hand text-xl text-gray-900 dark:text-white leading-tight tabular-nums" style="font-variant-numeric: tabular-nums;">${startTime}</div>
-                    <div class="text-xs text-gray-300">↓</div>
-                    <div class="font-bold font-hand text-xl text-gray-900 dark:text-white leading-tight tabular-nums" style="font-variant-numeric: tabular-nums;">${endTime}</div>
-                </div>
+                ${item.tag === '메모' ? `
+                    <div class="w-[60px] shrink-0"></div>
+                ` : `
+                    <div class="relative z-10 h-full flex flex-col items-center justify-between bg-white dark:bg-card-dark rounded-sm px-2 py-2 shadow-sm w-[60px] shrink-0 border border-gray-100 dark:border-gray-700" style="width: 60px; min-width: 60px;">
+                        <div class="font-bold font-hand text-base text-gray-900 dark:text-white leading-tight tabular-nums" style="font-variant-numeric: tabular-nums;">${startTime}</div>
+                        <div class="text-xs text-gray-300">↓</div>
+                        <div class="font-bold font-hand text-base text-gray-900 dark:text-white leading-tight tabular-nums" style="font-variant-numeric: tabular-nums;">${endTime}</div>
+                    </div>
+                `}
             </div>
             
             <!-- 카드 내용 -->
@@ -329,12 +369,35 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
     if (item.image) {
         html += buildImageCard(item, editClass, clickHandler, index, dayIndex);
     } else if (item.tag === '메모') {
-        html += buildMemoCard(item, index, dayIndex, editClass);
+        html += buildMemoCard(item, index, dayIndex, editClass, clickHandler);
     } else if (item.isTransit) {
         html += buildTransitCard(item, index, dayIndex, editClass);
     } else {
         html += buildDefaultCard(item, index, dayIndex, editClass, clickHandler);
     }
+
+    // [New] 카드 외부에 추억 렌더링
+    html += renderMemoriesHtml(item, dayIndex, index);
+
+    // [New] 부착된 메모들 렌더링
+    if (attachedMemos && attachedMemos.length > 0) {
+        html += `<div class="flex flex-col gap-4 mt-4">`;
+        attachedMemos.forEach((memoData) => {
+            const memoClickHandler = isEditing ? `onclick="editTimelineItem(${memoData.index}, ${dayIndex})"` : `onclick="viewTimelineItem(${memoData.index}, ${dayIndex})"`;
+            html += buildMemoCard(memoData.item, memoData.index, dayIndex, editClass, memoClickHandler);
+            // 메모 뒤에도 추가 버튼 (점선 위에)
+            if (!isMemoryLocked && !isReadOnlyMode) {
+                html += `
+                <div class="flex justify-center -my-2 opacity-0 group-hover/timeline-item:opacity-100 transition-opacity">
+                    <button type="button" onclick="openAddModal(${memoData.index}, ${dayIndex})" class="w-6 h-6 rounded-full bg-white dark:bg-card-dark border border-gray-200 flex items-center justify-center text-gray-400 hover:text-primary transition-all shadow-sm">
+                        <span class="material-symbols-outlined text-xs">add</span>
+                    </button>
+                </div>`;
+            }
+        });
+        html += `</div>`;
+    }
+
 
     html += `
             </div>
@@ -342,10 +405,12 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
     `;
 
 
-    // 플래너 모드에서 플러스 버튼과 함께 구분선 추가 (마지막 아이템 포함)
+    // 플래너 모드에서 플러스 버튼과 함께 구분선 추가 (마지막 아이템 포함) (메모는 제외하고 렌더링 루프에서 마지막에만 추가할 수 있음)
+    // 하지만 item이 parent인 경우, 마지막 메모 뒤에 플러스 버튼이 있어야 함.
     if (!isMemoryLocked && !isReadOnlyMode) {
+        const lastIndex = attachedMemos.length > 0 ? attachedMemos[attachedMemos.length - 1].index : index;
         html += `
-            <button type="button" onclick="openAddModal(${index}, ${dayIndex})" 
+            <button type="button" onclick="openAddModal(${lastIndex}, ${dayIndex})" 
                 class="relative flex items-center gap-3 h-8 my-2 w-full text-gray-400 hover:text-primary transition-colors cursor-pointer group" 
                 title="일정 추가">
                 <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700 group-hover:bg-primary/30 transition-colors"></div>
@@ -398,7 +463,7 @@ export function renderItinerary() {
     const allActiveClass = isAllActive ? "border-b-2 border-primary text-primary bg-primary/5 dark:bg-primary/10" : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800";
     tabsHtml += `
         <button type="button" onclick="selectDay(-1)" class="flex flex-col items-center justify-center px-6 py-3 rounded-t-lg transition-colors ${allActiveClass}">
-            <span class="text-xs font-semibold uppercase">전체</span>
+            <span class="text-base font-semibold uppercase">전체</span>
         </button>`;
 
     if (!isSingleDay) {
@@ -407,7 +472,7 @@ export function renderItinerary() {
             const activeClass = isActive ? "border-b-2 border-primary text-primary bg-primary/5 dark:bg-primary/10" : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800";
             tabsHtml += `
             <button type="button" onclick="selectDay(${index})" class="flex flex-col items-center justify-center px-6 py-3 rounded-t-lg transition-colors ${activeClass}">
-                <span class="text-xs font-semibold uppercase">${index + 1}일차</span>
+                <span class="text-base font-semibold uppercase">${index + 1}일차</span>
             </button>`;
         });
     }
@@ -441,10 +506,28 @@ export function renderItinerary() {
                 // ============================================================
                 const renderFunc = renderTimelineItemHtmlPlanner; // 🔒 항상 플래너 모드
 
+                // [New] 메모 항목 그룹화를 위한 개선된 루프
+                const groupedItems = [];
+                let currentItem = null;
+
                 day.timeline.forEach((item, index) => {
-                    const isLast = index === day.timeline.length - 1;
-                    const isFirst = index === 0;
-                    html += renderFunc(item, index, dayIdx, isLast, isFirst);
+                    if (item.tag === '메모') {
+                        if (currentItem) {
+                            currentItem.attachedMemos.push({ item, index });
+                        } else {
+                            // 첫 항목이 메모인 경우 독립적으로 추가
+                            groupedItems.push({ item, index, attachedMemos: [] });
+                        }
+                    } else {
+                        currentItem = { item, index, attachedMemos: [] };
+                        groupedItems.push(currentItem);
+                    }
+                });
+
+                groupedItems.forEach((group, gIdx) => {
+                    const isLast = gIdx === groupedItems.length - 1;
+                    const isFirst = gIdx === 0;
+                    html += renderFunc(group.item, group.index, dayIdx, isLast, isFirst, group.attachedMemos);
                 });
             } else {
                 html += `<div class="text-center py-4 text-gray-400 text-sm">일정이 없습니다.</div>`;
@@ -487,10 +570,27 @@ export function renderItinerary() {
         // ============================================================
         const renderFunc = renderTimelineItemHtmlPlanner; // 🔒 항상 플래너 모드
 
+        // [New] 메모 항목 그룹화를 위한 개선된 루프
+        const groupedItems = [];
+        let currentItem = null;
+
         currentTimeline.forEach((item, index) => {
-            const isLast = index === currentTimeline.length - 1;
-            const isFirst = index === 0;
-            html += renderFunc(item, index, currentDayIndex, isLast, isFirst);
+            if (item.tag === '메모') {
+                if (currentItem) {
+                    currentItem.attachedMemos.push({ item, index });
+                } else {
+                    groupedItems.push({ item, index, attachedMemos: [] });
+                }
+            } else {
+                currentItem = { item, index, attachedMemos: [] };
+                groupedItems.push(currentItem);
+            }
+        });
+
+        groupedItems.forEach((group, gIdx) => {
+            const isLast = gIdx === groupedItems.length - 1;
+            const isFirst = gIdx === 0;
+            html += renderFunc(group.item, group.index, currentDayIndex, isLast, isFirst, group.attachedMemos);
         });
         if (currentTimeline.length > 0) {
             html += `

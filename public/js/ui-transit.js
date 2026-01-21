@@ -572,12 +572,12 @@ export function ensureTransitDetailModal() {
                     <span id="transit-detail-icon" class="material-symbols-outlined text-3xl">train</span>
                 </div>
 
-                <h3 id="transit-detail-title" class="text-xl font-bold text-text-main dark:text-white mb-1">기차로 이동</h3>
-                <p id="transit-detail-route" class="text-sm text-gray-500 dark:text-gray-400 mb-6">출발지 ➡️ 도착지</p>
+                <h3 id="transit-detail-title" class="text-2xl font-hand font-bold text-text-main dark:text-white mb-1">기차로 이동</h3>
+                <p id="transit-detail-route" class="text-base font-hand text-gray-500 dark:text-gray-400 mb-6">출발지 ➡️ 도착지</p>
 
                 <div class="bg-gray-50 dark:bg-gray-800 rounded-2xl p-6 w-full mb-6">
                     <p class="text-xs font-bold text-gray-400 uppercase mb-2">소요 시간</p>
-                    <p id="transit-detail-time" class="text-4xl font-black text-primary">1시간 30분</p>
+                    <p id="transit-detail-time" class="text-4xl font-black text-primary font-hand">1시간 30분</p>
                 </div>
 
                 <!-- Flight Details (Hidden by default) -->
@@ -702,14 +702,14 @@ export function openTransitDetailModal(item, index, dayIndex) {
             <div class="grid grid-cols-[1fr_auto_1fr] gap-2 items-center text-center mb-3">
                 <div class="flex flex-col items-center min-w-0">
                     <span class="text-[10px] text-gray-400 uppercase font-bold mb-1">출발</span>
-                    <span class="font-bold text-sm text-gray-800 dark:text-white leading-tight truncate w-full">${tInfo.depStop || tInfo.depStation || '출발지'}</span>
-                    <span class="text-xs text-primary font-bold mt-1">${tInfo.start || '--:--'}</span>
+                    <span class="font-bold text-lg font-hand text-gray-800 dark:text-white leading-tight truncate w-full">${tInfo.depStop || tInfo.depStation || '출발지'}</span>
+                    <span class="text-base text-primary font-hand font-bold mt-1">${tInfo.start || '--:--'}</span>
                 </div>
                 <div class="text-gray-300"><span class="material-symbols-outlined">arrow_forward</span></div>
                 <div class="flex flex-col items-center min-w-0">
                     <span class="text-[10px] text-gray-400 uppercase font-bold mb-1">도착</span>
-                    <span class="font-bold text-sm text-gray-800 dark:text-white leading-tight truncate w-full">${tInfo.arrStop || tInfo.arrStation || '도착지'}</span>
-                    <span class="text-xs text-gray-500 mt-1">${tInfo.end || '--:--'}</span>
+                    <span class="font-bold text-lg font-hand text-gray-800 dark:text-white leading-tight truncate w-full">${tInfo.arrStop || tInfo.arrStation || '도착지'}</span>
+                    <span class="text-base text-gray-500 font-hand mt-1">${tInfo.end || '--:--'}</span>
                 </div>
             </div>
             ${tInfo.headsign ? `

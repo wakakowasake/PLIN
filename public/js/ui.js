@@ -369,7 +369,7 @@ export function viewTimelineItem(index, dayIndex = currentDayIndex) {
 
     // [메모 아이템인 경우 전용 모달 호출]
     if (item.tag === '메모') {
-        Modals.openMemoModal(item);
+        Modals.openMemoModal(item, index);
         return;
     }
 
@@ -1919,6 +1919,16 @@ export function editTimelineItem(index, dayIndex = currentDayIndex) {
     if (item.isTransit) {
         if (window.viewRouteDetail) {
             window.viewRouteDetail(index, targetDayIndex);
+        }
+        return;
+    }
+
+    // [New] 메모(Memo)인 경우 상세 모달의 수정 모드 호출
+    if (item.tag === '메모') {
+        const Modals = window.Modals;
+        if (Modals && Modals.openMemoModal && Modals.editCurrentMemo) {
+            Modals.openMemoModal(item, index);
+            Modals.editCurrentMemo();
         }
         return;
     }

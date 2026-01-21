@@ -24,19 +24,10 @@
 @layer components {
     .bg-manuscript {
         background-color: #f9f5eb;
-        background-size: 40px 40px;
-        background-image:
-            linear-gradient(to right, #d4d4d4 1px, transparent 1px),
-            linear-gradient(to bottom, #d4d4d4 1px, transparent 1px);
-        border: 1px solid #d4d4d4;
     }
 
     .dark .bg-manuscript {
         background-color: #1a2632;
-        background-image:
-            linear-gradient(to right, #334155 1px, transparent 1px),
-            linear-gradient(to bottom, #334155 1px, transparent 1px);
-        border: 1px solid #334155;
     }
 
     .paper-shadow {

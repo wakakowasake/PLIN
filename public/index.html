@@ -448,16 +448,17 @@
                         oncontextmenu="openContextMenu(event, 'trip_info')"
                         ontouchstart="touchStart(event, -1, 'trip_info')" ontouchend="touchEnd(event)"
                         ontouchmove="touchMove(event)">
-                        <div class="flex items-center gap-2 text-primary font-bold text-sm uppercase tracking-wider">
-                            <span class="material-symbols-outlined text-lg">calendar_month</span>
+                        <div class="flex items-center gap-2 text-primary font-bold text-lg uppercase tracking-wider">
+                            <span class="material-symbols-outlined text-xl">calendar_month</span>
                             <span id="trip-day-count">3일차 / 7일</span>
                         </div>
                         <div class="flex items-center gap-3">
                             <h1 id="trip-title"
-                                class="text-3xl md:text-4xl font-bold text-text-main dark:text-white leading-tight">
+                                class="text-3xl md:text-4xl font-bold text-text-main dark:text-white leading-tight font-hand">
                                 아라시야마 탐방</h1>
                         </div>
-                        <p id="trip-date-info" class="text-text-muted dark:text-gray-400 font-medium">교토 봄 여행 • 2024년 4월
+                        <p id="trip-date-info" class="text-text-muted dark:text-gray-400 font-medium text-lg font-hand">
+                            교토 봄 여행 • 2024년 4월
                             12일</p>
                     </div>
                     <!-- 추억 잠금 버튼 (여행 완료 상태일 때만 표시) -->
@@ -488,8 +489,8 @@
                     <div class="w-full h-48 bg-gray-200 rounded-lg relative overflow-hidden">
                         <div id="map-bg" class="vibrant-img w-full h-full bg-cover bg-center"></div>
                         <div onclick="openRouteModal()"
-                            class="absolute bottom-4 right-4 bg-white dark:bg-card-dark text-text-main dark:text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-md flex items-center gap-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                            <span class="material-symbols-outlined text-sm">map</span>
+                            class="absolute bottom-4 right-4 bg-white dark:bg-card-dark text-text-main dark:text-white text-base font-bold px-3 py-1.5 rounded-full shadow-md flex items-center gap-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                            <span class="material-symbols-outlined text-base">map</span>
                             경로 보기
                         </div>
                     </div>
@@ -500,7 +501,7 @@
                         class="bg-card-light dark:bg-card-dark p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col justify-between h-28 cursor-pointer hover:shadow-lg transition-all hover:-translate-y-1">
                         <div class="flex justify-between items-start">
                             <span
-                                class="text-xs font-bold text-text-muted dark:text-gray-400 uppercase tracking-wider">날씨</span>
+                                class="text-sm font-bold text-text-muted dark:text-gray-400 uppercase tracking-wider">날씨</span>
                             <span class="material-symbols-outlined text-orange-400">sunny</span>
                         </div>
                         <div>
@@ -514,7 +515,7 @@
                         class="bg-card-light dark:bg-card-dark p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col justify-between h-28 cursor-pointer hover:shadow-lg transition-all hover:-translate-y-1">
                         <div class="flex justify-between items-start">
                             <span
-                                class="text-xs font-bold text-text-muted dark:text-gray-400 uppercase tracking-wider">지출</span>
+                                class="text-sm font-bold text-text-muted dark:text-gray-400 uppercase tracking-wider">지출</span>
                             <span class="material-symbols-outlined text-green-500">payments</span>
                         </div>
                         <div>
@@ -908,7 +909,7 @@
                     </div>
                 </button>
 
-                <button onclick="selectAddType('note')"
+                <button onclick="selectAddType('memo')"
                     class="flex items-center gap-4 p-4 rounded-xl bg-yellow-50 hover:bg-yellow-100 border border-yellow-200 transition-all group text-left">
                     <div
                         class="w-12 h-12 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center group-hover:scale-110 transition-transform">

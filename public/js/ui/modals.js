@@ -139,7 +139,7 @@ export function selectAddType(type, subtype) {
 
     if (type === 'place' || type === 'activity') {
         if (window.addTimelineItem) window.addTimelineItem(currentIndex, currentDay);
-    } else if (type === 'memo') {
+    } else if (type === 'memo' || type === 'note') {
         if (window.addNoteItem) window.addNoteItem(currentIndex);
     } else if (type === 'fastest') {
         if (window.addFastestTransitItem) window.addFastestTransitItem();
@@ -602,9 +602,14 @@ export function ensureMemoModal() {
         const modal = document.createElement('div');
         modal.id = 'memo-detail-modal';
         modal.className = 'hidden fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
+        // 배경 클릭 시 닫기
+        modal.onclick = (e) => {
+            if (e.target === modal) closeMemoModal();
+        };
         modal.innerHTML = `
-            <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700/30 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-100 p-6 relative">
-                <button type="button" onclick="closeMemoModal()" class="absolute top-4 right-4 text-yellow-700 dark:text-yellow-500 hover:bg-yellow-100 dark:hover:bg-yellow-900/40 p-1 rounded-full transition-colors">
+            <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700/30 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-100 p-6 relative" 
+                onclick="event.stopPropagation()">
+                <button type="button" onclick="Modals.closeMemoModal()" class="absolute top-4 right-4 text-yellow-700 dark:text-yellow-500 hover:bg-yellow-100 dark:hover:bg-yellow-900/40 p-1 rounded-full transition-colors">
                     <span class="material-symbols-outlined">close</span>
                 </button>
                 <div class="mt-2">
@@ -620,7 +625,7 @@ export function ensureMemoModal() {
                     </div>
                 </div>
                  <div class="mt-6 flex justify-end">
-                    <button type="button" onclick="editCurrentMemo()" class="text-sm bg-yellow-100 hover:bg-yellow-200 text-yellow-800 px-4 py-2 rounded-xl font-bold transition-colors flex items-center gap-1">
+                    <button type="button" onclick="Modals.editCurrentMemo()" class="text-sm bg-yellow-100 hover:bg-yellow-200 text-yellow-800 px-4 py-2 rounded-xl font-bold transition-colors flex items-center gap-1">
                         <span class="material-symbols-outlined text-sm">edit</span> 수정
                     </button>
                 </div>
@@ -630,7 +635,10 @@ export function ensureMemoModal() {
     }
 }
 
-export function openMemoModal(item) {
+export function openMemoModal(item, index = null) {
+    if (index !== null) {
+        setViewingItemIndex(index);
+    }
     ensureMemoModal();
     const modal = document.getElementById('memo-detail-modal');
     const content = document.getElementById('memo-detail-content');
@@ -647,7 +655,7 @@ export function openMemoModal(item) {
     if (btnContainer) {
         const btn = btnContainer.querySelector('button');
         if (btn) {
-            btn.setAttribute('onclick', 'editCurrentMemo()');
+            btn.setAttribute('onclick', 'Modals.editCurrentMemo()');
             btn.innerHTML = `<span class="material-symbols-outlined text-sm">edit</span> 수정`;
             btn.className = "text-sm bg-yellow-100 hover:bg-yellow-200 text-yellow-800 px-4 py-2 rounded-xl font-bold transition-colors flex items-center gap-1";
         }
@@ -676,7 +684,7 @@ export function editCurrentMemo() {
     const btnContainer = modal.querySelector('.mt-6');
     const btn = btnContainer.querySelector('button');
 
-    btn.setAttribute('onclick', 'saveCurrentMemo()');
+    btn.setAttribute('onclick', 'Modals.saveCurrentMemo()');
     btn.innerHTML = `<span class="material-symbols-outlined text-sm">save</span> 저장`;
     btn.className = "text-sm bg-primary text-white hover:bg-orange-500 px-6 py-2 rounded-xl font-bold transition-colors flex items-center gap-1 shadow-md";
 
