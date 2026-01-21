@@ -32,7 +32,8 @@ function renderMemoriesHtml(item, dayIndex, itemIndex) {
 
         html += `
             <div class="relative flex-shrink-0 w-24 h-24 bg-white dark:bg-card-dark p-1 shadow-lg border border-gray-100 dark:border-gray-800 ${rotation} cursor-pointer group transition-all hover:scale-105 hover:z-30 hover:-translate-y-1" 
-                 onclick="event.stopPropagation(); window.openLightbox(${dayIndex}, ${itemIndex}, ${memIdx})">
+                 onclick="event.stopPropagation(); window.openLightbox(${dayIndex}, ${itemIndex}, ${memIdx})"
+                 oncontextmenu="event.stopPropagation(); window.openContextMenu(event, 'memory', ${itemIndex}, ${dayIndex}, ${memIdx})">
                 <!-- 테이프 효과 -->
                 <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-10 h-5 bg-white/40 backdrop-blur-[2px] border border-white/30 shadow-sm ${tapeRotation} z-20 pointer-events-none"></div>
                 <div class="w-full h-full overflow-hidden rounded-sm">

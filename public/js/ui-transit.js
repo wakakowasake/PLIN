@@ -2418,6 +2418,9 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
     const timeline = travelData.days[targetDayIndex].timeline;
     const item = timeline[index];
 
+    // Item existence check
+    if (!item) return;
+
     // 이동 수단이 아니면 리턴
     if (!item.isTransit) return;
 
@@ -2789,7 +2792,7 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
                         <div class="flex justify-between items-center bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
                             <span class="text-sm text-gray-700 dark:text-gray-300 font-medium">${exp.description}</span>
                             <div class="flex items-center gap-2">
-                                <span class="text-sm font-bold text-primary">₩${exp.amount.toLocaleString()}</span>
+                                <span class="text-sm font-bold text-primary">₩${(Number(exp.amount) || 0).toLocaleString()}</span>
                                 <button type="button" onclick="deleteRouteExpense(${expIdx})" class="text-red-400 hover:text-red-600 p-1"><span class="material-symbols-outlined text-sm">delete</span></button>
                             </div>
                         </div>
@@ -2800,7 +2803,7 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
                     <span class="font-bold text-sm text-gray-600 dark:text-gray-400">총 지출</span>
                     <div class="relative w-40">
                         <span class="absolute left-3 top-2 text-gray-500 font-bold">₩</span>
-                        <input id="route-total-budget" type="number" class="w-full pl-8 pr-2 py-1.5 bg-gray-50 dark:bg-gray-900 border-none rounded-lg text-right font-bold text-xl text-primary outline-none cursor-default" readonly value="${(item.expenses || []).reduce((sum, exp) => sum + exp.amount, 0)}">
+                        <input id="route-total-budget" type="number" class="w-full pl-8 pr-2 py-1.5 bg-gray-50 dark:bg-gray-900 border-none rounded-lg text-right font-bold text-xl text-primary outline-none cursor-default" readonly value="${(item.expenses || []).reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0)}">
                     </div>
                 </div>
             </div>
@@ -2975,7 +2978,8 @@ window.openRouteExpenseModal = function () {
 
 window.saveRouteExpense = function () {
     const desc = document.getElementById('expense-desc').value;
-    const cost = document.getElementById('expense-cost').value;
+    const costRaw = document.getElementById('expense-cost').value;
+    const cost = costRaw.replace(/,/g, ''); // 콤마 제거
 
     if (!desc || !cost) {
         alert("내역과 금액을 입력해주세요.");
@@ -3025,7 +3029,12 @@ window.saveRouteExpense = function () {
         }
     }
 
-    document.getElementById('expense-modal').classList.add('hidden');
+    if (window.closeExpenseModal) {
+        window.closeExpenseModal();
+    } else {
+        document.getElementById('expense-modal').classList.add('hidden');
+        document.body.classList.remove('modal-open');
+    }
     updateTotalBudget();
 
     // 예산 카드 업데이트

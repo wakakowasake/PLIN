@@ -3092,6 +3092,9 @@ export function deleteExpenseFromDetail(dayIdx, itemIdx, expIdx) {
     if (itemIdx < 0 || itemIdx >= day.timeline.length) return;
     const item = day.timeline[itemIdx];
 
+    // item 검증 (sparse array 등 대비)
+    if (!item) return;
+
     // expIdx 검증
     if (!item.expenses || expIdx < 0 || expIdx >= item.expenses.length) return;
 
@@ -3114,11 +3117,13 @@ export function deleteExpenseFromDetail(dayIdx, itemIdx, expIdx) {
 // [Context Menu Logic]
 let contextMenuTargetIndex = null;
 let contextMenuType = null;
+let contextMenuMemoryIndex = null;
 
-export function openContextMenu(e, type, index, dayIndex = currentDayIndex) {
+export function openContextMenu(e, type, index, dayIndex = currentDayIndex, memoryIndex = null) {
     e.preventDefault();
     contextMenuTargetIndex = index;
     contextMenuType = type;
+    contextMenuMemoryIndex = memoryIndex;
     setTargetDayIndex(dayIndex); // 컨텍스트 메뉴 열 때 타겟 날짜 설정
 
     const menu = document.getElementById('context-menu');
@@ -3152,6 +3157,12 @@ export function openContextMenu(e, type, index, dayIndex = currentDayIndex) {
         html = `
             <button onclick="handleContextAction('edit_trip_info')" class="w-full text-left px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3 transition-colors">
                 <span class="material-symbols-outlined text-lg text-primary">edit_square</span> 정보 수정
+            </button>
+        `;
+    } else if (type === 'memory') {
+        html = `
+            <button onclick="handleContextAction('delete_memory')" class="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-3 transition-colors">
+                <span class="material-symbols-outlined text-lg">delete</span> 추억 삭제
             </button>
         `;
     }
@@ -3205,6 +3216,10 @@ export function handleContextAction(action) {
         deleteHeroImage();
     } else if (action === 'edit_trip_info') {
         openTripInfoModal();
+    } else if (action === 'delete_memory') {
+        if (window.deleteMemory) {
+            window.deleteMemory(contextMenuTargetIndex, targetDayIndex, contextMenuMemoryIndex);
+        }
     }
 }
 

@@ -917,6 +917,11 @@ export function saveExpense() {
         targetItem = travelData.days[targetDayIndex].timeline[viewingItemIndex];
     }
 
+    if (!targetItem) {
+        showToast("지출을 추가할 장소를 찾을 수 없습니다.", 'error');
+        return;
+    }
+
     if (!targetItem.expenses) targetItem.expenses = [];
 
     const newExpense = {
@@ -1029,6 +1034,54 @@ export function selectShoppingItem(idx) {
     }, 100);
 }
 
+// [Global Confirmation Modal]
+export function openConfirmationModal(title, message, onConfirm) {
+    let modal = document.getElementById('global-confirmation-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'global-confirmation-modal';
+        modal.className = 'hidden fixed inset-0 z-[300] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
+        modal.innerHTML = `
+            <div class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden text-center p-8 modal-slide-in">
+                <div class="w-16 h-16 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center mx-auto mb-4">
+                    <span class="material-symbols-outlined text-4xl text-red-500">priority_high</span>
+                </div>
+                <h3 id="confirm-modal-title" class="text-lg font-bold text-text-main dark:text-white mb-2"></h3>
+                <p id="confirm-modal-message" class="text-sm text-gray-500 dark:text-gray-400 mb-6 whitespace-pre-line"></p>
+                <div class="flex gap-3">
+                    <button type="button" onclick="closeConfirmationModal()" class="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-50 dark:hover:bg-gray-800 rounded-2xl transition-colors">취소</button>
+                    <button type="button" id="confirm-modal-btn" class="flex-1 py-3 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 shadow-lg transition-colors">확인</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    document.getElementById('confirm-modal-title').innerText = title;
+    document.getElementById('confirm-modal-message').innerText = message;
+
+    const confirmBtn = document.getElementById('confirm-modal-btn');
+    const newBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newBtn, confirmBtn);
+
+    newBtn.onclick = () => {
+        closeConfirmationModal();
+        if (onConfirm) onConfirm();
+    };
+
+    modal.classList.remove('hidden');
+    lockBodyScroll();
+}
+
+export function closeConfirmationModal() {
+    const modal = document.getElementById('global-confirmation-modal');
+    if (modal) modal.classList.add('hidden');
+    unlockBodyScroll();
+}
+
+window.openConfirmationModal = openConfirmationModal;
+window.closeConfirmationModal = closeConfirmationModal;
+
 export default {
     lockBodyScroll,
     unlockBodyScroll,
@@ -1055,5 +1108,7 @@ export default {
     ensureShoppingSelectorModal,
     openShoppingListSelector,
     closeShoppingListSelector,
-    selectShoppingItem
+    selectShoppingItem,
+    openConfirmationModal,
+    closeConfirmationModal
 };

@@ -356,19 +356,23 @@ export async function finishNewTripWizard() {
     }
 }
 
-export async function deleteTrip(tripId) {
-    if (!confirm("정말 이 여행 계획을 보내주시겠습니까? 🗑️\n삭제된 여행은 복구할 수 없습니다.")) return;
-
-    try {
-        showLoading();
-        await deleteDoc(doc(db, "plans", tripId));
-        if (currentUser) loadTripList(currentUser.uid);
-    } catch (e) {
-        console.error("Error deleting trip:", e);
-        alert("삭제 실패: " + e.message);
-    } finally {
-        hideLoading();
-    }
+export function deleteTrip(tripId) {
+    window.openConfirmationModal(
+        "여행 계획 삭제",
+        "정말 이 여행 계획을 보내주시겠습니까? 🗑️\n삭제된 여행은 복구할 수 없습니다.",
+        async () => {
+            try {
+                showLoading();
+                await deleteDoc(doc(db, "plans", tripId));
+                if (currentUser) loadTripList(currentUser.uid);
+            } catch (e) {
+                console.error("Error deleting trip:", e);
+                alert("삭제 실패: " + e.message);
+            } finally {
+                hideLoading();
+            }
+        }
+    );
 }
 
 // [Duplicate Trip Logic]
@@ -383,7 +387,7 @@ function ensureCopyOptionsModal() {
         modal.id = 'copy-options-modal';
         modal.className = 'fixed inset-0 bg-black/50 z-[9999] hidden flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in';
         modal.innerHTML = `
-                < div class="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl transform transition-all scale-100" >
+                <div class="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl transform transition-all scale-100">
                     <div class="p-6">
                         <h3 class="text-xl font-bold mb-2 text-gray-800 dark:text-white">여행 복제하기</h3>
                         <p class="text-sm text-gray-500 mb-6">복제할 항목을 선택해주세요.</p>

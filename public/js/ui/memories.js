@@ -342,15 +342,20 @@ export async function saveMemoryItem() {
 }
 
 export function deleteMemory(itemIndex, dayIndex, memoryIndex) {
-    if (confirm("이 추억을 삭제하시겠습니까?")) {
-        const item = travelData.days[dayIndex].timeline[itemIndex];
-        if (item && item.memories) {
-            item.memories.splice(memoryIndex, 1);
-            autoSave(true);
-            renderItinerary();
+    window.openConfirmationModal(
+        "추억 삭제",
+        "이 추억을 정말로 삭제하시겠습니까?",
+        () => {
+            const item = travelData.days[dayIndex].timeline[itemIndex];
+            if (item && item.memories) {
+                item.memories.splice(memoryIndex, 1);
+                autoSave(true);
+                renderItinerary();
+            }
         }
-    }
+    );
 }
+window.deleteMemory = deleteMemory;
 
 export function toggleMemoryLock() {
     travelData.meta.memoryLocked = !travelData.meta.memoryLocked;
@@ -439,6 +444,15 @@ export function renderMemoriesList(containerId, item, itemIndex, dayIndex) {
                 window.openLightbox(itemIndex, dayIndex, memIdx);
             } else {
                 addMemoryItem(itemIndex, dayIndex);
+            }
+        };
+
+        // [New] Context Menu for Memory (Right-click delete)
+        photoDiv.oncontextmenu = (e) => {
+            e.preventDefault();
+            e.stopPropagation(); // Stop parent context menu
+            if (window.openContextMenu) {
+                window.openContextMenu(e, 'memory', itemIndex, dayIndex, memIdx);
             }
         };
 

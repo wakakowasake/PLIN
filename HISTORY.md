@@ -6,6 +6,35 @@
 
 ## 2026-01-21
 
+### 15:52 - [AI] UI 여백 및 삭제 모달 개선
+- **UX 개선**: 추억 사진 및 여행 목록 삭제 시 브라우저 기본창 대신 커스텀 삭제 모달(`openConfirmationModal`) 적용하여 일관성 확보
+- **UI 개선**: 계획 페이지 하단(`detail-view`)에 충분한 여백(`pb-64` + Spacer)을 추가하여 푸터와의 간격 확보
+- **변경 파일**: public/js/ui/modals.js, public/js/ui/memories.js, public/js/ui/trips.js, public/index.html, HISTORY.md
+
+### 15:20 - [AI] 정적 자산(파비콘, 이미지) 배포 누락 문제 해결
+- **오류 수정**: `vite.config.js`의 경로 설정(`publicDir: '../assets'`) 차이로 인해 배포 시 이미지와 아이콘이 404가 뜨는 문제 해결
+- **조치 내용**: `public` 디렉토리의 주요 정적 파일들을 `assets` 디렉토리로 동기화하고 빌드 파이프라인 재실행
+- **변경 파일**: assets/ (파비콘 및 이미지 복사), HISTORY.md
+
+### 15:10 - [AI] 이동수단 지출 추가 시 스크롤 잠금 오류 수정
+- **버그 수정**: 이동수단 상세 모달에서 지출 추가 후 모달이 닫힐 때 스크롤 잠금(`overflow: hidden`)이 해제되지 않는 문제 해결
+  - `saveRouteExpense` 함수에서 `window.closeExpenseModal()`을 호출하도록 변경하여 정상적인 모달 종료 및 스크롤 복구 처리
+- **변경 파일**: public/js/ui-transit.js, HISTORY.md
+
+### 15:00 - [AI] 지출 관리 기능 안정화 및 오류 수정
+- **버그 수정**: 지출/경로 상세 모달에서 데이터 접근 시 발생하던 `TypeError` 및 `NaN` 오류 수정
+  - `saveExpense`: 유효하지 않은 타겟에 대한 방어 로직 추가
+  - `viewRouteDetail`: 잘못된 인덱스 전달 시 크래시 방지 및 `null` 금액 데이터에 대한 예외 처리 (`toLocaleString`)
+  - `saveRouteExpense`: 금액 입력 값의 콤마(,) 제거 로직 추가로 `NaN` 저장 문제 해결
+  - `deleteExpenseFromDetail`: 삭제 시 아이템 존재 여부 검증 강화
+- **변경 파일**: public/js/ui/modals.js, public/js/ui-transit.js, public/js/ui.js, HISTORY.md
+
+### 14:30 - [AI] 동적 OG 태그 적용 및 공유 링크 형식 개선
+- **기능 구현**: 여행 공유 시 SNS 미리보기(OG 태그)가 동적으로 생성되도록 Cloud Functions 엔드포인트(`/v/:tripId`) 구현 및 배포
+- **UI 개선**: 공유 링크 생성 시 동적 태그가 적용된 URL(`/v/...`)을 기본으로 사용하도록 변경
+- **배포 수정**: `openview.html` 템플릿 누락 문제 해결 및 Functions 배포 완료
+- **변경 파일**: functions/index.js, functions/openview.html, public/js/ui/header.js, HISTORY.md
+
 ### 13:16 - [AI] 오픈 뷰어 버튼 디자인 미세 조정
 - **UI 최적화**: '나도 계획 만들기' 버튼의 좌우 패딩을 줄여(`px-8` -> `px-5`) 버튼 폭을 슬림하게 조정
 - **변경 파일**: public/openview.html, HISTORY.md
