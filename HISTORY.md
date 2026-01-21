@@ -4,6 +4,22 @@
 
 ---
 
+## [2.3.3] - 2026-01-21
+### Fixed
+- '추억 남기기' 모달이 상세 모달 뒤에 가려지는 Z-index 레이어 충돌 문제 해결
+- `public/js/ui/constants.js`에 `Z_INDEX` 통합 관리 시스템 도입 (상세: 150, 입력: 210)
+
+### Optimized
+- **프로젝트 구조 단일화**: 중복되던 `assets/` 디렉토리를 제거하고 모든 자산을 `public/`으로 통합
+- **Vite 설정 최적화**: `vite.config.js`에서 `publicDir` 설정을 제거하여 `public/`을 유일한 소스 및 자산 루트로 확립
+- **코드 클린업**:
+    - `index.html` 내 구형 모달 잔재(`경로 삭제`, `시간 재계산` 등) 전수 제거
+    - 디버깅용 콘솔 로그(`[Z-DEBUG]`) 및 인덱스 파일 내 버전 쿼리 스트링 삭제
+    - `ui-transit.js` 내 중복된 전역 함수 바인딩 로직 정리
+
+### 22:15 - [AI] 모달 Z-index 체계 정규화 및 프로젝트 구조 최적화
+- **변경 파일**: public/js/ui/constants.js, public/js/ui-transit.js, public/js/ui/modals.js, public/js/ui/memories.js, public/index.html, vite.config.js, HISTORY.md
+
 ## [2.3.2] - 2026-01-21
 ### Fixed
 - Firebase Performance SDK API 오용 수정 (`perf.trace is not a function` 에러 해결)

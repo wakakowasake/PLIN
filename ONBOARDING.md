@@ -19,10 +19,14 @@ PLIN is a **Vanilla JS** application powered by **Firebase** and styled with **T
 
 ### 📂 Directory Structure & Modules (`public/js/`)
 
+> [!IMPORTANT]
+> **단일 루트 구조**: 본 프로젝트는 `public/` 폴더를 루트(root)로 사용합니다. 모든 HTML, JS(소스), CSS, 정적 자산(이미지, 폰트)은 `public/` 한 곳에서 관리합니다. (이전의 중복된 `assets/` 폴더는 영구 제거되었습니다.)
+
 | Module | Role | Description |
 | :--- | :--- | :--- |
-| **`ui.js`** | **Control Center** | The central hub coordinating all UI modules. Exposes global functions (`window.renderItinerary`, etc.). |
-| **`state.js`** | **Data Store** | Manages the global `travelData` object and application state. |
+| **`ui.js`** | **Control Center** | 전역 UI 조정 허브. 모듈들을 통합하고 `window` 객체에 주요 함수를 노출합니다. |
+| **`state.js`** | **Data Store** | `travelData` 전역 객체 및 애플리케이션 상태를 관리합니다. |
+| **`ui/constants.js`**| **Constants** | **Z-Index 시스템 및 공통 상수 관리.** 모든 모달은 여기서 정의된 `Z_INDEX`를 따라야 합니다. |
 | **`firebase.js`** | **Backend/DB** | Handles Firestore connections, Auth, and configuration loading. |
 | **`map.js`** | **Maps** | Manages Google Maps SDK, markers, and path rendering. |
 | **`ui/renderers.js`** | **View Layer** | Renders the main timeline content (HTML string generation). Most UI changes happen here. |

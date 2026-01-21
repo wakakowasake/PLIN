@@ -8,7 +8,7 @@ let perf = null;
 firebaseReady.then(() => {
     try {
         perf = getPerformance(app);
-        logger.log('Firebase Performance initialized');
+        logger.debug('Firebase Performance initialized');
     } catch (e) {
         logger.warn('Firebase Performance not available:', e.message);
     }
@@ -23,7 +23,7 @@ export function measureWebVitals() {
             const lastEntry = entries[entries.length - 1];
             const val = lastEntry.renderTime || lastEntry.loadTime;
 
-            logger.log('LCP:', val);
+            logger.debug('LCP:', val);
 
             // Firebase Performance에 기록 (Custom Trace)
             if (perf) {
@@ -45,7 +45,7 @@ export function measureWebVitals() {
             const entries = list.getEntries();
             entries.forEach((entry) => {
                 const fid = entry.processingStart - entry.startTime;
-                logger.log('FID:', fid);
+                logger.debug('FID:', fid);
 
                 if (perf) {
                     const t = trace(perf, 'fid');
@@ -71,7 +71,7 @@ export function measureWebVitals() {
                 }
             }
 
-            logger.log('CLS:', clsValue);
+            logger.debug('CLS:', clsValue);
 
             if (perf) {
                 // CLS는 소수점이므로 정수 메트릭으로 변환 (예: * 1000)
@@ -105,7 +105,7 @@ export function measurePageLoad() {
                     total: perfData.loadEventEnd - perfData.fetchStart
                 };
 
-                logger.log('Page Load Metrics:', metrics);
+                logger.debug('Page Load Metrics:', metrics);
 
                 // Firebase Performance에 기록
                 if (perf) {
@@ -145,7 +145,7 @@ export function measureResources() {
             else resourceSummary.other += duration;
         });
 
-        logger.log('Resource Loading Summary:', resourceSummary);
+        logger.debug('Resource Loading Summary:', resourceSummary);
     });
 }
 

@@ -173,5 +173,5 @@
         }, 5000);
     }
 
-    console.log('[Global Error Guard] Initialized');
+    logger.debug('[Global Error Guard] Initialized');
 })();

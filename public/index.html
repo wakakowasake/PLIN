@@ -435,8 +435,8 @@
         <!-- Hero Image -->
         <div id="trip-hero"
             class="vibrant-img w-full h-48 md:h-80 bg-gray-200 rounded-2xl bg-cover bg-center mb-8 shadow-md relative overflow-hidden group select-none"
-            oncontextmenu="openContextMenu(event, 'hero')" ontouchstart="touchStart(event, -1, 'hero')"
-            ontouchend="touchEnd(event)" ontouchmove="touchMove(event)">
+            style="touch-action: pan-y;" oncontextmenu="openContextMenu(event, 'hero')"
+            ontouchstart="touchStart(event, -1, 'hero')" ontouchend="touchEnd(event)" ontouchmove="touchMove(event)">
             <div class="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors"></div>
         </div>
 
@@ -445,7 +445,7 @@
             <div class="lg:col-span-8 flex flex-col gap-6">
                 <div class="flex flex-col custom-flex-row justify-between gap-4">
                     <div class="flex flex-col gap-2 select-none p-2 -m-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                        oncontextmenu="openContextMenu(event, 'trip_info')"
+                        style="touch-action: pan-y;" oncontextmenu="openContextMenu(event, 'trip_info')"
                         ontouchstart="touchStart(event, -1, 'trip_info')" ontouchend="touchEnd(event)"
                         ontouchmove="touchMove(event)">
                         <div class="flex items-center gap-2 text-primary font-bold text-lg uppercase tracking-wider">

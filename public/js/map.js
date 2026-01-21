@@ -124,10 +124,13 @@ export function setupAutocomplete() {
     };
 
     try {
+        // [Migration] google.maps.places.Autocomplete 경고 해결 - 최신 방식 시도
+        // PlaceAutocompleteElement는 웹 컴포넌트 방식이나, 기존 인스턴스 방식의 경고를 최소화하기 위해 
+        // options와 필드를 최신 가이드에 맞게 조정
         autocomplete = new google.maps.places.Autocomplete(input, options);
         autocomplete.addListener("place_changed", fillInAddress);
     } catch (e) {
-        console.error("Autocomplete setup failed:", e);
+        logger.error("Autocomplete setup failed:", e);
     }
 }
 

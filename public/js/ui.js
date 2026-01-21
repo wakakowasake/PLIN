@@ -708,10 +708,10 @@ let pendingInviteId = null;
 // [Invite Link Logic] (Using existing pendingInviteId from above)
 
 export async function checkInviteLink() {
-    console.log("[Invite] Checking for invite link...");
+    logger.debug("[Invite] Checking for invite link...");
     const urlParams = new URLSearchParams(window.location.search);
     const inviteId = urlParams.get('invite');
-    console.log("[Invite] Invite ID:", inviteId);
+    logger.debug("[Invite] Invite ID:", inviteId);
 
     if (inviteId && currentUser) {
         // ... (Existing Logic) ...
@@ -741,16 +741,16 @@ export async function checkInviteLink() {
             console.error("Invite processing error", e);
         }
     } else {
-        console.log("[Invite] No invite ID or user not logged in.");
+        logger.debug("[Invite] No invite ID or user not logged in.");
     }
 }
 
 // [Share (Read-Only) Link Logic]
 export async function checkShareLink() {
-    console.log("[Share] Checking for share link...");
+    logger.debug("[Share] Checking for share link...");
     const urlParams = new URLSearchParams(window.location.search);
     const shareId = urlParams.get('share');
-    console.log("[Share] Share ID:", shareId);
+    logger.debug("[Share] Share ID:", shareId);
 
     if (shareId) {
         console.log("[Share] Share ID found. Attempting to load public trip...");
