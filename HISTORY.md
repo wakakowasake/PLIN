@@ -4,6 +4,16 @@
 
 ---
 
+## [2.5.1] - 2026-01-22
+### Fixed
+- **OAuth 인증 오류(ERR_FAILED) 긴급 수정**: 
+    - 커스텀 도메인(`plin.ink`) 환경에서 브라우저 보안 정책(COOP)으로 인해 구글 로그인 팝업이 차단되는 현상을 해결하기 위해 `authDomain` 설정을 표준 방식인 Firebase 기본 도메인으로 복구했습니다.
+
+### 15:15 - [AI] OAuth 인증 오류 진단 및 해결 (authDomain 복구)
+- **변경 파일**: public/js/firebase.js, HISTORY.md, task.md, walkthrough.md
+
+---
+
 ## [2.5.0] - 2026-01-22
 ### Added
 - **프로필 관리 기능 고도화**:

@@ -30,7 +30,7 @@ async function initFirebase() {
     const firebaseConfig = {
         apiKey: config.firebaseApiKey,
         // [Fix] Use default firebaseapp domain for localhost to avoid COOP issues with custom domain
-        authDomain: isLocalhost ? "plin-db93d.firebaseapp.com" : "plin.ink",
+        authDomain: "plin-db93d.firebaseapp.com",
         projectId: "plin-db93d",
         storageBucket: "plin-db93d.firebasestorage.app",
         messagingSenderId: "68227359192",
