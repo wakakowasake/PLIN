@@ -283,6 +283,9 @@ function removeDragGhost() {
  * Touch drag start handler (long press)
  */
 export function touchStart(e, index, type, isEditing) {
+    // [Fix] 뷰어 모드(공개 링크)에서는 터치 드래그 로직 완전 차단 (스크롤 허용)
+    if (document.body.classList.contains('viewer-mode')) return;
+
     if (isEditing) return;
 
     const touch = e.touches[0];
@@ -321,6 +324,9 @@ export function touchStart(e, index, type, isEditing) {
  * Touch move handler
  */
 export function touchMove(e) {
+    // [Fix] 뷰어 모드 차단
+    if (document.body.classList.contains('viewer-mode')) return;
+
     // 롱프레스 타이머 취소 (스크롤 시)
     const touch = e.touches[0];
     const moveX = Math.abs(touch.clientX - touchStartX);

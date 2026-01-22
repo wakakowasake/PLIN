@@ -71,8 +71,8 @@ app.get("/v/:tripId", async (req, res) => {
       if (data.meta) {
         title = `${data.meta.title || "여행 제목"} | PLIN`;
         description = `${data.meta.dayCount || ""} - ${data.meta.subInfo || ""} 여행 계획을 확인해 보세요.`;
-        if (data.meta.image) {
-          imageUrl = data.meta.image;
+        if (data.meta.mapImage || data.meta.image) {
+          imageUrl = data.meta.mapImage || data.meta.image;
         }
       }
     }
@@ -81,12 +81,14 @@ app.get("/v/:tripId", async (req, res) => {
     let html = getOpenViewTemplate();
     if (!html) throw new Error("Template not found");
 
-    // 메타 태그 치환 (정규표현식으로 교체)
-    html = html.replace(/<title>.*?<\/title>/, `<title>${title}</title>`);
-    html = html.replace(/<meta name="description" content=".*?">/, `<meta name="description" content="${description}">`);
-    html = html.replace(/<meta property="og:title" content=".*?">/, `<meta property="og:title" content="${title}">`);
-    html = html.replace(/<meta property="og:description" content=".*?">/, `<meta property="og:description" content="${description}">`);
-    html = html.replace(/<meta property="og:image" content=".*?">/, `<meta property="og:image" content="${imageUrl}">`);
+    console.log(`[OG Debug] TripId: ${tripId}, Image: ${imageUrl}`);
+
+    // 메타 태그 치환 (정규표현식 개선: 공백 유연성 확보)
+    html = html.replace(/<title>[\s\S]*?<\/title>/, `<title>${title}</title>`);
+    html = html.replace(/<meta\s+name=["']description["']\s+content=["'].*?["']\s*\/?>/i, `<meta name="description" content="${description}">`);
+    html = html.replace(/<meta\s+property=["']og:title["']\s+content=["'].*?["']\s*\/?>/i, `<meta property="og:title" content="${title}">`);
+    html = html.replace(/<meta\s+property=["']og:description["']\s+content=["'].*?["']\s*\/?>/i, `<meta property="og:description" content="${description}">`);
+    html = html.replace(/<meta\s+property=["']og:image["']\s+content=["'].*?["']\s*\/?>/i, `<meta property="og:image" content="${imageUrl}">`);
 
     // 3. 응답 반환
     res.set("Content-Type", "text/html");

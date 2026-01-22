@@ -4,17 +4,57 @@
 
 ---
 
-## [2.5.1] - 2026-01-22
-### Fixed
-- **OAuth 인증 오류(ERR_FAILED) 긴급 수정**: 
-    - 커스텀 도메인(`plin.ink`) 환경에서 브라우저 보안 정책(COOP)으로 인해 구글 로그인 팝업이 차단되는 현상을 해결하기 위해 `authDomain` 설정을 표준 방식인 Firebase 기본 도메인으로 복구했습니다.
+## [2.5.3] - 2026-01-22
+### Added
+- **공개 뷰어 모바일 스크롤 이슈 해결 (Hotfix)**:
+    - 모바일 환경의 공개 뷰어(`/v/:id`)에서 타임라인 영역 터치 스크롤이 불가하던 문제를 수정했습니다.
+    - 원인: 드래그 앤 드롭 로직(`dnd.js`)이 터치 이벤트를 가로채어 `preventDefault`를 호출하고 있었습니다.
+    - 해결: 
+        1. **JS 이중 잠금**: `dnd.js` 및 `renderers.js`에 `viewer-mode` 클래스 확인 로직을 추가하여 뷰어 모드 시 이벤트 연결을 원천 차단했습니다.
+        2. **CSS 강제 적용**: `openview.html`에 `touch-action: pan-y !important` 스타일을 인라인으로 추가하여 스크롤 우선권을 확보했습니다.
+        3. **배포 프로세스 수정**: Functions가 사용하는 템플릿(`functions/openview.html`)이 최신 빌드본과 동기화되지 않는 문제를 발견, 동기화 후 재배포했습니다.
 
-### 15:15 - [AI] OAuth 인증 오류 진단 및 해결 (authDomain 복구)
-- **변경 파일**: public/js/firebase.js, HISTORY.md, task.md, walkthrough.md
+### 22:30 - [AI] 모바일 스크롤 불가 해결 및 Functions 템플릿 동기화 배포
+- **변경 파일**: public/js/ui/renderer.js, public/js/ui/dnd.js, public/openview.html, functions/openview.html, HISTORY.md, ONBOARDING.md
+
+## [2.5.2] - 2026-01-22
+### Added
+- **공유 링크 OG 이미지 동적화**:
+    - 카카오톡 등 SNS 공유 시, 고정된 이미지가 아닌 여행의 '지도 대표 이미지(`mapImage`)'가 미리보기에 표시되도록 개선했습니다.
+    - **Cloud Functions 로직 수정**: `index.js`에서 `og:image` 메타 태그 생성 시 `meta.mapImage` 필드를 우선 참조하도록 변경했습니다.
+    - **정규식 유연화**: 템플릿 치환 정규식을 개선하여 HTML의 공백이나 대소문자 차이에도 유연하게 대응하도록 했습니다.
+
+### 21:30 - [AI] Cloud Functions OG 이미지 생성 로직 동적화
+- **변경 파일**: functions/index.js, functions/openview.html, HISTORY.md, task.md, walkthrough.md
+### Added
+- **공개 링크 예산 연동**: 
+    - 공개 뷰어(`/v/:id`)에서도 총 예산 정보를 확인할 수 있도록 `viewer.js`에 예산 계산 로직을 통합했습니다.
+    - `expense-manager.js`의 `updateTotalBudget` 함수를 재사용하여 데이터 로드 시 즉시 UI에 반영되도록 처리했습니다.
+
+### 21:20 - [AI] 공개 링크 뷰어에 예산 계산 및 표시 로직 적용
+- **변경 파일**: public/js/viewer.js, HISTORY.md, task.md, implementation_plan.md
 
 ---
 
 ## [2.5.0] - 2026-01-22
+### Added
+- **공유 뷰어 예산 표시 기능 추가**:
+    - `viewer.js`에 `updateViewerBudget` 함수를 추가하여 공유 뷰어 로드 시 총 예산을 계산하고 표시하도록 수정했습니다.
+
+### 15:40 - [AI] 공유 뷰어 예산 계산 로직 추가 (Patch)
+- **변경 파일**: public/js/viewer.js, HISTORY.md
+
+### Added
+- **정적 자산 경로 참조 오류 수정 (Hotfix)**:
+    - 공유 뷰어(`/v/:id`) 및 약관 페이지 진입 시 `style.css`, `viewer.js` 등이 404 에러를 뱉는 문제를 해결했습니다.
+    - 모든 HTML 파일(`openview.html`, `terms.html` 등)의 자산 참조 방식을 상대 경로에서 **절대 경로(`/`)**로 일괄 변환했습니다.
+
+### 15:20 - [AI] 정적 자산 경로 참조 오류(404) 해결을 위한 절대 경로 변환
+- **변경 파일**: fix-paths.js (신규), HISTORY.md
+
+### 15:25 - [AI] 임시 경로 수정 스크립트 정리
+- **삭제 파일**: fix-paths.js (사용 완료)
+
 ### Added
 - **프로필 관리 기능 고도화**:
     - **수정 모드 전환 시스템**: 프로필 진입 시 정보 수정을 차단하고 '수정하기' 버튼을 통해서만 변경이 가능하도록 UI를 전면 개편했습니다.

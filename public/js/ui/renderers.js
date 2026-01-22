@@ -225,11 +225,17 @@ export function renderTimelineItemHtml(item, index, dayIndex, isLast, isFirst, a
     const clickHandler = isEditing ? `onclick="editTimelineItem(${index}, ${dayIndex})"` : `onclick="viewTimelineItem(${index}, ${dayIndex})"`;
     const contextHandler = `oncontextmenu="openContextMenu(event, 'item', ${index}, ${dayIndex})"`;
     const isMemoryLocked = travelData.meta?.memoryLocked || false;
-    const draggableAttr = isMemoryLocked ? 'draggable="false"' : `draggable="true" ondragstart="dragStart(event, ${index}, ${dayIndex})" ondragend="dragEnd(event)" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event, ${index})" data-drop-index="${index}"`;
+    const draggableAttr = (isMemoryLocked || isReadOnlyMode) ? 'draggable="false"' : `draggable="true" ondragstart="dragStart(event, ${index}, ${dayIndex})" ondragend="dragEnd(event)" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event, ${index})" data-drop-index="${index}"`;
     const zIndex = 100 - index;
 
+    // [Fix] 읽기 전용 모드에서는 터치 스크롤 허용 (touch-action: none 제거 및 터치 이벤트 미부착)
+    // 모듈 변수 동기화 문제 방지를 위해 DOM 클래스도 함께 확인
+    const isViewer = isReadOnlyMode || document.body.classList.contains('viewer-mode');
+    const touchAttrs = isViewer ? '' : `ontouchstart="touchStart(event, ${index}, 'item')" ontouchmove="touchMove(event)" ontouchend="touchEnd(event)"`;
+    const touchStyle = isViewer ? '' : 'touch-action: none;';
+
     let html = `
-        <div ${draggableAttr} ontouchstart="touchStart(event, ${index}, 'item')" ontouchmove="touchMove(event)" ontouchend="touchEnd(event)" data-index="${index}" style="z-index: ${zIndex}; touch-action: none;" class="relative grid grid-cols-[auto_1fr] gap-x-3 md:gap-x-6 group/timeline-item pb-4 timeline-item-transition rounded-xl" ${contextHandler}>
+        <div ${draggableAttr} ${touchAttrs} data-index="${index}" style="z-index: ${zIndex}; ${touchStyle}" class="relative grid grid-cols-[auto_1fr] gap-x-3 md:gap-x-6 group/timeline-item pb-4 timeline-item-transition rounded-xl" ${contextHandler}>
         <div class="drag-indicator absolute -top-3 left-0 right-0 h-1 bg-primary rounded-full hidden z-[${Z_INDEX.DRAG_INDICATOR}] shadow-sm pointer-events-none"></div>
 
         <div class="relative flex flex-col items-center" data-timeline-icon="true">
@@ -293,7 +299,7 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
     const editClass = isEditing ? "edit-mode-active ring-2 ring-primary/50 ring-offset-2" : "cursor-pointer hover:shadow-md transform transition-all hover:-translate-y-0.5";
     const clickHandler = isEditing ? `onclick="editTimelineItem(${index}, ${dayIndex})"` : `onclick="viewTimelineItem(${index}, ${dayIndex})"`;
     const contextHandler = `oncontextmenu="openContextMenu(event, 'item', ${index}, ${dayIndex})"`;
-    const draggableAttr = isMemoryLocked ? 'draggable="false"' : `draggable="true" ondragstart="dragStart(event, ${index}, ${dayIndex})" ondragend="dragEnd(event)" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event, ${index})" data-drop-index="${index}"`;
+    const draggableAttr = (isMemoryLocked || isReadOnlyMode) ? 'draggable="false"' : `draggable="true" ondragstart="dragStart(event, ${index}, ${dayIndex})" ondragend="dragEnd(event)" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event, ${index})" data-drop-index="${index}"`;
 
     // [Fix] 편집 모드(플러스 버튼 있음)에서는 균일한 간격을 위해 마진 제거, 뷰 모드(플러스 버튼 없음)에서는 마진 유지
     const showAddBtn = !isMemoryLocked && !isReadOnlyMode;
@@ -345,8 +351,14 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
     const linePosition = isFirst ? 'top-6 -bottom-8' : 'top-0 -bottom-8';
     const zIndex = 100 - index;
 
+    // [Fix] 읽기 전용 모드에서는 터치 스크롤 허용
+    // 모듈 변수 동기화 문제 방지를 위해 DOM 클래스도 함께 확인
+    const isViewer = isReadOnlyMode || document.body.classList.contains('viewer-mode');
+    const touchAttrs = isViewer ? '' : `ontouchstart="touchStart(event, ${index}, 'item')" ontouchmove="touchMove(event)" ontouchend="touchEnd(event)"`;
+    const touchStyle = isViewer ? '' : 'touch-action: none;';
+
     let html = `
-        <div ${draggableAttr} ontouchstart="touchStart(event, ${index}, 'item')" ontouchmove="touchMove(event)" ontouchend="touchEnd(event)" data-index="${index}" style="z-index: ${zIndex}; touch-action: none;" 
+        <div ${draggableAttr} ${touchAttrs} data-index="${index}" style="z-index: ${zIndex}; ${touchStyle}" 
             class="relative grid grid-cols-[auto_1fr] gap-x-3 md:gap-x-6 group/timeline-item timeline-item-transition rounded-xl ${marginClass}" ${contextHandler}>
             <div class="drag-indicator absolute -top-3 left-0 right-0 h-1 bg-primary rounded-full hidden z-50 shadow-sm pointer-events-none"></div>
             

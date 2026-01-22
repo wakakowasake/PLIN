@@ -59,9 +59,25 @@ PLIN is a **Vanilla JS** application powered by **Firebase** and styled with **T
   - Most events are attached via inline `onclick` attributes pointing to window-scoped functions exposed in `ui.js`.
   - **Caution**: Ensure functions are properly attached to `window` if defined in modules.
 
+  - **Caution**: Ensure functions are properly attached to `window` if defined in modules.
+
 ---
 
-## 📝 5. Documentation Standard
+## 🚀 5. Deployment Guidelines (Critical)
+
+> [!WARNING]
+> **공유 링크(`/v/:id`) 배포 시 주의사항**
+> 공유 뷰어 페이지는 **Cloud Functions**에 의해 서빙됩니다. 단순히 `npm run deploy:hosting`만 해서는 공유 링크 화면이 업데이트되지 않습니다.
+> 반드시 다음 절차를 따라야 합니다:
+> 1. **빌드**: `npm run build` (최신 `dist/openview.html` 생성)
+> 2. **복사**: `dist/openview.html` -> `functions/openview.html` (템플릿 동기화)
+> 3. **배포**: `firebase deploy --only functions`
+> 
+> *Hosting 배포는 정적 자산(JS, CSS) 갱신을 위해 필요하지만, HTML 구조 변경은 Functions 배포가 필수입니다.*
+
+---
+
+## 📝 6. Documentation Standard
 
 - **HISTORY.md**: Must be updated after every commit. Use Korean.
   - Format: `### HH:MM - [AI] Change Description`

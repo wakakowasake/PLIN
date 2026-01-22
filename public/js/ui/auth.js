@@ -10,13 +10,6 @@ function isCapacitorApp() {
 }
 
 export async function login() {
-    // [User Request] Check terms agreement before login
-    const termsAgree = document.getElementById('terms-agree');
-    if (termsAgree && !termsAgree.checked) {
-        alert("이용약관 및 개인정보처리방침에 동의해주세요.");
-        return;
-    }
-
     try {
         await firebaseReady;
 
@@ -51,7 +44,16 @@ handleRedirectResult();
 
 
 export async function logout() {
-    try { await firebaseReady; await signOut(auth); closeLogoutModal(); } catch (error) { console.error("로그아웃 실패", error); }
+    try {
+        await firebaseReady;
+        await signOut(auth);
+        closeLogoutModal();
+
+        // [User Request] Clear all user caches on logout to fix profile sync issues
+        localStorage.removeItem('cachedUserPhotoURL');
+        localStorage.removeItem('cachedUserDisplayName');
+        localStorage.removeItem('cachedUserEmail');
+    } catch (error) { console.error("로그아웃 실패", error); }
 }
 
 export function openLogoutModal() {
@@ -76,8 +78,10 @@ export async function initAuthStateObserver() {
         const mainTitle = document.getElementById('main-view-title');
         const loginView = document.getElementById('login-view');
         const mainView = document.getElementById('main-view');
+        const signupView = document.getElementById('signup-view');
         const detailView = document.getElementById('detail-view');
         const backBtn = document.getElementById('back-btn');
+        const appHeader = document.getElementById('app-header');
         const faviconLink = document.querySelector("link[rel~='icon']");
 
         document.body.style.opacity = '1';
@@ -95,23 +99,33 @@ export async function initAuthStateObserver() {
                 photoURL: user.photoURL
             };
 
-            // [User Request] Record terms agreement in Firestore
-            const termsAgree = document.getElementById('terms-agree');
-            if (termsAgree && termsAgree.checked) {
-                userData.agreedToTerms = true;
-                userData.agreedAt = new Date().toISOString();
-            }
+            // Update cache with current user info immediately to avoid stale data from previous user
+            if (user.photoURL) localStorage.setItem('cachedUserPhotoURL', user.photoURL);
+
+            // [Modified] Initial agreement check removed here, moved to signup view process
 
             getDoc(userRef).then((docSnap) => {
                 let customPhotoURL = null;
+                const signupView = document.getElementById('signup-view');
+
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     if (data.photoURL) customPhotoURL = data.photoURL;
 
-                    // [User Request] Cross-check terms agreement for existing users
+                    // [User Request] Route to signup view if NOT agreed to terms
                     if (!data.agreedToTerms) {
-                        const modal = document.getElementById('mandatory-terms-modal');
-                        if (modal) modal.classList.remove('hidden');
+                        loginView?.classList.add('hidden');
+                        signupView?.classList.remove('hidden');
+                        mainView?.classList.add('hidden');
+                        appHeader?.classList.add('hidden'); // [User Request] Hide header on signup page
+                    } else {
+                        loginView?.classList.add('hidden');
+                        signupView?.classList.add('hidden');
+                        mainView?.classList.remove('hidden');
+                        appHeader?.classList.remove('hidden'); // Show header in main service
+
+                        if (window.loadTripList) window.loadTripList(user.uid);
+                        if (window.checkInviteLink) window.checkInviteLink();
                     }
 
                     setCurrentUser({
@@ -130,71 +144,47 @@ export async function initAuthStateObserver() {
                         agreedToTerms: data.agreedToTerms || false
                     });
                 } else {
-                    // New user (should have agreed on login screen, but safety check)
-                    const modal = document.getElementById('mandatory-terms-modal');
-                    if (modal) modal.classList.remove('hidden');
+                    // Entirely new user: show signup view first
+                    loginView?.classList.add('hidden');
+                    signupView?.classList.remove('hidden');
+                    mainView?.classList.add('hidden');
+                    appHeader?.classList.add('hidden'); // [User Request] Hide header on signup page
+
                     setCurrentUser({ ...user, customPhotoURL: customPhotoURL, agreedToTerms: false });
                 }
 
-                // Check localStorage first for uploaded photos, then Firestore custom photo, then Google photo
-                const cachedPhoto = localStorage.getItem('cachedUserPhotoURL');
-                const finalPhotoURL = cachedPhoto || customPhotoURL || user.photoURL;
+                // [Simplified] Save basic user data first if it's the very first login
+                if (!docSnap.exists()) {
+                    setDoc(userRef, userData, { merge: true });
+                }
+
+                if (mainTitle && user.displayName) mainTitle.innerText = `${user.displayName}님의 여행 계획`;
+                localStorage.setItem('cachedUserDisplayName', user.displayName || '');
+                localStorage.setItem('cachedUserEmail', user.email || '');
+
+                // Prioritize user's own data over potentially stale globally cached photo from previous user
+                const finalPhotoURL = customPhotoURL || user.photoURL || localStorage.getItem('cachedUserPhotoURL');
 
                 if (finalPhotoURL) {
                     localStorage.setItem('cachedUserPhotoURL', finalPhotoURL);
                     if (userAvatar) userAvatar.style.backgroundImage = `url("${finalPhotoURL}")`;
-                    const testImg = new Image();
-                    testImg.onerror = () => {
-                        const cached = localStorage.getItem('cachedUserPhotoURL');
-                        if (cached && cached !== finalPhotoURL) {
-                            if (userAvatar) userAvatar.style.backgroundImage = `url("${cached}")`;
-                        } else {
-                            // 이미지 로드 실패 시 기본 여행가 아바타 표시
-                            if (userAvatar) userAvatar.style.backgroundImage = `url("${defaultTravelData.meta.userImage}")`;
-                        }
-                    };
-                    testImg.src = finalPhotoURL;
-                } else {
-                    // 사진이 없을 때 기본 여행가 아바타 표시
-                    const cached = localStorage.getItem('cachedUserPhotoURL');
-                    if (cached && userAvatar) userAvatar.style.backgroundImage = `url("${cached}")`;
-                    else if (userAvatar) userAvatar.style.backgroundImage = `url("${defaultTravelData.meta.userImage}")`;
                 }
             }).catch(error => {
                 console.error("Error loading user data:", error);
-                const fallbackPhotoURL = user.photoURL || localStorage.getItem('cachedUserPhotoURL');
-                const userAvatar = document.getElementById('user-avatar');
-                if (fallbackPhotoURL && userAvatar) {
-                    userAvatar.style.backgroundImage = `url("${fallbackPhotoURL}")`;
-                } else if (userAvatar) {
-                    // Firestore 에러 시에도 기본 여행가 아바타 표시
-                    userAvatar.style.backgroundImage = `url("${defaultTravelData.meta.userImage}")`;
-                }
             });
-
-            // login-view에서 체크하고 들어온 경우, 최초 1회 저장 로직은 아래 setDoc에서 수행됨
-            setDoc(userRef, userData, { merge: true });
-
-            if (mainTitle) mainTitle.innerText = `${user.displayName}님의 여행 계획`;
-            localStorage.setItem('cachedUserDisplayName', user.displayName || '');
-            localStorage.setItem('cachedUserEmail', user.email || '');
-
-            loginView?.classList.add('hidden');
-            mainView?.classList.remove('hidden');
-
-            if (window.loadTripList) window.loadTripList(user.uid);
-            if (window.checkInviteLink) window.checkInviteLink();
         } else {
             // [Modified] Check for public share link
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.has('share')) {
                 console.log("[Auth] Public share link detected. Skipping login screen.");
                 loginView?.classList.add('hidden');
+                appHeader?.classList.remove('hidden');
                 // checkShareLink will be called by ui.js or we can ensure it's called here
                 if (window.checkShareLink) window.checkShareLink();
             } else {
                 loginBtn?.classList.remove('hidden');
                 userProfile?.classList.add('hidden');
+                appHeader?.classList.add('hidden'); // [User Request] Hide header on login view
                 // 로그아웃 상태에서도 기본 여행가 아바타 표시
                 if (userAvatar) userAvatar.style.backgroundImage = `url('${defaultTravelData.meta.userImage}')`;
                 if (mainTitle) mainTitle.innerText = '나의 여행 계획';
@@ -297,8 +287,45 @@ export async function deleteAccount() {
     }
 }
 
+export async function completeSignup() {
+    const agreeTerms = document.getElementById('agree-terms');
+    const agreePrivacy = document.getElementById('agree-privacy');
+
+    if (!agreeTerms?.checked || !agreePrivacy?.checked) {
+        alert("이용약관 및 개인정보처리방침에 모두 동의해주셔야 가입이 가능합니다.");
+        return;
+    }
+
+    try {
+        await firebaseReady;
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const userRef = doc(db, "users", user.uid);
+        await setDoc(userRef, {
+            agreedToTerms: true,
+            agreedToPrivacy: true,
+            agreedAt: new Date().toISOString()
+        }, { merge: true });
+
+        // UI 전환
+        document.getElementById('signup-view')?.classList.add('hidden');
+        document.getElementById('main-view')?.classList.remove('hidden');
+        document.getElementById('app-header')?.classList.remove('hidden');
+
+        if (window.loadTripList) window.loadTripList(user.uid);
+        if (window.checkInviteLink) window.checkInviteLink();
+
+        console.log("Signup completed with individual agreements.");
+    } catch (error) {
+        console.error("Signup completion failed", error);
+        alert("처리 중 오류가 발생했습니다: " + error.message);
+    }
+}
+
 window.confirmMandatoryTerms = confirmMandatoryTerms;
 window.deleteAccount = deleteAccount;
+window.completeSignup = completeSignup;
 
-export default { login, logout, openLogoutModal, closeLogoutModal, confirmLogout, initAuthStateObserver, confirmMandatoryTerms, deleteAccount };
+export default { login, logout, openLogoutModal, closeLogoutModal, confirmLogout, initAuthStateObserver, confirmMandatoryTerms, deleteAccount, completeSignup };
 

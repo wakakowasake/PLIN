@@ -3,6 +3,7 @@ import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-
 import { setTravelData, travelData, setCurrentTripId, setCurrentDayIndex, setIsReadOnlyMode } from './state.js'; // setReadOnlyMode might need to be added or simulated
 import { renderItinerary, renderLists, renderWeeklyWeather } from './ui/renderers.js';
 import { formatTime } from './ui/time-helpers.js';
+import { updateTotalBudget } from './ui/expense-manager.js'; // [Added] Import Budget Manager
 
 import { BACKEND_URL } from './config.js';
 
@@ -348,6 +349,7 @@ async function loadTrip(tripId) {
 
             // Force Read-Only State
             setIsReadOnlyMode(true); // [Added] 뷰어 모드 활성화 (UI 버튼 숨김)
+            document.body.classList.add('viewer-mode'); // [Added] CSS 터치 이벤트 제어를 위한 클래스
             // state.js의 isEditing은 초기값이 false이므로 별도 설정 불필요하지만 명시적으로
             // (state.js에 export가 없다면 직접 수정 불가, 하지만 renderers는 readonly 상태로 동작함)
 
@@ -364,6 +366,9 @@ async function loadTrip(tripId) {
 
             // [Fix] Update Map with loaded data (Load API for preview)
             loadGoogleMapsAPI();
+
+            // [Added] Calculate and Display Budget
+            updateTotalBudget(travelData);
 
             // Weather (Optional)
             if (data.days && data.days.length > 0) {
@@ -439,16 +444,58 @@ window.openLightbox = (dayIndex, itemIndex, memIndex) => {
     if (currentLightboxImages.length > 0) {
         updateLightboxUI();
         const modal = document.getElementById('lightbox-modal');
-        if (modal) modal.classList.remove('hidden');
+        if (modal) {
+            modal.classList.remove('hidden');
+            // [Added] Touch Event Listeners for Swipe
+            modal.addEventListener('touchstart', handleLightboxTouchStart, { passive: false });
+            modal.addEventListener('touchend', handleLightboxTouchEnd, { passive: false });
+        }
         document.body.style.overflow = 'hidden'; // Prevent background scrolling
     }
 };
 
 window.closeLightbox = () => {
     const modal = document.getElementById('lightbox-modal');
-    if (modal) modal.classList.add('hidden');
+    if (modal) {
+        modal.classList.add('hidden');
+        // [Added] Remove Event Listeners
+        modal.removeEventListener('touchstart', handleLightboxTouchStart);
+        modal.removeEventListener('touchend', handleLightboxTouchEnd);
+    }
     document.body.style.overflow = '';
 };
+
+// [Added] Lightbox Swipe Logic
+let lbTouchStartX = 0;
+let lbTouchStartY = 0;
+
+function handleLightboxTouchStart(e) {
+    lbTouchStartX = e.changedTouches[0].screenX;
+    lbTouchStartY = e.changedTouches[0].screenY;
+}
+
+function handleLightboxTouchEnd(e) {
+    const lbTouchEndX = e.changedTouches[0].screenX;
+    const lbTouchEndY = e.changedTouches[0].screenY;
+
+    handleLightboxSwipeGesture(lbTouchStartX, lbTouchStartY, lbTouchEndX, lbTouchEndY);
+}
+
+function handleLightboxSwipeGesture(startX, startY, endX, endY) {
+    const xDiff = endX - startX;
+    const yDiff = endY - startY;
+
+    // 가로 이동이 세로 이동보다 크고, 일정 거리(50px) 이상 이동했을 때만 스와이프로 인정
+    if (Math.abs(xDiff) > Math.abs(yDiff) && Math.abs(xDiff) > 50) {
+        if (xDiff > 0) {
+            // Right swipe -> Previous image
+            window.navigateLightbox(-1);
+        } else {
+            // Left swipe -> Next image
+            window.navigateLightbox(1);
+        }
+    }
+}
 
 window.navigateLightbox = (direction) => {
     const newIndex = currentLightboxIndex + direction;

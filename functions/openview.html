@@ -73,12 +73,39 @@
         .loading-spinner {
             animation: spin 1s linear infinite;
         }
+
+        /* [Fix] Viewer Mode: Force Touch Scroll Enable */
+        .viewer-mode .group\/timeline-item,
+        .viewer-mode [data-index],
+        .viewer-mode .timeline-item {
+            touch-action: pan-y !important;
+            user-select: auto !important;
+            -webkit-user-select: auto !important;
+            pointer-events: auto !important;
+        }
     </style>
+  <script type="module" crossorigin src="/assets/openview-DObpaq96.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/expense-manager-Xp6p6r6M.js">
 </head>
 
 <body class="bg-manuscript font-display antialiased text-text-main dark:text-gray-100 min-h-screen flex flex-col">
 
     <!-- Header -->
+    <script>
+        // [Emergency Fix] Force Viewer Mode for Mobile Scroll
+        // JS 로딩 지연/실패에 대비하여 HTML 파싱 단계에서 즉시 클래스 주입
+        document.body.classList.add('viewer-mode');
+
+        // Touch Scroll Blocking Prevention
+        // dnd.js가 로드되기 전에, 혹은 로드된 후라도 viewer-mode가 있으면 터치 이벤트 차단
+        window.addEventListener('touchstart', function (e) {
+            if (document.body.classList.contains('viewer-mode')) {
+                // 스크롤 허용을 위해 아무것도 하지 않음 (Passive)
+                // 만약 dnd.js가 preventDefault를 하려 하면 그것을 막아야 함? 
+                // 아니오, dnd.js 내부에서 viewer-mode 체크를 하므로 여기서는 클래스만 잘 붙여주면 됨.
+            }
+        }, { passive: true });
+    </script>
     <header id="app-header"
         class="sticky top-0 z-[105] bg-white dark:bg-card-dark border-b border-gray-200 dark:border-gray-800 px-4 lg:px-8 py-3">
         <div class="max-w-[1280px] mx-auto flex items-center justify-between">
@@ -255,7 +282,7 @@
 
     <!-- Lightbox Modal -->
     <div id="lightbox-modal"
-        class="hidden fixed inset-0 z-[200] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
+        class="hidden fixed inset-0 z-[300] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
         onclick="closeLightbox()">
         <button type="button" onclick="closeLightbox()"
             class="absolute top-4 right-4 text-white hover:text-gray-300 p-2 z-[210]">
@@ -282,8 +309,31 @@
     <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
 
-    <!-- App Logic -->
-    <script type="module" src="/js/viewer.js"></script>
+    <!-- Footer -->
+    <footer class="mt-auto py-8 px-4 border-t border-gray-200 bg-white">
+        <div class="max-w-[1280px] mx-auto">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                <div class="flex flex-col items-center md:items-start gap-1">
+                    <div class="flex items-center gap-4">
+                        <div class="w-4 h-4 flex items-center justify-center opacity-80">
+                            <span class="font-display font-black text-primary text-sm tracking-tighter">PLIN.</span>
+                        </div>
+                        <span class="text-xs font-medium text-gray-400">© 2026 PLIN Inc.</span>
+                    </div>
+                    <p class="text-[10px] text-gray-400">Plan becomes a Memory.</p>
+                </div>
+                <div class="flex items-center gap-6">
+                    <a href="/terms.html"
+                        class="text-xs font-medium text-gray-400 hover:text-primary transition-colors">이용약관</a>
+                    <div class="w-px h-3 bg-gray-200"></div>
+                    <a href="/privacy.html"
+                        class="text-xs font-medium text-gray-400 hover:text-primary transition-colors">개인정보처리방침</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- App Logic -->
 
 </body>
 
