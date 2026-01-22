@@ -444,7 +444,7 @@ export function renderMemoriesList(containerId, item, itemIndex, dayIndex) {
         img.onclick = (e) => {
             e.stopPropagation();
             if (window.openLightbox) {
-                window.openLightbox(itemIndex, dayIndex, memIdx);
+                window.openLightbox(dayIndex, itemIndex, memIdx);
             } else {
                 addMemoryItem(itemIndex, dayIndex);
             }

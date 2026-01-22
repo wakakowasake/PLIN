@@ -4,6 +4,18 @@
 
 ---
 
+## [2.3.6] - 2026-01-22
+### Fixed
+- **라이트박스(Lightbox) 시스템 안정화**: 
+    - `constants.js`에 누락되었던 `MODAL_LIGHTBOX` 상수를 추가하고 `z-index: 300`을 부여하여 가시성 문제해결
+    - `memories.js`에서 라이트박스 호출 시 파라미터(`dayIndex`, `itemIndex`) 순서가 뒤섞여 잘못된 이미지가 표시되던 중대한 버그 수정
+- **z-index 체계 정합성 확보**: 모든 모달 및 오버레이 요소가 `constants.js`에 정의된 중앙 집중식 계층 구조를 따르도록 보강
+
+### 14:25 - [AI] 라이트박스 z-index 정상화 및 호출 로직 버그 수정
+- **변경 파일**: public/js/ui/constants.js, public/js/ui/memories.js, HISTORY.md, task.md, walkthrough.md
+
+---
+
 ## [2.3.5] - 2026-01-22
 ### Added
 - **쇼핑 추천 비주얼 효과 개선**: 
