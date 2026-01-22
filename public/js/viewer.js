@@ -411,7 +411,7 @@ function attachInteractionHandlers() {
             // Attach direct handler
             el.onclick = (e) => {
                 e.stopPropagation();
-                window.openItemModal(dayIndex, index);
+                openItemModal(dayIndex, index);
             };
 
             // Mobile touch support
@@ -440,7 +440,7 @@ function attachInteractionHandlers() {
             el.onclick = (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                window.openTransitModal(dayIndex, index);
+                openTransitModal(dayIndex, index);
             };
 
             el.style.cursor = 'pointer';
@@ -475,7 +475,7 @@ function updateViewerBudget(travelData) {
         const budgetCard = budgetEl.closest('.cursor-pointer') || budgetEl.parentElement.parentElement;
 
         if (budgetCard) {
-            budgetCard.onclick = window.openExpenseModal;
+            budgetCard.onclick = openExpenseModal;
             budgetCard.classList.add('cursor-pointer', 'hover:shadow-lg', 'transition-all', 'hover:-translate-y-1');
 
             // "클릭하여 상세 보기" 텍스트 업데이트
@@ -483,6 +483,226 @@ function updateViewerBudget(travelData) {
             if (descEl) descEl.textContent = "클릭하여 상세 보기";
         }
     }
+}
+
+// [Added] Item Detail Modal (Read-Only)
+function openItemModal(dayIndex, itemIndex) {
+    if (!travelData.days || !travelData.days[dayIndex] || !travelData.days[dayIndex].timeline[itemIndex]) return;
+
+    renderItemModal(dayIndex, itemIndex);
+    const modal = document.getElementById('item-detail-modal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+}
+window.openItemModal = openItemModal;
+
+function closeItemModal() {
+    const modal = document.getElementById('item-detail-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.body.style.overflow = '';
+        // Reset Map Frame
+        const frame = document.getElementById('item-detail-map-frame');
+        if (frame) frame.src = "";
+    }
+}
+window.closeItemModal = closeItemModal;
+
+async function renderItemModal(dayIndex, itemIndex) {
+    const item = travelData.days[dayIndex].timeline[itemIndex];
+    const contentEl = document.getElementById('item-detail-content');
+    if (!contentEl) return;
+
+    // Load Maps API key for embed
+    let mapsApiKey = "";
+    try {
+        if (window.googleMapsApiKey) mapsApiKey = window.googleMapsApiKey;
+        else {
+            const response = await fetch(`${BACKEND_URL}/config`);
+            const config = await response.json();
+            mapsApiKey = config.googleMapsApiKey;
+            window.googleMapsApiKey = mapsApiKey;
+        }
+    } catch (e) { console.error("Maps Key Load Error", e); }
+
+    // Map Embed URL
+    let mapEmbedUrl = "";
+    if (item.location && item.location.length > 1 && item.location !== "위치" && mapsApiKey) {
+        const query = encodeURIComponent(`${item.title},${item.location}`);
+        mapEmbedUrl = `https://www.google.com/maps/embed/v1/place?key=${mapsApiKey}&q=${query}`;
+    }
+
+    // Memories
+    let memoriesHtml = "";
+    if (item.memories && item.memories.length > 0) {
+        memoriesHtml = `<div class="mb-6"><h4 class="text-xs font-bold text-gray-500 uppercase mb-3">추억</h4><div class="flex flex-col gap-3">`;
+        item.memories.forEach(mem => {
+            memoriesHtml += `
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700">
+                ${mem.photoUrl ? `<div class="w-full h-48 bg-gray-200 rounded-lg mb-3 bg-cover bg-center" style="background-image: url('${mem.photoUrl}')"></div>` : ''}
+                <p class="text-sm text-gray-700 dark:text-gray-300 font-hand">${mem.comment || ''}</p>
+                <p class="text-[10px] text-gray-400 mt-1 text-right">${mem.timestamp ? new Date(mem.timestamp).toLocaleTimeString() : ''}</p>
+            </div>`;
+        });
+        memoriesHtml += `</div></div>`;
+    }
+
+    // Expenses
+    let expensesHtml = "";
+    let expenseTotal = 0;
+    if (item.expenses && item.expenses.length > 0) {
+        expensesHtml = `<div class="mb-6"><h4 class="text-xs font-bold text-gray-500 uppercase mb-3">지출 내역</h4><div class="flex flex-col gap-2">`;
+        item.expenses.forEach(exp => {
+            expenseTotal += Number(exp.amount || 0);
+            expensesHtml += `
+            <div class="flex justify-between items-center bg-gray-50 dark:bg-gray-800 p-2 rounded-lg">
+                <span class="text-sm text-gray-700 dark:text-gray-300">${exp.description || '내역 없음'}</span>
+                <span class="text-sm font-bold text-text-main dark:text-white">₩${Number(exp.amount || 0).toLocaleString()}</span>
+            </div>`;
+        });
+        expensesHtml += `<div class="flex justify-between items-center border-t border-gray-200 dark:border-gray-700 pt-2 mt-2"><span class="font-bold text-sm">총계</span><span class="font-bold text-lg text-primary">₩${expenseTotal.toLocaleString()}</span></div></div></div>`;
+    }
+
+    // Attachments
+    let attachmentsHtml = "";
+    if (item.attachments && item.attachments.length > 0) {
+        attachmentsHtml = `<div class="mb-6"><h4 class="text-xs font-bold text-gray-500 uppercase mb-3">첨부 파일</h4><div class="grid grid-cols-2 gap-3">`;
+        item.attachments.forEach(att => {
+            const isImage = att.type.startsWith('image/');
+            attachmentsHtml += `
+             <a href="${att.url}" target="_blank" class="block bg-gray-50 dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700 hover:bg-gray-100 transition-colors">
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="material-symbols-outlined text-primary">${isImage ? 'image' : 'description'}</span>
+                    <span class="text-xs font-bold text-gray-600 truncate flex-1">${att.name}</span>
+                </div>
+                ${isImage ? `<div class="w-full h-20 bg-gray-200 rounded-lg bg-cover bg-center" style="background-image: url('${att.url}')"></div>` : ''}
+             </a>`;
+        });
+        attachmentsHtml += `</div></div>`;
+    }
+
+    // Note (URL Linking)
+    let noteHtml = "";
+    if (item.note) {
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+        const linkedNote = item.note.replace(urlRegex, (url) => `<a href="${url}" target="_blank" class="text-blue-500 hover:underline">${url}</a>`);
+        noteHtml = `
+         <div class="bg-yellow-50 dark:bg-yellow-900/20 p-5 rounded-xl border border-yellow-100 dark:border-yellow-700/50 mb-6">
+            <h4 class="text-xs font-bold text-yellow-600 dark:text-yellow-500 uppercase mb-2">메모</h4>
+            <div class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">${linkedNote}</div>
+         </div>`;
+    }
+
+
+    contentEl.innerHTML = `
+        <!-- Sticky Header -->
+        <div class="sticky top-0 bg-white dark:bg-card-dark z-20 border-b border-gray-100 dark:border-gray-700 p-6 pb-4 shrink-0 shadow-sm">
+            <div class="flex justify-between items-start">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="px-2 py-1 rounded text-xs font-bold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">${item.category || '장소'}</span>
+                        <span class="text-sm text-gray-500 font-medium">${item.time || ''}</span>
+                    </div>
+                    <h2 class="text-2xl font-bold text-text-main dark:text-white leading-tight mb-1 truncate">${item.title}</h2>
+                    <div class="text-sm text-primary flex items-center gap-1">
+                        <span class="material-symbols-outlined text-sm shrink-0">location_on</span>
+                        <span class="truncate">${item.location || '위치 정보 없음'}</span>
+                    </div>
+                </div>
+                <button type="button" onclick="closeItemModal()" class="ml-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-2 rounded-full hover:bg-gray-100 transition-colors">
+                    <span class="material-symbols-outlined text-2xl">close</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Content Split -->
+        <div class="flex-1 overflow-hidden flex flex-col md:flex-row-reverse">
+             <!-- Right: Details (Scrollable) -->
+             <div class="flex-1 p-6 overflow-y-auto bg-white dark:bg-card-dark">
+                ${noteHtml}
+                ${memoriesHtml}
+                ${expensesHtml}
+                ${attachmentsHtml}
+                
+                ${!noteHtml && !memoriesHtml && !expensesHtml && !attachmentsHtml ?
+            '<div class="flex flex-col items-center justify-center h-40 text-gray-400"><span class="material-symbols-outlined text-4xl mb-2">description</span><p>추가 상세 정보가 없습니다.</p></div>'
+            : ''}
+             </div>
+
+             <!-- Left: Map (Fixed if Desktop) -->
+             ${mapEmbedUrl ? `
+             <div class="w-full md:w-1/2 h-64 md:h-auto bg-gray-100 dark:bg-gray-800 relative border-t md:border-t-0 md:border-r border-gray-200 dark:border-gray-700 shrink-0">
+                 <iframe id="item-detail-map-frame" class="w-full h-full border-0 absolute inset-0" src="${mapEmbedUrl}" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
+             </div>` : `
+             <div class="hidden md:flex w-full md:w-1/2 h-full bg-gray-50 dark:bg-gray-800/50 items-center justify-center border-r border-gray-200 dark:border-gray-700 text-gray-400">
+                <div class="text-center">
+                    <span class="material-symbols-outlined text-4xl mb-2">map_off</span>
+                    <p class="text-sm">지도 정보가 없거나<br>위치를 특정할 수 없습니다.</p>
+                </div>
+             </div>
+             `}
+        </div>
+    `;
+}
+
+// [Added] Transit Detail Modal (Read-Only)
+function openTransitModal(dayIndex, itemIndex) {
+    if (!travelData.days || !travelData.days[dayIndex] || !travelData.days[dayIndex].timeline[itemIndex]) return;
+
+    renderTransitModal(dayIndex, itemIndex);
+    const modal = document.getElementById('transit-detail-modal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+}
+window.openTransitModal = openTransitModal;
+
+function closeTransitModal() {
+    const modal = document.getElementById('transit-detail-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.body.style.overflow = '';
+    }
+}
+window.closeTransitModal = closeTransitModal;
+
+function renderTransitModal(dayIndex, itemIndex) {
+    const item = travelData.days[dayIndex].timeline[itemIndex];
+    const contentEl = document.getElementById('transit-detail-content');
+    if (!contentEl) return;
+
+    contentEl.innerHTML = `
+        <div class="p-6 text-center">
+            <div class="w-16 h-16 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mx-auto mb-4">
+                <span class="material-symbols-outlined text-4xl text-blue-500">${item.icon || 'commute'}</span>
+            </div>
+            <h3 class="text-xl font-bold text-text-main dark:text-white mb-1">${item.title}</h3>
+            <p class="text-sm text-gray-500 mb-6">${item.time || ''} 소요</p>
+            
+            <div class="flex flex-col gap-3 text-left">
+                ${item.budget ? `
+                <div class="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                    <span class="text-sm font-bold text-gray-600 dark:text-gray-400">비용</span>
+                    <span class="text-sm font-bold text-primary">₩${Number(item.budget).toLocaleString()}</span>
+                </div>` : ''}
+                
+                ${item.note ? `
+                <div class="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-xl border border-yellow-100 dark:border-yellow-700/50">
+                     <h4 class="text-xs font-bold text-yellow-600 dark:text-yellow-500 uppercase mb-2">메모</h4>
+                     <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">${item.note}</p>
+                </div>` : ''}
+                
+                ${!item.budget && !item.note ? '<p class="text-sm text-gray-400 text-center py-2">추가 정보가 없습니다.</p>' : ''}
+            </div>
+
+            <div class="mt-8">
+                <button type="button" onclick="closeTransitModal()" class="w-full py-3 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">닫기</button>
+            </div>
+        </div>
+    `;
 }
 
 function showError(msg) {
@@ -654,22 +874,24 @@ document.addEventListener('keydown', (e) => {
 });
 
 // [Added] Expense Detail Modal
-window.openExpenseModal = () => {
+function openExpenseModal() {
     renderExpenseModal();
     const modal = document.getElementById('expense-detail-modal');
     if (modal) {
         modal.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
     }
-};
+}
+window.openExpenseModal = openExpenseModal;
 
-window.closeExpenseModal = () => {
+function closeExpenseModal() {
     const modal = document.getElementById('expense-detail-modal');
     if (modal) {
         modal.classList.add('hidden');
         document.body.style.overflow = '';
     }
-};
+}
+window.closeExpenseModal = closeExpenseModal;
 
 function renderExpenseModal() {
     const listContainer = document.getElementById('modal-expense-list');
