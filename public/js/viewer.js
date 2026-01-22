@@ -596,6 +596,15 @@ async function renderItemModal(dayIndex, itemIndex) {
     }
 
 
+    // Directions URL
+    let directionsUrl = "";
+    if (item.title) {
+        // Query: Title + Location 
+        // If location has coords, use coords for more precision if available, but search query is safer for general user intent
+        const query = encodeURIComponent(`${item.title} ${item.location || ''}`);
+        directionsUrl = `https://www.google.com/maps/search/?api=1&query=${query}`;
+    }
+
     contentEl.innerHTML = `
         <!-- Sticky Header -->
         <div class="sticky top-0 bg-white dark:bg-card-dark z-20 border-b border-gray-100 dark:border-gray-700 p-6 pb-4 shrink-0 shadow-sm">
@@ -606,10 +615,16 @@ async function renderItemModal(dayIndex, itemIndex) {
                         <span class="text-sm text-gray-500 font-medium">${item.time || ''}</span>
                     </div>
                     <h2 class="text-2xl font-bold text-text-main dark:text-white leading-tight mb-1 truncate">${item.title}</h2>
-                    <div class="text-sm text-primary flex items-center gap-1">
+                    <div class="text-sm text-primary flex items-center gap-1 mb-3">
                         <span class="material-symbols-outlined text-sm shrink-0">location_on</span>
                         <span class="truncate">${item.location || '위치 정보 없음'}</span>
                     </div>
+                    
+                    ${directionsUrl ? `
+                    <a href="${directionsUrl}" target="_blank" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-bold rounded-full transition-colors shadow-sm">
+                        <span class="material-symbols-outlined text-lg">directions</span>
+                        길찾기
+                    </a>` : ''}
                 </div>
                 <button type="button" onclick="closeItemModal()" class="ml-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-2 rounded-full hover:bg-gray-100 transition-colors">
                     <span class="material-symbols-outlined text-2xl">close</span>
