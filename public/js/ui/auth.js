@@ -107,6 +107,13 @@ export async function initAuthStateObserver() {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     if (data.photoURL) customPhotoURL = data.photoURL;
+
+                    // [User Request] Cross-check terms agreement for existing users
+                    if (!data.agreedToTerms) {
+                        const modal = document.getElementById('mandatory-terms-modal');
+                        if (modal) modal.classList.remove('hidden');
+                    }
+
                     setCurrentUser({
                         ...user,
                         homeAddress: data.homeAddress || '',
@@ -119,10 +126,14 @@ export async function initAuthStateObserver() {
                         birth: data.birth || '',
                         bloodType: data.bloodType || '',
                         allergies: data.allergies || '',
-                        customPhotoURL: customPhotoURL
+                        customPhotoURL: customPhotoURL,
+                        agreedToTerms: data.agreedToTerms || false
                     });
                 } else {
-                    setCurrentUser({ ...user, customPhotoURL: customPhotoURL });
+                    // New user (should have agreed on login screen, but safety check)
+                    const modal = document.getElementById('mandatory-terms-modal');
+                    if (modal) modal.classList.remove('hidden');
+                    setCurrentUser({ ...user, customPhotoURL: customPhotoURL, agreedToTerms: false });
                 }
 
                 // Check localStorage first for uploaded photos, then Firestore custom photo, then Google photo
@@ -161,6 +172,7 @@ export async function initAuthStateObserver() {
                 }
             });
 
+            // login-view에서 체크하고 들어온 경우, 최초 1회 저장 로직은 아래 setDoc에서 수행됨
             setDoc(userRef, userData, { merge: true });
 
             if (mainTitle) mainTitle.innerText = `${user.displayName}님의 여행 계획`;
@@ -223,4 +235,35 @@ if (document.readyState === 'loading') {
     }
 }
 
-export default { login, logout, openLogoutModal, closeLogoutModal, confirmLogout, initAuthStateObserver };
+export async function confirmMandatoryTerms() {
+    const check = document.getElementById('mandatory-terms-check');
+    if (!check || !check.checked) {
+        alert("이용약관 및 개인정보처리방침에 동의해주세요.");
+        return;
+    }
+
+    try {
+        await firebaseReady;
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const userRef = doc(db, "users", user.uid);
+        await setDoc(userRef, {
+            agreedToTerms: true,
+            agreedAt: new Date().toISOString()
+        }, { merge: true });
+
+        const modal = document.getElementById('mandatory-terms-modal');
+        if (modal) modal.classList.add('hidden');
+
+        console.log("Mandatory terms agreed successfully");
+    } catch (error) {
+        console.error("Terms agreement failed", error);
+        alert("처리 중 오류가 발생했습니다: " + error.message);
+    }
+}
+
+window.confirmMandatoryTerms = confirmMandatoryTerms;
+
+export default { login, logout, openLogoutModal, closeLogoutModal, confirmLogout, initAuthStateObserver, confirmMandatoryTerms };
+
