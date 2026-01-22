@@ -1,6 +1,6 @@
 import { firebaseReady, auth, provider, db } from '../firebase.js';
-import { signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
-import { doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+import { signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, deleteUser } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+import { doc, getDoc, setDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 import { setCurrentUser, defaultTravelData } from '../state.js';
 import { hideLoading } from './modals.js';
 
@@ -263,7 +263,42 @@ export async function confirmMandatoryTerms() {
     }
 }
 
-window.confirmMandatoryTerms = confirmMandatoryTerms;
+export async function deleteAccount() {
+    try {
+        await firebaseReady;
+        const user = auth.currentUser;
+        if (!user) {
+            alert("로그인이 필요합니다.");
+            return;
+        }
 
-export default { login, logout, openLogoutModal, closeLogoutModal, confirmLogout, initAuthStateObserver, confirmMandatoryTerms };
+        // 1. Delete Firestore user document
+        const userRef = doc(db, "users", user.uid);
+        await deleteDoc(userRef);
+
+        // 2. Delete Auth user
+        await deleteUser(user);
+
+        // 3. Clear local storage
+        localStorage.removeItem('cachedUserPhotoURL');
+        localStorage.removeItem('cachedUserDisplayName');
+        localStorage.removeItem('cachedUserEmail');
+
+        alert("회원 탈퇴가 완료되었습니다. 그동안 PLIN을 이용해주셔서 감사합니다.");
+        window.location.reload();
+    } catch (error) {
+        console.error("회원 탈퇴 실패:", error);
+        if (error.code === 'auth/requires-recent-login') {
+            alert("보안을 위해 최근 로그인 기록이 필요합니다. 다시 로그인 후 시도해주세요.");
+            await logout();
+        } else {
+            alert("회원 탈퇴 중 오류가 발생했습니다: " + error.message);
+        }
+    }
+}
+
+window.confirmMandatoryTerms = confirmMandatoryTerms;
+window.deleteAccount = deleteAccount;
+
+export default { login, logout, openLogoutModal, closeLogoutModal, confirmLogout, initAuthStateObserver, confirmMandatoryTerms, deleteAccount };
 

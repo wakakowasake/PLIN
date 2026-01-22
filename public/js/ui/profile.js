@@ -212,6 +212,58 @@ export function handleProfilePhotoChange(event) {
     reader.readAsDataURL(file);
 }
 
+export function enableProfileEdit() {
+    // 활성화할 입력 필드 목록
+    const fields = [
+        'profile-name-input', 'profile-home-address', 'profile-phone',
+        'profile-emergency-contact', 'profile-passport', 'profile-passport-expiry',
+        'profile-birth', 'profile-blood-type', 'profile-allergies'
+    ];
+
+    fields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = false;
+    });
+
+    // 버튼 상태 변경
+    document.getElementById('profile-edit-btn')?.classList.add('hidden');
+    document.getElementById('profile-photo-btn')?.classList.remove('hidden');
+    document.getElementById('profile-action-btns')?.classList.remove('hidden');
+}
+
+export function cancelProfileEdit() {
+    // 입력 필드 다시 비활성화
+    const fields = [
+        'profile-name-input', 'profile-home-address', 'profile-phone',
+        'profile-emergency-contact', 'profile-passport', 'profile-passport-expiry',
+        'profile-birth', 'profile-blood-type', 'profile-allergies'
+    ];
+
+    fields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = true;
+    });
+
+    // 버튼 상태 복구
+    document.getElementById('profile-edit-btn')?.classList.remove('hidden');
+    document.getElementById('profile-photo-btn')?.classList.add('hidden');
+    document.getElementById('profile-action-btns')?.classList.add('hidden');
+
+    // 대기 중인 사진 제거 및 데이터 재로드
+    sessionStorage.removeItem('pendingProfilePhoto');
+    loadProfileData();
+}
+
+export function confirmWithdrawal() {
+    if (confirm("정말로 탈퇴하시겠습니까?\n탈퇴 시 모든 여행 계획과 추억 데이터가 영구적으로 삭제되며 복구할 수 없습니다.")) {
+        if (window.Auth && window.Auth.deleteAccount) {
+            window.Auth.deleteAccount();
+        } else {
+            alert("탈퇴 기능을 불러올 수 없습니다. 잠시 후 다시 시도해주세요.");
+        }
+    }
+}
+
 export async function saveProfileChanges() {
     if (!currentUser) { alert('로그인이 필요합니다.'); return; }
     const nameInput = document.getElementById('profile-name-input'); const homeAddressInput = document.getElementById('profile-home-address');
@@ -248,7 +300,16 @@ export async function saveProfileChanges() {
             setCurrentUser({ ...currentUser, displayName: newName });
         }
         const mainTitle = document.getElementById('main-view-title'); if (mainTitle) mainTitle.innerText = `${newName}님의 여행 계획`;
-        alert('프로필이 저장되었습니다.'); closeProfileView();
+
+        // [Modified] Reset UI state after save
+        const fields = ['profile-name-input', 'profile-home-address', 'profile-phone', 'profile-emergency-contact', 'profile-passport', 'profile-passport-expiry', 'profile-birth', 'profile-blood-type', 'profile-allergies'];
+        fields.forEach(id => { const el = document.getElementById(id); if (el) el.disabled = true; });
+        document.getElementById('profile-edit-btn')?.classList.remove('hidden');
+        document.getElementById('profile-photo-btn')?.classList.add('hidden');
+        document.getElementById('profile-action-btns')?.classList.add('hidden');
+
+        alert('프로필이 저장되었습니다.');
+        // closeProfileView(); // [Optional] Keep view open but disabled
     } catch (error) { console.error("프로필 저장 실패:", error); alert('프로필 저장에 실패했습니다: ' + error.message); }
 }
 
@@ -335,4 +396,12 @@ export async function handleViewModeChange(newMode) {
     }
 }
 
-export default { openUserMenu, closeUserMenuOnClickOutside, openUserSettings, closeUserSettings, toggleDarkMode, updateDarkModeToggle, initDarkMode, openUserProfile, closeProfileView, setupHomeAddressAutocomplete, geocodeAddress, loadProfileData, handleProfilePhotoChange, saveProfileChanges, handleViewModeChange };
+window.enableProfileEdit = enableProfileEdit;
+window.cancelProfileEdit = cancelProfileEdit;
+window.confirmWithdrawal = confirmWithdrawal;
+window.toggleDarkMode = toggleDarkMode;
+window.closeUserSettings = closeUserSettings;
+window.handleViewModeChange = handleViewModeChange;
+
+export default { openUserMenu, closeUserMenuOnClickOutside, openUserSettings, closeUserSettings, toggleDarkMode, updateDarkModeToggle, initDarkMode, openUserProfile, closeProfileView, setupHomeAddressAutocomplete, geocodeAddress, loadProfileData, handleProfilePhotoChange, saveProfileChanges, handleViewModeChange, enableProfileEdit, cancelProfileEdit, confirmWithdrawal };
+

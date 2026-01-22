@@ -609,6 +609,11 @@
                             PLIN</h2>
                     </div>
                     <div class="flex flex-1 justify-end gap-2 md:gap-4 items-center">
+                        <button type="button" id="profile-edit-btn" onclick="enableProfileEdit()"
+                            class="font-medium text-sm bg-gray-100 dark:bg-gray-800 text-text-main dark:text-white px-4 py-2 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all flex items-center gap-2">
+                            <span class="material-symbols-outlined text-xl">edit</span>
+                            수정하기
+                        </button>
                         <button type="button" onclick="closeProfileView()"
                             class="font-medium text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 px-2 md:px-4 py-2 rounded-xl flex items-center gap-2 transition-colors">
                             <span class="material-symbols-outlined text-xl">arrow_back</span>
@@ -636,8 +641,9 @@
                                 (최대 5MB)</p>
                             <input id="profile-photo-input" type="file" accept="image/*"
                                 onchange="handleProfilePhotoChange(event)" class="hidden">
-                            <button type="button" onclick="document.getElementById('profile-photo-input').click()"
-                                class="bg-primary text-white px-6 py-3 rounded-xl font-bold hover:bg-orange-500 transition-colors flex items-center gap-2">
+                            <button type="button" id="profile-photo-btn"
+                                onclick="document.getElementById('profile-photo-input').click()"
+                                class="hidden bg-primary text-white px-6 py-3 rounded-xl font-bold hover:bg-orange-500 transition-colors flex items-center gap-2">
                                 <span class="material-symbols-outlined">upload</span>
                                 사진 업로드
                             </button>
@@ -656,8 +662,8 @@
                         <div>
                             <label for="profile-name-input"
                                 class="block text-sm font-bold text-text-muted dark:text-gray-400 mb-2 uppercase tracking-wider">이름</label>
-                            <input id="profile-name-input" type="text"
-                                class="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-800 text-text-main dark:text-white focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+                            <input id="profile-name-input" type="text" disabled
+                                class="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-800 text-text-main dark:text-white focus:outline-none focus:ring-2 focus:ring-primary transition-all disabled:opacity-70 disabled:bg-gray-50 dark:disabled:bg-gray-900/50"
                                 placeholder="이름을 입력하세요">
                         </div>
                         <div>
@@ -686,8 +692,8 @@
                             <label for="profile-home-address"
                                 class="block text-sm font-bold text-text-muted dark:text-gray-400 mb-2 uppercase tracking-wider">집
                                 주소</label>
-                            <input id="profile-home-address" type="text"
-                                class="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-800 text-text-main dark:text-white focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+                            <input id="profile-home-address" type="text" disabled
+                                class="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-800 text-text-main dark:text-white focus:outline-none focus:ring-2 focus:ring-primary transition-all disabled:opacity-70 disabled:bg-gray-50 dark:disabled:bg-gray-900/50"
                                 placeholder="주소를 검색하세요 (Google Maps)">
                             <p class="text-xs text-text-muted dark:text-gray-400 mt-2">💡 시/도, 시군구, 동 정도로 대략적으로 입력해도
                                 됩니다. 엔터를 누르면 첫 번째 검색 결과가 자동 선택됩니다.</p>
@@ -710,16 +716,16 @@
                             <div>
                                 <label for="profile-phone"
                                     class="block text-sm font-bold text-text-muted dark:text-gray-400 mb-2 uppercase tracking-wider">전화번호</label>
-                                <input id="profile-phone" type="tel"
-                                    class="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-800 text-text-main dark:text-white focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+                                <input id="profile-phone" type="tel" disabled
+                                    class="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-800 text-text-main dark:text-white focus:outline-none focus:ring-2 focus:ring-primary transition-all disabled:opacity-70 disabled:bg-gray-50 dark:disabled:bg-gray-900/50"
                                     placeholder="010-0000-0000">
                             </div>
 
                             <div>
                                 <label for="profile-emergency-contact"
                                     class="block text-sm font-bold text-text-muted dark:text-gray-400 mb-2 uppercase tracking-wider">비상연락처</label>
-                                <input id="profile-emergency-contact" type="tel"
-                                    class="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-800 text-text-main dark:text-white focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+                                <input id="profile-emergency-contact" type="tel" disabled
+                                    class="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-800 text-text-main dark:text-white focus:outline-none focus:ring-2 focus:ring-primary transition-all disabled:opacity-70 disabled:bg-gray-50 dark:disabled:bg-gray-900/50"
                                     placeholder="010-0000-0000">
                             </div>
                         </div>
@@ -728,8 +734,8 @@
                             <div>
                                 <label for="profile-passport"
                                     class="block text-sm font-bold text-text-muted dark:text-gray-400 mb-2 uppercase tracking-wider">여권번호</label>
-                                <input id="profile-passport" type="text"
-                                    class="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-800 text-text-main dark:text-white focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+                                <input id="profile-passport" type="text" disabled
+                                    class="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-800 text-text-main dark:text-white focus:outline-none focus:ring-2 focus:ring-primary transition-all disabled:opacity-70 disabled:bg-gray-50 dark:disabled:bg-gray-900/50"
                                     placeholder="M12345678">
                             </div>
 
@@ -737,8 +743,8 @@
                                 <label for="profile-passport-expiry"
                                     class="block text-sm font-bold text-text-muted dark:text-gray-400 mb-2 uppercase tracking-wider">여권
                                     만료일</label>
-                                <input id="profile-passport-expiry" type="date"
-                                    class="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-800 text-text-main dark:text-white focus:outline-none focus:ring-2 focus:ring-primary transition-all">
+                                <input id="profile-passport-expiry" type="date" disabled
+                                    class="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-800 text-text-main dark:text-white focus:outline-none focus:ring-2 focus:ring-primary transition-all disabled:opacity-70 disabled:bg-gray-50 dark:disabled:bg-gray-900/50">
                             </div>
                         </div>
 
@@ -746,15 +752,15 @@
                             <div>
                                 <label for="profile-birth"
                                     class="block text-sm font-bold text-text-muted dark:text-gray-400 mb-2 uppercase tracking-wider">생년월일</label>
-                                <input id="profile-birth" type="date"
-                                    class="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-800 text-text-main dark:text-white focus:outline-none focus:ring-2 focus:ring-primary transition-all">
+                                <input id="profile-birth" type="date" disabled
+                                    class="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-800 text-text-main dark:text-white focus:outline-none focus:ring-2 focus:ring-primary transition-all disabled:opacity-70 disabled:bg-gray-50 dark:disabled:bg-gray-900/50">
                             </div>
 
                             <div>
                                 <label for="profile-blood-type"
                                     class="block text-sm font-bold text-text-muted dark:text-gray-400 mb-2 uppercase tracking-wider">혈액형</label>
-                                <select id="profile-blood-type"
-                                    class="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-800 text-text-main dark:text-white focus:outline-none focus:ring-2 focus:ring-primary transition-all">
+                                <select id="profile-blood-type" disabled
+                                    class="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-800 text-text-main dark:text-white focus:outline-none focus:ring-2 focus:ring-primary transition-all disabled:opacity-70 disabled:bg-gray-50 dark:disabled:bg-gray-900/50">
                                     <option value="">선택 안 함</option>
                                     <option value="A">A형</option>
                                     <option value="B">B형</option>
@@ -768,16 +774,16 @@
                             <label for="profile-allergies"
                                 class="block text-sm font-bold text-text-muted dark:text-gray-400 mb-2 uppercase tracking-wider">알레르기
                                 / 특이사항</label>
-                            <textarea id="profile-allergies" rows="3"
-                                class="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-800 text-text-main dark:text-white focus:outline-none focus:ring-2 focus:ring-primary transition-all resize-none"
+                            <textarea id="profile-allergies" rows="3" disabled
+                                class="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-800 text-text-main dark:text-white focus:outline-none focus:ring-2 focus:ring-primary transition-all resize-none disabled:opacity-70 disabled:bg-gray-50 dark:disabled:bg-gray-900/50"
                                 placeholder="음식, 약물 알레르기나 기타 특이사항을 입력하세요"></textarea>
                         </div>
                     </div>
                 </div>
 
-                <!-- Save Button -->
-                <div class="flex gap-3 pb-8">
-                    <button type="button" onclick="closeProfileView()"
+                <!-- Save/Cancel Buttons -->
+                <div id="profile-action-btns" class="hidden flex gap-3 pb-8">
+                    <button type="button" onclick="cancelProfileEdit()"
                         class="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-6 py-3 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
                         취소
                     </button>
@@ -786,6 +792,37 @@
                         <span class="material-symbols-outlined">check</span>
                         저장
                     </button>
+                </div>
+
+                <!-- Legal & Security Section -->
+                <div class="pt-12 pb-24 border-t border-gray-100 dark:border-gray-800 text-center">
+                    <div class="bg-gray-50 dark:bg-gray-800/20 rounded-2xl p-6 mb-8 inline-block select-none">
+                        <div class="flex items-center justify-center gap-2 text-primary font-bold mb-2">
+                            <span class="material-symbols-outlined text-xl">verified_user</span>
+                            개인정보 보호 보장
+                        </div>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">
+                            PLIN은 사용자의 개인정보를 안전하게 암호화하여 보관하고 있습니다.<br>
+                            입력하신 정보는 여행 중의 긴급 상황 및 비상시를 위해서만 활용되며,<br>
+                            외부로 유출되거나 상업적으로 이용되지 않으니 안심하셔도 좋습니다.
+                        </p>
+                    </div>
+
+                    <div class="flex items-center justify-center gap-6 mb-12">
+                        <a href="/terms.html" target="_blank"
+                            class="text-xs font-medium text-gray-400 hover:text-primary transition-colors">이용약관</a>
+                        <div class="w-px h-3 bg-gray-200 dark:bg-gray-700"></div>
+                        <a href="/privacy.html" target="_blank"
+                            class="text-xs font-medium text-gray-400 hover:text-primary transition-colors">개인정보처리방침</a>
+                    </div>
+
+                    <div class="pt-8">
+                        <p class="text-xs text-gray-400 mb-4">계정을 삭제하시겠습니까? 관련 데이터가 모두 삭제됩니다.</p>
+                        <button type="button" onclick="confirmWithdrawal()"
+                            class="text-xs font-bold text-red-400 hover:text-red-600 underline transition-colors">
+                            회원 탈퇴하기
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
