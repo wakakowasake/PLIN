@@ -10,6 +10,13 @@ function isCapacitorApp() {
 }
 
 export async function login() {
+    // [User Request] Check terms agreement before login
+    const termsAgree = document.getElementById('terms-agree');
+    if (termsAgree && !termsAgree.checked) {
+        alert("이용약관 및 개인정보처리방침에 동의해주세요.");
+        return;
+    }
+
     try {
         await firebaseReady;
 

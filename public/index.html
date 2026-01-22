@@ -397,6 +397,20 @@
         </div>
         <h1 class="text-4xl font-bold mb-4">PLIN</h1>
         <p class="text-lg opacity-90 mb-12">계획이 기록이 되다. 플린</p>
+        <div class="mb-8 flex flex-col items-center gap-4">
+            <div class="flex items-center gap-3 bg-white/10 px-4 py-3 rounded-2xl border border-white/20 backdrop-blur-sm group hover:bg-white/20 transition-all cursor-pointer"
+                onclick="document.getElementById('terms-agree').click()">
+                <input type="checkbox" id="terms-agree" class="w-5 h-5 accent-primary cursor-pointer"
+                    onclick="event.stopPropagation()">
+                <label for="terms-agree" class="text-sm font-medium cursor-pointer select-none">
+                    <a href="/terms.html" target="_blank" class="underline hover:text-orange-200"
+                        onclick="event.stopPropagation()">이용약관</a> 및
+                    <a href="/privacy.html" target="_blank" class="underline hover:text-orange-200"
+                        onclick="event.stopPropagation()">개인정보처리방침</a>에 동의합니다
+                </label>
+            </div>
+        </div>
+
         <button type="button" onclick="login()"
             class="bg-white text-primary font-bold px-12 py-4 rounded-full shadow-2xl text-lg flex items-center gap-3 transform hover:scale-105 transition-transform">
             <svg class="w-6 h-6" viewBox="0 0 48 48">
