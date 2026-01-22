@@ -95,6 +95,13 @@ export async function initAuthStateObserver() {
                 photoURL: user.photoURL
             };
 
+            // [User Request] Record terms agreement in Firestore
+            const termsAgree = document.getElementById('terms-agree');
+            if (termsAgree && termsAgree.checked) {
+                userData.agreedToTerms = true;
+                userData.agreedAt = new Date().toISOString();
+            }
+
             getDoc(userRef).then((docSnap) => {
                 let customPhotoURL = null;
                 if (docSnap.exists()) {

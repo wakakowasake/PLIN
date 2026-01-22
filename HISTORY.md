@@ -4,6 +4,16 @@
 
 ---
 
+## [2.4.2] - 2026-01-22
+### Added
+- **약관 동의 기록 Firestore 연동**: 
+    - 사용자가 약관 동의 후 로그인 시, Firestore 유저 문서(`users/{uid}`)에 `agreedToTerms: true` 및 `agreedAt: (ISO 타임스탬프)` 필드를 자동으로 기록하여 법적 증빙 데이터를 확보했습니다.
+
+### 14:52 - [AI] 약관 동의 상태 DB 기록 로직 추가
+- **변경 파일**: public/js/ui/auth.js, HISTORY.md, task.md, walkthrough.md
+
+---
+
 ## [2.4.1] - 2026-01-22
 ### Added
 - **로그인 전 약관 동의 필수 절차 도입**:
