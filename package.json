@@ -16,7 +16,8 @@
     "deploy:rules": "firebase deploy --only firestore:rules,storage:rules",
     "logs": "firebase functions:log",
     "clean": "rm -rf node_modules functions/node_modules dist",
-    "update": "npm update && cd functions && npm update && cd .."
+    "update": "npm update && cd functions && npm update && cd ..",
+    "deploy:all": "npm run build && copy /Y dist\\openview.html functions\\openview.html && firebase deploy"
   },
   "keywords": [
     "travel",
