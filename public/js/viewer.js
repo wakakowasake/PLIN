@@ -12,9 +12,15 @@ import { BACKEND_URL } from './config.js';
 window.renderLists = renderLists;
 window.updateLocalTimeWidget = () => { };
 
-// [Fix] Stub functions to prevent ReferenceError in Viewer
-window.viewTimelineItem = (index, dayIndex) => { console.log("View item:", index, dayIndex); };
-window.viewRouteDetail = (index, dayIndex) => { console.log("View route:", index, dayIndex); }; // TODO: Implement route detail view if needed
+// [Fix] Implement Stub functions for Viewer Interaction
+window.viewTimelineItem = (index, dayIndex) => {
+    // Open Item Detail Modal
+    if (window.openItemModal) window.openItemModal(dayIndex, index);
+};
+window.viewRouteDetail = (index, dayIndex) => {
+    // Open Transit Detail Modal
+    if (window.openTransitModal) window.openTransitModal(dayIndex, index);
+};
 window.openAddModal = () => { }; // Prevent action in viewer
 window.deleteTimelineItem = () => { }; // Prevent action in viewer
 window.addMemoryItem = () => { }; // Prevent action in viewer

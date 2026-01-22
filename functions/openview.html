@@ -84,7 +84,7 @@
             pointer-events: auto !important;
         }
     </style>
-  <script type="module" crossorigin src="/assets/openview-CwBPcdBP.js"></script>
+  <script type="module" crossorigin src="/assets/openview-BplvYgVW.js"></script>
   <link rel="modulepreload" crossorigin href="/assets/expense-manager-Xp6p6r6M.js">
 </head>
 
@@ -317,6 +317,26 @@
                     닫기
                 </button>
             </div>
+        </div>
+    </div>
+
+    <!-- [Added] Item Detail Modal (Read-Only) -->
+    <div id="item-detail-modal"
+        class="hidden fixed inset-0 z-[150] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+        <div
+            class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col h-[85vh]">
+            <!-- Content Inject by JS -->
+            <div id="item-detail-content" class="w-full h-full flex flex-col"></div>
+        </div>
+    </div>
+
+    <!-- [Added] Transit Detail Modal (Read-Only) -->
+    <div id="transit-detail-modal"
+        class="hidden fixed inset-0 z-[150] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+        <div
+            class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all">
+            <!-- Content Inject by JS -->
+            <div id="transit-detail-content"></div>
         </div>
     </div>
 
