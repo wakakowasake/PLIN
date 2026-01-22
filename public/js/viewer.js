@@ -376,6 +376,9 @@ async function loadTrip(tripId) {
             // [Added] Calculate and Display Budget
             updateViewerBudget(travelData);
 
+            // [Fix] Re-attach interaction handlers (Inline onclick might be blocked or invalid context)
+            setTimeout(() => attachInteractionHandlers(), 500);
+
             // Weather (Optional)
             if (data.days && data.days.length > 0) {
                 // Weather loading logic can be added here if needed
@@ -388,6 +391,61 @@ async function loadTrip(tripId) {
         console.error("Error loading trip:", e);
         showError("데이터를 불러오는 데 실패했습니다.");
     }
+}
+
+// [Fix] Manually attach click handlers to cards
+function attachInteractionHandlers() {
+    // 1. Timeline Items (Place)
+    // viewTimelineItem(index, dayIndex)
+    const items = document.querySelectorAll('[onclick^="viewTimelineItem"]');
+    items.forEach(el => {
+        const onclickAttr = el.getAttribute('onclick');
+        const match = onclickAttr.match(/viewTimelineItem\((\d+),\s*(\d+)\)/);
+        if (match) {
+            const index = parseInt(match[1]);
+            const dayIndex = parseInt(match[2]);
+
+            // Remove inline handler
+            el.removeAttribute('onclick');
+
+            // Attach direct handler
+            el.onclick = (e) => {
+                e.stopPropagation();
+                window.openItemModal(dayIndex, index);
+            };
+
+            // Mobile touch support
+            el.addEventListener('touchend', (e) => {
+                // Prevent ghost clicks if needed, but usually onclick is enough.
+                // If scrolling, touchend shouldn't trigger. 
+                // Let's rely on standard click for now, but ensure cursor pointer.
+            });
+
+            el.style.cursor = 'pointer';
+        }
+    });
+
+    // 2. Transit Items
+    // viewRouteDetail(index, dayIndex)
+    const transitItems = document.querySelectorAll('[onclick^="viewRouteDetail"]');
+    transitItems.forEach(el => {
+        const onclickAttr = el.getAttribute('onclick');
+        const match = onclickAttr.match(/viewRouteDetail\((\d+),\s*(\d+)\)/);
+        if (match) {
+            const index = parseInt(match[1]);
+            const dayIndex = parseInt(match[2]);
+
+            el.removeAttribute('onclick');
+
+            el.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.openTransitModal(dayIndex, index);
+            };
+
+            el.style.cursor = 'pointer';
+        }
+    });
 }
 
 // [Added] Budget Calculation for Viewer
@@ -440,6 +498,8 @@ function showError(msg) {
 window.selectDay = (index) => {
     setCurrentDayIndex(index);
     renderItinerary();
+    // [Fix] Re-attach handlers after day change
+    setTimeout(() => attachInteractionHandlers(), 100);
 };
 
 // Lightbox (Memories)
