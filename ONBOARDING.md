@@ -20,7 +20,9 @@ PLIN is a **Vanilla JS** application powered by **Firebase** and styled with **T
 ### 📂 Directory Structure & Modules (`public/js/`)
 
 > [!IMPORTANT]
-> **단일 루트 구조**: 본 프로젝트는 `public/` 폴더를 루트(root)로 사용합니다. 모든 HTML, JS(소스), CSS, 정적 자산(이미지, 폰트)은 `public/` 한 곳에서 관리합니다. (이전의 중복된 `assets/` 폴더는 영구 제거되었습니다.)
+> **자산 관리 구조**: 본 프로젝트는 `public/`을 소스 루트로 사용하며, Vite의 `publicDir` 설정이 `static/`으로 잡혀 있습니다.
+> - **`public/js/`, `public/ui/` 등**: Vite에 의해 빌드/번들링되는 소스입니다. (해싱됨)
+> - **`public/static/`**: 번들링 없이 `dist/` 루트에 **그대로 복사**되어야 하는 자산(아이콘, 매니페스트, 에러 가드 등)을 배치합니다. 하드코딩된 경로(예: `/favicon.ico`)로 접근하는 파일들은 반드시 여기에 위치해야 합니다.
 
 | Module | Role | Description |
 | :--- | :--- | :--- |

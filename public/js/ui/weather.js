@@ -1,7 +1,5 @@
-// Weather UI Module
-// Handles weekly weather calendar and hourly forecast display
-
 import { fetchWeeklyWeather, fetchHourlyWeatherForDate, isMapInitialized } from '../map.js';
+import { travelData as globalTravelData } from '../state.js';
 
 // Module state
 let currentWeatherWeekStart = null;
@@ -97,11 +95,8 @@ export function ensureWeatherDetailModal() {
     }
 }
 
-/**
- * Open the weather detail modal with weekly and hourly forecasts
- * @param {Object} travelData - Travel data containing dates and location
- */
-export async function openWeatherDetailModal(travelData) {
+export async function openWeatherDetailModal(data) {
+    const travelData = data || globalTravelData;
     ensureWeatherDetailModal();
     const modal = document.getElementById('weather-detail-modal');
     if (!modal) return;
@@ -126,14 +121,15 @@ export async function openWeatherDetailModal(travelData) {
 
 /**
  * Load and render weekly weather forecast
- * @param {Object} travelData - Travel data containing location
+ * @param {Object} data - Travel data containing location
  */
-async function loadAndRenderWeeklyWeather(travelData) {
-    const location = travelData.meta.title || '위치 정보 없음';
+async function loadAndRenderWeeklyWeather(data) {
+    const travelData = data || globalTravelData;
+    const location = (travelData.meta && travelData.meta.title) || '위치 정보 없음';
     document.getElementById('weather-location-title').textContent = location;
 
     // [Added] 지도 및 위치 정보 초기화 방어 코드
-    if (!travelData.meta.lat || !travelData.meta.lng) {
+    if (!travelData.meta || !travelData.meta.lat || !travelData.meta.lng) {
         document.getElementById('weekly-weather-container').innerHTML = `
             <div class="text-center py-8 text-gray-400">
                 <p>위치 정보가 없어 날씨를 표시할 수 없습니다.</p>
@@ -170,9 +166,10 @@ async function loadAndRenderWeeklyWeather(travelData) {
 
 /**
  * Render the weekly weather grid
- * @param {Object} travelData - Travel data for highlighting trip dates
+ * @param {Object} data - Travel data for highlighting trip dates
  */
-function renderWeeklyWeather(travelData) {
+function renderWeeklyWeather(data) {
+    const travelData = data || globalTravelData;
     const container = document.getElementById('weekly-weather-container');
     if (!container || !weeklyWeatherData) return;
 
@@ -251,9 +248,10 @@ function renderWeeklyWeather(travelData) {
 
 /**
  * Load and render hourly weather for a specific date
- * @param {Object} travelData - Travel data containing location
+ * @param {Object} data - Travel data containing location
  */
-async function loadAndRenderHourlyWeather(travelData) {
+async function loadAndRenderHourlyWeather(data) {
+    const travelData = data || globalTravelData;
     const container = document.getElementById('hourly-weather-container');
     if (!container) return;
 
@@ -318,9 +316,10 @@ async function loadAndRenderHourlyWeather(travelData) {
 /**
  * Select a date and update the weather display
  * @param {string} dateStr - Date string in YYYY-MM-DD format
- * @param {Object} travelData - Travel data
+ * @param {Object} data - Travel data
  */
-export async function selectWeatherDate(dateStr, travelData) {
+export async function selectWeatherDate(dateStr, data) {
+    const travelData = data || globalTravelData;
     selectedWeatherDate = dateStr;
     renderWeeklyWeather(travelData);
     await loadAndRenderHourlyWeather(travelData);
@@ -329,15 +328,22 @@ export async function selectWeatherDate(dateStr, travelData) {
 /**
  * Navigate to previous or next week
  * @param {number} direction - -1 for previous week, 1 for next week
- * @param {Object} travelData - Travel data
+ * @param {Object} data - Travel data
  */
-export async function navigateWeatherWeek(direction, travelData) {
+export async function navigateWeatherWeek(direction, data) {
+    const travelData = data || globalTravelData;
     const weekStart = new Date(currentWeatherWeekStart);
     weekStart.setDate(weekStart.getDate() + (direction * 7));
     currentWeatherWeekStart = formatDate(weekStart);
 
     await loadAndRenderWeeklyWeather(travelData);
 }
+
+// Global bindings for HTML event handlers
+window.openWeatherDetailModal = openWeatherDetailModal;
+window.closeWeatherDetailModal = closeWeatherDetailModal;
+window.selectWeatherDate = selectWeatherDate;
+window.navigateWeatherWeek = navigateWeatherWeek;
 
 /**
  * Close the weather detail modal

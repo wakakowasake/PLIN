@@ -207,7 +207,7 @@ export function ensureItemDetailModal() {
 
     const modal = document.createElement('div');
     modal.id = 'item-detail-modal';
-    modal.className = 'hidden fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
+    modal.className = 'hidden fixed inset-0 z-[210] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
     modal.innerHTML = `
         <div class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col h-[85vh]">
             <!-- Sticky Header -->

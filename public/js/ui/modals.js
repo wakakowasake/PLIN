@@ -1,4 +1,4 @@
-import { travelData } from '../state.js';
+import { travelData, setInsertingItemIndex, setTargetDayIndex, setViewingItemIndex, insertingItemIndex, targetDayIndex, viewingItemIndex } from '../state.js';
 import { Z_INDEX } from './constants.js';
 
 export function lockBodyScroll() {
@@ -353,6 +353,7 @@ export function openLightbox(dayIndex, itemIndex, memoryIndex) {
 
                 <!-- Image Container -->
                 <div class="relative max-w-full max-h-full flex flex-col items-center justify-center p-4" 
+                     style="touch-action: none;"
                      ontouchstart="handleLightboxTouchStart(event)" 
                      ontouchend="handleLightboxTouchEnd(event)">
                     <img id="lightbox-image" src="" alt="Memory" class="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl transform transition-transform duration-300 scale-95">
@@ -836,6 +837,7 @@ export function ensureExpenseModal() {
 }
 
 export function openExpenseModal(dayIdx = null, fromDetail = false) {
+    if (dayIdx !== null) setTargetDayIndex(dayIdx);
     ensureExpenseModal();
     window.isAddingFromDetail = !!fromDetail; // [Fix] Force boolean
 
@@ -927,11 +929,20 @@ export function saveExpense() {
     const isGeneral = window.isAddingFromDetail && selectedLocationIndex === "-1";
 
     let targetItem;
-    if (window.isAddingFromDetail && typeof targetDayIndex === 'number' && selectedLocationIndex !== "-1") {
-        targetItem = travelData.days[targetDayIndex].timeline[parseInt(selectedLocationIndex)];
+    const dayIndex = (typeof targetDayIndex === 'number' && travelData.days[targetDayIndex]) ? targetDayIndex : 0;
+    const currentDay = travelData.days[dayIndex];
+
+    if (!currentDay) {
+        showToast("일정 데이터를 찾을 수 없습니다.", 'error');
+        return;
+    }
+
+    if (window.isAddingFromDetail && selectedLocationIndex !== "-1") {
+        targetItem = currentDay.timeline[parseInt(selectedLocationIndex)];
     } else {
-        // Fallback to viewingItemIndex if not adding from detail or if "general" expense
-        targetItem = travelData.days[targetDayIndex].timeline[viewingItemIndex];
+        // Fallback to viewingItemIndex (from Detail Modal context)
+        const vIndex = (typeof viewingItemIndex === 'number' && currentDay.timeline[viewingItemIndex]) ? viewingItemIndex : 0;
+        targetItem = currentDay.timeline[vIndex];
     }
 
     if (!targetItem) {
@@ -974,7 +985,11 @@ export function saveExpense() {
     // These functions are now called after refreshExpenseDetail
     if (window.renderExpenseList) window.renderExpenseList(targetItem);
     closeExpenseModal();
-    if (window.updateTotalBudget) window.updateTotalBudget();
+
+    // [Fix] Force total budget update with the latest travelData
+    if (window.updateTotalBudget) {
+        window.updateTotalBudget(travelData);
+    }
 
     const budgetEl = document.getElementById('budget-amount');
     if (budgetEl) {
@@ -990,7 +1005,7 @@ export function ensureShoppingSelectorModal() {
     if (!document.getElementById('shopping-selector-modal')) {
         const modal = document.createElement('div');
         modal.id = 'shopping-selector-modal';
-        modal.className = 'hidden fixed inset-0 z-[210] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
+        modal.className = `hidden fixed inset-0 z-[${Z_INDEX.MODAL_CONFIRM}] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm`;
         modal.innerHTML = `
             <div class="bg-white dark:bg-card-dark rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
                 <div class="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
@@ -1009,22 +1024,72 @@ export function ensureShoppingSelectorModal() {
 export function openShoppingListSelector() {
     ensureShoppingSelectorModal();
     const modal = document.getElementById('shopping-selector-modal');
+    // [Fix] Move to end of body and ensure visibility
+    document.body.appendChild(modal);
     const listContainer = document.getElementById('shopping-selector-list');
+
+    // Get current location context
+    const locSelect = document.getElementById('expense-location-select');
+    let currentPlaceTitle = '';
+
+    // 1. Try to get from location select (if visible/used)
+    if (locSelect && !locSelect.parentElement.classList.contains('hidden') && locSelect.value !== "-1") {
+        const itemIdx = parseInt(locSelect.value);
+        const dayIdx = (typeof targetDayIndex === 'number' && travelData.days[targetDayIndex]) ? targetDayIndex : 0;
+        const item = travelData.days[dayIdx]?.timeline[itemIdx];
+        if (item) currentPlaceTitle = item.title;
+    }
+    // 2. Fallback to viewingItemIndex (Detail Modal context)
+    else if (typeof viewingItemIndex === 'number') {
+        const dayIdx = (typeof targetDayIndex === 'number' && travelData.days[targetDayIndex]) ? targetDayIndex : 0;
+        const item = travelData.days[dayIdx]?.timeline[viewingItemIndex];
+        if (item) currentPlaceTitle = item.title;
+    }
 
     if (!travelData.shoppingList || travelData.shoppingList.length === 0) {
         listContainer.innerHTML = '<p class="text-xs text-gray-400 text-center py-8">쇼핑 리스트가 비어있습니다.</p>';
     } else {
-        listContainer.innerHTML = travelData.shoppingList.map((item, idx) => `
-            <button type="button" onclick="selectShoppingItem(${idx})" class="w-full text-left px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-primary hover:bg-primary/5 transition-colors mb-2">
-                <div class="flex items-center justify-between">
-                    <div class="flex-1">
-                        <div class="font-medium text-sm text-gray-800 dark:text-white">${item.text}</div>
-                        ${item.location ? `<div class="text-xs text-gray-500 mt-1">${item.location}${item.locationDetail ? ` - ${item.locationDetail}` : ''}</div>` : ''}
+        // Filter unchecked items and sort by proximity (location match)
+        const items = travelData.shoppingList
+            .map((item, idx) => ({ ...item, originalIndex: idx }))
+            .filter(item => !item.checked)
+            .sort((a, b) => {
+                const aLoc = (a.location || '').trim();
+                const bLoc = (b.location || '').trim();
+                const curLoc = (currentPlaceTitle || '').trim();
+                const aMatches = aLoc === curLoc;
+                const bMatches = bLoc === curLoc;
+                if (aMatches && !bMatches) return -1;
+                if (!aMatches && bMatches) return 1;
+                return 0;
+            });
+
+        if (items.length === 0) {
+            listContainer.innerHTML = '<p class="text-xs text-gray-400 text-center py-8">이미 모든 항목을 구매하셨거나<br>남은 쇼핑 리스트가 없습니다.</p>';
+        } else {
+            listContainer.innerHTML = items.map((item) => {
+                const itemLoc = (item.location || '').trim();
+                const curLoc = (currentPlaceTitle || '').trim();
+                const isMatch = itemLoc !== '' && itemLoc === curLoc;
+                return `
+                <button type="button" onclick="selectShoppingItem(${item.originalIndex})" 
+                    class="w-full text-left px-4 py-3 rounded-xl border-2 transition-all mb-2 flex flex-col gap-1 ${isMatch ? 'border-primary bg-primary/5 recommend-float' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'}">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1 min-w-0">
+                            <div class="font-bold text-sm text-text-main dark:text-white truncate">${item.text}</div>
+                            ${item.location ? `
+                                <div class="flex items-center gap-1 text-[10px] ${isMatch ? 'text-primary' : 'text-gray-500'} font-bold mt-1">
+                                    <span class="material-symbols-outlined text-xs">location_on</span>
+                                    ${item.location}
+                                </div>
+                            ` : ''}
+                        </div>
+                        ${isMatch ? '' : '<span class="material-symbols-outlined text-gray-300">chevron_right</span>'}
                     </div>
-                    <span class="material-symbols-outlined text-gray-400">chevron_right</span>
-                </div>
-            </button>
-        `).join('');
+                </button>
+                `;
+            }).join('');
+        }
     }
 
     modal.classList.remove('hidden');

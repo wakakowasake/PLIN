@@ -4,6 +4,49 @@
 
 ---
 
+## [2.3.5] - 2026-01-22
+### Added
+- **쇼핑 추천 비주얼 효과 개선**: 
+    - 추천 항목에 위아래로 부드럽게 움직이는 **'부유(Floating)' 애니메이션** 적용
+    - 가독성을 위해 추천 항목 내 '추천' 텍스트 뱃지 제거 및 색상/그림자 강조로 대체
+- **상세 모달 컨텍스트 연동**: 일정 상세 모달에서 지출 추가 시에도 해당 장소와 매칭되는 쇼핑 항목을 자동으로 추천하는 로직 구현
+
+### Fixed
+- **지출 및 쇼핑 연동 오류 수정**: 
+    - `modals.js` 내 전역 변수 참조 오류(`ReferenceError`) 및 `expense-manager.js`와의 중복 로직 통합 해결
+    - 지출 저장 시 실제 데이터(`travelData`) 반영 및 총 예산 실시간 갱신 문제 해결
+- **모달 계층 및 가시성 개선**: 
+    - 쇼핑 리스트 선택 모달이 지출 모달 뒤에 가려지는 Z-index 이슈 해결
+    - 모달 오픈 시 DOM 순서 보장을 통해 레이어 우선순위 최적화
+- **데이터 동기화 안정화**: 
+    - 리스트 관리 창에서 항목 삭제 시 UI 및 일정 상세 모달에 즉시 반영되지 않던 문제 해결
+    - 장소 매칭 로직에 `trim()` 등 예외 처리 강화로 정확도 향상
+
+### 14:15 - [AI] 지출/쇼핑 통합 로직 개선 및 추천 비주얼 효과 고도화
+- **변경 파일**: public/js/ui/modals.js, public/js/ui/expense-manager.js (삭제/통합), public/js/ui.js, public/css/style.css, HISTORY.md, task.md, implementation_plan.md, walkthrough.md
+
+---
+
+## [2.3.4] - 2026-01-22
+### Fixed
+- **콘솔 404 에러 완전 해결**: 
+    - `error-guard.js`, 아이콘, 매니페스트 등이 빌드 시 누락되거나 경로가 바뀌는 문제 해결
+    - `public/static` 구조 도입 및 Vite `publicDir: 'static'` 설정을 통한 정적 자산 서빙 안정화
+- **브라우저 성능 경고(Violation) 제거**: 
+    - 인라인으로 등록된 `touchstart`, `touchmove` 리스너를 JS의 `{ passive: false }` 리스너로 전면 교체
+    - `#trip-info-container` ID 보강 및 CSS `touch-action: none !important` 적용으로 스크롤 성능 경고 해결
+- **에러 가드 안정화**: `error-guard.js`를 의존성 없는 독립 스크립트로 리팩토링 및 비모듈 로드 방식으로 초기 오류 포착 능력 강화
+
+### Optimized
+- **콘솔 노이즈 제거**: `performance.js`, `ui.js` 등에서 부차적인 디버깅 로그들을 `logger.debug`로 전환하거나 제거
+- **PWA 캐싱 전략**: Service Worker(`sw.js`) 내의 정적 캐시 목록에서 해싱되는 파일을 제거하고 런타임 캐싱으로 전환하여 설치 에러 방지
+- **로거 전역화**: `window.logger`를 통해 모든 모듈에서 안전하게 로깅 시스템에 접근 가능하도록 개선
+
+### 00:15 - [AI] 콘솔 클린업 및 정적 자산 구조 최적화 완료
+- **변경 파일**: public/static/ (신설), vite.config.js, public/index.html, public/js/ui.js, public/js/ui/renderers.js, public/js/error-guard.js, public/static/sw.js, HISTORY.md, ONBOARDING.md
+
+---
+
 ## [2.3.3] - 2026-01-21
 ### Fixed
 - '추억 남기기' 모달이 상세 모달 뒤에 가려지는 Z-index 레이어 충돌 문제 해결

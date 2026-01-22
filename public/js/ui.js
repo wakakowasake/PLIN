@@ -41,6 +41,7 @@ import * as TimelineDetail from './ui/timeline-detail.js';
 // import { ensureItemDetailModal } from './ui/timeline-detail.js'; // Removed to avoid duplicate import issues
 import * as ExpenseDetail from './ui/expense-detail.js';
 import * as FlightManager from './ui/flight-manager.js';
+import * as ListManager from './ui/list-manager.js';
 import * as DnD from './ui/dnd.js';
 import { categoryList, majorAirports } from './ui/constants.js';
 
@@ -527,7 +528,7 @@ export function viewTimelineItem(index, dayIndex = currentDayIndex) {
 
     document.getElementById('item-detail-modal').classList.remove('hidden');
     window.pushModalState();
-    lockBodyScroll();
+    Modals.lockBodyScroll();
 }
 
 export function openAddModal(index, dayIndex) {
@@ -1623,7 +1624,7 @@ export function renderItinerary() {
 // [Added] 현지 시간 및 시차 계산 위젯 업데이트 함수
 let timeUpdateInterval = null;
 
-function updateLocalTimeWidget() {
+export function updateLocalTimeWidget() {
     const timezone = travelData.meta.timezone;
     const displayEl = document.getElementById('local-time-display');
     const diffEl = document.getElementById('time-diff-display');
@@ -1673,13 +1674,9 @@ export function renderLists() {
 
 export function addListItem(type) {
     if (type === 'shopping') {
-        openShoppingAddModal();
+        ListManager.openShoppingListModal();
     } else {
-        openManualInputModal("", (val) => {
-            travelData.checklist.push({ text: val, checked: false });
-            renderLists();
-            autoSave();
-        }, "준비물 추가", "내용");
+        ListManager.openChecklistModal();
     }
 }
 
@@ -1688,6 +1685,7 @@ export function toggleListCheck(type, index) {
     if (list[index]) {
         list[index].checked = !list[index].checked;
         renderLists();
+        if (window.renderListInModal) window.renderListInModal();
         autoSave();
     }
 }
@@ -1696,125 +1694,12 @@ export function deleteListItem(type, index) {
     const list = type === 'shopping' ? travelData.shoppingList : travelData.checklist;
     list.splice(index, 1);
     renderLists();
+    if (window.renderListInModal) window.renderListInModal();
     autoSave();
 }
 
 let selectedShoppingLocation = null;
 
-export function openShoppingAddModal() {
-    selectedShoppingLocation = null;
-    const modal = document.getElementById('shopping-add-modal');
-    const nameInput = document.getElementById('shopping-item-name');
-    const locationList = document.getElementById('shopping-location-list');
-
-    nameInput.value = '';
-    locationList.innerHTML = '';
-
-    // 타임라인에서 모든 장소 추출
-    const locations = [];
-    if (travelData.days) {
-        travelData.days.forEach(day => {
-            if (day.timeline) {
-                day.timeline.forEach(item => {
-                    if (item.title && !item.isTransit && item.tag !== '메모') {
-                        const loc = {
-                            title: item.title,
-                            location: item.location || '',
-                            dayDate: day.date
-                        };
-                        // 중복 제거
-                        if (!locations.some(l => l.title === loc.title && l.location === loc.location)) {
-                            locations.push(loc);
-                        }
-                    }
-                });
-            }
-        });
-    }
-
-    if (locations.length > 0) {
-        locations.forEach((loc, idx) => {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'text-left px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-primary hover:bg-primary/5 transition-colors';
-            btn.innerHTML = `
-                <div class="font-medium text-sm text-gray-800 dark:text-white">${loc.title}</div>
-                ${loc.location ? `<div class="text-xs text-gray-500">${loc.location}</div>` : ''}
-            `;
-            btn.onclick = () => selectShoppingLocation(idx, loc);
-            btn.id = `shopping-loc-${idx}`;
-            locationList.appendChild(btn);
-        });
-    } else {
-        locationList.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">등록된 장소가 없습니다.</p>';
-    }
-
-    modal.classList.remove('hidden');
-    setTimeout(() => nameInput.focus(), 100);
-
-    nameInput.onkeydown = (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            confirmShoppingAdd();
-        }
-    };
-}
-
-export function selectShoppingLocation(idx, loc) {
-    // 기존 선택 해제
-    document.querySelectorAll('[id^="shopping-loc-"]').forEach(btn => {
-        btn.classList.remove('border-primary', 'bg-primary/10');
-        btn.classList.add('border-gray-200', 'dark:border-gray-600');
-    });
-
-    // 새 선택
-    const btn = document.getElementById(`shopping-loc-${idx}`);
-    if (btn) {
-        btn.classList.add('border-primary', 'bg-primary/10');
-        btn.classList.remove('border-gray-200', 'dark:border-gray-600');
-    }
-
-    selectedShoppingLocation = loc;
-}
-
-export function skipShoppingLocation() {
-    selectedShoppingLocation = null;
-    document.querySelectorAll('[id^="shopping-loc-"]').forEach(btn => {
-        btn.classList.remove('border-primary', 'bg-primary/10');
-        btn.classList.add('border-gray-200', 'dark:border-gray-600');
-    });
-}
-
-export function closeShoppingAddModal() {
-    document.getElementById('shopping-add-modal').classList.add('hidden');
-    selectedShoppingLocation = null;
-}
-
-export function confirmShoppingAdd() {
-    const nameInput = document.getElementById('shopping-item-name');
-    const name = nameInput.value.trim();
-
-    if (!name) {
-        nameInput.classList.add('shake');
-        setTimeout(() => nameInput.classList.remove('shake'), 300);
-        return;
-    }
-
-    const item = {
-        text: name,
-        checked: false
-    };
-
-    if (selectedShoppingLocation) {
-        item.location = selectedShoppingLocation.title;
-        item.locationDetail = selectedShoppingLocation.location;
-    }
-
-    travelData.shoppingList.push(item);
-    renderLists();
-    autoSave();
-    closeShoppingAddModal();
-}
 
 // [Autocomplete Logic]
 let itemAutocompleteInstance = null;
@@ -2888,11 +2773,6 @@ window.enableNoteEdit = Header.enableNoteEdit;
 window.addListItem = addListItem;
 window.toggleListCheck = toggleListCheck;
 window.deleteListItem = deleteListItem;
-window.openShoppingAddModal = openShoppingAddModal;
-window.closeShoppingAddModal = closeShoppingAddModal;
-window.confirmShoppingAdd = confirmShoppingAdd;
-window.selectShoppingLocation = selectShoppingLocation;
-window.skipShoppingLocation = skipShoppingLocation;
 window.openExpenseModal = Modals.openExpenseModal;
 window.closeExpenseModal = Modals.closeExpenseModal;
 window.saveExpense = Modals.saveExpense;
@@ -2917,6 +2797,29 @@ window.timelineContainerDrop = timelineContainerDrop;
 window.touchStart = touchStart;
 window.touchMove = touchMove;
 window.touchEnd = touchEnd;
+
+// [Fix] Touch Violation Warnings (Explicit Non-Passive Registration)
+(function () {
+    const attachHandlers = () => {
+        const hero = document.getElementById('trip-hero');
+        const info = document.getElementById('trip-info-container');
+
+        if (hero) {
+            hero.addEventListener('touchstart', (e) => touchStart(e, -1, 'hero'), { passive: false });
+            hero.addEventListener('touchmove', touchMove, { passive: false });
+        }
+        if (info) {
+            info.addEventListener('touchstart', (e) => touchStart(e, -1, 'trip_info'), { passive: false });
+            info.addEventListener('touchmove', touchMove, { passive: false });
+        }
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', attachHandlers);
+    } else {
+        setTimeout(attachHandlers, 100); // UI 렌더링 대기
+    }
+})();
 window.openAddModal = openAddModal;
 window.closeAddModal = closeAddModal;
 window.reorderTimeline = reorderTimeline;
@@ -3494,38 +3397,12 @@ async function loadAndRenderHourlyWeather(dateStr) {
     }
 }
 
-export async function selectWeatherDate(dateStr) {
-    selectedWeatherDate = dateStr;
-    renderWeeklyWeather();
-    await loadAndRenderHourlyWeather(dateStr);
-}
+export async function selectWeatherDate(...args) { return Weather.selectWeatherDate(...args); }
+export async function navigateWeatherWeek(...args) { return Weather.navigateWeatherWeek(...args); }
 
 export function openCopyItemModal(...args) { return Modals.openCopyItemModal(...args); }
 export function closeCopyItemModal(...args) { return Modals.closeCopyItemModal(...args); }
 export function copyItemToCurrent(...args) { return Modals.copyItemToCurrent(...args); }
-
-export async function navigateWeatherWeek(direction) {
-    const weekStart = new Date(currentWeatherWeekStart);
-    weekStart.setDate(weekStart.getDate() + (direction * 7));
-    currentWeatherWeekStart = formatDate(weekStart);
-
-    await loadAndRenderWeeklyWeather();
-}
-
-function getWeekStart(date) {
-    const d = new Date(date);
-    const day = d.getDay();
-    const diff = day; // 일요일 기준
-    d.setDate(d.getDate() - diff);
-    return formatDate(d);
-}
-
-function formatDate(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
 
 function legacy_closeWeatherDetailModal() {
     const modal = document.getElementById('weather-detail-modal');
@@ -3583,6 +3460,10 @@ window.Auth = Auth;
 window.Profile = Profile;
 window.Trips = Trips;
 window.Memories = Memories;
+window.ListManager = ListManager;
+window.openShoppingListModal = ListManager.openShoppingListModal;
+window.openChecklistModal = ListManager.openChecklistModal;
+window.closeListModal = ListManager.closeListModal;
 
 // console.debug('[UI] Window global bindings initialized');
 

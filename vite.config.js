@@ -3,6 +3,7 @@ import { resolve } from 'path';
 
 export default defineConfig({
     root: 'public', // Root directory for Vite (source)
+    publicDir: 'static', // Static assets directory relative to root
     build: {
         outDir: '../dist', // Output directory relative to root
         emptyOutDir: true, // Clean dist before build

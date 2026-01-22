@@ -117,65 +117,7 @@ export function getDayExpenses(day) {
     return total;
 }
 
-export function saveExpense() {
-    const descInput = document.getElementById('expense-desc');
-    const costInput = document.getElementById('expense-cost');
-    if (!descInput || !costInput) return;
-
-    const desc = descInput.value;
-    const cost = costInput.value.replace(/,/g, '');
-
-    if (!desc || !cost) {
-        alert('내역과 금액을 입력해주세요.');
-        return;
-    }
-
-    const tDayIdx = (typeof window.targetDayIndex === 'number') ? window.targetDayIndex : targetDayIndex;
-    const vItemIdx = (typeof window.viewingItemIndex === 'number') ? window.viewingItemIndex : viewingItemIndex;
-
-    // [Added] Location Selection Logic
-    const locSelect = document.getElementById('expense-location-select');
-    let useItemIdx = vItemIdx;
-    let forceGeneral = true; // Default to true (General Expense) if no location selected
-
-    if (window.isAddingFromDetail && locSelect && !locSelect.parentElement.classList.contains('hidden')) {
-        const val = Number(locSelect.value);
-        if (val !== -1) {
-            useItemIdx = val;
-            forceGeneral = false; // Specific location selected
-        }
-    }
-
-    if (tDayIdx === null || useItemIdx === null) return;
-
-    const item = travelData.days[tDayIdx]?.timeline[useItemIdx];
-    if (item) {
-        // [Refactor] Add expense manually to ensure flag control
-        if (!item.expenses) item.expenses = [];
-        const newExpense = { description: desc, amount: Number(cost) };
-
-        // isGeneral logic removed as per request ("Remove Unknown Option")
-
-        item.expenses.push(newExpense);
-        item.budget = item.expenses.reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
-
-        // [Fix] Refresh Detail Modal IMMEDIATELY after data change
-        if (typeof window.refreshExpenseDetail === 'function') {
-            window.refreshExpenseDetail();
-        }
-
-        renderExpenseList(item);
-        updateTotalBudget(travelData);
-        if (window.renderItinerary) window.renderItinerary();
-        if (window.autoSave) window.autoSave();
-
-        // Modal 닫기는 Modals.js 함수 호출 필요
-        if (window.closeExpenseModal) window.closeExpenseModal();
-    }
-}
-
 // Window Bindings
-window.saveExpense = saveExpense;
 
 window.deleteExpenseItem = function (idx) {
     const tDayIdx = (typeof window.targetDayIndex === 'number') ? window.targetDayIndex : targetDayIndex;
@@ -197,6 +139,5 @@ export default {
     updateTotalBudget,
     deleteExpense,
     addExpense,
-    getDayExpenses,
-    saveExpense
+    getDayExpenses
 };

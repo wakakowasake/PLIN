@@ -204,21 +204,31 @@ export let mapEl; // Export mapEl to check current container
 
 export async function initMap() {
     // 1. Try to render in the card background first (Preview Mode)
-    mapEl = document.getElementById("map-bg");
+    let container = document.getElementById("map-bg");
     let isPreview = true;
 
     // If map-bg doesn't exist, check modal container
-    if (!mapEl) {
-        mapEl = document.getElementById("route-map-container");
+    if (!container) {
+        container = document.getElementById("route-map-container");
         isPreview = false;
     }
 
-    if (mapEl && window.google) {
+    if (container && window.google) {
         const lat = Number(travelData.meta.lat) || 37.5665;
         const lng = Number(travelData.meta.lng) || 126.9780;
 
+        // [Fix] HierarchyRequestError 방지: 컨테이너에 직접 초기화하지 않고 내부 div 생성
+        let mapDiv = container.querySelector('.google-map-instance');
+        if (!mapDiv) {
+            mapDiv = document.createElement('div');
+            mapDiv.className = 'google-map-instance';
+            mapDiv.style.width = '100%';
+            mapDiv.style.height = '100%';
+            container.appendChild(mapDiv);
+        }
+
         // Remove background image if map is being loaded
-        mapEl.style.backgroundImage = 'none';
+        container.style.backgroundImage = 'none';
 
         const mapOptions = {
             center: { lat, lng },
@@ -230,7 +240,8 @@ export async function initMap() {
             fullscreenControl: !isPreview,
         };
 
-        map = new google.maps.Map(mapEl, mapOptions);
+        map = new google.maps.Map(mapDiv, mapOptions);
+        mapEl = container; // Track current container slot
 
         try {
             const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
@@ -257,25 +268,30 @@ export async function initMap() {
 export async function renderRouteOnMap() {
     if (!map || !travelData.days) return;
 
+    // [Fix] 메인 여행지 마커(Arashiyama 등) 숨기기 - 사용자 등록 장소만 표시하기 위함
+    if (mapMarker) {
+        if (typeof mapMarker.setMap === 'function') mapMarker.setMap(null);
+        else mapMarker.map = null;
+    }
+
     // 기존 마커/폴리라인 제거
     if (window.routeMarkers) {
         window.routeMarkers.forEach(m => m.setMap(null));
     }
     window.routeMarkers = [];
 
+    if (window.routePolylines) {
+        window.routePolylines.forEach(p => p.setMap(null));
+        window.routePolylines = [];
+    }
     if (window.routePolyline) {
         window.routePolyline.setMap(null);
         window.routePolyline = null;
     }
 
-    const dayIndex = currentDayIndex === -1 ? 0 : currentDayIndex; // Default to first day if 'All' view
-    if (!travelData.days[dayIndex] || !travelData.days[dayIndex].timeline) return;
-
-    const timeline = travelData.days[dayIndex].timeline;
     const bounds = new google.maps.LatLngBounds();
-    const path = [];
+    const totalPath = [];
     const geocoder = new google.maps.Geocoder();
-    let transitBuffer = [];
 
     // InfoWindow (재사용)
     if (!window.sharedInfoWindow) {
@@ -286,80 +302,211 @@ export async function renderRouteOnMap() {
         if (item.lat && item.lng) {
             return { lat: Number(item.lat), lng: Number(item.lng) };
         }
-        // 위치 정보가 없거나 텍스트만 있는 경우 (Geocoding 필요) -> 프리뷰에서는 성능상 건너뛰거나 필요시 구현
         return null;
     };
 
-    for (let i = 0; i < timeline.length; i++) {
-        const item = timeline[i];
-        if (item.isTransit) continue;
+    // 렌더링할 대상 날짜 결정
+    const dayIndices = currentDayIndex === -1
+        ? travelData.days.map((_, i) => i)
+        : [currentDayIndex];
 
-        const pos = await getPoint(item);
-        if (pos) {
-            path.push(pos);
-            bounds.extend(pos);
+    let markerCount = 0;
 
-            // 마커 생성
-            let marker;
-            try {
-                // Try Advanced Marker
-                const { AdvancedMarkerElement, PinElement } = await google.maps.importLibrary("marker");
-                const pin = new PinElement({
-                    glyph: `${path.length}`,
-                    background: "#774b00",
-                    borderColor: "#ffffff",
-                    glyphColor: "#ffffff",
+    for (const dIdx of dayIndices) {
+        const day = travelData.days[dIdx];
+        if (!day || !day.timeline) continue;
+
+        const dayPath = [];
+
+        for (let i = 0; i < day.timeline.length; i++) {
+            const item = day.timeline[i];
+            if (item.isTransit || item.tag === '메모') continue;
+
+            const pos = await getPoint(item);
+            if (pos) {
+                markerCount++;
+                dayPath.push(pos);
+                totalPath.push(pos);
+                bounds.extend(pos);
+
+                // 마커 생성
+                let marker;
+                try {
+                    // [Enhanced] 꾹꾹체 적용 및 중첩 시 가독성 개선
+                    const markerElement = document.createElement('div');
+                    const bgColor = currentDayIndex === -1 ? (dIdx % 2 === 0 ? "#ee8700" : "#ff9f1c") : "#ee8700";
+
+                    markerElement.innerHTML = `
+                        <div style="
+                            background: ${bgColor};
+                            color: white;
+                            width: 28px;
+                            height: 28px;
+                            border-radius: 50%;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-family: 'MemomentKkukkukk', sans-serif;
+                            font-size: 15px;
+                            border: 2px solid #ffffff;
+                            box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+                            font-weight: bold;
+                            transform: translateY(-50%);
+                            cursor: pointer;
+                        ">
+                            ${markerCount}
+                        </div>
+                    `;
+
+                    marker = new AdvancedMarkerElement({
+                        map: map,
+                        position: pos,
+                        title: item.title,
+                        content: markerElement,
+                        zIndex: 1000 + markerCount, // [Fix] 큰 숫자가 위로 오도록 설정
+                        collisionBehavior: google.maps.CollisionBehavior.REQUIRED // [Fix] 겹쳐도 숨기지 않음
+                    });
+                } catch (e) {
+                    marker = new google.maps.Marker({
+                        position: pos,
+                        map: map,
+                        zIndex: 1000 + markerCount,
+                        label: {
+                            text: markerCount.toString(),
+                            color: 'white',
+                            fontFamily: 'MemomentKkukkukk',
+                            fontSize: '15px',
+                            fontWeight: 'bold'
+                        }
+                    });
+                }
+
+                // [Added] 마커용 이미지 캐시 및 획득 함수
+                if (!window.itemImageCache) window.itemImageCache = new Map();
+
+                const getItemImage = async (targetItem) => {
+                    const cacheKey = targetItem.id || `${targetItem.title}_${targetItem.location}`;
+                    if (window.itemImageCache.has(cacheKey)) return window.itemImageCache.get(cacheKey);
+
+                    // 1. 추억 사진 확인
+                    if (targetItem.memories && targetItem.memories.length > 0) {
+                        const photo = targetItem.memories.find(m => m.photoUrl);
+                        if (photo) {
+                            window.itemImageCache.set(cacheKey, photo.photoUrl);
+                            return photo.photoUrl;
+                        }
+                    }
+
+                    // 2. 구글 장소 사진 검색 (Places API)
+                    if (window.google && targetItem.location && targetItem.location.length > 1) {
+                        try {
+                            const service = new google.maps.places.PlacesService(map);
+                            const request = { query: `${targetItem.title} ${targetItem.location}`, fields: ['photos'] };
+
+                            const photoUrl = await new Promise((resolve) => {
+                                service.findPlaceFromQuery(request, (results, status) => {
+                                    if (status === google.maps.places.PlacesServiceStatus.OK && results[0].photos) {
+                                        resolve(results[0].photos[0].getUrl({ maxWidth: 400 }));
+                                    } else {
+                                        resolve(null);
+                                    }
+                                });
+                            });
+
+                            if (photoUrl) {
+                                window.itemImageCache.set(cacheKey, photoUrl);
+                                return photoUrl;
+                            }
+                        } catch (e) {
+                            console.warn("Places photo fetch failed", e);
+                        }
+                    }
+
+                    // 3. Fallback: 기본 이미지
+                    const fallback = targetItem.image || "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=400&h=400&fit=crop";
+                    window.itemImageCache.set(cacheKey, fallback);
+                    return fallback;
+                };
+
+                marker.addListener('click', async () => {
+                    // [Added] 마커 재클릭 시 상세 모달 오픈 (Double-click like behavior)
+                    if (window.lastClickedMarker === marker) {
+                        if (window.viewTimelineItem) {
+                            window.viewTimelineItem(i, dIdx);
+                        }
+                        window.lastClickedMarker = null; // 초기화
+                        return;
+                    }
+                    window.lastClickedMarker = marker;
+
+                    // 이미지 먼저 확보 (캐싱 활용)
+                    const imgUrl = await getItemImage(item);
+
+                    window.sharedInfoWindow.setContent(`
+                        <div style="display: flex; min-width: 280px; max-width: 350px; cursor: pointer; overflow: hidden; font-family: 'MemomentKkukkukk', sans-serif; background: white;" onclick="window.viewTimelineItem(${i}, ${dIdx})">
+                            <div style="flex: 1; padding: 12px; display: flex; flex-direction: column; justify-content: center; min-width: 150px;">
+                                <div style="font-size: 11px; font-weight: bold; color: #ee8700; margin-bottom: 2px;">${dIdx + 1}일차</div>
+                                <h4 style="margin: 0 0 4px 0; font-size: 16px; font-weight: bold; color: #333; line-height: 1.3;">${item.title}</h4>
+                                <p style="margin: 0; font-size: 12px; color: #888; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;">${item.location || ''}</p>
+                                <div style="margin-top: 10px; font-size: 11px; color: #4285f4; font-weight: bold; display: flex; align-items: center; gap: 4px;">
+                                    <span class="material-symbols-outlined" style="font-size: 14px;">info</span> 한 번 더 누르면 상세보기
+                                </div>
+                            </div>
+                            <div style="width: 100px; height: 100px; flex-shrink: 0; background-color: #f8f8f8;">
+                                <img src="${imgUrl}" style="width: 100%; height: 100%; object-fit: cover; transition: opacity 0.3s;" />
+                            </div>
+                        </div>
+                    `);
+                    window.sharedInfoWindow.open(map, marker);
+
+                    // 정보창 닫힐 때 클릭 상태 초기화
+                    google.maps.event.addListenerOnce(window.sharedInfoWindow, 'closeclick', () => {
+                        window.lastClickedMarker = null;
+                    });
                 });
-                marker = new AdvancedMarkerElement({
-                    map: map,
-                    position: pos,
-                    title: item.title,
-                    content: pin.element
-                });
-            } catch (e) {
-                // Fallback
-                marker = new google.maps.Marker({
-                    position: pos,
-                    map: map,
-                    label: { text: path.length.toString(), color: 'white' }
-                });
+                window.routeMarkers.push(marker);
             }
+        }
 
-            marker.addListener('click', () => {
-                window.sharedInfoWindow.setContent(`
-                    <div style="padding: 8px;">
-                        <h4 style="font-weight: bold;">${item.title}</h4>
-                        <p>${item.location || ''}</p>
-                    </div>
-                `);
-                window.sharedInfoWindow.open(map, marker);
+        // 각 날짜별로 폴리라인 그리기 (점선 스타일 적용)
+        if (dayPath.length > 1) {
+            const lineSymbol = {
+                path: 'M 0,-1 0,1',
+                strokeOpacity: 1,
+                scale: 2
+            };
+
+            const polyline = new google.maps.Polyline({
+                path: dayPath,
+                geodesic: true,
+                strokeColor: currentDayIndex === -1 ? (dIdx % 2 === 0 ? '#774b00' : '#a36200') : '#774b00',
+                strokeOpacity: 0, // 실선을 숨기고
+                icons: [{ // 점선 아이콘 반복 적용
+                    icon: lineSymbol,
+                    offset: '0',
+                    repeat: '8px'
+                }],
+                map: map
             });
-            window.routeMarkers.push(marker);
+
+            if (!window.routePolylines) window.routePolylines = [];
+            window.routePolylines.push(polyline);
         }
     }
 
-    // 폴리라인 그리기
-    if (path.length > 1) {
-        window.routePolyline = new google.maps.Polyline({
-            path: path,
-            geodesic: true,
-            strokeColor: '#774b00',
-            strokeOpacity: 0.8,
-            strokeWeight: 4,
-            map: map
-        });
+    // 기존 단일 routePolyline 참조 호환성 유지
+    if (window.routePolylines && window.routePolylines.length > 0) {
+        window.routePolyline = window.routePolylines[0];
     }
 
     // 지도 범위 조정
     if (!bounds.isEmpty()) {
         map.fitBounds(bounds);
-        // 줌 레벨 조정 (너무 확대되지 않도록)
-        /*
-        const listener = google.maps.event.addListener(map, "idle", () => { 
-            if (map.getZoom() > 15) map.setZoom(15); 
-            google.maps.event.removeListener(listener); 
+        // 패딩 추가하여 마커가 가장자리에 붙지 않게 함
+        const listener = google.maps.event.addListener(map, "idle", () => {
+            google.maps.event.removeListener(listener);
+            if (map.getZoom() > 16) map.setZoom(16);
         });
-        */
     }
 }
 
@@ -404,6 +551,12 @@ export function transferMapToPreview() {
                 keyboardShortcuts: false,
                 fullscreenControl: false
             });
+
+            // [Fix] 프리뷰 모드로 복구 시 메인 마커 다시 표시
+            if (mapMarker) {
+                if (typeof mapMarker.setMap === 'function') mapMarker.setMap(map);
+                else mapMarker.map = map;
+            }
 
             const lat = Number(travelData.meta.lat) || 37.5665;
             const lng = Number(travelData.meta.lng) || 126.9780;
@@ -782,18 +935,43 @@ export async function fetchWeeklyWeather(lat, lng, weekStartDate) {
                 const minTemp = data.daily.temperature_2m_min[i];
                 const weatherCode = data.daily.weather_code[i];
 
-                // 오늘 이전 날짜는 사용 불가 처리
-                const isAvailable = dateObj >= today;
-
-                weeklyData.push({
+                // 1. API 데이터로 객체 생성
+                const dayData = {
                     date: date,
                     maxTemp: maxTemp !== null ? Math.round(maxTemp) : null,
                     minTemp: minTemp !== null ? Math.round(minTemp) : null,
                     weatherCode: weatherCode,
                     weatherDesc: translateWeatherCode(weatherCode),
                     icon: getWeatherIconFromCode(weatherCode),
-                    available: isAvailable
-                });
+                    available: dateObj >= today
+                };
+
+                // 2. 여행 데이터(travelData)에 동기화 및 캐싱
+                const tripDay = travelData.days && travelData.days.find(d => d.date === date);
+                if (tripDay) {
+                    if (dateObj >= today) {
+                        // 오늘/미래 날짜면 최신 정보로 업데이트
+                        tripDay.weatherSummary = { ...dayData, available: true };
+                        if (window.autoSave) window.autoSave();
+                    } else if (tripDay.weatherSummary) {
+                        // 과거 날짜지만 캐시된 정보가 있으면 사용
+                        Object.assign(dayData, tripDay.weatherSummary);
+                        dayData.available = true;
+                    }
+                }
+
+                weeklyData.push(dayData);
+            }
+        } else if (travelData.days) {
+            // API 호출 실패 시 캐시된 정보라도 반환 (과거 날짜 등)
+            for (let i = 0; i < 7; i++) {
+                const date = new Date(startDate);
+                date.setDate(date.getDate() + i);
+                const dateStr = formatDateStr(date);
+                const tripDay = travelData.days.find(d => d.date === dateStr);
+                if (tripDay && tripDay.weatherSummary) {
+                    weeklyData.push({ ...tripDay.weatherSummary, available: true });
+                }
             }
         }
 
@@ -813,9 +991,11 @@ export async function fetchHourlyWeatherForDate(lat, lng, dateStr) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        // 과거 날짜는 데이터 없음
+        const tripDay = travelData.days && travelData.days.find(d => d.date === dateStr);
+
+        // 과거 날짜는 데이터 없음 (단, 캐시된 데이터가 있으면 반환)
         if (targetDate < today) {
-            return null;
+            return (tripDay && tripDay.hourlyWeather) || null;
         }
 
         // Open-Meteo API - 특정 날짜의 시간별 예보
@@ -823,9 +1003,9 @@ export async function fetchHourlyWeatherForDate(lat, lng, dateStr) {
 
         const res = await fetch(url);
         if (!res.ok) {
-            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            // API 실패 시 캐시 반환
+            return (tripDay && tripDay.hourlyWeather) || null;
         }
-
 
         const data = await res.json();
 
@@ -853,10 +1033,16 @@ export async function fetchHourlyWeatherForDate(lat, lng, dateStr) {
                 });
             }
 
+            // 캐싱 및 저장
+            if (tripDay) {
+                tripDay.hourlyWeather = hourlyData;
+                if (window.autoSave) window.autoSave();
+            }
+
             return hourlyData;
         }
 
-        return null;
+        return (tripDay && tripDay.hourlyWeather) || null;
     } catch (e) {
         console.warn("Hourly weather for date fetch failed:", e.message);
         return null;

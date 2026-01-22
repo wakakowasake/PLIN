@@ -229,7 +229,7 @@ export function renderTimelineItemHtml(item, index, dayIndex, isLast, isFirst, a
     const zIndex = 100 - index;
 
     let html = `
-        <div ${draggableAttr} ontouchstart="touchStart(event, ${index}, 'item')" ontouchmove="touchMove(event)" ontouchend="touchEnd(event)" data-index="${index}" style="z-index: ${zIndex};" class="relative grid grid-cols-[auto_1fr] gap-x-3 md:gap-x-6 group/timeline-item pb-4 timeline-item-transition rounded-xl" ${contextHandler}>
+        <div ${draggableAttr} ontouchstart="touchStart(event, ${index}, 'item')" ontouchmove="touchMove(event)" ontouchend="touchEnd(event)" data-index="${index}" style="z-index: ${zIndex}; touch-action: none;" class="relative grid grid-cols-[auto_1fr] gap-x-3 md:gap-x-6 group/timeline-item pb-4 timeline-item-transition rounded-xl" ${contextHandler}>
         <div class="drag-indicator absolute -top-3 left-0 right-0 h-1 bg-primary rounded-full hidden z-[${Z_INDEX.DRAG_INDICATOR}] shadow-sm pointer-events-none"></div>
 
         <div class="relative flex flex-col items-center" data-timeline-icon="true">
@@ -346,7 +346,7 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
     const zIndex = 100 - index;
 
     let html = `
-        <div ${draggableAttr} ontouchstart="touchStart(event, ${index}, 'item')" ontouchmove="touchMove(event)" ontouchend="touchEnd(event)" data-index="${index}" style="z-index: ${zIndex};" 
+        <div ${draggableAttr} ontouchstart="touchStart(event, ${index}, 'item')" ontouchmove="touchMove(event)" ontouchend="touchEnd(event)" data-index="${index}" style="z-index: ${zIndex}; touch-action: none;" 
             class="relative grid grid-cols-[auto_1fr] gap-x-3 md:gap-x-6 group/timeline-item timeline-item-transition rounded-xl ${marginClass}" ${contextHandler}>
             <div class="drag-indicator absolute -top-3 left-0 right-0 h-1 bg-primary rounded-full hidden z-50 shadow-sm pointer-events-none"></div>
             
@@ -671,9 +671,10 @@ export function renderLists() {
     if (shoppingContainer) {
         if (travelData.shoppingList && travelData.shoppingList.length > 0) {
             const lastLocation = window.lastExpenseLocation;
-            const sorted = [...travelData.shoppingList];
+            let listToRender = [...travelData.shoppingList];
+
             if (lastLocation) {
-                sorted.sort((a, b) => {
+                listToRender.sort((a, b) => {
                     const aMatches = a.location === lastLocation;
                     const bMatches = b.location === lastLocation;
                     if (aMatches && !bMatches) return -1;
@@ -681,11 +682,28 @@ export function renderLists() {
                     return 0;
                 });
             }
-            shoppingContainer.innerHTML = sorted.map((item, i) => {
+
+            const totalCount = listToRender.length;
+            const limitedList = listToRender.slice(0, 3);
+
+            let listHtml = limitedList.map((item, i) => {
                 const originalIndex = travelData.shoppingList.indexOf(item);
                 const shouldSparkle = lastLocation && item.location === lastLocation;
                 return renderItem(item, originalIndex, 'shopping', shouldSparkle);
             }).join('');
+
+            if (totalCount > 3) {
+                listHtml += `
+                    <div onclick="openShoppingListModal()" class="text-center py-1 mt-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors">
+                        <p class="text-[11px] font-bold text-primary flex items-center justify-center gap-1">
+                            <span class="material-symbols-outlined text-xs">more_horiz</span>
+                            외 ${totalCount - 3}개 더 보기
+                        </p>
+                    </div>
+                `;
+            }
+
+            shoppingContainer.innerHTML = listHtml;
             if (lastLocation) setTimeout(() => { window.lastExpenseLocation = null; }, 3000);
         } else {
             shoppingContainer.innerHTML = '<p class="text-xs text-gray-400 text-center py-2">리스트가 비어있습니다.</p>';
@@ -693,8 +711,27 @@ export function renderLists() {
     }
 
     if (checkContainer) {
-        if (travelData.checklist && travelData.checklist.length > 0) checkContainer.innerHTML = travelData.checklist.map((item, i) => renderItem(item, i, 'check')).join('');
-        else checkContainer.innerHTML = '<p class="text-xs text-gray-400 text-center py-2">리스트가 비어있습니다.</p>';
+        if (travelData.checklist && travelData.checklist.length > 0) {
+            const totalCount = travelData.checklist.length;
+            const limitedList = travelData.checklist.slice(0, 3);
+
+            let listHtml = limitedList.map((item, i) => renderItem(item, i, 'check')).join('');
+
+            if (totalCount > 3) {
+                listHtml += `
+                    <div onclick="openChecklistModal()" class="text-center py-1 mt-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors">
+                        <p class="text-[11px] font-bold text-primary flex items-center justify-center gap-1">
+                            <span class="material-symbols-outlined text-xs">more_horiz</span>
+                            외 ${totalCount - 3}개 더 보기
+                        </p>
+                    </div>
+                `;
+            }
+
+            checkContainer.innerHTML = listHtml;
+        } else {
+            checkContainer.innerHTML = '<p class="text-xs text-gray-400 text-center py-2">리스트가 비어있습니다.</p>';
+        }
     }
 
     requestAnimationFrame(() => { window.scrollTo(0, scrollPosition); });

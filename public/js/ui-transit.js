@@ -2198,9 +2198,8 @@ function processSelectedRoute(route, insertIdx) {
 }
 
 // [Route View Logic]
-let routeMap = null;
-let routePolyline = null;
-let routeMarkers = [];
+// [Route View Logic] - Integrated into ui.js and map.js
+// routeMap, routePolyline, routeMarkers variables are now managed in those modules or shared via window
 
 export async function openRouteModal() {
     const modal = document.getElementById('route-modal');
@@ -3688,8 +3687,8 @@ window.openGoogleMapsRouteFromPrev = openGoogleMapsRouteFromPrev;
 window.addFastestTransitItem = addFastestTransitItem;
 window.openRouteSelectionModal = openRouteSelectionModal;
 window.closeRouteSelectionModal = closeRouteSelectionModal;
-window.openRouteModal = openRouteModal;
-window.closeRouteModal = closeRouteModal;
+// window.openRouteModal = openRouteModal; // Removed duplication
+// window.closeRouteModal = closeRouteModal; // Removed duplication
 window.updateTransitArrivalTime = updateTransitArrivalTime;
 
 // [Duplicate Removed] saveRouteExpense used to be here but was incomplete.

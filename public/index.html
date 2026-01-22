@@ -441,8 +441,8 @@
         <!-- Hero Image -->
         <div id="trip-hero"
             class="vibrant-img w-full h-48 md:h-80 bg-gray-200 rounded-2xl bg-cover bg-center mb-8 shadow-md relative overflow-hidden group select-none"
-            style="touch-action: none;" oncontextmenu="openContextMenu(event, 'hero')"
-            ontouchstart="touchStart(event, -1, 'hero')" ontouchend="touchEnd(event)" ontouchmove="touchMove(event)">
+            style="touch-action: none !important;" oncontextmenu="openContextMenu(event, 'hero')"
+            ontouchend="touchEnd(event)">
             <div class="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors"></div>
         </div>
 
@@ -450,10 +450,10 @@
 
             <div class="lg:col-span-8 flex flex-col gap-6">
                 <div class="flex flex-col custom-flex-row justify-between gap-4">
-                    <div class="flex flex-col gap-2 select-none p-2 -m-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                        style="touch-action: none;" oncontextmenu="openContextMenu(event, 'trip_info')"
-                        ontouchstart="touchStart(event, -1, 'trip_info')" ontouchend="touchEnd(event)"
-                        ontouchmove="touchMove(event)">
+                    <div id="trip-info-container"
+                        class="flex flex-col gap-2 select-none p-2 -m-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                        style="touch-action: none !important;" oncontextmenu="openContextMenu(event, 'trip_info')"
+                        ontouchend="touchEnd(event)">
                         <div class="flex items-center gap-2 text-primary font-bold text-lg uppercase tracking-wider">
                             <span class="material-symbols-outlined text-xl">calendar_month</span>
                             <span id="trip-day-count">3일차 / 7일</span>
@@ -547,29 +547,31 @@
                 <div
                     class="bg-card-light dark:bg-card-dark rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-5 mb-4">
                     <div class="flex justify-between items-center mb-3">
-                        <h3 class="font-bold text-text-main dark:text-white flex items-center gap-2">
-                            <span class="material-symbols-outlined text-primary text-xl">shopping_bag</span>
-                            쇼핑 리스트
+                        <h3 class="font-bold text-text-main dark:text-white flex items-center gap-2 cursor-pointer hover:text-primary transition-colors"
+                            onclick="openChecklistModal()">
+                            <span class="material-symbols-outlined text-primary text-xl">checklist</span>
+                            준비물
                         </h3>
-                        <button onclick="addListItem('shopping')" aria-label="쇼핑 리스트 항목 추가"
+                        <button onclick="openChecklistModal()" aria-label="준비물 관리"
                             class="text-primary hover:bg-primary/10 p-1 rounded-full transition-colors"><span
                                 class="material-symbols-outlined">add</span></button>
                     </div>
-                    <div id="shopping-list-container" class="flex flex-col gap-2"></div>
+                    <div id="checklist-container" class="flex flex-col gap-2"></div>
                 </div>
 
                 <div
                     class="bg-card-light dark:bg-card-dark rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
                     <div class="flex justify-between items-center mb-3">
-                        <h3 class="font-bold text-text-main dark:text-white flex items-center gap-2">
-                            <span class="material-symbols-outlined text-primary text-xl">checklist</span>
-                            준비물
+                        <h3 class="font-bold text-text-main dark:text-white flex items-center gap-2 cursor-pointer hover:text-primary transition-colors"
+                            onclick="openShoppingListModal()">
+                            <span class="material-symbols-outlined text-primary text-xl">shopping_bag</span>
+                            쇼핑 리스트
                         </h3>
-                        <button onclick="addListItem('check')" aria-label="준비물 항목 추가"
+                        <button onclick="openShoppingListModal()" aria-label="쇼핑 리스트 관리"
                             class="text-primary hover:bg-primary/10 p-1 rounded-full transition-colors"><span
                                 class="material-symbols-outlined">add</span></button>
                     </div>
-                    <div id="checklist-container" class="flex flex-col gap-2"></div>
+                    <div id="shopping-list-container" class="flex flex-col gap-2"></div>
                 </div>
             </div>
         </div>
@@ -1142,38 +1144,6 @@
         </div>
     </div>
 
-    <!-- Shopping List Add Modal -->
-    <div id="shopping-add-modal"
-        class="hidden fixed inset-0 z-[130] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-        <div class="bg-white dark:bg-card-dark rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
-            <div class="p-5 border-b border-gray-100 dark:border-gray-700">
-                <h3 class="text-lg font-bold text-text-main dark:text-white">쇼핑 아이템 추가</h3>
-            </div>
-            <div class="p-6 flex flex-col gap-4">
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">아이템 이름</label>
-                    <input id="shopping-item-name" type="text"
-                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800"
-                        placeholder="예: 상큼 티셔츠">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">구매 장소 (선택사항)</label>
-                    <div id="shopping-location-list" class="max-h-40 overflow-y-auto flex flex-col gap-2">
-                        <!-- 장소 목록 동적 생성 -->
-                    </div>
-                    <button type="button" onclick="skipShoppingLocation()"
-                        class="w-full mt-2 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 py-2 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg">장소
-                        선택 안함</button>
-                </div>
-            </div>
-            <div class="p-5 border-t border-gray-100 dark:border-gray-700 flex gap-3">
-                <button type="button" onclick="closeShoppingAddModal()"
-                    class="flex-1 py-2 text-gray-500 font-bold hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl">취소</button>
-                <button type="button" onclick="confirmShoppingAdd()"
-                    class="flex-1 py-2 bg-primary text-white font-bold rounded-xl hover:bg-orange-500 shadow-lg">추가</button>
-            </div>
-        </div>
-    </div>
 
 
 
