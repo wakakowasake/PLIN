@@ -368,7 +368,7 @@ async function loadTrip(tripId) {
             loadGoogleMapsAPI();
 
             // [Added] Calculate and Display Budget
-            updateTotalBudget(travelData);
+            updateViewerBudget(travelData);
 
             // Weather (Optional)
             if (data.days && data.days.length > 0) {
@@ -381,6 +381,43 @@ async function loadTrip(tripId) {
     } catch (e) {
         console.error("Error loading trip:", e);
         showError("데이터를 불러오는 데 실패했습니다.");
+    }
+}
+
+// [Added] Budget Calculation for Viewer
+function updateViewerBudget(travelData) {
+    let total = 0;
+    if (travelData.days) {
+        travelData.days.forEach(day => {
+            if (day.timeline) {
+                day.timeline.forEach(item => {
+                    if (item.expenses && Array.isArray(item.expenses) && item.expenses.length > 0) {
+                        const sum = item.expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
+                        total += sum;
+                    } else if (item.budget) {
+                        total += Number(item.budget);
+                    }
+                });
+            }
+        });
+    }
+
+    const budgetEl = document.getElementById('budget-amount');
+    if (budgetEl) {
+        budgetEl.textContent = `₩${total.toLocaleString()}`;
+
+        // Click Event for Detail Modal
+        // 카드 컨테이너 찾기 (budgetEl -> div -> div(card))
+        const budgetCard = budgetEl.closest('.cursor-pointer') || budgetEl.parentElement.parentElement;
+
+        if (budgetCard) {
+            budgetCard.onclick = window.openExpenseModal;
+            budgetCard.classList.add('cursor-pointer', 'hover:shadow-lg', 'transition-all', 'hover:-translate-y-1');
+
+            // "클릭하여 상세 보기" 텍스트 업데이트
+            const descEl = budgetCard.querySelector('p.text-xs');
+            if (descEl) descEl.textContent = "클릭하여 상세 보기";
+        }
     }
 }
 
@@ -549,6 +586,105 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowLeft') window.navigateLightbox(-1);
     if (e.key === 'ArrowRight') window.navigateLightbox(1);
 });
+
+// [Added] Expense Detail Modal
+window.openExpenseModal = () => {
+    renderExpenseModal();
+    const modal = document.getElementById('expense-detail-modal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+};
+
+window.closeExpenseModal = () => {
+    const modal = document.getElementById('expense-detail-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.body.style.overflow = '';
+    }
+};
+
+function renderExpenseModal() {
+    const listContainer = document.getElementById('modal-expense-list');
+    const totalEl = document.getElementById('modal-total-budget');
+    if (!listContainer || !totalEl) return;
+
+    listContainer.innerHTML = '';
+    let grandTotal = 0;
+    let hasExpenses = false;
+
+    if (travelData.days) {
+        travelData.days.forEach((day, dIdx) => {
+            const dayExpenses = [];
+
+            if (day.timeline) {
+                day.timeline.forEach(item => {
+                    if (item.expenses && item.expenses.length > 0) {
+                        item.expenses.forEach(exp => {
+                            dayExpenses.push({
+                                title: item.title,
+                                icon: item.icon,
+                                desc: exp.description || exp.desc || '내역 없음',
+                                amount: Number(exp.amount || exp.cost || 0)
+                            });
+                            grandTotal += Number(exp.amount || exp.cost || 0);
+                        });
+                    } else if (item.budget && Number(item.budget) > 0) {
+                        // 레거시 호환
+                        dayExpenses.push({
+                            title: item.title,
+                            icon: item.icon,
+                            desc: '예상 지출',
+                            amount: Number(item.budget)
+                        });
+                        grandTotal += Number(item.budget);
+                    }
+                });
+            }
+
+            if (dayExpenses.length > 0) {
+                hasExpenses = true;
+                const dateHeader = document.createElement('div');
+                dateHeader.className = "flex items-center gap-2 mb-2 mt-4 first:mt-0";
+                dateHeader.innerHTML = `
+                    <div class="w-1.5 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600"></div>
+                    <span class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">${dIdx + 1}일차 (${day.date})</span>
+                `;
+                listContainer.appendChild(dateHeader);
+
+                dayExpenses.forEach(exp => {
+                    const el = document.createElement('div');
+                    el.className = "flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700/50";
+                    el.innerHTML = `
+                        <div class="flex items-center gap-3 overflow-hidden">
+                            <div class="w-8 h-8 rounded-full bg-white dark:bg-gray-700 flex items-center justify-center text-gray-400 shrink-0 shadow-sm">
+                                <span class="material-symbols-outlined text-base">${exp.icon || 'payments'}</span>
+                            </div>
+                            <div class="flex flex-col min-w-0">
+                                <span class="text-sm font-bold text-gray-800 dark:text-gray-200 truncate">${exp.desc}</span>
+                                <span class="text-xs text-gray-400 truncate">${exp.title}</span>
+                            </div>
+                        </div>
+                        <span class="font-bold text-text-main dark:text-white shrink-0 ml-2">₩${exp.amount.toLocaleString()}</span>
+                    `;
+                    listContainer.appendChild(el);
+                });
+            }
+        });
+    }
+
+    if (!hasExpenses) {
+        listContainer.innerHTML = `
+            <div class="flex flex-col items-center justify-center py-8 text-gray-400">
+                <span class="material-symbols-outlined text-4xl mb-2 opacity-50">money_off</span>
+                <p class="text-sm">등록된 지출 내역이 없습니다.</p>
+            </div>
+        `;
+    }
+
+    totalEl.textContent = `₩${grandTotal.toLocaleString()}`;
+}
 
 // Start
 initViewer();

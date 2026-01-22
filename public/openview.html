@@ -278,6 +278,46 @@
         </div>
     </div>
 
+    <!-- [Added] Expense Detail Modal (Read-Only) -->
+    <div id="expense-detail-modal"
+        class="hidden fixed inset-0 z-[150] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+        <div
+            class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh]">
+            <div
+                class="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-white dark:bg-card-dark">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-green-500">payments</span>
+                    <h3 class="text-lg font-bold text-text-main dark:text-white">예산 상세 내역</h3>
+                </div>
+                <button type="button" onclick="closeExpenseModal()"
+                    class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <div class="p-6 overflow-y-auto flex-1">
+                <!-- Total Budget Display -->
+                <div class="text-center mb-8">
+                    <p class="text-sm text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mb-1">총 예상 경비
+                    </p>
+                    <h2 id="modal-total-budget" class="text-4xl font-black text-primary">₩0</h2>
+                </div>
+
+                <!-- Expense List -->
+                <div id="modal-expense-list" class="flex flex-col gap-4">
+                    <!-- JS Generated Content -->
+                </div>
+            </div>
+
+            <div class="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                <button type="button" onclick="closeExpenseModal()"
+                    class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 font-bold py-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+                    닫기
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Lightbox Modal -->
     <div id="lightbox-modal"
         class="hidden fixed inset-0 z-[300] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
