@@ -423,7 +423,7 @@ export function openLightbox(dayIndex, itemIndex, memoryIndex) {
     lockBodyScroll();
 }
 
-function updateLightboxImage() {
+function updateLightboxImage(direction = 0) {
     const mem = lightboxMemories[currentLightboxIndex];
     if (!mem) return;
 
@@ -436,11 +436,18 @@ function updateLightboxImage() {
     // Reset menu
     if (menu) menu.classList.add('hidden');
 
+    // Apply Animation Class
+    img.classList.remove('animate-lightbox-next', 'animate-lightbox-prev', 'animate-lightbox-fade');
+    void img.offsetWidth; // Trigger reflow to restart animation
+
+    if (direction > 0) img.classList.add('animate-lightbox-next');
+    else if (direction < 0) img.classList.add('animate-lightbox-prev');
+    else img.classList.add('animate-lightbox-fade');
+
     // Update Image
     if (mem.photoUrl) {
         img.src = mem.photoUrl;
-        img.classList.remove('hidden', 'scale-95');
-        img.classList.add('scale-100');
+        img.classList.remove('hidden');
     } else {
         // 사진 없는 경우 (코멘트만)
         img.src = "";
@@ -461,7 +468,7 @@ window.navigateLightbox = function (direction) {
     const newIndex = currentLightboxIndex + direction;
     if (newIndex >= 0 && newIndex < lightboxMemories.length) {
         currentLightboxIndex = newIndex;
-        updateLightboxImage();
+        updateLightboxImage(direction);
     }
 };
 

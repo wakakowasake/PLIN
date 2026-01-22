@@ -3869,3 +3869,50 @@ textarea {
     position: relative;
     box-shadow: 0 8px 20px rgba(119, 75, 0, 0.12) !important;
 }
+
+/* Lightbox Animations */
+@keyframes lightbox-in-right {
+    from {
+        opacity: 0;
+        transform: translateX(50px) scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+}
+
+@keyframes lightbox-in-left {
+    from {
+        opacity: 0;
+        transform: translateX(-50px) scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+}
+
+.animate-lightbox-next {
+    animation: lightbox-in-right 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.animate-lightbox-prev {
+    animation: lightbox-in-left 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+@keyframes lightbox-fade {
+    from {
+        opacity: 0.5;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.animate-lightbox-fade {
+    animation: lightbox-fade 0.3s ease-out forwards;
+}

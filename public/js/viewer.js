@@ -454,11 +454,11 @@ window.navigateLightbox = (direction) => {
     const newIndex = currentLightboxIndex + direction;
     if (newIndex >= 0 && newIndex < currentLightboxImages.length) {
         currentLightboxIndex = newIndex;
-        updateLightboxUI();
+        updateLightboxUI(direction);
     }
 };
 
-function updateLightboxUI() {
+function updateLightboxUI(direction = 0) {
     const imgData = currentLightboxImages[currentLightboxIndex];
     if (!imgData) return;
 
@@ -467,7 +467,18 @@ function updateLightboxUI() {
     const prevBtn = document.getElementById('lightbox-prev');
     const nextBtn = document.getElementById('lightbox-next');
 
-    if (imgEl) imgEl.src = imgData.url;
+    // Apply Animation Class
+    if (imgEl) {
+        imgEl.classList.remove('animate-lightbox-next', 'animate-lightbox-prev', 'animate-lightbox-fade');
+        void imgEl.offsetWidth; // Trigger reflow
+
+        if (direction > 0) imgEl.classList.add('animate-lightbox-next');
+        else if (direction < 0) imgEl.classList.add('animate-lightbox-prev');
+        else imgEl.classList.add('animate-lightbox-fade');
+
+        imgEl.src = imgData.url;
+    }
+
     if (captionEl) captionEl.textContent = imgData.comment || '';
 
     // Navigation buttons visibility
