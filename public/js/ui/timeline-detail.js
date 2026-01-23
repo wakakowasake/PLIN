@@ -209,7 +209,7 @@ export function ensureItemDetailModal() {
     modal.id = 'item-detail-modal';
     modal.className = 'hidden fixed inset-0 z-[210] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
     modal.innerHTML = `
-        <div class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col h-[85vh]">
+        <div class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col h-[85vh] modal-slide-in">
             <!-- Sticky Header -->
             <div class="sticky top-0 bg-white dark:bg-card-dark z-20 border-b border-gray-100 dark:border-gray-700 p-6 pb-4 shrink-0">
                 <div class="flex justify-between items-start">
@@ -305,6 +305,49 @@ export function ensureItemDetailModal() {
                     </div>
                     <iframe id="detail-map-frame" class="w-full h-full border-0 absolute inset-0" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
                 </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+// [Dynamic Modal Injection for Memo]
+export function ensureMemoDetailModal() {
+    if (document.getElementById('memo-detail-modal')) return;
+
+    const modal = document.createElement('div');
+    modal.id = 'memo-detail-modal';
+    modal.className = `hidden fixed inset-0 z-[140] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm`;
+    modal.innerHTML = `
+        <div class="bg-white dark:bg-card-dark rounded-xl shadow-2xl w-full max-w-md h-[400px] flex flex-col overflow-hidden modal-slide-in">
+            <div class="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-yellow-50 dark:bg-yellow-900/10">
+                <h3 class="text-lg font-bold text-text-main dark:text-white flex items-center gap-2">
+                    <span class="material-symbols-outlined text-yellow-600 dark:text-yellow-500">sticky_note_2</span>
+                    메모 상세
+                </h3>
+                <button type="button" onclick="closeMemoModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            
+            <div id="memo-detail-content" class="flex-1 p-6 overflow-y-auto whitespace-pre-wrap text-gray-700 dark:text-gray-300 leading-relaxed font-body text-lg">
+                <!-- Content injected here -->
+            </div>
+
+            <div id="memo-bookmarks" class="hidden px-6 pt-0 pb-2">
+                <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">링크 미리보기</h4>
+                <div id="memo-bookmarks-list" class="flex flex-col gap-2"></div>
+            </div>
+
+            <div class="p-5 border-t border-gray-100 dark:border-gray-700 mt-auto bg-gray-50 dark:bg-gray-800/50 flex justify-end gap-2">
+                 <button type="button" onclick="deleteCurrentMemo()" class="text-red-500 hover:bg-red-50 p-2 rounded-xl transition-colors" title="삭제">
+                    <span class="material-symbols-outlined">delete</span>
+                </button>
+                <div class="flex-1"></div>
+                <button type="button" onclick="closeMemoModal()" class="px-4 py-2 text-gray-500 font-bold hover:bg-gray-200 dark:hover:bg-gray-700 rounded-xl transition-colors">닫기</button>
+                <button type="button" onclick="editCurrentMemo()" class="mt-6 text-sm bg-yellow-100 hover:bg-yellow-200 text-yellow-800 px-4 py-2 rounded-xl font-bold transition-colors flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">edit</span> 수정
+                </button>
             </div>
         </div>
     `;

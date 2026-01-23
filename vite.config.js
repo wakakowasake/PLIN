@@ -12,7 +12,8 @@ export default defineConfig({
             input: {
                 main: resolve(__dirname, 'public/index.html'),
                 openview: resolve(__dirname, 'public/openview.html'),
-                privacy: resolve(__dirname, 'public/privacy.html')
+                privacy: resolve(__dirname, 'public/privacy.html'),
+                terms: resolve(__dirname, 'public/terms.html')
             },
         },
         target: 'esnext', // Modern browsers

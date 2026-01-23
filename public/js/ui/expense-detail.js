@@ -17,7 +17,7 @@ export function ensureExpenseDetailModal() {
         });
 
         modal.innerHTML = `
-            <div class="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[85vh] animate-fade-in-up" onclick="event.stopPropagation()">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[85vh] modal-slide-in" onclick="event.stopPropagation()">
                 <div class="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gradient-to-r from-green-50 to-emerald-50 dark:from-gray-800 dark:to-gray-800">
                     <h3 class="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
                         <span class="material-symbols-outlined text-green-600">payments</span>

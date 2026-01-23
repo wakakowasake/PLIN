@@ -795,7 +795,7 @@ export function ensureExpenseModal() {
         modal.className = 'hidden fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
         modal.style.zIndex = Z_INDEX.MODAL_INPUT;
         modal.innerHTML = `
-            <div class="bg-white dark:bg-card-dark rounded-xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div class="bg-white dark:bg-card-dark rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100 modal-slide-in">
                 <div class="p-5 border-b border-gray-100 dark:border-gray-700">
                     <h3 class="text-lg font-bold text-text-main dark:text-white">지출 내역 추가</h3>
                 </div>

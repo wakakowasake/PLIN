@@ -607,7 +607,7 @@ async function renderItemModal(dayIndex, itemIndex) {
 
     contentEl.innerHTML = `
         <!-- Sticky Header -->
-        <div class="sticky top-0 bg-white dark:bg-card-dark z-20 border-b border-gray-100 dark:border-gray-700 p-6 pb-4 shrink-0 shadow-sm">
+        <div class="sticky top-0 bg-white dark:bg-card-dark z-20 border-b border-gray-100 dark:border-gray-700 p-6 pb-4 shrink-0 shadow-sm modal-slide-in">
             <div class="flex justify-between items-start">
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 mb-2">
@@ -690,7 +690,7 @@ function renderTransitModal(dayIndex, itemIndex) {
     if (!contentEl) return;
 
     contentEl.innerHTML = `
-        <div class="p-6 text-center">
+        <div class="p-6 text-center modal-slide-in">
             <div class="w-16 h-16 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mx-auto mb-4">
                 <span class="material-symbols-outlined text-4xl text-blue-500">${item.icon || 'commute'}</span>
             </div>

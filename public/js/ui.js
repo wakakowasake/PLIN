@@ -433,8 +433,21 @@ let touchStartY = 0;
 const SWIPE_THRESHOLD = 50; // Minimum distance to trigger swipe
 
 export function initSwipeHandlers() {
-    const container = document.getElementById('itinerary-container');
-    if (!container) return;
+    // Ensure DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', attachSwipeListeners);
+    } else {
+        attachSwipeListeners();
+    }
+}
+
+function attachSwipeListeners() {
+    const container = document.getElementById('timeline-list');
+    if (!container) {
+        console.warn('Swipe handler: #timeline-list not found. Retrying in 500ms...');
+        setTimeout(attachSwipeListeners, 500);
+        return;
+    }
 
     // Remove existing listeners to prevent duplicates (if re-initialized)
     container.removeEventListener('touchstart', handleTouchStart);
@@ -444,6 +457,7 @@ export function initSwipeHandlers() {
     container.addEventListener('touchstart', handleTouchStart, { passive: true });
     container.addEventListener('touchmove', handleTouchMove, { passive: false });
     container.addEventListener('touchend', handleTouchEnd, { passive: true });
+    console.debug('Swipe handlers attached to #timeline-list');
 }
 
 function handleTouchStart(e) {
@@ -517,7 +531,7 @@ function changeDayWithAnimation(direction) {
         }
     }
 
-    const container = document.getElementById('itinerary-container');
+    const container = document.getElementById('timeline-list');
     if (!container) {
         selectDay(nextIndex);
         return;

@@ -559,7 +559,7 @@ export function ensureTransitDetailModal() {
     modal.id = 'transit-detail-modal';
     modal.className = `fixed inset-0 z-[${Z_INDEX.MODAL_VIEW}] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm`;
     modal.innerHTML = `
-        <div class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100 relative">
+        <div class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100 relative modal-slide-in">
             <button type="button" onclick="closeTransitDetailModal()"
                 class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 rounded-full transition-colors z-[${Z_INDEX.MODAL_INNER}]">
                 <span class="material-symbols-outlined">close</span>

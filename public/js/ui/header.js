@@ -69,19 +69,30 @@ export async function openShareModal(tripId = null) {
     // Add Toggle UI
     const toggleContainer = document.getElementById('public-share-toggle-container');
     if (toggleContainer) {
-        // [Modified] 토글 위치 변경 (링크 바로 아래)
-        const helpText = isPublic ? '로그인 없이 누구나 여행 계획을 볼 수 있습니다. (보기 전용)' : '초대된 멤버만 여행을 수정할 수 있습니다. (수정 권한)';
+        // [Modified] 탭 스타일 (Segmented Control)로 직관성 개선
+        const helpText = isPublic ? '로그인 없이 누구나 여행 계획을 볼 수 있습니다.' : '초대된 멤버만 여행을 수정할 수 있습니다.';
 
         const controlHtml = `
-            <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded-xl flex items-center justify-between">
-                <div>
-                    <h4 class="font-bold text-sm text-gray-900 dark:text-white">공개 링크 공유</h4>
-                    <p id="share-help-text" class="text-xs text-gray-500">${helpText}</p>
+            <div class="flex flex-col gap-3">
+                <div class="flex p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
+                    <button type="button" onclick="window.togglePublicShare('${targetTripId}', false)" 
+                        class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all ${!isPublic ? 'bg-white dark:bg-gray-700 text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}">
+                        <span class="material-symbols-outlined text-[18px]">lock</span>
+                        <span>초대 전용</span>
+                    </button>
+                    <button type="button" onclick="window.togglePublicShare('${targetTripId}', true)" 
+                        class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all ${isPublic ? 'bg-white dark:bg-gray-700 text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}">
+                        <span class="material-symbols-outlined text-[18px]">public</span>
+                        <span>공개 링크</span>
+                    </button>
                 </div>
-                <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" id="public-share-toggle" class="sr-only peer" ${isPublic ? 'checked' : ''} onchange="window.togglePublicShare('${targetTripId}')">
-                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/30 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                </label>
+                <div class="flex items-start gap-2 px-1">
+                    <span class="material-symbols-outlined text-sm text-gray-400 mt-0.5">info</span>
+                    <p id="share-help-text" class="text-xs text-gray-500 dark:text-gray-400 leading-snug">${helpText}</p>
+                </div>
+                
+                <!-- Hidden Input for Logic Compatibility -->
+                <input type="checkbox" id="public-share-toggle" class="hidden" ${isPublic ? 'checked' : ''}>
             </div>
          `;
         toggleContainer.innerHTML = controlHtml;
@@ -124,14 +135,43 @@ export async function openShareModal(tripId = null) {
     }
 }
 
-export async function togglePublicShare(tripId) {
+export async function togglePublicShare(tripId, newState) {
+    // If newState is provided directly (from button click), use it.
+    // Otherwise fall back to checkbox (legacy support or if still used)
     const toggle = document.getElementById('public-share-toggle');
+    let isPublic = newState;
+
+    if (typeof newState === 'undefined' && toggle) {
+        isPublic = toggle.checked;
+    }
+
     const input = document.getElementById('share-link-input');
     const helpText = document.getElementById('share-help-text');
 
-    if (!toggle) return;
+    // UI Optimistic Update (Re-render buttons to show active state immediately)
+    // For simplicity, we can let openShareModal handle the full re-render or just toggle classes here.
+    // Let's re-call openShareModal to refresh the UI cleanly (since it builds HTML string)
+    // But that causes flicker. Better to update the hidden checkbox and the buttons manually.
 
-    const isPublic = toggle.checked;
+    if (toggle) toggle.checked = isPublic;
+
+    // Update Button Styles manually to avoid full re-render flicker
+    const container = document.getElementById('public-share-toggle-container');
+    if (container) {
+        const buttons = container.querySelectorAll('button');
+        if (buttons.length === 2) {
+            const btnPrivate = buttons[0];
+            const btnPublic = buttons[1];
+
+            if (isPublic) {
+                btnPrivate.className = 'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all text-gray-500 hover:text-gray-700 dark:text-gray-400';
+                btnPublic.className = 'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all bg-white dark:bg-gray-700 text-primary shadow-sm';
+            } else {
+                btnPrivate.className = 'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all bg-white dark:bg-gray-700 text-primary shadow-sm';
+                btnPublic.className = 'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all text-gray-500 hover:text-gray-700 dark:text-gray-400';
+            }
+        }
+    }
 
     try {
         await firebaseReady; // Firebase 초기화 대기
@@ -156,14 +196,16 @@ export async function togglePublicShare(tripId) {
         }
 
         if (helpText) {
-            helpText.textContent = isPublic ? '로그인 없이 누구나 여행 계획을 볼 수 있습니다. (보기 전용)' : '초대된 멤버만 여행을 수정할 수 있습니다. (수정 권한)';
+            helpText.textContent = isPublic ? '로그인 없이 누구나 여행 계획을 볼 수 있습니다.' : '초대된 멤버만 여행을 수정할 수 있습니다.';
         }
 
     } catch (e) {
         console.error("Error toggling public share:", e);
         // 에러 메시지를 좀 더 구체적으로 표시
         alert(`설정 변경 중 오류가 발생했습니다: ${e.message || e}`);
-        toggle.checked = !isPublic; // Revert
+        if (toggle) toggle.checked = !isPublic; // Revert
+        // Revert UI if needed (omitted for brevity, assume success mostly)
+        openShareModal(tripId); // Revert UI by full reload
     }
 }
 
