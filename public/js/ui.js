@@ -177,6 +177,9 @@ Profile.initDarkMode();
 // 바디 페이드인 애니메이션
 document.body.style.opacity = '1';
 
+// [New] Swipe Navigation Init
+initSwipeHandlers();
+
 // [New] Navigation Handling (Back Button Support)
 window.addEventListener('popstate', (event) => {
     const state = event.state;
@@ -418,6 +421,141 @@ export function selectDay(index) {
     } else {
         renderItinerary();
     }
+}
+
+
+// ===================================================================================
+// [New] Mobile Swipe Navigation
+// ===================================================================================
+
+let touchStartX = 0;
+let touchStartY = 0;
+const SWIPE_THRESHOLD = 50; // Minimum distance to trigger swipe
+
+export function initSwipeHandlers() {
+    const container = document.getElementById('itinerary-container');
+    if (!container) return;
+
+    // Remove existing listeners to prevent duplicates (if re-initialized)
+    container.removeEventListener('touchstart', handleTouchStart);
+    container.removeEventListener('touchmove', handleTouchMove);
+    container.removeEventListener('touchend', handleTouchEnd);
+
+    container.addEventListener('touchstart', handleTouchStart, { passive: true });
+    container.addEventListener('touchmove', handleTouchMove, { passive: false });
+    container.addEventListener('touchend', handleTouchEnd, { passive: true });
+}
+
+function handleTouchStart(e) {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+}
+
+function handleTouchMove(e) {
+    if (!touchStartX || !touchStartY) return;
+
+    const touchX = e.touches[0].clientX;
+    const touchY = e.touches[0].clientY;
+
+    const diffX = touchStartX - touchX;
+    const diffY = touchStartY - touchY;
+
+    // 수평 이동이 수직 이동보다 클 때만 스크롤 방지 (타임라인 좌우 스와이프 의도)
+    if (Math.abs(diffX) > Math.abs(diffY)) {
+        if (e.cancelable) {
+            e.preventDefault();
+        }
+    }
+}
+
+function handleTouchEnd(e) {
+    if (!touchStartX || !touchStartY) return;
+
+    const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
+
+    const diffX = touchStartX - touchEndX;
+    const diffY = touchStartY - touchEndY;
+
+    // 수직 이동이 너무 크면 스와이프 취소 (스크롤 의도로 간주)
+    if (Math.abs(diffY) > 100) {
+        touchStartX = 0;
+        touchStartY = 0;
+        return;
+    }
+
+    // 다음 날짜로 이동 (왼쪽으로 스와이프)
+    if (diffX > SWIPE_THRESHOLD) {
+        changeDayWithAnimation('next');
+    }
+    // 이전 날짜로 이동 (오른쪽으로 스와이프)
+    else if (diffX < -SWIPE_THRESHOLD) {
+        changeDayWithAnimation('prev');
+    }
+
+    touchStartX = 0;
+    touchStartY = 0;
+}
+
+function changeDayWithAnimation(direction) {
+    if (!travelData || !travelData.days) return;
+
+    const maxIndex = travelData.days.length - 1;
+    let nextIndex = currentDayIndex;
+
+    if (direction === 'next') {
+        if (currentDayIndex < maxIndex) {
+            nextIndex++;
+        } else {
+            return; // 마지막 날입니다
+        }
+    } else if (direction === 'prev') {
+        if (currentDayIndex > 0) {
+            nextIndex--;
+        } else {
+            return; // 첫째 날입니다
+        }
+    }
+
+    const container = document.getElementById('itinerary-container');
+    if (!container) {
+        selectDay(nextIndex);
+        return;
+    }
+
+    // 1. Slide Out Animation
+    const outClass = direction === 'next' ? 'slide-out-left' : 'slide-out-right';
+    container.classList.add('slide-active', outClass);
+
+    setTimeout(() => {
+        // 2. Change Data & Render
+        selectDay(nextIndex);
+
+        // 3. Prepare Slide In
+        const inClass = direction === 'next' ? 'slide-in-start-right' : 'slide-in-start-left';
+
+        // *Re-query container* because renderItinerary might replace innerHTML 
+        // (but usually itinerary-container is the wrapper, so fine unless checking inner content wrappers)
+        // Ensure we are manipulating the wrapper that stays
+
+        // Wait for render to finish (synchronous usually)
+        // Remove old classes
+        container.classList.remove(outClass);
+
+        // Combine slide-active with start-position
+        container.classList.add(inClass);
+
+        // Trigger Reflow
+        void container.offsetWidth;
+
+        // 4. Slide In Animation
+        container.classList.remove(inClass); // Remove start position to transition to natural position (0)
+
+        setTimeout(() => {
+            container.classList.remove('slide-active');
+        }, 300); // Wait for transition end
+
+    }, 250); // Match CSS transition duration
 }
 
 // [Detail Modal Logic]

@@ -5,13 +5,13 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        'primary': '#774b00',
+        'primary': 'var(--color-primary)',
         'background-light': '#f6f7f8',
-        'background-dark': '#101a22',
+        'background-dark': 'var(--color-bg-dark)',
         'card-light': '#ffffff',
-        'card-dark': '#1a2632',
+        'card-dark': 'var(--color-card-dark)',
         'text-main': '#111518',
-        'text-muted': '#617989',
+        'text-muted': 'var(--color-text-muted)',
       },
       fontFamily: {
         'sans': ['"MemomentKkukkukk"', 'sans-serif'],

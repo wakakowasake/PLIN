@@ -52,48 +52,12 @@ export function openUserSettings() {
                         </button>
                     </div>
 
-                    <!-- 뷰 모드 선택 -->
-                    <div class="border-t border-gray-100 dark:border-gray-700 pt-6">
-                        <div class="mb-3">
-                            <p class="font-bold text-text-main dark:text-white">타임라인 표시 방식</p>
-                            <p class="text-xs text-gray-500 dark:text-gray-400">일정표 보기 형식을 선택하세요</p>
-                        </div>
-                        <div class="space-y-2">
-                            <label class="flex items-center p-3 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                                <input type="radio" name="viewMode" value="simple" 
-                                    onchange="handleViewModeChange(this.value)"
-                                    class="w-4 h-4 text-primary focus:ring-primary focus:ring-2">
-                                <div class="ml-3">
-                                    <span class="font-medium text-text-main dark:text-white">간단 모드</span>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">기본 타임라인 보기</p>
-                                </div>
-                            </label>
-                            <label class="flex items-center p-3 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                                <input type="radio" name="viewMode" value="planner" 
-                                    onchange="handleViewModeChange(this.value)"
-                                    class="w-4 h-4 text-primary focus:ring-primary focus:ring-2">
-                                <div class="ml-3">
-                                    <span class="font-medium text-text-main dark:text-white">플래너 모드</span>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">시간이 표시되는 일정표 형식</p>
-                                </div>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-            </div>
         `;
         document.body.appendChild(modal);
     }
 
     // 현재 다크모드 상태에 맞게 토글 버튼 업데이트
     updateDarkModeToggle();
-
-    // 현재 viewMode에 맞게 라디오 버튼 상태 업데이트
-    const viewMode = travelData.meta?.viewMode || 'simple';
-    const radioButtons = modal.querySelectorAll('input[name="viewMode"]');
-    radioButtons.forEach(radio => {
-        radio.checked = radio.value === viewMode;
-    });
 
     modal.classList.remove('hidden');
 }
@@ -367,41 +331,12 @@ export function initDarkMode() {
     }
 }
 
-/**
- * 뷰 모드 변경 핸들러
- * @param {string} newMode - 'simple' | 'planner'
- */
-export async function handleViewModeChange(newMode) {
-    if (!travelData || !travelData.meta) return;
-
-    // travelData 업데이트
-    travelData.meta.viewMode = newMode;
-    setTravelData(travelData);
-
-    // Firebase에 저장 (현재 여행이 있는 경우)
-    if (currentTripId && currentUser) {
-        try {
-            const tripRef = doc(db, 'users', currentUser.uid, 'trips', currentTripId);
-            await updateDoc(tripRef, {
-                'meta.viewMode': newMode
-            });
-        } catch (error) {
-            console.error('Failed to save viewMode:', error);
-        }
-    }
-
-    // 타임라인 다시 렌더링
-    if (window.renderItinerary) {
-        window.renderItinerary();
-    }
-}
 
 window.enableProfileEdit = enableProfileEdit;
 window.cancelProfileEdit = cancelProfileEdit;
 window.confirmWithdrawal = confirmWithdrawal;
 window.toggleDarkMode = toggleDarkMode;
 window.closeUserSettings = closeUserSettings;
-window.handleViewModeChange = handleViewModeChange;
 
-export default { openUserMenu, closeUserMenuOnClickOutside, openUserSettings, closeUserSettings, toggleDarkMode, updateDarkModeToggle, initDarkMode, openUserProfile, closeProfileView, setupHomeAddressAutocomplete, geocodeAddress, loadProfileData, handleProfilePhotoChange, saveProfileChanges, handleViewModeChange, enableProfileEdit, cancelProfileEdit, confirmWithdrawal };
+export default { openUserMenu, closeUserMenuOnClickOutside, openUserSettings, closeUserSettings, toggleDarkMode, updateDarkModeToggle, initDarkMode, openUserProfile, closeProfileView, setupHomeAddressAutocomplete, geocodeAddress, loadProfileData, handleProfilePhotoChange, saveProfileChanges, enableProfileEdit, cancelProfileEdit, confirmWithdrawal };
 

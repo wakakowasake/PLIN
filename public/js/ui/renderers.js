@@ -204,91 +204,6 @@ function buildDefaultCard(item, index, dayIndex, editClass, clickHandler) {
                 </div>
             </div>`;
 }
-export function renderTimelineItemHtml(item, index, dayIndex, isLast, isFirst, attachedMemos = []) {
-    // Simplified extraction of the original HTML generation from ui.js
-    const lineStyle = isLast && attachedMemos.length === 0 ? `bg-gradient-to-b from-gray-200 to-transparent dark:from-gray-700` : `bg-gray-200 dark:bg-gray-700`;
-    const linePosition = isFirst ? 'top-6 -bottom-8' : 'top-0 -bottom-8';
-    let iconBg = 'bg-white dark:bg-card-dark'; // 장소와 교통 수단 아이콘 배경색 통일
-    let iconColor = 'text-primary'; // 모든 아이콘 색상 통일
-    let iconStyle = '';
-    if (item.tag === '메모') {
-        iconBg = 'bg-yellow-50 dark:bg-yellow-900/20';
-        iconColor = 'text-yellow-600 dark:text-yellow-400';
-    } else if (item.color) {
-        iconBg = '';
-        iconColor = '';
-        const fgColor = item.textColor || '#ffffff';
-        iconStyle = `background-color: ${item.color}; color: ${fgColor}; border-color: ${item.color};`;
-    }
-
-    const editClass = isEditing ? "edit-mode-active ring-2 ring-primary/50 ring-offset-2" : "cursor-pointer hover:shadow-lg transform transition-all hover:-translate-y-1";
-    const clickHandler = isEditing ? `onclick="editTimelineItem(${index}, ${dayIndex})"` : `onclick="viewTimelineItem(${index}, ${dayIndex})"`;
-    const contextHandler = `oncontextmenu="openContextMenu(event, 'item', ${index}, ${dayIndex})"`;
-    const isMemoryLocked = travelData.meta?.memoryLocked || false;
-    const draggableAttr = (isMemoryLocked || isReadOnlyMode) ? 'draggable="false"' : `draggable="true" ondragstart="dragStart(event, ${index}, ${dayIndex})" ondragend="dragEnd(event)" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event, ${index})" data-drop-index="${index}"`;
-    const zIndex = 100 - index;
-
-    // [Fix] 읽기 전용 모드에서는 터치 스크롤 허용 (touch-action: none 제거 및 터치 이벤트 미부착)
-    // 모듈 변수 동기화 문제 방지를 위해 DOM 클래스도 함께 확인
-    const isViewer = isReadOnlyMode || document.body.classList.contains('viewer-mode');
-    const touchAttrs = isViewer ? '' : `ontouchstart="touchStart(event, ${index}, 'item')" ontouchmove="touchMove(event)" ontouchend="touchEnd(event)"`;
-    const touchStyle = isViewer ? '' : 'touch-action: none;';
-
-    let html = `
-        <div ${draggableAttr} ${touchAttrs} data-index="${index}" style="z-index: ${zIndex}; ${touchStyle}" class="relative grid grid-cols-[auto_1fr] gap-x-3 md:gap-x-6 group/timeline-item pb-4 timeline-item-transition rounded-xl" ${contextHandler}>
-        <div class="drag-indicator absolute -top-3 left-0 right-0 h-1 bg-primary rounded-full hidden z-[${Z_INDEX.DRAG_INDICATOR}] shadow-sm pointer-events-none"></div>
-
-        <div class="relative flex flex-col items-center" data-timeline-icon="true">
-            <div class="absolute ${linePosition} w-0.5 ${lineStyle} timeline-vertical-line"></div>
-            <div class="w-10 h-10 rounded-full ${iconBg} border-2 border-primary/30 flex items-center justify-center z-[${Z_INDEX.UI_BASE}] shadow-sm relative shrink-0 mt-1" style="${iconStyle}">
-                <span class="material-symbols-outlined ${iconColor} text-xl" style="${item.color ? 'color: inherit' : ''}">${item.icon}</span>
-            </div>
-            ${(!isMemoryLocked && !isReadOnlyMode) ? `<div class="absolute -bottom-8 left-1/2 -translate-x-1/2 z-[${Z_INDEX.MODAL_INNER}] add-item-btn-container transition-opacity duration-200">
-                <button type="button" onclick="openAddModal(${index}, ${dayIndex})" class="w-8 h-8 rounded-full bg-white dark:bg-card-dark border border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-400 hover:text-primary hover:border-primary transition-colors shadow-sm cursor-pointer transform hover:scale-110" title="일정 추가">
-                    <span class="material-symbols-outlined text-lg">add</span>
-                </button>
-            </div>` : ''}
-        </div>
-        <div class="pb-2 pt-1 flex flex-col justify-center min-w-0">
-    `;
-
-    // Content variants (delegated to builder helpers)
-    if (item.image) {
-        html += buildImageCard(item, editClass, clickHandler, index, dayIndex);
-    } else if (item.tag === '메모') {
-        html += buildMemoCard(item, index, dayIndex, editClass, clickHandler);
-    } else if (item.isTransit) {
-        html += buildTransitCard(item, index, dayIndex, editClass);
-    } else {
-        html += buildDefaultCard(item, index, dayIndex, editClass, clickHandler);
-    }
-
-    // [New] 카드 외부에 추억 렌더링
-    html += renderMemoriesHtml(item, dayIndex, index);
-
-    // [New] 부착된 메모들 렌더링
-    if (attachedMemos && attachedMemos.length > 0) {
-        html += `<div class="flex flex-col gap-4 mt-4">`;
-        attachedMemos.forEach((memoData) => {
-            const memoClickHandler = isEditing ? `onclick="editTimelineItem(${memoData.index}, ${dayIndex})"` : `onclick="viewTimelineItem(${memoData.index}, ${dayIndex})"`;
-            html += buildMemoCard(memoData.item, memoData.index, dayIndex, editClass, memoClickHandler);
-            // 메모 뒤에도 추가 버튼 (옵션)
-            if (!isMemoryLocked && !isReadOnlyMode) {
-                html += `
-                <div class="flex justify-center -my-2 opacity-0 group-hover/timeline-item:opacity-100 transition-opacity">
-                    <button type="button" onclick="openAddModal(${memoData.index}, ${dayIndex})" class="w-6 h-6 rounded-full bg-white dark:bg-card-dark border border-gray-200 flex items-center justify-center text-gray-400 hover:text-primary transition-all shadow-sm">
-                        <span class="material-symbols-outlined text-xs">add</span>
-                    </button>
-                </div>`;
-            }
-        });
-        html += `</div>`;
-    }
-
-
-    html += `</div></div>`;
-    return html;
-}
 
 /**
  * 플래너 모드 타임라인 아이템 렌더링
@@ -510,14 +425,6 @@ export function renderItinerary() {
                     </div>
                     <div class="flex flex-col">`;
             if (day.timeline && day.timeline.length > 0) {
-                // ============================================================
-                // 🔒 PLANNER MODE ONLY (간단 모드 비활성화)
-                // ============================================================
-                // [간단 모드 활성화 방법]
-                // 아래 3줄의 주석을 해제하고, 그 아래 1줄을 주석 처리하세요.
-                // const isPlannerMode = travelData.meta?.viewMode === 'planner';
-                // const renderFunc = isPlannerMode ? renderTimelineItemHtmlPlanner : renderTimelineItemHtml;
-                // ============================================================
                 const renderFunc = renderTimelineItemHtmlPlanner; // 🔒 항상 플래너 모드
 
                 // [New] 메모 항목 그룹화를 위한 개선된 루프
@@ -574,14 +481,6 @@ export function renderItinerary() {
                     </div>
                     <div class="flex flex-col">`;
         }
-        // ============================================================
-        // 🔒 PLANNER MODE ONLY (간단 모드 비활성화)
-        // ============================================================
-        // [간단 모드 활성화 방법]
-        // 아래 2줄의 주석을 해제하고, 그 아래 1줄을 주석 처리하세요.
-        // const isPlannerMode = travelData.meta?.viewMode === 'planner';
-        // const renderFunc = isPlannerMode ? renderTimelineItemHtmlPlanner : renderTimelineItemHtml;
-        // ============================================================
         const renderFunc = renderTimelineItemHtmlPlanner; // 🔒 항상 플래너 모드
 
         // [New] 메모 항목 그룹화를 위한 개선된 루프
@@ -836,4 +735,4 @@ export function renderWeeklyWeather(weeklyWeatherData, currentWeatherWeekStart, 
     container.innerHTML = html;
 }
 
-export default { renderItinerary, renderTimelineItemHtml, renderLists, renderAttachments, renderWeeklyWeather };
+export default { renderItinerary, renderLists, renderAttachments, renderWeeklyWeather };

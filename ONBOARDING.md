@@ -1,88 +1,80 @@
-# 🚀 PLIN Developer Onboarding & Architecture Guide
+# PLIN Project Onboarding Guide
 
-This document serves as the **single source of truth** for understanding the PLIN project architecture, workflows, and developer conventions. **AI Assistants MUST read this first.**
+**PLIN**은 여행 계획을 쉽고 예쁘게 작성하고 공유할 수 있는 웹 애플리케이션입니다.
 
----
+## 🛠 Tech Stack
+- **Languages**: HTML5, CSS3 (TailwindCSS), JavaScript (ES6+ Modules)
+- **Build Tool**: Vite
+- **Backend/Infras**: Firebase (Firestore, Auth, Hosting, Functions, Storage)
+- **Maps**: Google Maps JavaScript API
 
-## 📋 1. Core Operational Rules (Must Follow)
+## 📂 Project Structure
+```
+piln/
+├── public/              # Static assets (images, fonts) & HTML Entry points
+│   ├── css/             # Global styles & Tailwind directives
+│   ├── js/              # Core logic
+│   │   ├── ui/          # UI Renderers, Drag&Drop, Modal logic
+│   │   ├── utils/       # Helper functions (time, format, etc.)
+│   │   ├── app.js       # Main Editor Entry Point (edit.html)
+│   │   ├── viewer.js    # Viewer Entry Point (openview.html)
+│   │   ├── map.js       # Google Maps Integration
+│   │   └── state.js     # State Management (Signals/Proxies)
+│   ├── index.html       # Landing Page
+│   ├── edit.html        # Plan Editor Page (Auth required)
+│   └── openview.html    # Public Viewer Page (Read-only)
+├── functions/           # Firebase Cloud Functions (Node.js)
+├── firestore.rules      # Database Security Rules
+├── firebase.json        # Firebase Configuration
+└── package.json         # Dependencies & Scripts
+```
 
-Refer to `.cursorrules` for the strictly enforced operational protocols.
-- **Auto-Execute**: Always default to `SafeToAutoRun: true` for all commands/edits *except* `git push` and production deployments.
-- **Korean Unicode**: **NEVER** escape Korean characters. Keep them as raw UTF-8 strings.
-- **Auto-Commit**: After *every* meaningful change, commit and update `HISTORY.md`.
+## 🚀 Getting Started
 
----
+### 1. Prerequisites
+- Node.js (v18+)
+- npm
+- Firebase CLI (`npm install -g firebase-tools`)
 
-## 🏗️ 2. Project Architecture
+### 2. Installation
+```bash
+# Clone Repository
+git clone [REPOSITORY_URL]
+cd piln
 
-PLIN is a **Vanilla JS** application powered by **Firebase** and styled with **Tailwind CSS**. It relies on a module-based architecture without a heavy frontend framework (like React/Vue).
+# Install Dependencies
+npm install
+```
 
-### 📂 Directory Structure & Modules (`public/js/`)
+### 3. Local Development (`dev`)
+로컬 개발 서버를 실행하여 실시간으로 변경 사항을 확인합니다.
+```bash
+npm run dev
+```
+*   편집기 접속: `http://localhost:5173/edit.html?id=[TRIP_ID]`
+*   뷰어 접속: `http://localhost:5173/openview.html?id=[TRIP_ID]`
 
-> [!IMPORTANT]
-> **자산 관리 구조**: 본 프로젝트는 `public/`을 소스 루트로 사용하며, Vite의 `publicDir` 설정이 `static/`으로 잡혀 있습니다.
-> - **`public/js/`, `public/ui/` 등**: Vite에 의해 빌드/번들링되는 소스입니다. (해싱됨)
-> - **`public/static/`**: 번들링 없이 `dist/` 루트에 **그대로 복사**되어야 하는 자산(아이콘, 매니페스트, 에러 가드 등)을 배치합니다. 하드코딩된 경로(예: `/favicon.ico`)로 접근하는 파일들은 반드시 여기에 위치해야 합니다.
+### 4. Deployment (`deploy`)
+변경된 사항을 실제 서버(Firebase Hosting)에 배포합니다.
 
-| Module | Role | Description |
-| :--- | :--- | :--- |
-| **`ui.js`** | **Control Center** | 전역 UI 조정 허브. 모듈들을 통합하고 `window` 객체에 주요 함수를 노출합니다. |
-| **`state.js`** | **Data Store** | `travelData` 전역 객체 및 애플리케이션 상태를 관리합니다. |
-| **`ui/constants.js`**| **Constants** | **Z-Index 시스템 및 공통 상수 관리.** 모든 모달은 여기서 정의된 `Z_INDEX`를 따라야 합니다. |
-| **`firebase.js`** | **Backend/DB** | Handles Firestore connections, Auth, and configuration loading. |
-| **`map.js`** | **Maps** | Manages Google Maps SDK, markers, and path rendering. |
-| **`ui/renderers.js`** | **View Layer** | Renders the main timeline content (HTML string generation). Most UI changes happen here. |
-| **`ui/modals.js`** | **Interactions** | Manages all modals (add, delete, confirm). |
-| **`ui/weather.js`** | **Feature** | Handles weather data fetching and display (Open-Meteo API). |
-| **`ui/renderers-details.js`**| **Details** | Specific rendering logic for timeline details. |
+**전체 배포 (Hosting + Functions + Rules)**
+```bash
+npm run deploy:all
+```
 
----
+**프론트엔드만 빠르게 배포 (Hosting Only)**
+```bash
+npm run build
+firebase deploy --only hosting
+```
 
-## 🗺️ 3. "Where is the code?" (UI Mapping)
+## 🔑 Key Features
+*   **Timeline Editor**: 드래그 앤 드롭으로 일정 순서 변경, 시간 조정.
+*   **Map Integration**: 일정에 등록된 장소를 지도에 마커와 경로로 시각화.
+*   **Memory & Budget**: 사진 업로드, 메모 작성, 예산 관리 기능.
+*   **Public Sharing**: 고유 링크를 통해 로그인 없이 여행 계획 열람 (Read-Only).
 
-| UI Element | File | Key Functions |
-| :--- | :--- | :--- |
-| **Timeline Cards** (Place/Transit) | `ui/renderers.js` | `renderTimelineItemHtml`, `buildTransitCard` |
-| **Detail Modal** (Popup) | `ui/timeline-detail.js` | `viewTimelineItem` |
-| **Context Menu** (Right-click) | `ui/renderers.js` / `ui.js` | `openContextMenu`, `handleContextAction` |
-| **Header** (Logo, Auth) | `ui/header.js` | `renderHeader`, `updateAuthUI` |
-| **Profile Page** | `ui/profile.js` | `renderProfile` |
-
----
-
-## 🛠️ 4. Debugging & Common Logic
-
-- **Data Save/Load**:
-  - `autoSave()` in `ui.js`: Triggers Firestore update.
-  - `travelData` in `state.js`: The in-memory source of truth.
-- **Event Handling**:
-  - Most events are attached via inline `onclick` attributes pointing to window-scoped functions exposed in `ui.js`.
-  - **Caution**: Ensure functions are properly attached to `window` if defined in modules.
-
-  - **Caution**: Ensure functions are properly attached to `window` if defined in modules.
-
----
-
-## 🚀 5. Deployment Guidelines (Critical)
-
-> [!WARNING]
-> **공유 링크(`/v/:id`) 배포 시 주의사항**
-> 공유 뷰어 페이지는 **Cloud Functions**에 의해 서빙됩니다. 단순히 `npm run deploy:hosting`만 해서는 공유 링크 화면이 업데이트되지 않습니다.
-> 반드시 다음 절차를 따라야 합니다:
-> 1. **빌드**: `npm run build` (최신 `dist/openview.html` 생성)
-> 2. **복사**: `dist/openview.html` -> `functions/openview.html` (템플릿 동기화)
-> 3. **배포**: `firebase deploy --only functions`
-> 
-> *Hosting 배포는 정적 자산(JS, CSS) 갱신을 위해 필요하지만, HTML 구조 변경은 Functions 배포가 필수입니다.*
-
----
-
-## 📝 6. Documentation Standard
-
-- **HISTORY.md**: Must be updated after every commit. Use Korean.
-  - Format: `### HH:MM - [AI] Change Description`
-- **Commit Messages**: Korean, concise, with `[AI]` prefix.
-
----
-
-> **Note to AI**: If you are reading this, you are ready to start. Proceed with the user's request, prioritizing **speed** and **stability**.
+## ⚠️ Development Notes
+*   **Viewer Mode**: `viewer.js`는 `ui/renderers.js`를 공유하지만, `isReadOnlyMode` 플래그를 통해 편집 버튼 등을 숨깁니다.
+*   **Map API**: `window.googleMapsApiKey`는 백엔드(`functions`)에서 받아와 보안을 유지합니다.
+*   **Event Handling**: 보안 정책(CSP) 이슈 방지를 위해 `onclick="..."` 인라인 핸들러보다는 `addEventListener` 또는 코드 레벨에서의 `onclick` 바인딩을 권장합니다.

@@ -19,6 +19,26 @@
     select {
         font-family: 'MemomentKkukkukk', sans-serif;
     }
+
+    :root {
+        --color-primary: #774b00;
+        --color-text-muted: #617989;
+        --color-bg-dark: #101a22;
+        /* Fallback/Unused in light, but defined for consistency */
+        --color-card-dark: #1a2632;
+        /* Fallback */
+    }
+
+    .dark {
+        --color-primary: #f59e0b;
+        /* Amber-500 for better visibility on dark */
+        --color-text-muted: #94a3b8;
+        /* Slate-400 */
+        --color-bg-dark: #101a22;
+        /* Very dark blue-gray */
+        --color-card-dark: #2a3848;
+        /* Lighter blue-gray for contrast */
+    }
 }
 
 @layer components {

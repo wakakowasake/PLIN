@@ -12,7 +12,7 @@ export const defaultTravelData = {
         budget: "₩60,000",
         note: "대나무 숲은 사람이 붐비기 전 이른 아침에 사진 찍기 좋음.",
         memoryLocked: false, // [Added] 추억 잠금 상태
-        viewMode: 'simple' // [Added] 타임라인 표시 방식 ('simple' | 'planner')
+        viewMode: 'planner' // [Modified] 타임라인 표시 방식 고정 ('planner')
     },
     shoppingList: [],
     checklist: [],
