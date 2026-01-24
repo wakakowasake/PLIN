@@ -61,9 +61,9 @@
     <script src="/js/error-guard.js"></script>
 
     <!-- Libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
     <style>
         /* Google 자동완성 목록이 모달 위로 오도록 설정 */
         .pac-container {
@@ -315,10 +315,20 @@
             cursor: default !important;
         }
 
-        /* [Performance] 터치 이벤트 Violation 경고 해결 */
+        /* [Performance] 터치 이벤트 Violation 경고 해결 및 모바일 스크롤 활성화 */
         #trip-hero,
         #trip-info-container {
-            touch-action: none !important;
+            touch-action: pan-y !important;
+        }
+
+        /* [Fix] 카드 및 컨테이너 깜빡임 방지 (하드웨어 가속) */
+        .timeline-item,
+        #timeline-list {
+            will-change: transform;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            transform: translateZ(0);
+            /* Force GPU */
         }
     </style>
 </head>
@@ -410,8 +420,7 @@
         <!-- Hero Image -->
         <div id="trip-hero"
             class="vibrant-img w-full h-48 md:h-80 bg-gray-200 rounded-2xl bg-cover bg-center mb-8 shadow-md relative overflow-hidden group select-none"
-            style="touch-action: none !important;" oncontextmenu="openContextMenu(event, 'hero')"
-            ontouchend="touchEnd(event)">
+            oncontextmenu="openContextMenu(event, 'hero')">
             <div class="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors"></div>
         </div>
 
@@ -421,8 +430,7 @@
                 <div class="flex flex-col custom-flex-row justify-between gap-4">
                     <div id="trip-info-container"
                         class="flex flex-col gap-2 select-none p-2 -m-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                        style="touch-action: none !important;" oncontextmenu="openContextMenu(event, 'trip_info')"
-                        ontouchend="touchEnd(event)">
+                        oncontextmenu="openContextMenu(event, 'trip_info')">
                         <div class="flex items-center gap-2 text-primary font-bold text-lg uppercase tracking-wider">
                             <span class="material-symbols-outlined text-xl">calendar_month</span>
                             <span id="trip-day-count">3일차 / 7일</span>
@@ -452,8 +460,8 @@
                     </div>
                 </div>
 
-                <div class="relative pl-2 rounded-xl p-4 min-h-[500px]">
-                    <div id="timeline-list" class="flex flex-col">
+                <div class="relative pl-2 rounded-xl p-4 min-h-[500px] overflow-hidden">
+                    <div id="timeline-list" class="flex flex-col" style="touch-action: pan-y;">
                     </div>
                 </div>
             </div>
@@ -792,8 +800,13 @@
             class="bg-white dark:bg-card-dark rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] overflow-y-auto modal-slide-in">
             <div class="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
                 <h3 class="text-xl font-bold text-text-main dark:text-white">새 장소 추가</h3>
-                <button type="button" onclick="closeModal()" class="text-gray-400 hover:text-gray-600"
-                    aria-label="닫기"><span class="material-symbols-outlined">close</span></button>
+                <div class="flex items-center gap-2">
+                    <button type="button" id="save-item-btn" onclick="saveNewItem()"
+                        class="p-2 bg-primary text-white font-bold rounded-xl hover:bg-orange-500 shadow-md transition-all active:scale-95 flex items-center justify-center"
+                        title="저장"><span class="material-symbols-outlined text-2xl">check</span></button>
+                    <button type="button" onclick="closeModal()" class="text-gray-400 hover:text-gray-600 p-1"
+                        aria-label="닫기"><span class="material-symbols-outlined">close</span></button>
+                </div>
             </div>
             <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="col-span-2">
@@ -811,18 +824,20 @@
                     </div>
                 </div>
 
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">카테고리</label>
-                    <input id="item-category" type="text"
-                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 cursor-pointer"
-                        placeholder="카테고리 선택" readonly onclick="openCategoryModal()">
-                </div>
+                <div class="col-span-2 flex flex-row gap-4">
+                    <div class="flex-1 min-w-0">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">카테고리</label>
+                        <input id="item-category" type="text"
+                            class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 cursor-pointer text-sm"
+                            placeholder="카테고리 선택" readonly onclick="openCategoryModal()">
+                    </div>
 
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">시간</label>
-                    <input id="item-time" type="text"
-                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 cursor-pointer"
-                        placeholder="시간 선택" readonly onclick="openTimeModal()">
+                    <div class="flex-1 min-w-0">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">시간</label>
+                        <input id="item-time" type="text"
+                            class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 cursor-pointer text-sm"
+                            placeholder="시간 선택" readonly onclick="openTimeModal()">
+                    </div>
                 </div>
 
                 <div class="col-span-2">
@@ -870,12 +885,9 @@
                         placeholder="예: 말차 아이스크림이 유명함. 전화: +81..."></textarea>
                 </div>
             </div>
-            <div class="p-6 border-t border-gray-100 dark:border-gray-700 flex justify-end gap-3">
+            <div class="p-6 border-t border-gray-100 dark:border-gray-700 flex justify-center">
                 <button type="button" onclick="closeModal()"
-                    class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-xl">취소</button>
-                <button type="button" id="save-item-btn" onclick="saveNewItem()"
-                    class="px-6 py-2 bg-primary text-white font-bold rounded-xl hover:bg-orange-500 shadow-lg">일정에
-                    추가</button>
+                    class="w-full py-3 text-gray-500 font-bold hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors">취소</button>
             </div>
         </div>
     </div>

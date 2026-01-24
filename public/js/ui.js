@@ -461,9 +461,16 @@ function attachSwipeListeners() {
 }
 
 function handleTouchStart(e) {
+    // [Fix] 가로 스크롤이 가능한 요소(예: 추억 사진 갤러리) 내부에서는 일차 스와이프를 무시함
+    if (e.target.closest('.overflow-x-auto')) {
+        touchStartX = 0;
+        touchStartY = 0;
+        return;
+    }
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
 }
+
 
 function handleTouchMove(e) {
     if (!touchStartX || !touchStartY) return;
@@ -471,40 +478,71 @@ function handleTouchMove(e) {
     const touchX = e.touches[0].clientX;
     const touchY = e.touches[0].clientY;
 
-    const diffX = touchStartX - touchX;
-    const diffY = touchStartY - touchY;
+    const diffX = touchX - touchStartX; // 방향 수정: 드래그한 거리 (양수=오른쪽으로 당김=이전으로)
+    const diffY = touchY - touchStartY;
 
-    // 수평 이동이 수직 이동보다 클 때만 스크롤 방지 (타임라인 좌우 스와이프 의도)
-    if (Math.abs(diffX) > Math.abs(diffY)) {
-        if (e.cancelable) {
-            e.preventDefault();
-        }
+    // 수직 이동이 더 크면 스크롤 허용 (단, 이미 스와이프 중이면 막음?) -> 간단히 수직이 크면 무시
+    if (Math.abs(diffY) > Math.abs(diffX)) return;
+
+    // 수평 이동이 주도적이면 스크롤 방지 및 애니메이션 적용
+    if (e.cancelable) {
+        e.preventDefault();
+    }
+
+    const container = document.getElementById('timeline-list');
+    if (container) {
+        container.style.transition = 'none'; // 드래그 중엔 즉시 반응
+        container.style.transform = `translateX(${diffX}px)`;
     }
 }
 
 function handleTouchEnd(e) {
     if (!touchStartX || !touchStartY) return;
 
-    const touchEndX = e.changedTouches[0].clientX;
-    const touchEndY = e.changedTouches[0].clientY;
+    const touch = e.changedTouches[0];
+    const diffX = touch.clientX - touchStartX;
+    const diffY = touch.clientY - touchStartY;
 
-    const diffX = touchStartX - touchEndX;
-    const diffY = touchStartY - touchEndY;
+    const container = document.getElementById('timeline-list');
 
-    // 수직 이동이 너무 크면 스와이프 취소 (스크롤 의도로 간주)
-    if (Math.abs(diffY) > 100) {
+    // [Fix] 수직 스크롤 중에는 스와이프가 발생하지 않도록 감도 대폭 강화 (50 -> 30)
+    if (Math.abs(diffY) > 30) {
+        if (container) {
+            container.style.transition = 'transform 0.2s ease-out';
+            container.style.transform = 'translateX(0)';
+        }
         touchStartX = 0;
         touchStartY = 0;
         return;
     }
 
-    // 다음 날짜로 이동 (왼쪽으로 스와이프)
-    if (diffX > SWIPE_THRESHOLD) {
-        changeDayWithAnimation('next');
-    }
-    // 이전 날짜로 이동 (오른쪽으로 스와이프)
-    else if (diffX < -SWIPE_THRESHOLD) {
-        changeDayWithAnimation('prev');
+    // Threshold 확인 (민감도 완화: 100 -> 120px)
+    const threshold = 120;
+    const isNext = diffX < -threshold;
+    const isPrev = diffX > threshold;
+
+    if (isNext || isPrev) {
+        // 끝까지 밀어내기 효과
+        if (container) {
+            container.style.transition = 'transform 0.2s ease-out';
+            container.style.transform = `translateX(${isNext ? '-100%' : '100%'})`;
+        }
+
+        // 애니메이션 완료 후 데이터 변경
+        setTimeout(() => {
+            if (isNext) changeDayWithAnimation('next');
+            else changeDayWithAnimation('prev');
+
+            // 데이터 변경 후 위치 복귀는 selectDay나 render에서 초기화되어야 함
+            // 하지만 renderItinerary가 DOM을 갈아엎으므로 style은 초기화됨.
+            // 다만 slide-in 애니메이션을 위해 changeDayWithAnimation이 클래스를 추가할 것임.
+        }, 200);
+    } else {
+        // 복귀 (Threshold 미달)
+        if (container) {
+            container.style.transition = 'transform 0.2s ease-out';
+            container.style.transform = 'translateX(0)';
+        }
     }
 
     touchStartX = 0;
@@ -517,17 +555,25 @@ function changeDayWithAnimation(direction) {
     const maxIndex = travelData.days.length - 1;
     let nextIndex = currentDayIndex;
 
+    // [Fix] 전체 보기(-1) 지원 로직
     if (direction === 'next') {
-        if (currentDayIndex < maxIndex) {
+        if (currentDayIndex === -1) {
+            nextIndex = 0; // 전체 -> 1일차
+        } else if (currentDayIndex < maxIndex) {
             nextIndex++;
         } else {
-            return; // 마지막 날입니다
+            // 바운스 효과 등을 원하면 여기서 처리. 지금은 복귀.
+            resetContainerPosition();
+            return;
         }
     } else if (direction === 'prev') {
         if (currentDayIndex > 0) {
             nextIndex--;
+        } else if (currentDayIndex === 0) {
+            nextIndex = -1; // 1일차 -> 전체
         } else {
-            return; // 첫째 날입니다
+            resetContainerPosition();
+            return;
         }
     }
 
@@ -537,40 +583,68 @@ function changeDayWithAnimation(direction) {
         return;
     }
 
-    // 1. Slide Out Animation
-    const outClass = direction === 'next' ? 'slide-out-left' : 'slide-out-right';
-    container.classList.add('slide-active', outClass);
+    // 이미 handleTouchEnd에서 밀어냈으므로, 여기서는 데이터 변경 후 들어오는 애니메이션 처리
+    // 하지만 버튼(화살표)으로 불렸을 수도 있음. 
+    // 버튼 클릭 시에는 transform이 0인 상태.
 
-    setTimeout(() => {
-        // 2. Change Data & Render
-        selectDay(nextIndex);
-
-        // 3. Prepare Slide In
-        const inClass = direction === 'next' ? 'slide-in-start-right' : 'slide-in-start-left';
-
-        // *Re-query container* because renderItinerary might replace innerHTML 
-        // (but usually itinerary-container is the wrapper, so fine unless checking inner content wrappers)
-        // Ensure we are manipulating the wrapper that stays
-
-        // Wait for render to finish (synchronous usually)
-        // Remove old classes
-        container.classList.remove(outClass);
-
-        // Combine slide-active with start-position
-        container.classList.add(inClass);
-
-        // Trigger Reflow
-        void container.offsetWidth;
-
-        // 4. Slide In Animation
-        container.classList.remove(inClass); // Remove start position to transition to natural position (0)
+    // 만약 터치 스와이프로 온 게 아니라면(즉시 호출), 밀어내는 애니메이션 필요
+    const computedStyle = window.getComputedStyle(container);
+    if (computedStyle.transform === 'none' || computedStyle.transform === 'matrix(1, 0, 0, 1, 0, 0)') {
+        const outClass = direction === 'next' ? 'slide-out-left' : 'slide-out-right';
+        container.classList.add('slide-active', outClass);
 
         setTimeout(() => {
-            container.classList.remove('slide-active');
-        }, 300); // Wait for transition end
+            selectDay(nextIndex);
+            // Slide In
+            const inClass = direction === 'next' ? 'slide-in-start-right' : 'slide-in-start-left';
+            const newContainer = document.getElementById('timeline-list'); // Re-queried
+            if (newContainer) {
+                newContainer.classList.add(inClass);
+                requestAnimationFrame(() => {
+                    newContainer.classList.add('slide-active');
+                    newContainer.classList.remove(inClass);
+                });
+            }
+        }, 300);
+        return;
+    }
 
-    }, 250); // Match CSS transition duration
+    // 터치 스와이프 후 진입 (이미 transform 되어 있음)
+    // 데이터 변경
+    selectDay(nextIndex);
+
+    // Slide In Animation
+    // selectDay 호출 후 DOM이 새로 그려졌으므로, 새 DOM에 대해 들어오는 애니메이션 적용
+    const newContainer = document.getElementById('timeline-list');
+    if (newContainer) {
+        // [Fix] Clear any inline transform first (important if container was recycled)
+        newContainer.style.transform = '';
+
+        // 들어올 위치 잡기
+        const startClass = direction === 'next' ? 'slide-in-start-right' : 'slide-in-start-left';
+
+        // [Fix] flickering 방지를 위해 transform 초기화 상태를 확실히 보장
+        newContainer.style.transition = 'none';
+        newContainer.classList.add(startClass);
+
+        // 레이아웃 강제 갱신으로 위치 확정
+        newContainer.offsetHeight;
+
+        requestAnimationFrame(() => {
+            newContainer.style.transition = 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)';
+            newContainer.classList.remove(startClass); // 원위치로 복귀
+        });
+    }
 }
+
+function resetContainerPosition() {
+    const container = document.getElementById('timeline-list');
+    if (container) {
+        container.style.transition = 'transform 0.2s ease-out';
+        container.style.transform = 'translateX(0)';
+    }
+}
+
 
 // [Detail Modal Logic]
 export function viewTimelineItem(index, dayIndex = currentDayIndex) {
@@ -1732,6 +1806,9 @@ export async function autoSave(immediate = false) {
 
     if (!isEditing && currentUser && currentTripId) {
         const saveTask = async () => {
+            // [Fix] Ensure tripId is still valid when timeout fires
+            if (!currentTripId) return;
+
             // [Added] 저장 중복 방지 (데이터 일관성)
             if (isSaving) {
                 console.warn('AutoSave skipped: Save already in progress');
@@ -1999,7 +2076,7 @@ export function addTimelineItem(insertIndex = null, dayIndex = currentDayIndex) 
 
     // 모달 UI 설정 (추가 모드)
     document.querySelector('#item-modal h3').innerText = "새 장소 추가";
-    document.getElementById('save-item-btn').innerText = "일정에 추가";
+    // document.getElementById('save-item-btn').innerText = "일정에 추가"; // 아이콘 모드이므로 텍스트 업데이트 안함
 
     modal.classList.remove('hidden');
     setupItemAutocomplete();
@@ -2076,7 +2153,7 @@ export function editTimelineItem(index, dayIndex = currentDayIndex) {
 
     // 모달 UI 설정 (수정 모드)
     document.querySelector('#item-modal h3').innerText = "활동 수정";
-    document.getElementById('save-item-btn').innerText = "수정 완료";
+    // document.getElementById('save-item-btn').innerText = "수정 완료"; // 아이콘 모드이므로 텍스트 업데이트 안함
 
     modal.classList.remove('hidden');
     setupItemAutocomplete();
@@ -3241,6 +3318,12 @@ let contextMenuType = null;
 let contextMenuMemoryIndex = null;
 
 export function openContextMenu(e, type, index, dayIndex = currentDayIndex, memoryIndex = null) {
+    // [Fix] 읽기 전용 모드(isReadOnlyMode)에서는 컨텍스트 메뉴 자체를 완전히 차단함
+    if (isReadOnlyMode) {
+        e.preventDefault();
+        return;
+    }
+
     e.preventDefault();
     contextMenuTargetIndex = index;
     contextMenuType = type;

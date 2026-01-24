@@ -1178,27 +1178,10 @@ export default {
     showLoading,
     hideLoading,
     openAddModal,
-    closeAddModal,
-    openCopyItemModal,
-    closeCopyItemModal,
-    copyItemToCurrent,
-    closeDetailModal,
-    selectAddType,
-    ensureMemoryModal,
-    openMemoModal,
-    closeMemoModal,
-    editCurrentMemo,
-    saveCurrentMemo,
-    openLightbox,
-    closeLightbox,
-    ensureExpenseModal,
-    openExpenseModal,
-    closeExpenseModal,
-    saveExpense,
-    ensureShoppingSelectorModal,
-    openShoppingListSelector,
-    closeShoppingListSelector,
-    selectShoppingItem,
-    openConfirmationModal,
-    closeConfirmationModal
 };
+
+// [Fix] Expose to window for inline HTML handlers
+window.lockBodyScroll = lockBodyScroll;
+window.unlockBodyScroll = unlockBodyScroll;
+window.showLoading = showLoading;
+window.hideLoading = hideLoading;

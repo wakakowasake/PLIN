@@ -1,5 +1,5 @@
-
 import { travelData } from '../state.js';
+import { escapeHtml } from '../ui-utils.js';
 import ExpenseManager from './expense-manager.js';
 
 /**
@@ -181,8 +181,8 @@ function renderExpenseDetailContent() {
                     ${dayData.expenses.map(exp => `
                         <div class="flex justify-between items-center text-sm bg-gray-50 dark:bg-gray-900 p-2 rounded-lg group">
                             <div class="flex-1 min-w-0">
-                                <p class="font-bold text-gray-800 dark:text-white text-base truncate">${exp.description}</p>
-                                ${exp.title ? `<p class="text-xs text-gray-500 dark:text-gray-400 truncate flex items-center gap-1 mt-0.5"><span class="material-symbols-outlined text-[10px]">place</span> ${exp.title}</p>` : ''}
+                                <p class="font-bold text-gray-800 dark:text-white text-base truncate">${escapeHtml(exp.description)}</p>
+                                ${exp.title ? `<p class="text-xs text-gray-500 dark:text-gray-400 truncate flex items-center gap-1 mt-0.5"><span class="material-symbols-outlined text-[10px]">place</span> ${escapeHtml(exp.title)}</p>` : ''}
                             </div>
                             <div class="flex items-center gap-2">
                                 <p class="font-bold text-gray-800 dark:text-white ml-2">₩${exp.amount.toLocaleString()}</p>

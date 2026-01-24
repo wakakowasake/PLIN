@@ -3,6 +3,7 @@
 import { db } from '../firebase.js';
 import { collection, query, where, getDocs, addDoc, getDoc, doc, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 import { currentUser, newTripDataTemp, defaultTravelData, setNewTripDataTemp } from '../state.js';
+import { escapeHtml } from '../ui-utils.js';
 import { showLoading, hideLoading, showToast } from './modals.js';
 import logger from '../logger.js';
 
@@ -163,9 +164,9 @@ export async function loadTripList(uid) {
                             <span class="material-symbols-outlined">more_vert</span>
                         </button>
                         <div class="absolute bottom-4 left-4 right-4">
-                            <h3 class="font-bold text-2xl font-hand text-white mb-1 truncate leading-tight shadow-black drop-shadow-md tracking-wide">${title}</h3>
+                            <h3 class="font-bold text-2xl font-hand text-white mb-1 truncate leading-tight shadow-black drop-shadow-md tracking-wide">${escapeHtml(title)}</h3>
                             <p class="text-sm font-hand text-white/90 flex items-center gap-1">
-                                <span class="material-symbols-outlined text-[16px]">calendar_today</span> ${dateDisplay}
+                                <span class="material-symbols-outlined text-[16px]">calendar_today</span> ${escapeHtml(dateDisplay)}
                             </p>
                         </div>
                     </div>

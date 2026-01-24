@@ -114,6 +114,9 @@ export const setIsSaving = (val) => isSaving = val;
 
 // [Added] State Manipulators (Logic only)
 export const updateMetaState = (key, value) => {
+    // [Security] Prevent Prototype Pollution
+    if (key.includes('__proto__') || key.includes('constructor') || key.includes('prototype')) return;
+
     const keys = key.split('.');
     if (keys.length === 2) {
         if (!travelData.meta[keys[0]]) travelData.meta[keys[0]] = {};
@@ -130,6 +133,9 @@ export const updateTripDateState = (dayIndex, newDate) => {
 };
 
 export const updateTimelineItemState = (dayIndex, itemIndex, key, value) => {
+    // [Security] Prevent Prototype Pollution
+    if (key.includes('__proto__') || key.includes('constructor') || key.includes('prototype')) return;
+
     if (travelData.days[dayIndex] && travelData.days[dayIndex].timeline[itemIndex]) {
         travelData.days[dayIndex].timeline[itemIndex][key] = value;
     }

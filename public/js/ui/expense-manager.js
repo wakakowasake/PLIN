@@ -1,4 +1,5 @@
 import { travelData, viewingItemIndex, targetDayIndex } from '../state.js';
+import { escapeHtml } from '../ui-utils.js';
 
 // Expense Manager Module
 // Handles expense tracking, budget calculations (Logic Only)
@@ -24,7 +25,7 @@ export function renderExpenseList(item, state = {}) {
         html += `
         <div class="flex justify-between items-center bg-gray-50 dark:bg-gray-800 p-2 rounded-lg group">
             <div class="flex items-center gap-2">
-                <span class="text-sm text-gray-700 dark:text-gray-300">${description}</span>
+                <span class="text-sm text-gray-700 dark:text-gray-300">${escapeHtml(description)}</span>
             </div>
             <div class="flex items-center gap-3">
                 <span class="text-sm font-bold text-text-main dark:text-white">₩${Number(amount).toLocaleString()}</span>

@@ -25,6 +25,7 @@ service cloud.firestore {
       allow write: if isUser(userId);
     }
     
+
     // 여행 계획 문서 (Plans)
     match /plans/{planId} {
       // 읽기: 공개 여행이거나 멤버인 경우
@@ -37,23 +38,35 @@ service cloud.firestore {
       // 수정/삭제: 멤버(권한 있는 사용자)만 가능
       allow update, delete: if isAuthenticated() && isMember(resource.data);
       
+      // 헬퍼: 부모(Plan) 문서의 멤버십 확인 (isMember 함수 재활용 불가하므로 논리 복사)
+      // 비용: 부모 문서 읽기 1회 발생
+      function isParentMember() {
+        let parentData = get(/databases/$(database)/documents/plans/$(planId)).data;
+        return (parentData.createdBy == request.auth.uid) ||
+               (parentData.members != null && request.auth.uid in parentData.members) ||
+               (parentData.userId == request.auth.uid);
+      }
+
       // 타임라인 아이템 서브컬렉션
       match /timeline/{itemId} {
-        // [Security] 엄격하게 가려면 plans 문서를 get()으로 확인해야 함
-        // 비용 절감을 위해 일단 로그인 체크 위주로 유지 (ID가 유추하기 매우 어려움)
-        allow read, write: if isAuthenticated();
+        // [Security Hardening] 부모 Plan의 멤버만 접근 가능하도록 변경
+        allow read, write: if isAuthenticated() && isParentMember();
       }
       
       // 추억 서브컬렉션
       match /memories/{memoryId} {
-        allow read, write: if isAuthenticated();
+        // [Security Hardening] 부모 Plan의 멤버만 접근 가능하도록 변경
+        allow read, write: if isAuthenticated() && isParentMember();
       }
     }
     
     // 공유 링크 (읽기 전용 공유)
     match /sharedTrips/{shareId} {
       allow read: if true;
-      allow create, update, delete: if isAuthenticated();
+      // 생성: 로그인 사용자 (누구나 공유 링크 생성 가능)
+      allow create: if isAuthenticated();
+      // 수정/삭제: 본인이 만든 링크만 (resource.data.createdBy 확인 필요)
+      allow update, delete: if isAuthenticated() && resource.data.createdBy == request.auth.uid;
     }
     
     match /{document=**} {

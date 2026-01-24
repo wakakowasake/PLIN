@@ -1,9 +1,10 @@
 import { db, firebaseReady } from './firebase.js';
 import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
-import { setTravelData, travelData, setCurrentTripId, setCurrentDayIndex, setIsReadOnlyMode } from './state.js'; // setReadOnlyMode might need to be added or simulated
+import { setTravelData, travelData, setCurrentTripId, setCurrentDayIndex, setIsReadOnlyMode } from './state.js';
 import { renderItinerary, renderLists, renderWeeklyWeather } from './ui/renderers.js';
 import { formatTime } from './ui/time-helpers.js';
 import { updateTotalBudget } from './ui/expense-manager.js'; // [Added] Import Budget Manager
+import { escapeHtml } from './ui-utils.js';
 
 import { BACKEND_URL } from './config.js';
 
@@ -542,7 +543,7 @@ async function renderItemModal(dayIndex, itemIndex) {
             memoriesHtml += `
             <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700">
                 ${mem.photoUrl ? `<div class="w-full h-48 bg-gray-200 rounded-lg mb-3 bg-cover bg-center" style="background-image: url('${mem.photoUrl}')"></div>` : ''}
-                <p class="text-sm text-gray-700 dark:text-gray-300 font-hand">${mem.comment || ''}</p>
+                <p class="text-sm text-gray-700 dark:text-gray-300 font-hand">${escapeHtml(mem.comment || '')}</p>
                 <p class="text-[10px] text-gray-400 mt-1 text-right">${mem.timestamp ? new Date(mem.timestamp).toLocaleTimeString() : ''}</p>
             </div>`;
         });
@@ -558,7 +559,7 @@ async function renderItemModal(dayIndex, itemIndex) {
             expenseTotal += Number(exp.amount || 0);
             expensesHtml += `
             <div class="flex justify-between items-center bg-gray-50 dark:bg-gray-800 p-2 rounded-lg">
-                <span class="text-sm text-gray-700 dark:text-gray-300">${exp.description || '내역 없음'}</span>
+                <span class="text-sm text-gray-700 dark:text-gray-300">${escapeHtml(exp.description || '내역 없음')}</span>
                 <span class="text-sm font-bold text-text-main dark:text-white">₩${Number(exp.amount || 0).toLocaleString()}</span>
             </div>`;
         });
@@ -575,7 +576,7 @@ async function renderItemModal(dayIndex, itemIndex) {
              <a href="${att.url}" target="_blank" class="block bg-gray-50 dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700 hover:bg-gray-100 transition-colors">
                 <div class="flex items-center gap-2 mb-2">
                     <span class="material-symbols-outlined text-primary">${isImage ? 'image' : 'description'}</span>
-                    <span class="text-xs font-bold text-gray-600 truncate flex-1">${att.name}</span>
+                    <span class="text-xs font-bold text-gray-600 truncate flex-1">${escapeHtml(att.name)}</span>
                 </div>
                 ${isImage ? `<div class="w-full h-20 bg-gray-200 rounded-lg bg-cover bg-center" style="background-image: url('${att.url}')"></div>` : ''}
              </a>`;
@@ -587,7 +588,8 @@ async function renderItemModal(dayIndex, itemIndex) {
     let noteHtml = "";
     if (item.note) {
         const urlRegex = /(https?:\/\/[^\s]+)/g;
-        const linkedNote = item.note.replace(urlRegex, (url) => `<a href="${url}" target="_blank" class="text-blue-500 hover:underline">${url}</a>`);
+        // Escape HTML first, then linkify
+        const linkedNote = escapeHtml(item.note).replace(urlRegex, (url) => `<a href="${url}" target="_blank" class="text-blue-500 hover:underline">${url}</a>`);
         noteHtml = `
          <div class="bg-yellow-50 dark:bg-yellow-900/20 p-5 rounded-xl border border-yellow-100 dark:border-yellow-700/50 mb-6">
             <h4 class="text-xs font-bold text-yellow-600 dark:text-yellow-500 uppercase mb-2">메모</h4>

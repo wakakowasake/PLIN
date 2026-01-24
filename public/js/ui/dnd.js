@@ -283,11 +283,14 @@ function removeDragGhost() {
  * Touch drag start handler (long press)
  */
 export function touchStart(e, index, type, isEditing) {
-    // [Fix] 뷰어 모드(공개 링크)에서는 터치 드래그 로직 완전 차단 (스크롤 허용)
+    // [Fix] 뷰어 모드(공개 링크)에서는 터치 드래그 로직 완전 차단
     if (document.body.classList.contains('viewer-mode')) return;
 
-    if (isEditing) return;
+    // [New] 수정 모드일 때만 드래그 가능하도록 수정
+    // (사용자 요청: 수정 완료 모드일 때는 드래그앤드롭 안 되게)
+    if (!isEditing) return;
 
+    const currentTarget = e.currentTarget; // [Fix] 클로저 캡처를 위해 즉시 저장
     const touch = e.touches[0];
     touchStartX = touch.clientX;
     touchStartY = touch.clientY;
@@ -295,9 +298,9 @@ export function touchStart(e, index, type, isEditing) {
     touchLongPressTimer = setTimeout(() => {
         isTouchDragging = true;
         touchStartIndex = index;
-        dragSourceElement = e.currentTarget;
+        dragSourceElement = currentTarget;
 
-        // iOS/Android 네이티브 드래그 방지
+        // iOS/Android 네이티브 드래그/복사 방지
         e.preventDefault();
 
         // 원래 자리 효과: 투명도 + 흔들림
@@ -305,6 +308,7 @@ export function touchStart(e, index, type, isEditing) {
             dragSourceElement.classList.add('dragging');
             dragSourceElement.classList.add('shake-animation');
             dragSourceElement.style.opacity = '0.3';
+            dragSourceElement.style.transform = 'translateZ(0)'; // [Fix] GPU 가속
         }
 
         // 커스텀 드래그 고스트 생성

@@ -26,6 +26,20 @@ const autoSave = (...args) => window.autoSave && window.autoSave(...args);
 const updateTotalBudget = (...args) => window.updateTotalBudget && window.updateTotalBudget(...args);
 const recalculateTimeline = (...args) => window.recalculateTimeline && window.recalculateTimeline(...args);
 
+// [Helper] Find actual place neighbor (skip memos and other transits)
+function getPlaceNeighbor(timeline, index, direction) {
+    let i = index + direction;
+    while (i >= 0 && i < timeline.length) {
+        const item = timeline[i];
+        // Tag '메모' skip, Other transit skip
+        if (!item.isTransit && item.tag !== '메모') {
+            return item.title || item.location || (direction > 0 ? "도착지" : "출발지");
+        }
+        i += direction;
+    }
+    return direction > 0 ? "도착지" : "출발지";
+}
+
 // 현재 보고 있는 경로 아이템 인덱스
 let currentRouteItemIndex = null;
 
@@ -805,10 +819,8 @@ export function openTransitDetailModal(item, index, dayIndex) {
     }
 
     const timeline = travelData.days[dayIndex].timeline;
-    const prevItem = index > 0 ? timeline[index - 1] : null;
-    const nextItem = index < timeline.length - 1 ? timeline[index + 1] : null;
-    const prevLoc = prevItem ? (prevItem.title || "출발지") : "출발지";
-    const nextLoc = nextItem ? (nextItem.title || "도착지") : "도착지";
+    const prevLoc = getPlaceNeighbor(timeline, index, -1);
+    const nextLoc = getPlaceNeighbor(timeline, index, 1);
 
     let routeText = `${prevLoc} ➡️ ${nextLoc}`;
 
@@ -2442,13 +2454,11 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
         item.attachments = [];
     }
 
-    // 출발지와 목적지 찾기
-    const prevItem = index > 0 ? timeline[index - 1] : null;
-    const nextItem = index < timeline.length - 1 ? timeline[index + 1] : null;
-    const departurePlace = prevItem && !prevItem.isTransit ? prevItem.title : "출발지";
-    const arrivalPlace = nextItem && !nextItem.isTransit ? nextItem.title : "도착지";
-    const departureLocation = prevItem && !prevItem.isTransit ? prevItem.location : "";
-    const arrivalLocation = nextItem && !nextItem.isTransit ? nextItem.location : "";
+    // 출발지와 목적지 찾기 (메모 건너뛰기)
+    const departurePlace = getPlaceNeighbor(timeline, index, -1);
+    const arrivalPlace = getPlaceNeighbor(timeline, index, 1);
+    const departureLocation = ""; // [Legacy] Not used in current header
+    const arrivalLocation = "";
 
     // 모달 생성
     let modal = document.getElementById('route-detail-modal');
@@ -2488,9 +2498,8 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
     const buttonsContainer = document.getElementById('route-detail-buttons');
     if (isEditMode) {
         buttonsContainer.innerHTML = `
-            <button onclick="saveRouteItem()" class="bg-primary hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-1 font-bold">
-                <span class="material-symbols-outlined text-sm">save</span>
-                <span>저장</span>
+            <button onclick="saveRouteItem()" class="p-2 bg-primary text-white font-bold rounded-xl hover:bg-orange-500 shadow-md transition-all active:scale-95 flex items-center justify-center" title="저장">
+                <span class="material-symbols-outlined text-2xl">check</span>
             </button>
             <button onclick="closeRouteDetailModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-2">
                 <span class="material-symbols-outlined">close</span>

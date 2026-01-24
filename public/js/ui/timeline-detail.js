@@ -63,13 +63,19 @@ export function editCurrentMemo(viewingItemIndex, getContentElement) {
     // Change button (edit -> save)
     const modal = document.getElementById('memo-detail-modal');
     const btnContainer = modal.querySelector('.mt-6');
-    const btn = btnContainer.querySelector('button');
+    if (btnContainer) {
+        const btn = btnContainer.querySelector('button');
+        if (btn) {
+            btn.setAttribute('onclick', 'saveCurrentMemo()');
+            btn.innerHTML = `<span class="material-symbols-outlined text-sm">save</span> 저장`;
+            btn.className = "text-sm bg-primary text-white hover:bg-orange-500 px-6 py-2 rounded-xl font-bold transition-colors flex items-center gap-1 shadow-md";
+        }
+    }
 
-    btn.setAttribute('onclick', 'saveCurrentMemo()');
-    btn.innerHTML = `<span class="material-symbols-outlined text-sm">save</span> 저장`;
-    btn.className = "text-sm bg-primary text-white hover:bg-orange-500 px-6 py-2 rounded-xl font-bold transition-colors flex items-center gap-1 shadow-md";
-
-    setTimeout(() => document.getElementById('memo-edit-area').focus(), 50);
+    setTimeout(() => {
+        const area = document.getElementById('memo-edit-area');
+        if (area) area.focus();
+    }, 50);
 }
 
 /**
@@ -101,14 +107,14 @@ export function saveCurrentMemo(viewingItemIndex, targetDayIndex, travelData, re
     // Restore button (save -> edit)
     const modal = document.getElementById('memo-detail-modal');
     const btnContainer = modal.querySelector('.mt-6');
-    const btn = btnContainer.querySelector('button');
-
-    btn.setAttribute('onclick', 'editCurrentMemo()');
-    btn.innerHTML = `<span class="material-symbols-outlined text-sm">edit</span> 수정`;
-    btn.className = "text-sm bg-yellow-100 hover:bg-yellow-200 text-yellow-800 px-4 py-2 rounded-xl font-bold transition-colors flex items-center gap-1";
-
-    renderItinerary();
-    autoSave();
+    if (btnContainer) {
+        const btn = btnContainer.querySelector('button');
+        if (btn) {
+            btn.setAttribute('onclick', 'editCurrentMemo()');
+            btn.innerHTML = `<span class="material-symbols-outlined text-sm">edit</span> 수정`;
+            btn.className = "text-sm bg-yellow-100 hover:bg-yellow-200 text-yellow-800 px-4 py-2 rounded-xl font-bold transition-colors flex items-center gap-1";
+        }
+    }
 }
 
 /**

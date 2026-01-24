@@ -67,6 +67,7 @@ function handleEnterKey(e) {
         const containers = document.querySelectorAll('.pac-container');
         let visibleContainer = null;
         for (const c of containers) {
+            // [Fix] offsetParent can be null if hidden
             if (c.offsetParent && c.querySelector('.pac-item')) {
                 visibleContainer = c;
                 break;
@@ -682,7 +683,8 @@ export async function fetchWeather(lat, lng, date = null) {
 
             // 과거 날짜 확인
             if (requestDate < today) {
-                console.warn(`Past date ${date} not supported, skipping request`);
+                // [Modified] Suppress warning for past dates (keeps logs clean)
+                // console.debug(`Past date ${date} not supported, skipping request`);
                 return;
             }
 

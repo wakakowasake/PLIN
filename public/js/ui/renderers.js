@@ -1,7 +1,7 @@
 import { travelData, currentDayIndex, isEditing, isReadOnlyMode } from '../state.js';
 import { Z_INDEX } from './constants.js';
 import { calculateEndTime, formatTime } from './time-helpers.js';
-import { formatDuration } from '../ui-utils.js';
+import { formatDuration, escapeHtml } from '../ui-utils.js';
 
 function safeGet(id) { return document.getElementById(id); }
 
@@ -21,7 +21,7 @@ function isTripCompleted() {
 function renderMemoriesHtml(item, dayIndex, itemIndex) {
     if (!item.memories || item.memories.length === 0) return '';
 
-    let html = '<div class="mt-4 flex gap-6 overflow-x-auto pb-4 no-scrollbar px-2">';
+    let html = '<div class="mt-4 flex gap-6 overflow-x-auto pb-4 no-scrollbar px-2" style="touch-action: pan-x;">';
     item.memories.forEach((mem, memIdx) => {
         // 비뚤비뚤한 효과를 위한 회전값 (인덱스에 따라 교차)
         const rotation = (memIdx % 2 === 0) ? 'rotate-1' : '-rotate-1';
@@ -58,10 +58,10 @@ function buildImageCard(item, editClass, clickHandler, index, dayIndex) {
                 <div class="h-32 w-full bg-cover bg-center relative" style="background-image: url('${item.image}');">
                     <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
                     <div class="absolute bottom-3 left-4 right-4 text-white">
-                        <h3 class="text-2xl font-hand truncate tracking-wide">${item.title}</h3>
+                        <h3 class="text-2xl font-hand truncate tracking-wide">${escapeHtml(item.title)}</h3>
                         <div class="flex items-center gap-1 text-base font-hand opacity-90 overflow-hidden">
                             <span class="material-symbols-outlined text-[16px] flex-shrink-0">location_on</span>
-                            <span class="truncate flex-1">${item.location}</span>
+                            <span class="truncate flex-1">${escapeHtml(item.location)}</span>
                         </div>
                     </div>
                     ${showMemoryBtn ? `<button type="button" onclick="event.stopPropagation(); addMemoryItem(${index}, ${dayIndex})" class="absolute top-2 right-2 bg-black/30 hover:bg-black/50 text-white p-2 rounded-full backdrop-blur-sm transition-colors z-[${Z_INDEX.UI_BASE}]">
@@ -98,7 +98,7 @@ function buildMemoCard(item, index, dayIndex, editClass, clickHandler) {
                 
                 <div class="flex items-center gap-3 justify-between">
                     <div class="flex-1 min-w-0">
-                        <p class="text-base font-medium text-yellow-900 dark:text-yellow-100 break-words whitespace-pre-wrap leading-relaxed font-body">${item.title}</p>
+                        <p class="text-base font-medium text-yellow-900 dark:text-yellow-100 break-words whitespace-pre-wrap leading-relaxed font-body">${escapeHtml(item.title)}</p>
                     </div>
                     <div class="flex items-center gap-1">
                         ${isEditing ? `<button type="button" onclick="event.stopPropagation(); deleteTimelineItem(${index}, ${dayIndex})" class="text-red-500 hover:bg-red-50 p-2 rounded-full flex-shrink-0"><span class="material-symbols-outlined text-lg">delete</span></button>` : ''}
@@ -140,7 +140,7 @@ function buildTransitCard(item, index, dayIndex, editClass) {
 
         // 상세 경로가 있는 경우(태그가 여러 개일 수 있음)에는 제목(역 정보/중복 노선명)을 숨기고 태그만 표시
         const showTitle = !hasDetailedTransit;
-        const titleText = (showTitle && item.title) ? `<p class="text-xl font-hand text-text-main dark:text-white truncate ml-2 tracking-wide">${item.title}</p>` : '';
+        const titleText = (showTitle && item.title) ? `<p class="text-xl font-hand text-text-main dark:text-white truncate ml-2 tracking-wide">${escapeHtml(item.title)}</p>` : '';
         contentHtml = `${tagsHtml} ${titleText}`;
     }
 
@@ -176,13 +176,13 @@ function buildDefaultCard(item, index, dayIndex, editClass, clickHandler) {
 
                 <div class="flex justify-between items-start mb-2 gap-2">
                     <div class="flex-1 min-w-0">
-                        <h3 class="text-2xl font-hand text-text-main dark:text-white break-words tracking-wide leading-tight">${item.title}</h3>
+                        <h3 class="text-2xl font-hand text-text-main dark:text-white break-words tracking-wide leading-tight">${escapeHtml(item.title)}</h3>
                         <p class="text-base font-hand text-text-muted dark:text-gray-400 flex items-center gap-1 mt-1 min-w-0">
                             <span class="material-symbols-outlined text-[16px] flex-shrink-0">location_on</span>
-                            <span class="truncate flex-1">${item.location || ''}</span>
+                            <span class="truncate flex-1">${escapeHtml(item.location || '')}</span>
                         </p>
                     </div>
-                    ${item.tag ? `<span class="inline-flex items-center px-2 py-0.5 rounded-sm text-base font-hand font-bold bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 flex-shrink-0 whitespace-nowrap transform rotate-2 shadow-sm">${item.tag}</span>` : ''}
+                    ${item.tag ? `<span class="inline-flex items-center px-2 py-0.5 rounded-sm text-base font-hand font-bold bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 flex-shrink-0 whitespace-nowrap transform rotate-2 shadow-sm">${escapeHtml(item.tag)}</span>` : ''}
                     ${showMemoryBtn ? `<button type="button" onclick="event.stopPropagation(); addMemoryItem(${index}, ${dayIndex})" class="text-gray-400 hover:text-primary p-2 rounded-full flex-shrink-0"><span class="material-symbols-outlined text-2xl">photo_camera</span></button>` : ''}
                     ${isEditing ? `<button type="button" onclick="event.stopPropagation(); deleteTimelineItem(${index}, ${dayIndex})" class="text-red-500 hover:bg-red-50 p-1 rounded flex-shrink-0"><span class="material-symbols-outlined text-lg">delete</span></button>` : ''}
                 </div>
@@ -199,7 +199,7 @@ function buildDefaultCard(item, index, dayIndex, editClass, clickHandler) {
                     ${item.note ? `
                     <div class="text-xs text-gray-500 flex items-center gap-1 min-w-0 bg-yellow-50 dark:bg-yellow-900/10 px-2 py-1 rounded-sm border border-yellow-100 dark:border-yellow-800">
                         <span class="material-symbols-outlined text-[14px] flex-shrink-0 text-yellow-600">edit_note</span>
-                        <span class="truncate font-hand text-base text-gray-700 dark:text-gray-300">${item.note}</span>
+                        <span class="truncate font-hand text-base text-gray-700 dark:text-gray-300">${escapeHtml(item.note)}</span>
                     </div>` : ''}
                 </div>
             </div>`;
@@ -267,14 +267,21 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
     const zIndex = 100 - index;
 
     // [Fix] 읽기 전용 모드에서는 터치 스크롤 허용
-    // 모듈 변수 동기화 문제 방지를 위해 DOM 클래스도 함께 확인
     const isViewer = isReadOnlyMode || document.body.classList.contains('viewer-mode');
+
+    // [Modified] 모바일에서 롱프레스 드래그와 우클릭 메뉴(contextmenu) 충돌 방지
+    // 수정 모드일 때만 터치 핸들러를 붙이고, 우클릭 메뉴는 모바일에서 차단
     const touchAttrs = isViewer ? '' : `ontouchstart="touchStart(event, ${index}, 'item')" ontouchmove="touchMove(event)" ontouchend="touchEnd(event)"`;
-    const touchStyle = isViewer ? '' : 'touch-action: none;';
+
+    // [Enhanced] 윈도우 너비 기반뿐만 아니라 터치 디바이스 여부도 간접 확인하여 차단
+    // 사용자가 보기 모드(isReadOnly)에서도 공유/삭제 버튼이 뜬다고 하여, 모바일이면 무조건 차단 처리
+    const contextHandlerAttr = `oncontextmenu="if('ontouchstart' in window || navigator.maxTouchPoints > 0 || window.innerWidth <= 768) { event.preventDefault(); event.stopPropagation(); return false; } else { ${contextHandler.replace('oncontextmenu=', '').replace(/"/g, '')} }"`;
+
+    const touchStyle = isViewer ? '' : 'touch-action: pan-y;';
 
     let html = `
         <div ${draggableAttr} ${touchAttrs} data-index="${index}" style="z-index: ${zIndex}; ${touchStyle}" 
-            class="relative grid grid-cols-[auto_1fr] gap-x-3 md:gap-x-6 group/timeline-item timeline-item-transition rounded-xl ${marginClass}" ${contextHandler}>
+            class="relative grid grid-cols-[auto_1fr] gap-x-3 md:gap-x-6 group/timeline-item timeline-item-transition rounded-xl ${marginClass}" ${contextHandlerAttr}>
             <div class="drag-indicator absolute -top-3 left-0 right-0 h-1 bg-primary rounded-full hidden z-50 shadow-sm pointer-events-none"></div>
             
             <!-- 시간 카드 (기존 아이콘 위치) -->
@@ -571,8 +578,8 @@ export function renderLists() {
                 <span class="material-symbols-outlined text-xl">${item.checked ? 'check_box' : 'check_box_outline_blank'}</span>
             </button>
             <div class="flex-1 min-w-0">
-                <span class="text-sm block ${item.checked ? 'text-gray-400 line-through' : 'text-gray-700 dark:text-gray-300'}">${item.text}</span>
-                ${item.location ? `<span class="text-xs text-gray-500 block truncate"><span class="material-symbols-outlined text-xs align-middle">location_on</span> ${item.location}</span>` : ''}
+                <span class="text-sm block ${item.checked ? 'text-gray-400 line-through' : 'text-gray-700 dark:text-gray-300'}">${escapeHtml(item.text)}</span>
+                ${item.location ? `<span class="text-xs text-gray-500 block truncate"><span class="material-symbols-outlined text-xs align-middle">location_on</span> ${escapeHtml(item.location)}</span>` : ''}
             </div>
             ${!isReadOnlyMode ? `<button onclick="deleteListItem('${type}', ${index})" class="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                 <span class="material-symbols-outlined text-lg">close</span>

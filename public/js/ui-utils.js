@@ -61,3 +61,18 @@ export function calculateStraightDistance(p1, p2) {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
 }
+
+/**
+ * Escape HTML special characters to prevent XSS
+ * @param {string} text - Input text
+ * @returns {string} Escaped text
+ */
+export function escapeHtml(text) {
+    if (!text) return "";
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
