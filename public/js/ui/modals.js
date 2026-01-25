@@ -343,20 +343,12 @@ export function openLightbox(dayIndex, itemIndex, memoryIndex) {
                     </div>
                 </div>
 
-                <!-- Navigation Buttons -->
-                <button onclick="event.stopPropagation(); navigateLightbox(-1)" class="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 z-[${Z_INDEX.MODAL_INNER + 5}] text-white/90 hover:text-white p-2 bg-black/20 hover:bg-black/40 rounded-full backdrop-blur-sm transition-all">
-                    <span class="material-symbols-outlined text-3xl md:text-5xl">chevron_left</span>
-                </button>
-                <button onclick="event.stopPropagation(); navigateLightbox(1)" class="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 z-[${Z_INDEX.MODAL_INNER + 5}] text-white/90 hover:text-white p-2 bg-black/20 hover:bg-black/40 rounded-full backdrop-blur-sm transition-all">
-                    <span class="material-symbols-outlined text-3xl md:text-5xl">chevron_right</span>
-                </button>
-
                 <!-- Image Container -->
                 <div class="relative max-w-full max-h-full flex flex-col items-center justify-center p-4" 
                      style="touch-action: none;"
                      ontouchstart="handleLightboxTouchStart(event)" 
                      ontouchend="handleLightboxTouchEnd(event)">
-                    <img id="lightbox-image" src="" alt="Memory" class="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl transform transition-transform duration-300 scale-95">
+                    <img id="lightbox-image" src="" alt="Memory" class="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl transform transition-transform duration-300 scale-95" onclick="event.stopPropagation();">
                     
                     <!-- Caption -->
                     <div id="lightbox-caption" class="mt-4 text-white text-center max-w-2xl bg-black/40 backdrop-blur-md px-4 py-2 rounded-xl hidden">
@@ -364,6 +356,14 @@ export function openLightbox(dayIndex, itemIndex, memoryIndex) {
                         <p id="lightbox-meta" class="text-xs text-white/70 mt-1"></p>
                     </div>
                 </div>
+
+                <!-- Navigation Buttons (DOM 순서 변경: 이미지 위에 표시되도록 아래로 이동) -->
+                <button onclick="event.stopPropagation(); navigateLightbox(-1)" class="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 z-[${Z_INDEX.MODAL_INNER + 50}] text-white/90 hover:text-white p-3 bg-black/40 hover:bg-black/60 rounded-full backdrop-blur-md transition-all border border-white/10 shadow-lg">
+                    <span class="material-symbols-outlined text-3xl md:text-5xl drop-shadow-md">chevron_left</span>
+                </button>
+                <button onclick="event.stopPropagation(); navigateLightbox(1)" class="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 z-[${Z_INDEX.MODAL_INNER + 50}] text-white/90 hover:text-white p-3 bg-black/40 hover:bg-black/60 rounded-full backdrop-blur-md transition-all border border-white/10 shadow-lg">
+                    <span class="material-symbols-outlined text-3xl md:text-5xl drop-shadow-md">chevron_right</span>
+                </button>
             </div>
         `;
         document.body.appendChild(modal);
@@ -796,8 +796,11 @@ export function ensureExpenseModal() {
         modal.style.zIndex = Z_INDEX.MODAL_INPUT;
         modal.innerHTML = `
             <div class="bg-white dark:bg-card-dark rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100 modal-slide-in">
-                <div class="p-5 border-b border-gray-100 dark:border-gray-700">
+                <div class="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50">
                     <h3 class="text-lg font-bold text-text-main dark:text-white">지출 내역 추가</h3>
+                    <button type="button" onclick="closeExpenseModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <span class="material-symbols-outlined">close</span>
+                    </button>
                 </div>
                 <div class="p-6 flex flex-col gap-4">
                     <div id="expense-location-container" class="hidden">
@@ -808,8 +811,8 @@ export function ensureExpenseModal() {
                     <div>
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">사용 내역</label>
                         <div class="flex gap-2">
-                            <input id="expense-desc" type="text" class="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800" placeholder="예: 입장료, 점심 식사">
-                            <button type="button" onclick="openShoppingListSelector()" class="px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors" title="쇼핑 리스트에서 선택">
+                            <input id="expense-desc" type="text" class="flex-1 min-w-0 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800" placeholder="예: 입장료, 점심 식사">
+                            <button type="button" onclick="openShoppingListSelector()" class="px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex-shrink-0" title="쇼핑 리스트에서 선택">
                                 <span class="material-symbols-outlined text-gray-600 dark:text-gray-300">shopping_bag</span>
                             </button>
                         </div>
@@ -823,8 +826,7 @@ export function ensureExpenseModal() {
                     </div>
                 </div>
                 <div class="p-5 border-t border-gray-100 dark:border-gray-700 flex gap-3">
-                    <button type="button" onclick="closeExpenseModal()" class="flex-1 py-2 text-gray-500 font-bold hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl">취소</button>
-                    <button type="button" id="expense-save-btn" onclick="saveExpense()" class="flex-1 py-2 bg-primary text-white font-bold rounded-xl hover:bg-orange-500 shadow-lg">추가</button>
+                    <button type="button" id="expense-save-btn" onclick="saveExpense()" class="flex-1 py-3 bg-primary text-white font-bold rounded-xl hover:bg-orange-500 shadow-lg active:scale-95 transition-all">지출 추가</button>
                 </div>
             </div>
         `;
@@ -849,17 +851,18 @@ export function openExpenseModal(dayIdx = null, fromDetail = false) {
     window.isAddingFromDetail = !!fromDetail; // [Fix] Force boolean
 
     const modal = document.getElementById('expense-modal');
-    // [Fix] Force highest z-index (Max Int) and move to end of body
+    // [Fix] Z-INDEX.MODAL_INPUT(210) should be higher than other base modals.
+    // If it's already in DOM, just ensure it's at the end to be on top.
     modal.style.zIndex = Z_INDEX.MODAL_INPUT;
-    document.body.appendChild(modal);
 
-    // [Fix] Reset Save Button to default behavior (generic expense)
+    if (modal.parentNode !== document.body) {
+        document.body.appendChild(modal);
+    }
+
+    // [Fix] Ensure saveBtn has correct handler
     const saveBtn = document.getElementById('expense-save-btn');
     if (saveBtn) {
-        // [Fix] Directly assign function handler to avoid scope issues
-        // saveExpense is available in this module scope
         saveBtn.onclick = saveExpense;
-        saveBtn.removeAttribute('onclick'); // Clean up HTML attribute to prevent confusion
     }
 
     // [Added] Location Select Logic
@@ -932,24 +935,31 @@ export function saveExpense() {
         return;
     }
 
-    const selectedLocationIndex = document.getElementById('expense-location-select').value;
+    const selectedLocationIndex = document.getElementById('expense-location-select')?.value;
     const isGeneral = window.isAddingFromDetail && selectedLocationIndex === "-1";
 
     let targetItem;
-    const dayIndex = (typeof targetDayIndex === 'number' && travelData.days[targetDayIndex]) ? targetDayIndex : 0;
+    // Current day index fix
+    let dayIndex = (typeof targetDayIndex === 'number') ? targetDayIndex : 0;
+    if (dayIndex === -1) dayIndex = 0;
+
     const currentDay = travelData.days[dayIndex];
 
     if (!currentDay) {
+        console.error("SaveExpense: Day not found", dayIndex);
         showToast("일정 데이터를 찾을 수 없습니다.", 'error');
         return;
     }
 
-    if (window.isAddingFromDetail && selectedLocationIndex !== "-1") {
+    if (window.isAddingFromDetail && selectedLocationIndex && selectedLocationIndex !== "-1") {
         targetItem = currentDay.timeline[parseInt(selectedLocationIndex)];
     } else {
-        // Fallback to viewingItemIndex (from Detail Modal context)
-        const vIndex = (typeof viewingItemIndex === 'number' && currentDay.timeline[viewingItemIndex]) ? viewingItemIndex : 0;
-        targetItem = currentDay.timeline[vIndex];
+        // Fallback hierarchy: viewingItemIndex -> Last item -> First item
+        if (typeof viewingItemIndex === 'number' && currentDay.timeline[viewingItemIndex]) {
+            targetItem = currentDay.timeline[viewingItemIndex];
+        } else if (currentDay.timeline.length > 0) {
+            targetItem = currentDay.timeline[currentDay.timeline.length - 1];
+        }
     }
 
     if (!targetItem) {
@@ -1009,10 +1019,11 @@ export function saveExpense() {
 
 // [Shopping Selector Modal Logic]
 export function ensureShoppingSelectorModal() {
-    if (!document.getElementById('shopping-selector-modal')) {
-        const modal = document.createElement('div');
+    let modal = document.getElementById('shopping-selector-modal');
+    if (!modal) {
+        modal = document.createElement('div');
         modal.id = 'shopping-selector-modal';
-        modal.className = `hidden fixed inset-0 z-[${Z_INDEX.MODAL_CONFIRM}] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm`;
+        modal.className = `hidden fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm`;
         modal.innerHTML = `
             <div class="bg-white dark:bg-card-dark rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
                 <div class="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
@@ -1026,6 +1037,8 @@ export function ensureShoppingSelectorModal() {
         `;
         document.body.appendChild(modal);
     }
+    // [Fix] 항상 최신 Z-Index 적용 (HMR 대응)
+    modal.style.zIndex = Z_INDEX.MODAL_SELECTOR;
 }
 
 export function openShoppingListSelector() {

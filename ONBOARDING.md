@@ -73,8 +73,11 @@ firebase deploy --only hosting
 *   **Map Integration**: 일정에 등록된 장소를 지도에 마커와 경로로 시각화.
 *   **Memory & Budget**: 사진 업로드, 메모 작성, 예산 관리 기능.
 *   **Public Sharing**: 고유 링크를 통해 로그인 없이 여행 계획 열람 (Read-Only).
+*   **Global Edit Mode**: '수정' 버튼 하나로 전체 앱의 편집 가능 여부 제어 (실수 방지 및 깔끔한 뷰잉 경험 제공).
 
 ## ⚠️ Development Notes
 *   **Viewer Mode**: `viewer.js`는 `ui/renderers.js`를 공유하지만, `isReadOnlyMode` 플래그를 통해 편집 버튼 등을 숨깁니다.
 *   **Map API**: `window.googleMapsApiKey`는 백엔드(`functions`)에서 받아와 보안을 유지합니다.
 *   **Event Handling**: 보안 정책(CSP) 이슈 방지를 위해 `onclick="..."` 인라인 핸들러보다는 `addEventListener` 또는 코드 레벨에서의 `onclick` 바인딩을 권장합니다.
+*   **Edit Mode Logic**: `window.isGlobalEditMode` 플래그를 사용하여 드래그 앤 드롭, 삭제 버튼, 컨텍스트 메뉴 등 모든 편집 UI의 표시 여부를 통합 제어합니다.
+*   **Context Menu**: 모바일 롱프레스와 데스크탑 우클릭을 구분하기 위해 `window.lastTouchTime`을 활용하며, 수정 모드가 아닐 때는 메뉴 실행을 차단합니다.

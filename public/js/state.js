@@ -62,7 +62,7 @@ export const defaultTravelData = {
 };
 
 export let travelData = JSON.parse(JSON.stringify(defaultTravelData));
-export let currentDayIndex = 0;
+export let currentDayIndex = -1;
 export let targetDayIndex = 0; // 작업 대상 날짜 인덱스 (전체 보기 시 클릭한 아이템의 날짜)
 export let currentTripId = null;
 export let newTripDataTemp = {};

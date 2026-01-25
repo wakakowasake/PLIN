@@ -1,3 +1,4 @@
+import morphdom from 'morphdom'; // [New] for optimized DOM updates
 import { travelData, currentDayIndex, isEditing, isReadOnlyMode } from '../state.js';
 import { Z_INDEX } from './constants.js';
 import { calculateEndTime, formatTime } from './time-helpers.js';
@@ -50,7 +51,8 @@ function renderMemoriesHtml(item, dayIndex, itemIndex) {
 // Helper builders for timeline item variants to improve readability
 function buildImageCard(item, editClass, clickHandler, index, dayIndex) {
     const isCompleted = isTripCompleted();
-    const isMemoryLocked = travelData.meta?.memoryLocked || false;
+    // [Modified] Use global edit mode instead of memory lock
+    const isMemoryLocked = !window.isGlobalEditMode; // Edit Mode ON -> Not Locked
     const showMemoryBtn = isCompleted && !isMemoryLocked && !isEditing && !isReadOnlyMode;
 
     return `
@@ -81,7 +83,8 @@ function buildImageCard(item, editClass, clickHandler, index, dayIndex) {
 
 function buildMemoCard(item, index, dayIndex, editClass, clickHandler) {
     const isCompleted = isTripCompleted();
-    const isMemoryLocked = travelData.meta?.memoryLocked || false;
+    // [Modified] Use global edit mode instead of memory lock
+    const isMemoryLocked = !window.isGlobalEditMode; // Edit Mode ON -> Not Locked
 
     // 비뚤비뚤한 효과 (인덱스에 따라)
     const rotation = (index % 2 === 0) ? 'rotate-1' : '-rotate-1';
@@ -109,14 +112,23 @@ function buildMemoCard(item, index, dayIndex, editClass, clickHandler) {
 
 function buildTransitCard(item, index, dayIndex, editClass) {
     const isCompleted = isTripCompleted();
-    const isMemoryLocked = travelData.meta?.memoryLocked || false;
+    // [Modified] Use global edit mode instead of memory lock
+    const isMemoryLocked = !window.isGlobalEditMode; // Edit Mode ON -> Not Locked
     const showMemoryBtn = isCompleted && !isMemoryLocked && !isEditing && !isReadOnlyMode;
 
     let contentHtml;
 
     // Google Maps 경로 등: item.title에 이미 완성된 HTML 태그가 포함된 경우
     if (item.title && item.title.includes('<span')) {
-        contentHtml = item.title;
+        // [Security] XSS 방지: 문자열에 위험한 패턴이 포함되어 있는지 검사
+        const dangerPatterns = [/on\w+\s*=/i, /javascript:/i, /<script/i, /alert\(/i, /prompt\(/i, /confirm\(/i];
+        const isDangerous = dangerPatterns.some(pattern => pattern.test(item.title));
+
+        if (isDangerous) {
+            contentHtml = `<span class="text-red-500 font-bold">[보안 차단됨]</span> ${escapeHtml(item.title)}`;
+        } else {
+            contentHtml = item.title;
+        }
     } else {
         // Ekispert 또는 수동 추가 경로: 태그를 생성하고 제목을 텍스트로 추가
         let tagsHtml = '';
@@ -166,7 +178,8 @@ function buildTransitCard(item, index, dayIndex, editClass) {
 
 function buildDefaultCard(item, index, dayIndex, editClass, clickHandler) {
     const isCompleted = isTripCompleted();
-    const isMemoryLocked = travelData.meta?.memoryLocked || false;
+    // [Modified] Use global edit mode instead of memory lock
+    const isMemoryLocked = !window.isGlobalEditMode; // Edit Mode ON -> Not Locked
     const showMemoryBtn = isCompleted && !isMemoryLocked && !isEditing && !isReadOnlyMode;
 
     return `
@@ -210,7 +223,8 @@ function buildDefaultCard(item, index, dayIndex, editClass, clickHandler) {
  * 왼쪽에 시간 레이블, 오른쪽에 카드 내용
  */
 export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isFirst, attachedMemos = []) {
-    const isMemoryLocked = travelData.meta?.memoryLocked || false;
+    // [Modified] Use global edit mode instead of memory lock
+    const isMemoryLocked = !window.isGlobalEditMode; // Edit Mode ON -> Not Locked
     const editClass = isEditing ? "edit-mode-active ring-2 ring-primary/50 ring-offset-2" : "cursor-pointer hover:shadow-md transform transition-all hover:-translate-y-0.5";
     const clickHandler = isEditing ? `onclick="editTimelineItem(${index}, ${dayIndex})"` : `onclick="viewTimelineItem(${index}, ${dayIndex})"`;
     const contextHandler = `oncontextmenu="openContextMenu(event, 'item', ${index}, ${dayIndex})"`;
@@ -273,9 +287,10 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
     // 수정 모드일 때만 터치 핸들러를 붙이고, 우클릭 메뉴는 모바일에서 차단
     const touchAttrs = isViewer ? '' : `ontouchstart="touchStart(event, ${index}, 'item')" ontouchmove="touchMove(event)" ontouchend="touchEnd(event)"`;
 
-    // [Enhanced] 윈도우 너비 기반뿐만 아니라 터치 디바이스 여부도 간접 확인하여 차단
-    // 사용자가 보기 모드(isReadOnly)에서도 공유/삭제 버튼이 뜬다고 하여, 모바일이면 무조건 차단 처리
-    const contextHandlerAttr = `oncontextmenu="if('ontouchstart' in window || navigator.maxTouchPoints > 0 || window.innerWidth <= 768) { event.preventDefault(); event.stopPropagation(); return false; } else { ${contextHandler.replace('oncontextmenu=', '').replace(/"/g, '')} }"`;
+    // [Enhanced] 윈도우 너비나 터치 지원 여부가 아닌 '실제 터치 행위'를 기준으로 차단
+    // 최근 500ms 이내에 터치 이벤트가 있었다면 롱프레스로 간주하고 컨텍스트 메뉴 차단
+    // 그렇지 않다면(마우스 우클릭) 허용
+    const contextHandlerAttr = `oncontextmenu="if(window.lastTouchTime && Date.now() - window.lastTouchTime < 500) { event.preventDefault(); event.stopPropagation(); return false; } else { ${contextHandler.replace('oncontextmenu=', '').replace(/"/g, '')} }"`;
 
     const touchStyle = isViewer ? '' : 'touch-action: pan-y;';
 
@@ -321,15 +336,6 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
         attachedMemos.forEach((memoData) => {
             const memoClickHandler = isEditing ? `onclick="editTimelineItem(${memoData.index}, ${dayIndex})"` : `onclick="viewTimelineItem(${memoData.index}, ${dayIndex})"`;
             html += buildMemoCard(memoData.item, memoData.index, dayIndex, editClass, memoClickHandler);
-            // 메모 뒤에도 추가 버튼 (점선 위에)
-            if (!isMemoryLocked && !isReadOnlyMode) {
-                html += `
-                <div class="flex justify-center -my-2 opacity-0 group-hover/timeline-item:opacity-100 transition-opacity">
-                    <button type="button" onclick="openAddModal(${memoData.index}, ${dayIndex})" class="w-6 h-6 rounded-full bg-white dark:bg-card-dark border border-gray-200 flex items-center justify-center text-gray-400 hover:text-primary transition-all shadow-sm">
-                        <span class="material-symbols-outlined text-xs">add</span>
-                    </button>
-                </div>`;
-            }
         });
         html += `</div>`;
     }
@@ -460,15 +466,6 @@ export function renderItinerary() {
             } else {
                 html += `<div class="text-center py-4 text-gray-400 text-sm">일정이 없습니다.</div>`;
             }
-            const isMemoryLocked = travelData.meta?.memoryLocked || false;
-            if (!isMemoryLocked && !isReadOnlyMode) {
-                html += `
-                    <div class="flex justify-center mt-2">
-                        <button type="button" onclick="openAddModal(${day.timeline.length}, ${dayIdx})" class="text-xs text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1">
-                            <span class="material-symbols-outlined text-sm">add</span> 일정 추가
-                        </button>
-                    </div>`;
-            }
             html += `</div></div>`;
         });
     } else {
@@ -530,42 +527,34 @@ export function renderItinerary() {
         }
     }
 
-    listEl.innerHTML = html;
+    // [Optimize] Use morphdom for smooth updates (no blinking)
+    // Wrap content in a temp div to match listEl structure if needed, or use childrenOnly
+    // listEl.innerHTML = html; // Old way
+
+    // morphdom needs a root element to compare. 
+    // We want to update children of listEl.
+    const tempContainer = document.createElement('div');
+    tempContainer.id = 'timeline-list';
+    tempContainer.innerHTML = html;
+
+    // [Fix] Check if morphdom is available (in case import failed or not installed yet)
+    if (typeof morphdom !== 'undefined' || typeof window.morphdom !== 'undefined' || (typeof morphdom === 'function')) {
+        morphdom(listEl, tempContainer, {
+            childrenOnly: true,
+            onBeforeElUpdated: function (fromEl, toEl) {
+                return true;
+            }
+        });
+    } else {
+        // Fallback if morphdom is missing
+        listEl.innerHTML = html;
+        console.warn('morphdom not loaded, falling back to innerHTML');
+    }
     window.renderLists && window.renderLists();
     window.updateLocalTimeWidget && window.updateLocalTimeWidget();
 
-    // [Memory Lock Button] 추억 잠금 버튼 상태 업데이트
-    const memoryLockContainer = document.getElementById('memory-lock-btn-container');
-    const memoryLockBtn = document.getElementById('memory-lock-btn');
-
-    if (memoryLockContainer && memoryLockBtn) {
-        // 여행 완료 상태 확인
-        const tripCompleted = isTripCompleted();
-
-        if (tripCompleted) {
-            // 여행 완료 상태면 버튼 표시
-            memoryLockContainer.classList.remove('hidden');
-
-            const isLocked = travelData.meta?.memoryLocked || false;
-            const iconSpan = memoryLockBtn.querySelector('.material-symbols-outlined');
-            const textSpan = memoryLockBtn.querySelector('.text-sm');
-
-            if (isLocked) {
-                // 잠금 상태: 편집 아이콘만 (연한 색, 보조 느낌)
-                memoryLockBtn.className = 'w-full custom-w-auto px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center shadow-sm bg-white border-2 border-primary text-primary hover:bg-orange-50';
-                if (iconSpan) iconSpan.textContent = 'edit';
-                if (textSpan) { textSpan.textContent = ''; textSpan.style.display = 'none'; }
-            } else {
-                // 잠금 해제 상태: 완료 아이콘만 (진한 색, 확정 느낌)
-                memoryLockBtn.className = 'w-full custom-w-auto px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center shadow-sm bg-primary text-white hover:bg-orange-500';
-                if (iconSpan) iconSpan.textContent = 'check_circle';
-                if (textSpan) { textSpan.textContent = ''; textSpan.style.display = 'none'; }
-            }
-        } else {
-            // 여행 진행 중이면 버튼 숨김
-            memoryLockContainer.classList.add('hidden');
-        }
-    }
+    // [Memory Lock Button] Legacy logic removed. 
+    // Button state is now managed by ui.js toggleGlobalEditMode() and is persistently visible.
 }
 
 export function renderLists() {

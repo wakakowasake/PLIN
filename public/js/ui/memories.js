@@ -360,11 +360,12 @@ export function deleteMemory(itemIndex, dayIndex, memoryIndex) {
 }
 window.deleteMemory = deleteMemory;
 
-export function toggleMemoryLock() {
-    travelData.meta.memoryLocked = !travelData.meta.memoryLocked;
-    autoSave(true);
-    renderItinerary();
-}
+// [Deprecated] Replaced by toggleGlobalEditMode in ui.js
+// export function toggleMemoryLock() {
+//     travelData.meta.memoryLocked = !travelData.meta.memoryLocked;
+//     autoSave(true);
+//     renderItinerary();
+// }
 
 /**
  * Render memories list into a specific container

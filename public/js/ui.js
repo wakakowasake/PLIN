@@ -47,6 +47,14 @@ import { categoryList, majorAirports } from './ui/constants.js';
 
 
 
+// [New] 모바일 터치와 마우스 우클릭 구분을 위한 전역 터치 시간 기록
+window.lastTouchTime = 0;
+if (typeof document !== 'undefined') {
+    document.addEventListener('touchstart', () => {
+        window.lastTouchTime = Date.now();
+    }, { passive: true });
+}
+
 let cachedMapsApiKey = null;
 export async function getMapsApiKey() {
     if (cachedMapsApiKey) return cachedMapsApiKey;
@@ -84,6 +92,9 @@ export async function openTrip(tripId, options = {}) {
             document.getElementById('detail-view').classList.remove('hidden');
             document.getElementById('back-btn').classList.remove('hidden');
 
+            // [Fix] 메인 페이지에서 여행 로드 시 항상 상단에서 시작하도록 스크롤 초기화
+            window.scrollTo(0, 0);
+
             // 공유 버튼은 읽기 전용 모드에서는 숨김
             const shareBtn = document.getElementById('share-btn');
             if (isReadOnlyMode) {
@@ -99,7 +110,7 @@ export async function openTrip(tripId, options = {}) {
 
             // [Fix] Recalculate budget on load to fix potential legacy errors
             ExpenseManager.updateTotalBudget(travelData);
-            selectDay(0); // 첫째날로 초기화
+            selectDay(-1); // 전체 보기로 초기화
 
             // [New] Apply Read-Only UI restrictions
             applyReadOnlyUI();
@@ -673,20 +684,52 @@ export function viewTimelineItem(index, dayIndex = currentDayIndex) {
         return;
     }
 
-    // 추억 잠금 상태에 따라 수정/삭제 버튼 표시/숨김
-    const isMemoryLocked = travelData.meta.memoryLocked || false;
+    // [Modified] 전역 수정 모드에 따라 수정/삭제 버튼 제어
     const actionButtons = document.getElementById('detail-action-buttons');
     if (actionButtons) {
-        const editBtn = actionButtons.querySelector('button[onclick="editCurrentItem()"]');
-        const deleteBtn = actionButtons.querySelector('button[onclick="deleteCurrentItem()"]');
-        if (editBtn && deleteBtn) {
-            if (isMemoryLocked) {
-                editBtn.classList.add('hidden');
-                deleteBtn.classList.add('hidden');
-            } else {
-                editBtn.classList.remove('hidden');
-                deleteBtn.classList.remove('hidden');
+        // [Refactor] timeline-detail.js에서 재생성 시 onclick이 없어질 수 있으므로, 
+        // 여기서는 hidden 토글만 관여하지 않고, 버튼 요소가 있는지만 확인하여 처리
+        // 만약 버튼이 아예 없다면(innerHTML 초기화로 인해) 다시 그려야 할 수 있음.
+
+        // 하지만 ensureItemDetailModal은 한 번만 실행되므로 버튼은 존재함.
+        // 다만 timeline-detail.js의 237라인 수정으로 인해 초기 생성 시점에만 결정되므로
+        // 여기서는 display 속성(hidden 클래스)을 동적으로 다시 제어해야 함.
+
+        const editBtn = actionButtons.querySelector('button[title="수정"]');
+        const deleteBtn = actionButtons.querySelector('button[title="삭제"]');
+
+        // 버튼이 존재하면 수정 모드에 따라 보이기/숨기기 처리
+        // 만약 버튼이 DOM에 없다면(초기 생성 시 false여서 아예 안 그려진 경우), 
+        // 여기서 동적으로 추가하거나 ensureItemDetailModal을 다시 호출해야 함. -> 복잡함.
+        // 따라서 timeline-detail.js에서는 항상 버튼을 그리고 hidden으로 숨기는 게 나았을 수도 있음.
+        // 현재 상황: timeline-detail.js에서는 ${window.isGlobalEditMode ? ...} 로 아예 안 그림.
+
+        // 해결책: actionButtons의 innerHTML을 여기서 다시 렌더링하는 것이 가장 확실함.
+        if (window.isGlobalEditMode) {
+            // 수정 모드: 버튼이 없으면 추가
+            if (!editBtn || !deleteBtn) {
+                const closeBtn = actionButtons.querySelector('button[onclick="closeDetailModal()"]');
+                const newButtonsHTML = `
+                    <button type="button" onclick="editCurrentItem()" class="text-primary hover:bg-primary/10 p-2 rounded-full transition-colors" title="수정">
+                        <span class="material-symbols-outlined">edit</span>
+                    </button>
+                    <button type="button" onclick="deleteCurrentItem()" class="text-red-500 hover:bg-red-50 p-2 rounded-full transition-colors" title="삭제">
+                        <span class="material-symbols-outlined">delete</span>
+                    </button>
+                 `;
+                if (closeBtn) {
+                    // 닫기 버튼 앞에 삽입
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = newButtonsHTML;
+                    while (tempDiv.firstChild) {
+                        actionButtons.insertBefore(tempDiv.firstChild, closeBtn);
+                    }
+                }
             }
+        } else {
+            // 보기 모드: 버튼이 있으면 제거
+            if (editBtn) editBtn.remove();
+            if (deleteBtn) deleteBtn.remove();
         }
     }
 
@@ -1729,6 +1772,8 @@ export function saveFlightItem() {
     const terminal = document.getElementById('flight-terminal').value;
     const gate = document.getElementById('flight-gate').value;
     const userNote = document.getElementById('flight-note').value;
+
+
 
     // 소요 시간 계산
     let durationStr = "2시간"; // 기본값
@@ -2950,7 +2995,35 @@ export const handleMemoryPhotoChange = Memories.handleMemoryPhotoChange;
 export const clearMemoryPhoto = Memories.clearMemoryPhoto;
 export const saveMemoryItem = Memories.saveMemoryItem;
 export const deleteMemory = Memories.deleteMemory;
-export const toggleMemoryLock = Memories.toggleMemoryLock;
+// [New] 전역 수정 모드 (기존 추억 잠금 대체)
+window.isGlobalEditMode = false;
+
+export function toggleGlobalEditMode() {
+    window.isGlobalEditMode = !window.isGlobalEditMode;
+
+    const btn = document.getElementById('memory-lock-btn');
+    const dbBtnStr = document.getElementById('dashboard-btn-text');
+
+    if (btn) {
+        if (window.isGlobalEditMode) {
+            // 수정 모드 활성화 (편집 가능)
+            btn.innerHTML = `<span class="material-symbols-outlined text-xl">check</span><span class="text-sm font-bold ml-1">수정 완료</span>`;
+            btn.className = btn.className.replace('bg-primary', 'bg-gray-800').replace('hover:bg-orange-500', 'hover:bg-gray-900');
+            Modals.showToast("수정 모드가 켜졌습니다. 일정을 편집할 수 있습니다.", "info");
+        } else {
+            // 수정 모드 비활성화 (보기 전용)
+            btn.innerHTML = `<span class="material-symbols-outlined text-xl">edit</span><span class="text-sm font-bold ml-1">수정</span>`;
+            btn.className = btn.className.replace('bg-gray-800', 'bg-primary').replace('hover:bg-gray-900', 'hover:bg-orange-500');
+            Modals.showToast("수정 모드가 꺼졌습니다.", "success");
+        }
+    }
+
+    renderItinerary();
+    // [Fix] 모달이나 다른 UI도 갱신 필요시 여기서 호출
+}
+
+window.toggleGlobalEditMode = toggleGlobalEditMode;
+// export const toggleMemoryLock = Memories.toggleMemoryLock; // Deprecated
 
 // Window assignments
 window.loadTripList = loadTripList;
@@ -2971,7 +3044,7 @@ window.handleMemoryPhotoChange = handleMemoryPhotoChange;
 window.clearMemoryPhoto = clearMemoryPhoto;
 window.saveMemoryItem = saveMemoryItem;
 window.deleteMemory = deleteMemory;
-window.toggleMemoryLock = toggleMemoryLock;
+window.toggleMemoryLock = toggleGlobalEditMode; // [Compat] Redirect legacy calls to new handler
 window.login = Auth.login;
 window.logout = Auth.logout;
 window.openLogoutModal = Auth.openLogoutModal;
@@ -3070,7 +3143,6 @@ window.openUserMenu = Profile.openUserMenu;
 window.openUserSettings = Profile.openUserSettings;
 window.closeUserSettings = Profile.closeUserSettings;
 window.toggleDarkMode = Profile.toggleDarkMode;
-window.handleViewModeChange = Profile.handleViewModeChange;
 window.openUserProfile = Profile.openUserProfile;
 window.closeProfileView = Profile.closeProfileView;
 window.handleProfilePhotoChange = Profile.handleProfilePhotoChange;
@@ -3318,8 +3390,8 @@ let contextMenuType = null;
 let contextMenuMemoryIndex = null;
 
 export function openContextMenu(e, type, index, dayIndex = currentDayIndex, memoryIndex = null) {
-    // [Fix] 읽기 전용 모드(isReadOnlyMode)에서는 컨텍스트 메뉴 자체를 완전히 차단함
-    if (isReadOnlyMode) {
+    // [Fix] 읽기 전용 모드 또는 수정 모드가 아닐 때는 컨텍스트 메뉴 차단
+    if (isReadOnlyMode || !window.isGlobalEditMode) {
         e.preventDefault();
         return;
     }

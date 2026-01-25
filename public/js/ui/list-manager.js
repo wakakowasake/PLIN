@@ -4,15 +4,17 @@
  */
 
 import { travelData, isReadOnlyMode } from '../state.js';
+import { Z_INDEX } from './constants.js';
 
 /**
  * Ensure the list management modal exists in the DOM
  */
 export function ensureListModal() {
-    if (!document.getElementById('list-manager-modal')) {
-        const modal = document.createElement('div');
+    let modal = document.getElementById('list-manager-modal');
+    if (!modal) {
+        modal = document.createElement('div');
         modal.id = 'list-manager-modal';
-        modal.className = 'hidden fixed inset-0 z-[150] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
+        modal.className = 'hidden fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
 
         modal.onclick = (e) => {
             if (e.target === modal) closeListModal();
@@ -34,10 +36,10 @@ export function ensureListModal() {
             <div class="p-6 bg-gray-50 dark:bg-black/10">
                 <div class="flex gap-2 mb-3">
                     <input type="text" id="list-item-input" 
-                        class="flex-1 px-4 py-3 rounded-xl border-2 border-transparent bg-white dark:bg-card-dark text-text-main dark:text-white focus:border-primary outline-none transition-all shadow-sm"
+                        class="flex-1 min-w-0 px-4 py-3 rounded-xl border-2 border-transparent bg-white dark:bg-card-dark text-text-main dark:text-white focus:border-primary outline-none transition-all shadow-sm"
                         placeholder="새 항목 입력..." onkeyup="if(event.key==='Enter') window.addCurrentListItem()">
                     <button onclick="window.addCurrentListItem()"
-                        class="bg-primary text-white p-3 rounded-xl hover:bg-orange-500 shadow-md transition-all flex items-center justify-center">
+                        class="flex-shrink-0 bg-primary text-white p-3 rounded-xl hover:bg-orange-500 shadow-md transition-all flex items-center justify-center">
                         <span class="material-symbols-outlined">add</span>
                     </button>
                 </div>
@@ -64,6 +66,8 @@ export function ensureListModal() {
         `;
         document.body.appendChild(modal);
     }
+    // [Fix] 항상 최신 Z-Index 적용
+    modal.style.zIndex = Z_INDEX.MODAL_SELECTOR;
 }
 
 let activeListType = 'shopping'; // 'shopping' or 'check'

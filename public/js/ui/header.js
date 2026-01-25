@@ -424,4 +424,9 @@ export function openTripInfoModal() {
     if (modal) modal.classList.remove('hidden');
 }
 
-export default { openShareModal, closeShareModal, downloadTripAsPDF, copyShareLink, enableNoteEdit, openTripInfoModal };
+export function closeTripInfoModal() {
+    const modal = document.getElementById('trip-info-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+export default { openShareModal, closeShareModal, downloadTripAsPDF, copyShareLink, enableNoteEdit, openTripInfoModal, closeTripInfoModal };

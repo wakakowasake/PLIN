@@ -444,12 +444,12 @@
                             교토 봄 여행 • 2024년 4월
                             12일</p>
                     </div>
-                    <!-- 추억 잠금 버튼 (여행 완료 상태일 때만 표시) -->
-                    <div id="memory-lock-btn-container" class="hidden w-full custom-w-auto">
-                        <button type="button" id="memory-lock-btn" onclick="toggleMemoryLock()"
-                            class="w-full custom-w-auto px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm">
-                            <span class="material-symbols-outlined text-xl"></span>
-                            <span class="text-sm"></span>
+                    <!-- 수정 모드 버튼 (항상 표시) -->
+                    <div id="memory-lock-btn-container" class="w-full custom-w-auto">
+                        <button type="button" id="memory-lock-btn" onclick="toggleGlobalEditMode()"
+                            class="w-full custom-w-auto px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center shadow-sm bg-primary text-white hover:bg-orange-500">
+                            <span class="material-symbols-outlined text-xl">edit</span>
+                            <span class="text-sm font-bold ml-1">수정</span>
                         </button>
                     </div>
                 </div>

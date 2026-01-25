@@ -13,6 +13,7 @@ export const Z_INDEX = {
     MODAL_VIEW: 150,       // Level 1: Detail viewers (Transit Detail, Route Map)
     MODAL_INPUT: 210,      // Level 2: Editor/Input modals (Add Memory, Add Flight)
     MODAL_CONFIRM: 250,    // Level 3: Confirmation dialogs
+    MODAL_SELECTOR: 260,   // Level 3.2: Selectors over Input modals (Shopping List Selector)
     MODAL_LIGHTBOX: 300,   // Level 3.5: Lightbox/Image preview
     MODAL_SYSTEM: 400,     // Level 4: Toasts, Global system alerts
     DRAG_GHOST: 500,       // Drag ghost element

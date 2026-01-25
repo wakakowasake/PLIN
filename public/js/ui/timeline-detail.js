@@ -1,5 +1,6 @@
 // Timeline Detail Modal Module
 // Handles viewing and editing timeline item details including memos
+import { Z_INDEX } from './constants.js';
 
 /**
  * Close the detail modal
@@ -213,7 +214,8 @@ export function ensureItemDetailModal() {
 
     const modal = document.createElement('div');
     modal.id = 'item-detail-modal';
-    modal.className = 'hidden fixed inset-0 z-[210] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
+    modal.className = 'hidden fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm';
+    modal.style.zIndex = Z_INDEX.MODAL_VIEW; // 150 (Expense Modal: 210보다 낮음)
     modal.innerHTML = `
         <div class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col h-[85vh] modal-slide-in">
             <!-- Sticky Header -->
@@ -233,12 +235,14 @@ export function ensureItemDetailModal() {
                         </div>
                     </div>
                     <div id="detail-action-buttons" class="flex items-center gap-1 ml-3 shrink-0">
+                        ${window.isGlobalEditMode ? `
                         <button type="button" onclick="editCurrentItem()" class="text-primary hover:bg-primary/10 p-2 rounded-full transition-colors" title="수정">
                             <span class="material-symbols-outlined">edit</span>
                         </button>
                         <button type="button" onclick="deleteCurrentItem()" class="text-red-500 hover:bg-red-50 p-2 rounded-full transition-colors" title="삭제">
                             <span class="material-symbols-outlined">delete</span>
                         </button>
+                        ` : ''}
                         <button type="button" onclick="closeDetailModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-2 rounded-full transition-colors">
                             <span class="material-symbols-outlined">close</span>
                         </button>

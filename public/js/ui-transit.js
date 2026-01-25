@@ -2,7 +2,8 @@
 
 import {
     travelData, targetDayIndex, setTargetDayIndex, setViewingItemIndex, viewingItemIndex, currentDayIndex,
-    insertingItemIndex, setInsertingItemIndex, isEditingFromDetail, setIsEditingFromDetail, setTravelData
+    insertingItemIndex, setInsertingItemIndex, isEditingFromDetail, setIsEditingFromDetail, setTravelData,
+    isEditing, isReadOnlyMode
 } from './state.js';
 import { parseTimeStr, formatTimeStr, calculateStraightDistance, minutesTo24Hour, formatDuration } from './ui-utils.js';
 import { airports, searchAirports, getAirportByCode, formatAirport } from './airports.js';
@@ -2423,7 +2424,9 @@ export function goToProfileSettings() {
 }
 
 // 경로 상세 정보 모달
-export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = false) {
+export function viewRouteDetail(index, dayIndex = currentDayIndex, isRouteEditMode = false) {
+    if (isEditing) return; // 일괄 편집 모드 시 상세 모달 열기 방지
+
     if (dayIndex !== null) {
         setTargetDayIndex(dayIndex);
     }
@@ -2432,9 +2435,9 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
     currentRouteItemIndex = index;
     setViewingItemIndex(index);
     window.currentRouteItemIndex = index;
-    window.isRouteEditMode = isEditMode;
+    window.isRouteEditMode = isRouteEditMode;
 
-    const timeline = travelData.days[targetDayIndex].timeline;
+    const timeline = travelData.days[dayIndex].timeline;
     const item = timeline[index];
 
     // Item existence check
@@ -2493,38 +2496,37 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
 
     // 최적 경로 여부 확인 (routeGroupId가 있으면 최적 경로)
     const isOptimalRoute = !!item.routeGroupId;
+    // const isMemoryLocked = travelData.meta?.memoryLocked || false; // [Removed] Unused
 
     // 버튼 설정 (아이콘만 표시하여 장소 모달과 일관성 유지)
     const buttonsContainer = document.getElementById('route-detail-buttons');
-    if (isEditMode) {
+    if (isRouteEditMode) {
         buttonsContainer.innerHTML = `
             <button onclick="saveRouteItem()" class="p-2 bg-primary text-white font-bold rounded-xl hover:bg-orange-500 shadow-md transition-all active:scale-95 flex items-center justify-center" title="저장">
                 <span class="material-symbols-outlined text-2xl">check</span>
             </button>
-            <button onclick="closeRouteDetailModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-2">
+            <button onclick="closeRouteDetailModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-2" title="닫기">
                 <span class="material-symbols-outlined">close</span>
             </button>
         `;
     } else {
-        // 최적 경로는 수정 버튼 없이 삭제 버튼만, 수동 입력은 수정 버튼 포함
-        if (isOptimalRoute) {
+        if (!isReadOnlyMode) {
             buttonsContainer.innerHTML = `
+                ${(window.isGlobalEditMode && !isOptimalRoute) ? `
+                <button onclick="viewRouteDetail(${index}, ${dayIndex}, true)" class="text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 p-2 rounded-lg transition-colors" title="수정">
+                    <span class="material-symbols-outlined">edit</span>
+                </button>` : ''}
+                ${window.isGlobalEditMode ? `
                 <button onclick="deleteCurrentTransitItem()" class="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded-lg transition-colors" title="삭제">
                     <span class="material-symbols-outlined">delete</span>
-                </button>
-                <button onclick="closeRouteDetailModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-2">
+                </button>` : ''}
+                <button onclick="closeRouteDetailModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-2" title="닫기">
                     <span class="material-symbols-outlined">close</span>
                 </button>
             `;
         } else {
             buttonsContainer.innerHTML = `
-                <button onclick="viewRouteDetail(${index}, ${targetDayIndex}, true)" class="text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 p-2 rounded-lg transition-colors" title="수정">
-                    <span class="material-symbols-outlined">edit</span>
-                </button>
-                <button onclick="deleteCurrentTransitItem()" class="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded-lg transition-colors" title="삭제">
-                    <span class="material-symbols-outlined">delete</span>
-                </button>
-                <button onclick="closeRouteDetailModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-2">
+                <button onclick="closeRouteDetailModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-2" title="닫기">
                     <span class="material-symbols-outlined">close</span>
                 </button>
             `;
@@ -2539,7 +2541,7 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
     // 환승 정보 표시
     let stepsHTML = '';
 
-    if (isEditMode) {
+    if (isRouteEditMode) {
         // 편집 모드 - 입력 필드
         if (isAirplane) {
             stepsHTML = `
@@ -2905,7 +2907,7 @@ export function viewRouteDetail(index, dayIndex = currentDayIndex, isEditMode = 
     const routeMemSection = document.getElementById('route-detail-memories-section');
     if (routeMemSection) {
         routeMemSection.classList.remove('hidden');
-        renderMemoriesList('route-detail-memories-list', item, index, targetDayIndex);
+        renderMemoriesList('route-detail-memories-list', item, index, dayIndex);
     }
 
     modal.classList.remove('hidden');
@@ -2967,9 +2969,11 @@ window.openRouteExpenseModal = function () {
         // Fallback
         if (window.ensureExpenseModal) window.ensureExpenseModal();
         const modal = document.getElementById('expense-modal');
-        modal.classList.remove('hidden');
-        modal.style.zIndex = Z_INDEX.MODAL_INPUT;
-        document.body.appendChild(modal);
+        if (modal) {
+            modal.classList.remove('hidden');
+            modal.style.zIndex = Z_INDEX.MAX;
+            if (modal.parentNode !== document.body) document.body.appendChild(modal);
+        }
         if (window.hasOwnProperty('isAddingFromDetail')) window.isAddingFromDetail = false;
     }
 
@@ -2998,11 +3002,18 @@ window.saveRouteExpense = function () {
     const cost = costRaw.replace(/,/g, ''); // 콤마 제거
 
     if (!desc || !cost) {
-        alert("내역과 금액을 입력해주세요.");
+        if (window.showToast) window.showToast("내역과 금액을 입력해주세요. 💸", 'warning');
+        else alert("내역과 금액을 입력해주세요.");
         return;
     }
 
-    if (targetDayIndex === null || currentRouteItemIndex === null) return;
+    let dayIdx = (typeof targetDayIndex === 'number') ? targetDayIndex : 0;
+    if (dayIdx === -1) dayIdx = 0;
+
+    if (dayIdx === null || currentRouteItemIndex === null) {
+        console.error("SaveRouteExpense: Missing indices", { dayIdx, currentRouteItemIndex });
+        return;
+    }
 
     const timeline = travelData.days[targetDayIndex].timeline;
     const item = timeline[currentRouteItemIndex];

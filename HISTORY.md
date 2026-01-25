@@ -28,6 +28,31 @@
 
 ## 📅 Chronological Updates
 
+### [2026-01-25]
+- **편집 경험 개편 (Editing Experience Overhaul)**:
+    - **전역 수정 모드(Global Edit Mode) 도입**: 기존 '추억 잠금' 기능을 완전히 대체.
+        - 여행 시기와 무관하게 하단 [수정] 버튼으로 언제든 모드 토글 가능.
+        - [수정 완료] 상태(ON)에서만 드래그 앤 드롭, 삭제/수정 버튼, 아이템 추가(+) 기능 활성화.
+    - **일관된 UX**: 타임라인 목록뿐만 아니라 **장소 상세 모달**, **이동수단 상세 모달**, **우클릭 메뉴**까지 모두 `isGlobalEditMode` 규칙 적용.
+
+- **UI/UX 개선 (Refinements)**:
+    - **우클릭(Context Menu) 로직 고도화**:
+        - 기존 창 크기 기반 차단 방식 제거 -> `touchstart` 감지 로직으로 변경.
+        - 모바일 롱프레스는 차단하되, 데스크탑에서는 좁은 화면에서도 우클릭 정상 허용.
+        - 보기 모드(수정 모드 OFF) 시 우클릭 메뉴 원천 차단으로 깔끔한 화면 제공.
+    - **라이트박스(Lightbox) 가시성 확보**:
+        - 화살표 버튼의 DOM 순서를 변경하여 이미지 뒤로 숨는 현상 해결(Always on Top).
+        - 버튼 배경 스타일을 진하게(`backdrop-blur-md`) 개선하여 밝은 사진 위에서도 식별 용이.
+    
+- **코드 정리 (Code Cleanup)**:
+    - 레거시 로직(`memoryLocked`, `toggleMemoryLock`) 전수 조사 및 제거/Deprecated 처리.
+    - `renderers.js`, `ui.js`, `ui-transit.js`, `timeline-detail.js` 등 전반적인 리팩토링 수행.
+
+- **이동 수단 상세 모달(viewRouteDetail) 버튼 로직 초기 개선** (Pre-work):
+    - 글로벌 편집 상태(`isEditing`) 및 읽기 전용 모드(`isReadOnlyMode`) 연동.
+    - 장소 카드(`buildDefaultCard`)와 동일한 버튼 표시 규칙 적용 ([수정], [삭제], [닫기] 동적 노출).
+    - `isEditMode` 매개변수를 `isRouteEditMode`로 변경하여 가독성 강화.
+
 ### [2026-01-23]
 - **간단 모드 제거**: 타임라인 뷰 모드를 '플래너 모드'로 단일화하고 관련 레거시 코드 삭제.
 - **다크 모드 가시성 개선 (UX)**:
