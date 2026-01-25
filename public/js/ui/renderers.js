@@ -60,9 +60,9 @@ function buildImageCard(item, editClass, clickHandler, index, dayIndex) {
                 <div class="h-32 w-full bg-cover bg-center relative" style="background-image: url('${item.image}');">
                     <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
                     <div class="absolute bottom-3 left-4 right-4 text-white">
-                        <h3 class="text-2xl font-hand truncate tracking-wide">${escapeHtml(item.title)}</h3>
-                        <div class="flex items-center gap-1 text-base font-hand opacity-90 overflow-hidden">
-                            <span class="material-symbols-outlined text-[16px] flex-shrink-0">location_on</span>
+                        <h3 class="text-xl md:text-2xl font-hand truncate tracking-wide">${escapeHtml(item.title)}</h3>
+                        <div class="flex items-center gap-1 text-sm md:text-base font-hand opacity-90 overflow-hidden">
+                            <span class="material-symbols-outlined text-sm md:text-[16px] flex-shrink-0">location_on</span>
                             <span class="truncate flex-1">${escapeHtml(item.location)}</span>
                         </div>
                     </div>
@@ -101,7 +101,7 @@ function buildMemoCard(item, index, dayIndex, editClass, clickHandler) {
                 
                 <div class="flex items-center gap-3 justify-between">
                     <div class="flex-1 min-w-0">
-                        <p class="text-base font-medium text-yellow-900 dark:text-yellow-100 break-words whitespace-pre-wrap leading-relaxed font-body">${escapeHtml(item.title)}</p>
+                        <p class="text-sm md:text-base font-medium text-yellow-900 dark:text-yellow-100 break-words whitespace-pre-wrap leading-relaxed font-body">${escapeHtml(item.title)}</p>
                     </div>
                     <div class="flex items-center gap-1">
                         ${isEditing ? `<button type="button" onclick="event.stopPropagation(); deleteTimelineItem(${index}, ${dayIndex})" class="text-red-500 hover:bg-red-50 p-2 rounded-full flex-shrink-0"><span class="material-symbols-outlined text-lg">delete</span></button>` : ''}
@@ -163,10 +163,10 @@ function buildTransitCard(item, index, dayIndex, editClass) {
 
                 <div class="flex items-center gap-2 md:gap-4 justify-between">
                     <div class="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
-                        <div class="flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-800 rounded-sm px-2 md:px-3 py-1 border border-gray-200 dark:border-gray-700 text-sm font-bold text-gray-900 dark:text-white min-w-[60px] md:min-w-[70px] flex-shrink-0 whitespace-nowrap">
-                            <span class="font-hand text-base">${typeof item.duration === 'number' ? formatDuration(item.duration) : (item.duration || item.time || '30분')}</span>
+                        <div class="flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-800 rounded-sm px-2 md:px-3 py-1 border border-gray-200 dark:border-gray-700 text-xs md:text-sm font-bold text-gray-900 dark:text-white min-w-[60px] md:min-w-[70px] flex-shrink-0 whitespace-nowrap">
+                            <span class="font-hand text-sm md:text-base">${typeof item.duration === 'number' ? formatDuration(item.duration) : (item.duration || item.time || '30분')}</span>
                         </div>
-                        <div class="flex items-center gap-2 flex-1 min-w-0 flex-wrap text-base">
+                        <div class="flex items-center gap-2 flex-1 min-w-0 flex-wrap text-sm md:text-base">
                             ${contentHtml}
                         </div>
                     </div>
@@ -189,30 +189,30 @@ function buildDefaultCard(item, index, dayIndex, editClass, clickHandler) {
 
                 <div class="flex justify-between items-start mb-2 gap-2">
                     <div class="flex-1 min-w-0">
-                        <h3 class="text-2xl font-hand text-text-main dark:text-white break-words tracking-wide leading-tight">${escapeHtml(item.title)}</h3>
-                        <p class="text-base font-hand text-text-muted dark:text-gray-400 flex items-center gap-1 mt-1 min-w-0">
-                            <span class="material-symbols-outlined text-[16px] flex-shrink-0">location_on</span>
+                        <h3 class="text-xl md:text-2xl font-hand text-text-main dark:text-white break-words tracking-wide leading-tight">${escapeHtml(item.title)}</h3>
+                        <p class="text-sm md:text-base font-hand text-text-muted dark:text-gray-400 flex items-center gap-1 mt-1 min-w-0">
+                            <span class="material-symbols-outlined text-sm md:text-[16px] flex-shrink-0">location_on</span>
                             <span class="truncate flex-1">${escapeHtml(item.location || '')}</span>
                         </p>
                     </div>
-                    ${item.tag ? `<span class="inline-flex items-center px-2 py-0.5 rounded-sm text-base font-hand font-bold bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 flex-shrink-0 whitespace-nowrap transform rotate-2 shadow-sm">${escapeHtml(item.tag)}</span>` : ''}
-                    ${showMemoryBtn ? `<button type="button" onclick="event.stopPropagation(); addMemoryItem(${index}, ${dayIndex})" class="text-gray-400 hover:text-primary p-2 rounded-full flex-shrink-0"><span class="material-symbols-outlined text-2xl">photo_camera</span></button>` : ''}
-                    ${isEditing ? `<button type="button" onclick="event.stopPropagation(); deleteTimelineItem(${index}, ${dayIndex})" class="text-red-500 hover:bg-red-50 p-1 rounded flex-shrink-0"><span class="material-symbols-outlined text-lg">delete</span></button>` : ''}
+                    ${item.tag ? `<span class="inline-flex items-center px-2 py-0.5 rounded-sm text-sm md:text-base font-hand font-bold bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 flex-shrink-0 whitespace-nowrap transform rotate-2 shadow-sm">${escapeHtml(item.tag)}</span>` : ''}
+                    ${showMemoryBtn ? `<button type="button" onclick="event.stopPropagation(); addMemoryItem(${index}, ${dayIndex})" class="text-gray-400 hover:text-primary p-2 rounded-full flex-shrink-0"><span class="material-symbols-outlined text-xl md:text-2xl">photo_camera</span></button>` : ''}
+                    ${isEditing ? `<button type="button" onclick="event.stopPropagation(); deleteTimelineItem(${index}, ${dayIndex})" class="text-red-500 hover:bg-red-50 p-1 rounded flex-shrink-0"><span class="material-symbols-outlined text-base md:text-lg">delete</span></button>` : ''}
                 </div>
-                <div class="flex items-center gap-2 text-sm font-medium text-text-main dark:text-gray-300 flex-wrap">
+                <div class="flex items-center gap-2 text-xs md:text-sm font-medium text-text-main dark:text-gray-300 flex-wrap">
                     <div class="flex items-center gap-1 bg-gray-50 dark:bg-gray-700/50 px-2 py-1 rounded-sm border border-gray-100 dark:border-gray-600 flex-shrink-0">
-                        <span class="material-symbols-outlined text-[16px]">schedule</span>
-                        <span class="font-hand text-base">${item.time || ''}</span>
+                        <span class="material-symbols-outlined text-sm md:text-[16px]">schedule</span>
+                        <span class="font-hand text-sm md:text-base">${item.time || ''}</span>
                     </div>
                     ${item.duration !== undefined && item.duration !== null ? `
                     <div class="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-sm border border-blue-100 dark:border-blue-800 text-xs flex-shrink-0">
-                        <span class="material-symbols-outlined text-[14px]">timer</span>
-                        <span class="font-hand text-base">${formatDuration(item.duration)}</span>
+                        <span class="material-symbols-outlined text-xs md:text-[14px]">timer</span>
+                        <span class="font-hand text-sm md:text-base">${formatDuration(item.duration)}</span>
                     </div>` : ''}
                     ${item.note ? `
                     <div class="text-xs text-gray-500 flex items-center gap-1 min-w-0 bg-yellow-50 dark:bg-yellow-900/10 px-2 py-1 rounded-sm border border-yellow-100 dark:border-yellow-800">
-                        <span class="material-symbols-outlined text-[14px] flex-shrink-0 text-yellow-600">edit_note</span>
-                        <span class="truncate font-hand text-base text-gray-700 dark:text-gray-300">${escapeHtml(item.note)}</span>
+                        <span class="material-symbols-outlined text-xs md:text-[14px] flex-shrink-0 text-yellow-600">edit_note</span>
+                        <span class="truncate font-hand text-sm md:text-base text-gray-700 dark:text-gray-300">${escapeHtml(item.note)}</span>
                     </div>` : ''}
                 </div>
             </div>`;

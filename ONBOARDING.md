@@ -81,3 +81,4 @@ firebase deploy --only hosting
 *   **Event Handling**: 보안 정책(CSP) 이슈 방지를 위해 `onclick="..."` 인라인 핸들러보다는 `addEventListener` 또는 코드 레벨에서의 `onclick` 바인딩을 권장합니다.
 *   **Edit Mode Logic**: `window.isGlobalEditMode` 플래그를 사용하여 드래그 앤 드롭, 삭제 버튼, 컨텍스트 메뉴 등 모든 편집 UI의 표시 여부를 통합 제어합니다.
 *   **Context Menu**: 모바일 롱프레스와 데스크탑 우클릭을 구분하기 위해 `window.lastTouchTime`을 활용하며, 수정 모드가 아닐 때는 메뉴 실행을 차단합니다.
+*   **Responsive Typography**: 기기 종류가 아닌 화면 가로폭 `768px (Tailwind md:)`을 기준으로 시스템 폰트 크기를 조절합니다. 모바일 퍼스트(`text-sm`) 방식을 따르며 데스크탑에서 확대(`md:text-base`)됩니다.

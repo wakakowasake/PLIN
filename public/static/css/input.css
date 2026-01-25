@@ -82,3 +82,9 @@
         display: none;
     }
 }
+
+@layer components {
+    .btn-dark-gray {
+        @apply bg-gray-800 text-white hover:bg-gray-900;
+    }
+}

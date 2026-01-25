@@ -48,7 +48,16 @@
     - 레거시 로직(`memoryLocked`, `toggleMemoryLock`) 전수 조사 및 제거/Deprecated 처리.
     - `renderers.js`, `ui.js`, `ui-transit.js`, `timeline-detail.js` 등 전반적인 리팩토링 수행.
 
-- **이동 수단 상세 모달(viewRouteDetail) 버튼 로직 초기 개선** (Pre-work):
+- **모바일 타이포그래피 최적화**:
+    - **반응형 폰트 시스템 구축**: 768px(Tailwind `md:`) 브레이크포인트를 기준으로 모바일과 데스크탑의 글자 크기를 분리.
+    - **적용 영역**: 타임라인 카드, 장소 상세 모달 헤더, 메인 화면 위젯 등 전반적인 UI 요소의 폰트 크기를 기기별 최적화.
+    - **효과**: 모바일 기기에서의 정보 밀도 및 시인성을 크게 향상.
+
+- **전역 수정 모드 버튼 UI/UX 개선**:
+    - **수정 완료 버튼 가시성 확보**: 수정 모드 활성화 시 버튼 배경색이 투명해지던 현상을 해결하기 위해 인라인 스타일(#1a2632) 강제 적용.
+    - **클래스 제어 방식 고도화**: `className.replace` 방식에서 `classList` API 및 인라인 스타일 직접 제어로 변경하여 스타일 유실 방지.
+
+- **이동 수단 상세 모달(viewRouteDetail) 버튼 로직 개선**:
     - 글로벌 편집 상태(`isEditing`) 및 읽기 전용 모드(`isReadOnlyMode`) 연동.
     - 장소 카드(`buildDefaultCard`)와 동일한 버튼 표시 규칙 적용 ([수정], [삭제], [닫기] 동적 노출).
     - `isEditMode` 매개변수를 `isRouteEditMode`로 변경하여 가독성 강화.

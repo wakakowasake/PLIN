@@ -224,11 +224,11 @@ export function ensureItemDetailModal() {
                     <div class="flex-1 w-full min-w-0">
                         <div class="flex items-center gap-2 mb-2">
                             <span id="detail-tag" class="px-2 py-1 rounded text-xs font-bold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">태그</span>
-                            <span id="detail-time" class="text-sm text-gray-500 font-medium">시간</span>
+                            <span id="detail-time" class="text-xs md:text-sm text-gray-500 font-medium">시간</span>
                         </div>
-                        <h2 id="detail-title" class="text-2xl font-bold text-text-main dark:text-white leading-tight mb-1 truncate">제목</h2>
+                        <h2 id="detail-title" class="text-xl md:text-2xl font-bold text-text-main dark:text-white leading-tight mb-1 truncate">제목</h2>
                         <div class="flex flex-col gap-1 mt-1 w-full">
-                            <button type="button" onclick="openGoogleMapsExternal()" class="text-sm text-primary flex items-center gap-1 hover:underline text-left w-fit max-w-full">
+                            <button type="button" onclick="openGoogleMapsExternal()" class="text-xs md:text-sm text-primary flex items-center gap-1 hover:underline text-left w-fit max-w-full">
                                 <span class="material-symbols-outlined text-sm shrink-0">location_on</span>
                                 <span id="detail-location-text" class="truncate">위치</span>
                             </button>

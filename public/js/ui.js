@@ -3008,12 +3008,17 @@ export function toggleGlobalEditMode() {
         if (window.isGlobalEditMode) {
             // 수정 모드 활성화 (편집 가능)
             btn.innerHTML = `<span class="material-symbols-outlined text-xl">check</span><span class="text-sm font-bold ml-1">수정 완료</span>`;
-            btn.className = btn.className.replace('bg-primary', 'bg-gray-800').replace('hover:bg-orange-500', 'hover:bg-gray-900');
+            // bg-primary 클래스가 배경색을 덮어쓰지 않도록 초기화하고 인라인 스타일 적용
+            btn.classList.remove('bg-primary', 'hover:bg-orange-500');
+            btn.style.backgroundColor = '#1a2632'; // 강제 배경색 지정
+            btn.style.color = 'white';
             Modals.showToast("수정 모드가 켜졌습니다. 일정을 편집할 수 있습니다.", "info");
         } else {
             // 수정 모드 비활성화 (보기 전용)
             btn.innerHTML = `<span class="material-symbols-outlined text-xl">edit</span><span class="text-sm font-bold ml-1">수정</span>`;
-            btn.className = btn.className.replace('bg-gray-800', 'bg-primary').replace('hover:bg-gray-900', 'hover:bg-orange-500');
+            btn.style.backgroundColor = ''; // 인라인 스타일 제거하여 클래스 스타일(bg-primary) 복구
+            btn.style.color = '';
+            btn.classList.add('bg-primary', 'hover:bg-orange-500');
             Modals.showToast("수정 모드가 꺼졌습니다.", "success");
         }
     }

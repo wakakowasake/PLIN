@@ -401,8 +401,9 @@
     <div id="main-view" class="hidden flex-1 min-h-screen max-w-[1280px] w-full mx-auto p-4 lg:p-8">
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
             <div>
-                <h1 id="main-view-title" class="text-3xl font-bold text-text-main dark:text-white mb-2">나의 여행 계획</h1>
-                <p class="text-text-muted dark:text-gray-400">떠나고 싶은 여행을 계획하고 관리해보세요.</p>
+                <h1 id="main-view-title" class="text-2xl md:text-3xl font-bold text-text-main dark:text-white mb-2">나의
+                    여행 계획</h1>
+                <p class="text-sm md:text-base text-text-muted dark:text-gray-400">떠나고 싶은 여행을 계획하고 관리해보세요.</p>
             </div>
             <button type="button" onclick="createNewTrip()"
                 class="bg-primary text-white px-6 py-3 rounded-2xl font-bold shadow-lg hover:bg-orange-500 transition-colors flex items-center gap-2 whitespace-nowrap">
@@ -437,10 +438,11 @@
                         </div>
                         <div class="flex items-center gap-3">
                             <h1 id="trip-title"
-                                class="text-3xl md:text-4xl font-bold text-text-main dark:text-white leading-tight font-hand">
+                                class="text-2xl md:text-3xl lg:text-4xl font-bold text-text-main dark:text-white leading-tight font-hand">
                                 아라시야마 탐방</h1>
                         </div>
-                        <p id="trip-date-info" class="text-text-muted dark:text-gray-400 font-medium text-lg font-hand">
+                        <p id="trip-date-info"
+                            class="text-base md:text-lg text-text-muted dark:text-gray-400 font-medium font-hand">
                             교토 봄 여행 • 2024년 4월
                             12일</p>
                     </div>
@@ -488,7 +490,8 @@
                             <span class="material-symbols-outlined text-orange-400">sunny</span>
                         </div>
                         <div>
-                            <p id="weather-temp" class="text-2xl font-bold text-text-main dark:text-white">--</p>
+                            <p id="weather-temp" class="text-xl md:text-2xl font-bold text-text-main dark:text-white">--
+                            </p>
                             <p id="weather-range" class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">--
                                 / --</p>
                             <p id="weather-desc" class="text-xs text-text-muted dark:text-gray-400">클릭하여 상세 보기</p>
@@ -502,7 +505,8 @@
                             <span class="material-symbols-outlined text-green-500">payments</span>
                         </div>
                         <div>
-                            <p id="budget-amount" class="text-2xl font-bold text-text-main dark:text-white">--</p>
+                            <p id="budget-amount" class="text-xl md:text-2xl font-bold text-text-main dark:text-white">
+                                --</p>
                             <p class="text-xs text-text-muted dark:text-gray-400">클릭하여 상세 보기</p>
                         </div>
                     </div>
@@ -514,7 +518,8 @@
                     <div>
                         <span class="text-xs font-bold text-text-muted dark:text-gray-400 uppercase tracking-wider">현지
                             시간</span>
-                        <p id="local-time-display" class="text-2xl font-bold text-text-main dark:text-white mt-1">--:--
+                        <p id="local-time-display"
+                            class="text-xl md:text-2xl font-bold text-text-main dark:text-white mt-1">--:--
                         </p>
                         <p id="time-diff-display" class="text-xs text-text-muted dark:text-gray-400">--</p>
                     </div>
