@@ -67,7 +67,7 @@
     <style>
         /* Google 자동완성 목록이 모달 위로 오도록 설정 */
         .pac-container {
-            z-index: 2000 !important;
+            z-index: 10000 !important;
         }
 
         /* 편집 모드 깜빡임 애니메이션 */
@@ -343,7 +343,8 @@
                 <div class="size-8 flex items-center justify-center">
                     <img src="/favicon-brown.ico" alt="PLIN Logo" class="w-full h-full object-contain">
                 </div>
-                <h2 class="text-text-main dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">PLIN</h2>
+                <h2 class="text-text-main dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">PLIN<span
+                        class="text-[10px] font-medium text-primary ml-2 align-top">beta</span></h2>
             </div>
             <div class="flex flex-1 justify-end gap-2 md:gap-4 items-center">
                 <button type="button" id="share-btn" onclick="openShareModal()"
@@ -574,7 +575,7 @@
                             <img src="/favicon-brown.ico" alt="PLIN Logo" class="w-full h-full object-contain">
                         </div>
                         <h2 class="text-text-main dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">
-                            PLIN</h2>
+                            PLIN<span class="text-[10px] font-medium text-primary ml-2 align-top">beta</span></h2>
                     </div>
                     <div class="flex flex-1 justify-end gap-2 md:gap-4 items-center">
                         <button type="button" id="profile-edit-btn" onclick="enableProfileEdit()"

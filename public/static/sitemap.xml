@@ -9,7 +9,18 @@
 
 <url>
   <loc>https://plin.ink/</loc>
-  <lastmod>2026-01-08T03:03:08+00:00</lastmod>
+  <lastmod>2026-01-26T02:33:05+00:00</lastmod>
+  <priority>1.00</priority>
+</url>
+<url>
+  <loc>https://plin.ink/terms.html</loc>
+  <lastmod>2026-01-26T02:33:05+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://plin.ink/privacy.html</loc>
+  <lastmod>2026-01-26T02:33:05+00:00</lastmod>
+  <priority>0.80</priority>
 </url>
 
 

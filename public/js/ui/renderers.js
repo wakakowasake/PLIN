@@ -464,7 +464,14 @@ export function renderItinerary() {
                     html += renderFunc(group.item, group.index, dayIdx, isLast, isFirst, group.attachedMemos);
                 });
             } else {
-                html += `<div class="text-center py-4 text-gray-400 text-sm">일정이 없습니다.</div>`;
+                html += `
+                <div class="flex flex-col items-center justify-center py-10 text-gray-400">
+                    <span class="material-symbols-outlined text-4xl mb-2">edit_calendar</span>
+                    <p class="text-sm">아직 일정이 없습니다.${!isReadOnlyMode ? ' 첫 일정을 추가해보세요!' : ''}</p>
+                    ${!isReadOnlyMode ? `<button type="button" onclick="openAddModal(-1, ${dayIdx})" class="mt-4 flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-full font-bold shadow-lg hover:bg-orange-500 transition-colors transform hover:scale-105">
+                        <span class="material-symbols-outlined">add</span> 일정 시작하기
+                    </button>` : ''}
+                </div>`;
             }
             html += `</div></div>`;
         });

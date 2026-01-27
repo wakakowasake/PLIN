@@ -115,6 +115,26 @@ export async function openTrip(tripId, options = {}) {
             // [New] Apply Read-Only UI restrictions
             applyReadOnlyUI();
 
+            // [New] If editMode is requested, activate it
+            if (options.editMode && !isReadOnlyMode) {
+                window.isGlobalEditMode = true;
+                const btn = document.getElementById('memory-lock-btn');
+                if (btn) {
+                    btn.innerHTML = `<span class="material-symbols-outlined text-xl">check</span><span class="text-sm font-bold ml-1">수정 완료</span>`;
+                    btn.classList.remove('bg-primary', 'hover:bg-orange-500');
+                    btn.style.backgroundColor = '#1a2632';
+                    btn.style.color = 'white';
+                }
+            } else {
+                window.isGlobalEditMode = false;
+                const btn = document.getElementById('memory-lock-btn');
+                if (btn) {
+                    btn.innerHTML = `<span class="material-symbols-outlined text-xl">edit</span><span class="text-sm font-bold ml-1">수정</span>`;
+                    btn.style.backgroundColor = '';
+                    btn.style.color = '';
+                }
+            }
+
             renderRouteOnMap();
 
         } else {

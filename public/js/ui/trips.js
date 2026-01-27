@@ -250,7 +250,7 @@ export function closeNewTripModal() {
 
 export function nextWizardStep(step) {
     document.querySelectorAll('[id^="wizard-step-"]').forEach(el => el.classList.add('hidden'));
-    const nextStep = document.getElementById(`wizard - step - ${step} `);
+    const nextStep = document.getElementById(`wizard-step-${step}`);
     if (nextStep) nextStep.classList.remove('hidden');
 
     if (step === 2) {
@@ -346,8 +346,8 @@ export async function finishNewTripWizard() {
 
         closeNewTripModal();
 
-        // 생성된 여행 열기
-        if (window.openTrip) window.openTrip(docRef.id);
+        // 생성된 여행 열기 (수정 모드로 시작)
+        if (window.openTrip) window.openTrip(docRef.id, { editMode: true });
 
     } catch (e) {
         console.error("Error creating trip:", e);
