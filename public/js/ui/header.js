@@ -2,6 +2,7 @@ import { firebaseReady, db } from '../firebase.js';
 import { doc, getDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 import { travelData, currentUser } from '../state.js';
 import { showLoading, hideLoading } from './modals.js';
+import { setupTripInfoAutocomplete } from '../map.js';
 
 export async function openShareModal(tripId = null) {
     document.querySelectorAll('[id^="trip-menu-"]').forEach(el => el.classList.add('hidden'));
@@ -405,6 +406,10 @@ export function enableNoteEdit() {
 }
 
 export function openTripInfoModal() {
+    // [Added] 모달 오픈 시 오토컴플리트 초기화 트리거
+    if (typeof setupTripInfoAutocomplete === 'function') {
+        setupTripInfoAutocomplete();
+    }
     const titleInput = document.getElementById('edit-trip-title');
     const startInput = document.getElementById('edit-trip-start');
     const endInput = document.getElementById('edit-trip-end');

@@ -3141,14 +3141,7 @@ window.touchEnd = touchEnd;
         touchStartY = touch.clientY;
 
         longPressTimer = setTimeout(() => {
-            // 가상 마우스 이벤트 생성하여 openContextMenu 호출
-            const fakeEvent = {
-                preventDefault: () => e.preventDefault(),
-                clientX: touch.clientX,
-                clientY: touch.clientY,
-                target: e.target
-            };
-            window.openContextMenu(fakeEvent, type, -1);
+            if (window.openTripInfoModal) window.openTripInfoModal();
             if (navigator.vibrate) navigator.vibrate(50); // Haptic feedback
         }, LONG_PRESS_DURATION);
     };

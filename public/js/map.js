@@ -7,6 +7,7 @@ export let mapMarker;
 export let isMapInitialized = false; // [Added] 지도 초기화 상태 플래그
 let autocomplete;
 let wizardAutocomplete;
+let tripInfoAutocomplete;
 
 // [Mapbox Configuration]
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24시간 캐시 유지
@@ -197,6 +198,89 @@ export function setupWizardAutocomplete() {
                 newTripDataTemp.mapImage = url;
             }
         });
+    });
+}
+
+export function setupTripInfoAutocomplete() {
+    const input = document.getElementById("edit-trip-title");
+    if (!input || !window.google || !window.google.maps || !window.google.maps.places) return;
+
+    if (!input.dataset.hasEnterListener) {
+        input.addEventListener('keydown', handleEnterKey);
+        input.dataset.hasEnterListener = "true";
+    }
+
+    if (tripInfoAutocomplete) return;
+
+    const options = {
+        fields: ["formatted_address", "geometry", "name", "photos", "address_components"],
+        strictBounds: false
+    };
+
+    tripInfoAutocomplete = new google.maps.places.Autocomplete(input, options);
+    tripInfoAutocomplete.addListener("place_changed", () => {
+        const place = tripInfoAutocomplete.getPlace();
+        if (!place.geometry || !place.geometry.location) return;
+
+        // 즉시 메타데이터 업데이트 (UI 반영용)
+        if (window.updateMeta) {
+            window.updateMeta('title', place.name);
+            window.updateMeta('subInfo', place.formatted_address);
+        }
+
+        const lat = place.geometry.location.lat();
+        const lng = place.geometry.location.lng();
+
+        // 좌표 저장
+        travelData.meta.lat = lat;
+        travelData.meta.lng = lng;
+
+        // 대표 이미지 업데이트
+        if (place.photos && place.photos.length > 0) {
+            const photoUrl = place.photos[0].getUrl({ maxWidth: 4000, maxHeight: 3000 });
+            if (window.updateMeta) {
+                window.updateMeta('mapImage', photoUrl);
+                window.updateMeta('defaultMapImage', photoUrl);
+            }
+        }
+
+        // Unsplash 고화질 배경 검색 (기존 로직 재활용)
+        let searchQuery = place.name;
+        const isRegion = place.types && (
+            place.types.includes('locality') ||
+            place.types.includes('administrative_area_level_1') ||
+            place.types.includes('country')
+        );
+
+        if (!isRegion && place.address_components) {
+            const locality = place.address_components.find(c => c.types.includes('locality'));
+            const admin = place.address_components.find(c => c.types.includes('administrative_area_level_1'));
+            if (locality) searchQuery = locality.long_name;
+            else if (admin) searchQuery = admin.long_name;
+        }
+        searchQuery = searchQuery.replace(/([가-힣]{2,})(특별시|광역시|특별자치시|특별자치도|도|시|군|구|부|현)$/, '$1');
+
+        fetchUnsplashImage(searchQuery).then(url => {
+            if (url && window.updateMeta) {
+                window.updateMeta('mapImage', url);
+                window.updateMeta('defaultMapImage', url);
+
+                // 히로 및 배경 업데이트
+                const mapBg = document.getElementById('map-bg');
+                if (mapBg) mapBg.style.backgroundImage = `url('${url}')`;
+                const heroEl = document.getElementById('trip-hero');
+                if (heroEl) heroEl.style.backgroundImage = `url('${url}')`;
+            }
+        });
+
+        // 지도 및 날씨 업데이트
+        if (map) map.setCenter({ lat, lng });
+        if (mapMarker) mapMarker.setPosition({ lat, lng });
+
+        const currentDate = travelData.days && travelData.days[currentDayIndex] ? travelData.days[currentDayIndex].date : null;
+        fetchWeather(lat, lng, currentDate);
+
+        if (window.renderItinerary) window.renderItinerary();
     });
 }
 
