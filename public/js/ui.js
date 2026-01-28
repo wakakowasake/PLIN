@@ -3169,12 +3169,15 @@ window.touchEnd = touchEnd;
 
         if (hero) {
             hero.addEventListener('touchstart', (e) => {
-                // DnD와 별개로 헤더 영역은 롱프레스 메뉴 우선
                 startLongPress(e, 'hero');
             }, { passive: false });
             hero.addEventListener('touchmove', handleTouchMove, { passive: true });
             hero.addEventListener('touchend', cancelLongPress, { passive: true });
             hero.addEventListener('touchcancel', cancelLongPress, { passive: true });
+            hero.addEventListener('contextmenu', (e) => {
+                if (window.isReadOnlyMode || !window.isGlobalEditMode) return;
+                e.preventDefault();
+            });
         }
         if (info) {
             info.addEventListener('touchstart', (e) => {
@@ -3183,6 +3186,10 @@ window.touchEnd = touchEnd;
             info.addEventListener('touchmove', handleTouchMove, { passive: true });
             info.addEventListener('touchend', cancelLongPress, { passive: true });
             info.addEventListener('touchcancel', cancelLongPress, { passive: true });
+            info.addEventListener('contextmenu', (e) => {
+                if (window.isReadOnlyMode || !window.isGlobalEditMode) return;
+                e.preventDefault();
+            });
         }
     };
 

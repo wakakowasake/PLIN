@@ -20,6 +20,17 @@
         font-family: 'MemomentKkukkukk', sans-serif;
     }
 
+    /* [Added] iOS Date Input Styling Fix */
+    input[type="date"],
+    input[type="text"] {
+        -webkit-appearance: none;
+        appearance: none;
+        min-width: 0;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
     .material-symbols-outlined {
         font-family: 'Material Symbols Outlined' !important;
         font-weight: normal;
