@@ -3127,17 +3127,69 @@ window.touchEnd = touchEnd;
 
 // [Fix] Touch Violation Warnings (Explicit Non-Passive Registration)
 (function () {
+    let longPressTimer = null;
+    const LONG_PRESS_DURATION = 500;
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    const startLongPress = (e, type) => {
+        // 읽기 전용 모드 또는 수정 모드가 아닐 때는 무시
+        if (window.isReadOnlyMode || !window.isGlobalEditMode) return;
+
+        const touch = e.touches[0];
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
+
+        longPressTimer = setTimeout(() => {
+            // 가상 마우스 이벤트 생성하여 openContextMenu 호출
+            const fakeEvent = {
+                preventDefault: () => e.preventDefault(),
+                clientX: touch.clientX,
+                clientY: touch.clientY,
+                target: e.target
+            };
+            window.openContextMenu(fakeEvent, type, -1);
+            if (navigator.vibrate) navigator.vibrate(50); // Haptic feedback
+        }, LONG_PRESS_DURATION);
+    };
+
+    const cancelLongPress = (e) => {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+    };
+
+    const handleTouchMove = (e) => {
+        if (!longPressTimer) return;
+        const touch = e.touches[0];
+        const dx = Math.abs(touch.clientX - touchStartX);
+        const dy = Math.abs(touch.clientY - touchStartY);
+        if (dx > 10 || dy > 10) {
+            cancelLongPress();
+        }
+    };
+
     const attachHandlers = () => {
         const hero = document.getElementById('trip-hero');
         const info = document.getElementById('trip-info-container');
 
         if (hero) {
-            hero.addEventListener('touchstart', (e) => touchStart(e, -1, 'hero'), { passive: false });
-            hero.addEventListener('touchmove', touchMove, { passive: false });
+            hero.addEventListener('touchstart', (e) => {
+                // DnD와 별개로 헤더 영역은 롱프레스 메뉴 우선
+                startLongPress(e, 'hero');
+            }, { passive: false });
+            hero.addEventListener('touchmove', handleTouchMove, { passive: true });
+            hero.addEventListener('touchend', cancelLongPress, { passive: true });
+            hero.addEventListener('touchcancel', cancelLongPress, { passive: true });
         }
         if (info) {
-            info.addEventListener('touchstart', (e) => touchStart(e, -1, 'trip_info'), { passive: false });
-            info.addEventListener('touchmove', touchMove, { passive: false });
+            info.addEventListener('touchstart', (e) => {
+                startLongPress(e, 'trip_info');
+            }, { passive: false });
+            info.addEventListener('touchmove', handleTouchMove, { passive: true });
+            info.addEventListener('touchend', cancelLongPress, { passive: true });
+            info.addEventListener('touchcancel', cancelLongPress, { passive: true });
         }
     };
 
