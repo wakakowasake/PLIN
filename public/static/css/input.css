@@ -31,6 +31,12 @@
         box-sizing: border-box;
     }
 
+    /* iOS Safari 전용 날짜 필드 텍스트 정렬 및 높이 패치 */
+    input[type="date"]::-webkit-date-and-time-value {
+        text-align: left;
+        min-height: 1.5em;
+    }
+
     .material-symbols-outlined {
         font-family: 'Material Symbols Outlined' !important;
         font-weight: normal;
