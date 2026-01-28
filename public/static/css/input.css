@@ -20,21 +20,24 @@
         font-family: 'MemomentKkukkukk', sans-serif;
     }
 
-    /* [Added] iOS Date Input Styling Fix */
     input[type="date"],
-    input[type="text"] {
+    input[type="text"],
+    input[type="number"],
+    input[type="email"],
+    input[type="password"] {
         -webkit-appearance: none;
+        -moz-appearance: none;
         appearance: none;
-        min-width: 0;
-        width: 100%;
-        max-width: 100%;
         box-sizing: border-box;
+        margin: 0;
     }
 
-    /* iOS Safari 전용 날짜 필드 텍스트 정렬 및 높이 패치 */
+    /* iOS Safari 날짜 필드 텍스트 수직 정렬 및 높이 일치 패치 */
     input[type="date"]::-webkit-date-and-time-value {
-        text-align: left;
-        min-height: 1.5em;
+        margin: 0;
+        padding: 0;
+        min-height: 1.2em;
+        /* 텍스트 필드와 유사한 높이 확보 */
     }
 
     .material-symbols-outlined {
