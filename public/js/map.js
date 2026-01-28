@@ -202,7 +202,7 @@ export function setupWizardAutocomplete() {
 }
 
 export function setupTripInfoAutocomplete() {
-    const input = document.getElementById("edit-trip-title");
+    const input = document.getElementById("edit-trip-location");
     if (!input || !window.google || !window.google.maps || !window.google.maps.places) return;
 
     if (!input.dataset.hasEnterListener) {
@@ -222,10 +222,21 @@ export function setupTripInfoAutocomplete() {
         const place = tripInfoAutocomplete.getPlace();
         if (!place.geometry || !place.geometry.location) return;
 
-        // 즉시 메타데이터 업데이트 (UI 반영용)
+        // [Modified] 제목이 비어있을 때만 추천 장소명으로 채움
+        const titleInput = document.getElementById('edit-trip-title');
+        if (titleInput && !titleInput.value.trim()) {
+            titleInput.value = place.name;
+            if (window.updateMeta) window.updateMeta('title', place.name);
+        }
+
+        // 장소 필드 및 subInfo 업데이트 (UI 반응용)
+        if (input) input.value = place.formatted_address;
         if (window.updateMeta) {
-            window.updateMeta('title', place.name);
-            window.updateMeta('subInfo', place.formatted_address);
+            // subInfo 재조합 로직 (장소 + 날짜)
+            const dateStr = travelData.meta.subInfo && travelData.meta.subInfo.includes('•')
+                ? travelData.meta.subInfo.split('•')[1].trim()
+                : travelData.meta.subInfo;
+            window.updateMeta('subInfo', `${place.formatted_address} • ${dateStr}`);
         }
 
         const lat = place.geometry.location.lat();

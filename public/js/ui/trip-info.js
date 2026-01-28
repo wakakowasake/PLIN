@@ -21,6 +21,7 @@ import { showToast } from './modals.js';
 
 export function saveTripInfo(travelData, currentDayIndex, updateMeta, selectDay, renderItinerary, autoSave) {
     const title = document.getElementById('edit-trip-title').value.trim();
+    const location = document.getElementById('edit-trip-location') ? document.getElementById('edit-trip-location').value.trim() : "";
     const startStr = document.getElementById('edit-trip-start').value;
     const endStr = document.getElementById('edit-trip-end').value;
 
@@ -47,8 +48,7 @@ export function saveTripInfo(travelData, currentDayIndex, updateMeta, selectDay,
     if (durationText !== "당일치기") {
         dateStr += ` - ${end.getMonth() + 1}월 ${end.getDate()}일`;
     }
-    let prefix = travelData.meta.subInfo && travelData.meta.subInfo.includes('•') ? travelData.meta.subInfo.split('•')[0].trim() : "";
-    updateMeta('subInfo', prefix ? `${prefix} • ${dateStr}` : dateStr);
+    updateMeta('subInfo', location ? `${location} • ${dateStr}` : dateStr);
 
     // Rebuild days array
     const totalDays = diffDays + 1;

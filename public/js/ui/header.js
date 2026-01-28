@@ -414,7 +414,16 @@ export function openTripInfoModal() {
     const startInput = document.getElementById('edit-trip-start');
     const endInput = document.getElementById('edit-trip-end');
 
-    if (titleInput) titleInput.value = travelData.meta.title;
+    if (titleInput) titleInput.value = travelData.meta.title || "";
+
+    // [Added] subInfo에서 위치 명칭 추출하여 장소 필드에 채움
+    const locationInput = document.getElementById('edit-trip-location');
+    if (locationInput) {
+        const subInfo = travelData.meta.subInfo || "";
+        // "위치 • 날짜" 형식에서 위치 부분만 추출
+        const parts = subInfo.split('•').map(p => p.trim());
+        locationInput.value = parts.length > 1 ? parts[0] : (subInfo.includes("-") ? "" : subInfo);
+    }
 
     if (travelData.days && travelData.days.length > 0) {
         if (startInput) startInput.value = travelData.days[0].date;

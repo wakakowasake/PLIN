@@ -1044,26 +1044,32 @@
             <div class="p-5 border-b border-gray-100 dark:border-gray-700">
                 <h3 class="text-lg font-bold text-text-main dark:text-white">여행 정보 수정</h3>
             </div>
-            <div class="p-6 flex flex-col gap-4">
+            <div class="p-6 flex flex-col gap-4 overflow-hidden">
                 <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">여행 제목 / 장소</label>
-                    <div class="flex gap-2">
-                        <input id="edit-trip-title" type="text"
-                            class="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800 font-bold text-lg"
-                            placeholder="도시나 장소를 검색해보세요">
-                    </div>
-                    <p class="text-xs text-gray-400 mt-1">장소를 검색하면 제목과 배경 이미지가 자동으로 설정됩니다.</p>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">여행 제목</label>
+                    <input id="edit-trip-title" type="text"
+                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800 font-bold text-lg"
+                        placeholder="예: 교토 혼자 여행">
                 </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">여행 장소</label>
+                    <div class="relative">
+                        <input id="edit-trip-location" type="text"
+                            class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800"
+                            placeholder="도시나 장소를 검색하세요">
+                    </div>
+                    <p class="text-xs text-gray-400 mt-1">장소를 검색하면 배경 이미지가 자동으로 설정됩니다.</p>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+                    <div class="w-full min-w-0">
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">시작일</label>
                         <input id="edit-trip-start" type="date"
-                            class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800">
+                            class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800 text-sm">
                     </div>
-                    <div>
+                    <div class="w-full min-w-0">
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">종료일</label>
                         <input id="edit-trip-end" type="date"
-                            class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800">
+                            class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800 text-sm">
                     </div>
                 </div>
             </div>
