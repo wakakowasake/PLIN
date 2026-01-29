@@ -1,5 +1,8 @@
 // Trip Info Editor Module
 // Handles editing trip metadata (title, dates, hero image)
+import { db, auth } from '../firebase.js';
+import { collection, doc, addDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+import { showToast, showLoading, hideLoading } from './modals.js';
 
 /**
  * Close the trip info modal
@@ -17,8 +20,6 @@ export function closeTripInfoModal() {
  * @param {Function} renderItinerary - Function to re-render itinerary
  * @param {Function} autoSave - Function to auto-save data
  */
-import { showToast } from './modals.js';
-
 export function saveTripInfo(travelData, currentDayIndex, updateMeta, selectDay, renderItinerary, autoSave) {
     const title = document.getElementById('edit-trip-title').value.trim();
     const location = document.getElementById('edit-trip-location') ? document.getElementById('edit-trip-location').value.trim() : "";
@@ -129,4 +130,46 @@ export function uploadHeroImage(file, updateMeta, renderItinerary, autoSave) {
         autoSave();
     };
     reader.readAsDataURL(file);
+}
+
+/**
+ * Save all day data to Firestore
+ * Used for syncing guest data after login or force full sync
+ * @param {string|null} tripId - Target trip ID (null if new)
+ * @param {Object} data - Full travel data to save
+ */
+export async function saveAllDayData(tripId, data) {
+    try {
+        showLoading();
+        const user = auth.currentUser;
+        if (!user) throw new Error("계정이 확인되지 않습니다.");
+
+        const cleanData = JSON.parse(JSON.stringify(data)); // Deep copy to avoid reference issues
+
+        // Ensure members and ownership
+        if (!cleanData.members) cleanData.members = {};
+        cleanData.members[user.uid] = 'owner';
+        cleanData.createdBy = user.uid;
+        cleanData.createdAt = cleanData.createdAt || new Date().toISOString();
+
+        if (tripId) {
+            const docRef = doc(db, "plans", tripId);
+            await updateDoc(docRef, cleanData);
+            showToast("데이터가 성공적으로 동기화되었습니다! ☁️");
+        } else {
+            console.log("[Guest Mode] Creating new document for guest data...");
+            const docRef = await addDoc(collection(db, "plans"), cleanData);
+            showToast("새 여행 계획이 저장되었습니다! 🎉");
+
+            // 메인 화면으로 이동하거나 해당 여행 로드
+            setTimeout(() => {
+                window.location.href = window.location.origin + window.location.pathname;
+            }, 1500);
+        }
+    } catch (e) {
+        console.error("Error saving all day data:", e);
+        showToast("저장 중 오류가 발생했습니다 😢", 'error');
+    } finally {
+        hideLoading();
+    }
 }

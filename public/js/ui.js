@@ -9,7 +9,7 @@ import {
     setCurrentTripUnsubscribe, setIsEditing, setCurrentUser,
     insertingItemIndex, isEditingFromDetail, setInsertingItemIndex, setIsEditingFromDetail,
     updateMetaState, updateTripDateState, updateTimelineItemState,
-    isSaving, setIsSaving
+    isSaving, setIsSaving, isGuestMode
 } from './state.js';
 
 import { parseTimeStr, formatTimeStr, parseDurationStr, formatDuration, minutesTo24Hour, calculateStraightDistance } from './ui-utils.js';
@@ -2653,6 +2653,16 @@ function executeDelete(deleteGroup) {
 
 // [Attachment Logic]
 export async function handleAttachmentUpload(input, type) {
+    const { isGuestMode } = await import('./state.js');
+    if (isGuestMode) {
+        if (window.openLoginPromptModal) {
+            window.openLoginPromptModal("첨부파일 업로드");
+        } else {
+            alert("첨부파일 업로드 기능은 로그인 후 이용하실 수 있습니다. ✨");
+        }
+        input.value = "";
+        return;
+    }
     if (input.files && input.files[0]) {
         const file = input.files[0];
 

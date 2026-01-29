@@ -1182,6 +1182,57 @@ export function closeConfirmationModal() {
     unlockBodyScroll();
 }
 
+// [Guest Mode] Login Prompt Modal Logic
+export function openLoginPromptModal(featureName = "이 기능") {
+    let modal = document.getElementById('login-prompt-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'login-prompt-modal';
+        modal.className = `hidden fixed inset-0 z-[${Z_INDEX.MODAL_CONFIRM}] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm`;
+        modal.innerHTML = `
+            <div class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden text-center p-8 modal-slide-in">
+                <div class="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
+                    <span class="material-symbols-outlined text-5xl text-primary">lock</span>
+                </div>
+                <h3 id="login-prompt-title" class="text-xl font-bold text-text-main dark:text-white mb-2">로그인이 필요합니다</h3>
+                <p id="login-prompt-desc" class="text-sm text-gray-500 dark:text-gray-400 mb-8 leading-relaxed">
+                    ${featureName}은 로그인 후 이용하실 수 있습니다.<br>지금 로그인하고 소중한 여행 계획을 저장해보세요!
+                </p>
+                <div class="flex flex-col gap-3">
+                    <button type="button" onclick="handleLoginPromptLogin()" class="w-full py-4 bg-primary text-white font-bold rounded-2xl hover:bg-orange-500 shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined">login</span> 구글로 로그인하기
+                    </button>
+                    <button type="button" onclick="closeLoginPromptModal()" class="w-full py-3 text-gray-500 font-bold hover:bg-gray-50 dark:hover:bg-gray-800 rounded-2xl transition-colors">나중에 하기</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    } else {
+        const desc = modal.querySelector('#login-prompt-desc');
+        if (desc) desc.innerHTML = `${featureName}은 로그인 후 이용하실 수 있습니다.<br>지금 로그인하고 소중한 여행 계획을 저장해보세요!`;
+    }
+
+    modal.classList.remove('hidden');
+    if (window.pushModalState) window.pushModalState();
+    lockBodyScroll();
+}
+
+export function closeLoginPromptModal() {
+    const modal = document.getElementById('login-prompt-modal');
+    if (modal) modal.classList.add('hidden');
+    unlockBodyScroll();
+}
+
+window.handleLoginPromptLogin = async function () {
+    closeLoginPromptModal();
+    if (window.Auth && window.Auth.login) {
+        // 현재 travelData를 넘겨주어 로그인 후 자동 저장되게 함
+        await window.Auth.login(window.travelData);
+    }
+};
+
+window.openLoginPromptModal = openLoginPromptModal;
+window.closeLoginPromptModal = closeLoginPromptModal;
 window.openConfirmationModal = openConfirmationModal;
 window.closeConfirmationModal = closeConfirmationModal;
 

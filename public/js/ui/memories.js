@@ -1,6 +1,6 @@
 import {
     travelData, targetDayIndex, setTargetDayIndex,
-    viewingItemIndex, setViewingItemIndex, currentTripId
+    viewingItemIndex, setViewingItemIndex, currentTripId, isGuestMode
 } from '../state.js';
 import { showLoading, hideLoading, ensureMemoryModal } from './modals.js';
 import { Z_INDEX } from './constants.js';
@@ -216,6 +216,14 @@ export function clearMemoryPhoto() {
 }
 
 export async function saveMemoryItem() {
+    if (isGuestMode) {
+        if (window.openLoginPromptModal) {
+            window.openLoginPromptModal("추억 저장");
+        } else {
+            alert("추억 저장 기능은 로그인 후 이용하실 수 있습니다. ✨");
+        }
+        return;
+    }
     const modal = document.getElementById('memory-modal');
     if (!modal) return;
 

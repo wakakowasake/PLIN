@@ -75,6 +75,7 @@ export let currentUser = null;
 export let insertingItemIndex = null;
 export let isEditingFromDetail = false;
 export let isReadOnlyMode = false; // [Added] 뷰어 모드 여부
+export let isGuestMode = false; // [Added] 게스트 모드 여부
 
 // Observer Pattern: Listeners
 const listeners = [];
@@ -109,6 +110,7 @@ export const setCurrentUser = (val) => currentUser = val;
 export const setInsertingItemIndex = (val) => insertingItemIndex = val;
 export const setIsEditingFromDetail = (val) => isEditingFromDetail = val;
 export const setIsReadOnlyMode = (val) => isReadOnlyMode = val;
+export const setIsGuestMode = (val) => isGuestMode = val;
 export let isSaving = false; // [Added] 데이터 저장 진행 상태 플래그
 export const setIsSaving = (val) => isSaving = val;
 

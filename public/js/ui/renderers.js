@@ -1,5 +1,5 @@
 import morphdom from 'morphdom'; // [New] for optimized DOM updates
-import { travelData, currentDayIndex, isEditing, isReadOnlyMode } from '../state.js';
+import { travelData, currentDayIndex, isEditing, isReadOnlyMode, isGuestMode } from '../state.js';
 import { Z_INDEX } from './constants.js';
 import { calculateEndTime, formatTime } from './time-helpers.js';
 import { formatDuration, escapeHtml } from '../ui-utils.js';
@@ -369,6 +369,17 @@ export function renderTimelineItemHtmlPlanner(item, index, dayIndex, isLast, isF
 
 
 export function renderItinerary() {
+    // [Guest Mode] UI 처리
+    const guestSaveBtn = document.getElementById('guest-save-btn');
+    const shareBtn = document.getElementById('share-btn');
+
+    if (isGuestMode) {
+        guestSaveBtn?.classList.remove('hidden');
+        shareBtn?.classList.add('hidden'); // 게스트는 공유 불가
+    } else {
+        guestSaveBtn?.classList.add('hidden');
+    }
+
     // Reuse the big implementation from ui.js but keep external calls via window
     let dailyTotal = 0;
     const calcTimeline = (currentDayIndex === -1) ? [] : (travelData.days[currentDayIndex] ? travelData.days[currentDayIndex].timeline : []);
@@ -395,6 +406,18 @@ export function renderItinerary() {
     // [Fix] 여행 기간(몇박 몇일) 정보 업데이트
     const dayCountEl = document.getElementById('trip-day-count');
     if (dayCountEl) dayCountEl.innerText = travelData.meta?.dayCount || "일정 미정";
+
+    // [Added] 날씨 위젯 실시간 업데이트
+    const weather = travelData.meta?.weather;
+    const tempEl = document.getElementById('weather-temp');
+    const rangeEl = document.getElementById('weather-range');
+    const descEl = document.getElementById('weather-desc');
+
+    if (weather) {
+        if (tempEl) tempEl.innerText = weather.temp || "--";
+        if (rangeEl) rangeEl.innerText = `${weather.minTemp || "--"} / ${weather.maxTemp || "--"}`;
+        if (descEl) descEl.innerText = weather.desc || "상세 보기 클릭";
+    }
 
     // Tabs and timeline
     const tabsEl = document.getElementById('day-tabs'); if (!tabsEl) return;

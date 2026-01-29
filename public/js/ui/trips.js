@@ -2,7 +2,7 @@
 
 import { db } from '../firebase.js';
 import { collection, query, where, getDocs, addDoc, getDoc, doc, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
-import { currentUser, newTripDataTemp, defaultTravelData, setNewTripDataTemp } from '../state.js';
+import { currentUser, newTripDataTemp, defaultTravelData, setNewTripDataTemp, isGuestMode, setTravelData, setCurrentTripId } from '../state.js';
 import { escapeHtml } from '../ui-utils.js';
 import { showLoading, hideLoading, showToast } from './modals.js';
 import logger from '../logger.js';
@@ -268,7 +268,7 @@ export function nextWizardStep(step) {
 }
 
 export async function finishNewTripWizard() {
-    if (!currentUser) {
+    if (!currentUser && !isGuestMode) {
         showToast("여행을 저장하려면 로그인이 필요해요! 🔒", 'warning');
         return;
     }
@@ -322,6 +322,8 @@ export async function finishNewTripWizard() {
             });
         }
 
+        const currentUid = currentUser?.uid || "guest_user";
+
         const newTrip = {
             ...defaultTravelData,
             meta: {
@@ -336,18 +338,33 @@ export async function finishNewTripWizard() {
             },
             days: days,
             members: {
-                [currentUser.uid]: 'owner'
+                [currentUid]: 'owner'
             },
             createdAt: new Date().toISOString(),
-            createdBy: currentUser.uid
+            createdBy: currentUid
         };
 
-        const docRef = await addDoc(collection(db, "plans"), newTrip);
+        if (isGuestMode) {
+            // [Guest Mode] Firestore 저장 없이 로컬 상태만 업데이트
+            setTravelData(newTrip);
+            setCurrentTripId(null);
+            closeNewTripModal();
 
-        closeNewTripModal();
+            // 편집기 뷰로 전환
+            document.getElementById('main-view')?.classList.add('hidden');
+            document.getElementById('detail-view')?.classList.remove('hidden');
+            document.getElementById('back-btn')?.classList.remove('hidden');
 
-        // 생성된 여행 열기 (수정 모드로 시작)
-        if (window.openTrip) window.openTrip(docRef.id, { editMode: true });
+            const { renderItinerary } = await import('./renderers.js?v=1.1.7');
+            renderItinerary();
+
+            showToast("게스트 모드로 여행을 시작합니다! 저장하려면 우측 상단 '로그인 후 저장' 버튼을 눌러주세요. ✨");
+        } else {
+            const docRef = await addDoc(collection(db, "plans"), newTrip);
+            closeNewTripModal();
+            // 생성된 여행 열기 (수정 모드로 시작)
+            if (window.openTrip) window.openTrip(docRef.id, { editMode: true });
+        }
 
     } catch (e) {
         console.error("Error creating trip:", e);

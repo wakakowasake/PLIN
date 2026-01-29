@@ -9,21 +9,77 @@ function isCapacitorApp() {
     return window.Capacitor !== undefined;
 }
 
-export async function login() {
+export async function login(guestDataToSave = null) {
     try {
         await firebaseReady;
 
         if (isCapacitorApp()) {
             // Use redirect for native apps (popup doesn't work in WebView)
+            // [New] 리다이렉트 전 게스트 데이터를 로컬 스토리지에 임시 보관
+            if (guestDataToSave) {
+                localStorage.setItem('pending_guest_data', JSON.stringify(guestDataToSave));
+                console.log("[Auth] Guest data cached for redirect sync.");
+            }
             await signInWithRedirect(auth, provider);
         } else {
             // Use popup for web
-            await signInWithPopup(auth, provider);
+            const result = await signInWithPopup(auth, provider);
+
+            // [New] 게스트 모드에서 가입 유도 시, 로그인 성공 후 데이터를 저장함
+            if (guestDataToSave && result.user) {
+                const { setIsGuestMode } = await import('../state.js');
+                const { saveAllDayData } = await import('../ui/trip-info.js');
+                const { renderItinerary } = await import('../ui/renderers.js');
+
+                const userRef = doc(db, "users", result.user.uid);
+                await setDoc(userRef, {
+                    email: result.user.email,
+                    displayName: result.user.displayName,
+                    photoURL: result.user.photoURL,
+                    agreedToTerms: true, // 로그인 가입 유도 시 암묵적 동의 혹은 후속 처리
+                    agreedToPrivacy: true,
+                    agreedAt: new Date().toISOString()
+                }, { merge: true });
+
+                // 게스트 모드 해제 및 UI 갱신
+                setIsGuestMode(false);
+
+                // 데이터 저장 처리
+                await saveAllDayData(null, guestDataToSave);
+
+                // UI 갱신 (헤더 버튼 등)
+                renderItinerary();
+
+                console.log("[Auth] Guest data saved to new account and UI updated.");
+            }
         }
     } catch (error) {
         console.error("로그인 실패", error);
         alert("로그인 실패: " + error.message);
     }
+}
+
+/**
+ * [New] 게스트 모드로 진입
+ */
+export async function enterGuestMode() {
+    const { setIsGuestMode, setTravelData, defaultTravelData } = await import('../state.js');
+    const { createNewTrip } = await import('../ui/trips.js');
+
+    setIsGuestMode(true);
+
+    // UI 전환
+    document.getElementById('login-view')?.classList.add('hidden');
+    document.getElementById('main-view')?.classList.remove('hidden');
+    document.getElementById('app-header')?.classList.remove('hidden');
+
+    // 게스트용 초기 데이터 세팅
+    setTravelData(JSON.parse(JSON.stringify(defaultTravelData)));
+
+    // 바로 여행 생성 모달 띄우기
+    setTimeout(() => {
+        createNewTrip();
+    }, 100);
 }
 
 // Handle redirect result on app load (for native apps)
@@ -89,6 +145,26 @@ export async function initAuthStateObserver() {
         if (faviconLink) faviconLink.href = '/favicon.ico';
 
         if (user) {
+            // [New] 로그인 성공 시 게스트 모드 무조건 해제 및 UI 갱신
+            import('../state.js').then(m => {
+                const wasGuest = m.isGuestMode;
+                m.setIsGuestMode(false);
+
+                // localStorage에 보관된 펜딩 데이터가 있다면 동기화 시도
+                const pendingData = localStorage.getItem('pending_guest_data');
+                if (pendingData) {
+                    const guestData = JSON.parse(pendingData);
+                    localStorage.removeItem('pending_guest_data');
+
+                    import('./trip-info.js').then(ti => {
+                        ti.saveAllDayData(null, guestData);
+                    });
+                } else if (wasGuest) {
+                    // 펜딩 데이터는 없으나 게스트 모드였다면 UI 갱신만
+                    import('./renderers.js').then(r => r.renderItinerary());
+                }
+            });
+
             loginBtn?.classList.add('hidden');
             userProfile?.classList.remove('hidden');
 
@@ -323,9 +399,16 @@ export async function completeSignup() {
     }
 }
 
+export async function loginWithGuestData() {
+    const { travelData } = await import('../state.js');
+    await login(travelData);
+}
+
 window.confirmMandatoryTerms = confirmMandatoryTerms;
 window.deleteAccount = deleteAccount;
 window.completeSignup = completeSignup;
+window.enterGuestMode = enterGuestMode;
+window.loginWithGuestData = loginWithGuestData;
 
-export default { login, logout, openLogoutModal, closeLogoutModal, confirmLogout, initAuthStateObserver, confirmMandatoryTerms, deleteAccount, completeSignup };
+export default { login, logout, openLogoutModal, closeLogoutModal, confirmLogout, initAuthStateObserver, confirmMandatoryTerms, deleteAccount, completeSignup, enterGuestMode, loginWithGuestData };
 
