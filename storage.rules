@@ -1,0 +1,75 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    function hasTripDocument(tripId) {
+      return request.auth != null &&
+             firestore.exists(/databases/(default)/documents/plans/$(tripId));
+    }
+
+    function tripRole(tripId) {
+      let plan = firestore.get(/databases/(default)/documents/plans/$(tripId)).data;
+      return plan.createdBy == request.auth.uid || plan.userId == request.auth.uid
+        ? 'owner'
+        : (
+            plan.members != null && request.auth.uid in plan.members
+              ? (
+                  plan.members[request.auth.uid] is string
+                    ? plan.members[request.auth.uid]
+                    : (
+                        plan.members[request.auth.uid] is map &&
+                        plan.members[request.auth.uid].role is string
+                          ? plan.members[request.auth.uid].role
+                          : 'member'
+                      )
+                )
+              : (
+                  plan.members is list && plan.members.hasAny([request.auth.uid])
+                    ? 'member'
+                    : ''
+                )
+          );
+    }
+
+    function canReadTrip(tripId) {
+      return hasTripDocument(tripId) && tripRole(tripId) != '';
+    }
+
+    function canWriteToTrip(tripId) {
+      let role = tripRole(tripId);
+      return hasTripDocument(tripId) && (role == 'owner' || role == 'editor');
+    }
+
+    // 추억 사진
+    match /memories/{tripId}/{fileName} {
+      allow read: if canReadTrip(tripId);
+      // [Security Fix] Stored XSS Prevention: Enforce image content type
+      allow write: if canWriteToTrip(tripId)
+                    && request.resource.size < 10 * 1024 * 1024
+                    && request.resource.contentType.matches('image/.*');
+    }
+
+    // 여행 대표 사진
+    match /trip-covers/{tripId}/{fileName} {
+      allow read: if canReadTrip(tripId);
+      allow write: if canWriteToTrip(tripId)
+                    && request.resource.size < 10 * 1024 * 1024
+                    && request.resource.contentType.matches('image/.*');
+    }
+    
+    // 첨부파일 (사진, PDF)
+    match /attachments/{tripId}/{fileName} {
+      allow read: if canReadTrip(tripId);
+      // [Security Fix] Stored XSS Prevention: Enforce safe content types
+      allow write: if canWriteToTrip(tripId) 
+                   && request.resource.size < 10 * 1024 * 1024
+                   && (request.resource.contentType.matches('image/.*') || request.resource.contentType == 'application/pdf');
+    }
+
+    // 커버 이미지 등 기타 공용 경로는 적절히 제한
+    match /community-covers/{allPaths=**} {
+      allow read: if true;
+      allow write: if false; // Functions에서만 업로드
+    }
+  }
+}

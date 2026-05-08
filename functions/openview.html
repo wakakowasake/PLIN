@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html class="light" lang="ko">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>PLIN - 여행 계획 보기</title>
+
+    <!-- Security: Content Security Policy -->
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self';
+        script-src 'self' https://maps.googleapis.com https://maps.gstatic.com https://www.gstatic.com https://apis.google.com https://*.firebaseio.com https://*.googleapis.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://cdn.tailwindcss.com https://www.googletagmanager.com 'unsafe-inline' 'unsafe-eval' blob:;
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+        img-src 'self' data: blob: https://*.googleapis.com https://*.googleusercontent.com https://*.gstatic.com https://*.ggpht.com https://images.unsplash.com https://api-hkrwkegcrq-uc.a.run.app https://plin-db93d.web.app https://plindb93d.web.app https://www.google.com https://www.google.co.kr https://placehold.co https://api.dicebear.com https://www.googletagmanager.com https://*.pstatic.net https://*.kakaocdn.net;
+        font-src 'self' https://fonts.gstatic.com;
+        connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://api.open-meteo.com https://nominatim.openstreetmap.org wss://*.firebaseio.com http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* https://www.google-analytics.com https://analytics.google.com https://stats.g.doubleclick.net https://www.googletagmanager.com https://api-hkrwkegcrq-uc.a.run.app https://cdnjs.cloudflare.com https://www.gstatic.com;
+        worker-src 'self' blob:;
+        frame-src 'self' https://*.firebaseapp.com http://localhost:* http://127.0.0.1:* https://www.google.com;
+        object-src 'none';
+        base-uri 'self';
+    ">
+
+    <meta name="description" content="PLIN으로 작성된 여행 계획을 확인해보세요.">
+    <meta property="og:title" content="PLIN - 여행 계획 보기">
+    <meta property="og:description" content="설레는 계획부터 소중한 추억까지. 당신의 여행을 한 권의 책처럼 남겨보세요.">
+    <meta property="og:image" content="https://plin-db93d.web.app/images/og-image.png">
+    <meta property="og:type" content="website">
+
+    <!-- Icons -->
+    <link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png">
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link href="https://api-hkrwkegcrq-uc.a.run.app" rel="preconnect" crossorigin />
+    <link href="https://firebasestorage.googleapis.com" rel="preconnect" crossorigin />
+    <link href="https://images.unsplash.com" rel="preconnect" crossorigin />
+    <link href="https://lh3.googleusercontent.com" rel="preconnect" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
+
+    <!-- Styles -->
+    <link href="/css/style.css" rel="stylesheet">
+
+    <!-- Viewer specific styles -->
+    <style>
+        /* Hide elements that shouldn't be in viewer */
+        .edit-only {
+            display: none !important;
+        }
+
+        /* Ensure readability */
+        body {
+            overflow-y: auto;
+        }
+
+        /* Map Container */
+        #route-map-container {
+            width: 100%;
+            height: 100%;
+            min-height: 400px;
+        }
+
+        /* Vibrant Images */
+        .vibrant-img {
+            filter: saturate(1.3);
+        }
+
+        /* Loading Spinner */
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .loading-spinner {
+            animation: spin 1s linear infinite;
+        }
+
+        /* [Fix] Viewer Mode: Force Touch Scroll Enable */
+        .viewer-mode .group\/timeline-item,
+        .viewer-mode [data-index],
+        .viewer-mode .timeline-item {
+            touch-action: pan-y !important;
+            -moz-user-select: auto !important;
+                 user-select: auto !important;
+            -webkit-user-select: auto !important;
+            pointer-events: auto !important;
+        }
+    </style>
+  <script type="module" crossorigin src="/assets/openview-BHrInNPa.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/config-service-DU7U8g2f.js">
+  <link rel="modulepreload" crossorigin href="/assets/vendor-B7dS_VPB.js">
+  <link rel="modulepreload" crossorigin href="/assets/expense-manager-BCaCGaj7.js">
+</head>
+
+<body class="bg-manuscript font-display antialiased text-text-main dark:text-gray-100 min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <script>
+        // [Emergency Fix] Force Viewer Mode for Mobile Scroll
+        // JS 로딩 지연/실패에 대비하여 HTML 파싱 단계에서 즉시 클래스 주입
+        document.body.classList.add('viewer-mode');
+
+        // Touch Scroll Blocking Prevention
+        // dnd.js가 로드되기 전에, 혹은 로드된 후라도 viewer-mode가 있으면 터치 이벤트 차단
+        window.addEventListener('touchstart', function (e) {
+            if (document.body.classList.contains('viewer-mode')) {
+                // 스크롤 허용을 위해 아무것도 하지 않음 (Passive)
+                // 만약 dnd.js가 preventDefault를 하려 하면 그것을 막아야 함? 
+                // 아니오, dnd.js 내부에서 viewer-mode 체크를 하므로 여기서는 클래스만 잘 붙여주면 됨.
+            }
+        }, { passive: true });
+    </script>
+    <header id="app-header"
+        class="sticky top-0 z-[105] bg-white dark:bg-card-dark border-b border-gray-200 dark:border-gray-800 px-4 lg:px-8 py-3">
+        <div class="max-w-[1280px] mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-4 text-text-main dark:text-white">
+                <div class="size-8 flex items-center justify-center">
+                    <img src="/images/icon-180.png" alt="PLIN Logo" class="w-full h-full rounded-lg object-cover">
+                </div>
+                <h2 class="text-text-main dark:text-white text-2xl font-bold leading-tight">PLIN<span
+                        class="text-[12px] font-normal text-primary ml-2 align-top">beta</span> <span
+                        class="text-sm font-normal text-gray-500 ml-1 font-sans">Viewer</span></h2>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <a href="/"
+                    class="bg-primary text-white px-5 py-2.5 rounded-xl font-bold text-lg shadow-md hover:bg-orange-600 hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center gap-2">
+                    <span data-plin-icon="pencil" class="text-xl"></span>
+                    나도 계획 만들기
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay"
+        class="fixed inset-0 z-[250] bg-white dark:bg-card-dark flex items-center justify-center transition-opacity duration-300">
+        <div class="flex flex-col items-center gap-4">
+            <svg class="w-14 h-14 text-primary loading-spinner" xmlns="http://www.w3.org/2000/svg" fill="none"
+                viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                </path>
+            </svg>
+            <p class="text-lg font-bold text-gray-700 dark:text-gray-200">여행 계획 불러오는 중...</p>
+        </div>
+    </div>
+
+    <!-- Error View -->
+    <div id="error-view"
+        class="hidden fixed inset-0 z-[200] flex flex-col items-center justify-center bg-white dark:bg-card-dark p-8 text-center">
+        <span class="material-symbols-outlined text-6xl text-gray-300 mb-4">error</span>
+        <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-2">여행을 찾을 수 없습니다</h2>
+        <p class="text-gray-500 mb-6">존재하지 않거나 비공개된 여행 계획입니다.</p>
+        <a href="/"
+            class="bg-primary text-white px-6 py-3 rounded-xl font-bold hover:bg-orange-600 transition-colors">홈으로
+            가기</a>
+    </div>
+
+    <!-- Main Content (Detail View) -->
+    <div id="detail-view"
+        class="flex-1 max-w-[1280px] w-full mx-auto p-4 lg:p-8 opacity-0 transition-opacity duration-500">
+        <!-- Hero Image -->
+        <div id="trip-hero"
+            class="vibrant-img w-full h-48 md:h-80 bg-gray-200 rounded-2xl bg-cover bg-center mb-8 shadow-md relative overflow-hidden">
+            <div class="absolute inset-0 bg-black/20"></div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <!-- Left Column: Timeline -->
+            <div class="lg:col-span-8 flex flex-col gap-6">
+                <div class="flex flex-col md:flex-row justify-between gap-4">
+                    <div class="flex flex-col gap-2">
+                        <div class="flex items-center gap-2 text-primary font-bold text-lg uppercase tracking-wider">
+                            <span data-plin-icon="calendar-days" class="text-xl"></span>
+                            <span id="trip-day-count">--일차</span>
+                        </div>
+                        <h1 id="trip-title"
+                            class="text-3xl md:text-4xl font-bold text-text-main dark:text-white leading-tight">여행 제목
+                        </h1>
+                        <p id="trip-date-info" class="text-text-muted dark:text-gray-400 font-medium text-lg">--</p>
+                    </div>
+                </div>
+
+                <!-- Day Tabs -->
+                <div class="overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0">
+                    <div id="day-tabs" class="flex border-b border-gray-200 dark:border-gray-700 min-w-max gap-1"></div>
+                </div>
+
+                <!-- Timeline List -->
+                <div class="relative pl-2">
+                    <div id="timeline-list" class="flex flex-col"></div>
+                </div>
+            </div>
+
+            <!-- Right Column: Sidebar -->
+            <div class="lg:col-span-4 flex flex-col gap-6">
+                <!-- Map Card -->
+                <div
+                    class="bg-card-light dark:bg-card-dark rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-1 overflow-hidden">
+                    <div class="w-full h-48 bg-gray-200 rounded-lg relative overflow-hidden group cursor-pointer"
+                        onclick="openRouteModal()">
+                        <div id="map-bg"
+                            class="vibrant-img w-full h-full bg-cover bg-center transition-transform duration-700 group-hover:scale-110">
+                        </div>
+                        <div class="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-colors"></div>
+                        <div
+                            class="absolute bottom-4 right-4 bg-white dark:bg-card-dark text-text-main dark:text-white text-base font-bold px-3 py-1.5 rounded-full shadow-md flex items-center gap-1">
+                            <span data-plin-icon="map" class="text-base"></span>
+                            경로 보기
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Info Cards -->
+                <div class="grid grid-cols-2 gap-4">
+                    <!-- Weather -->
+                    <div
+                        class="bg-card-light dark:bg-card-dark p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col justify-between h-28">
+                        <div class="flex justify-between items-start">
+                            <span
+                                class="text-xs font-bold text-text-muted dark:text-gray-400 uppercase tracking-wider">날씨</span>
+                            <span data-plin-icon="sun" class="text-orange-400 text-2xl"></span>
+                        </div>
+                        <div>
+                            <p id="weather-temp" class="text-2xl font-bold text-text-main dark:text-white">--</p>
+                            <p id="weather-desc" class="text-xs text-text-muted dark:text-gray-400">지역 정보 없음</p>
+                        </div>
+                    </div>
+                    <!-- Budget -->
+                    <div
+                        class="bg-card-light dark:bg-card-dark p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col justify-between h-28">
+                        <div class="flex justify-between items-start">
+                            <span
+                                class="text-sm font-bold text-text-muted dark:text-gray-400 uppercase tracking-wider">예산</span>
+                            <span data-plin-icon="receipt" class="text-green-500 text-2xl"></span>
+                        </div>
+                        <div>
+                            <p id="budget-amount" class="text-2xl font-bold text-text-main dark:text-white">--</p>
+                            <p class="text-sm text-text-muted dark:text-gray-400">총 예산</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Shopping & Checklist -->
+                <div
+                    class="bg-card-light dark:bg-card-dark rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
+                    <h3 class="font-bold text-text-main dark:text-white text-xl flex items-center gap-2 mb-3">
+                        <span data-plin-icon="shopping-bag" class="text-primary text-2xl"></span>
+                        쇼핑 리스트
+                    </h3>
+                    <div id="shopping-list-container" class="flex flex-col gap-2"></div>
+                </div>
+
+                <div
+                    class="bg-card-light dark:bg-card-dark rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
+                    <h3 class="font-bold text-text-main dark:text-white text-xl flex items-center gap-2 mb-3">
+                        <span data-plin-icon="list-checks" class="text-primary text-2xl"></span>
+                        준비물
+                    </h3>
+                    <div id="checklist-container" class="flex flex-col gap-2"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <!-- Route View Modal -->
+    <div id="route-modal"
+        class="hidden fixed inset-0 z-[150] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+        <div
+            class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-5xl h-[80vh] overflow-hidden flex flex-col">
+            <div
+                class="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-white dark:bg-card-dark z-10">
+                <h3 class="text-lg font-bold text-text-main dark:text-white">지도 보기</h3>
+                <button type="button" onclick="closeRouteModal()"
+                    class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-2">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="flex-1 relative bg-gray-100 dark:bg-gray-800">
+                <div id="route-map-container" class="w-full h-full"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- [Added] Expense Detail Modal (Read-Only) -->
+    <div id="expense-detail-modal"
+        class="hidden fixed inset-0 z-[150] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+        <div
+            class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh]">
+            <div
+                class="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-white dark:bg-card-dark">
+                <div class="flex items-center gap-2">
+                    <span data-plin-icon="receipt" class="text-green-500 text-2xl"></span>
+                    <h3 class="text-lg font-bold text-text-main dark:text-white">예산 상세 내역</h3>
+                </div>
+                <button type="button" onclick="closeExpenseModal()"
+                    class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <div class="p-6 overflow-y-auto flex-1">
+                <!-- Total Budget Display -->
+                <div class="text-center mb-8">
+                    <p class="text-sm text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mb-1">총 예상 경비
+                    </p>
+                    <h2 id="modal-total-budget" class="text-4xl font-black text-primary">₩0</h2>
+                </div>
+
+                <!-- Expense List -->
+                <div id="modal-expense-list" class="flex flex-col gap-4">
+                    <!-- JS Generated Content -->
+                </div>
+            </div>
+
+            <div class="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                <button type="button" onclick="closeExpenseModal()"
+                    class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 font-bold py-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+                    닫기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- [Added] Item Detail Modal (Read-Only) -->
+    <div id="item-detail-modal"
+        class="hidden fixed inset-0 z-[150] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+        <div
+            class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col h-[85vh]">
+            <!-- Content Inject by JS -->
+            <div id="item-detail-content" class="w-full h-full flex flex-col"></div>
+        </div>
+    </div>
+
+    <!-- [Added] Transit Detail Modal (Read-Only) -->
+    <div id="transit-detail-modal"
+        class="hidden fixed inset-0 z-[150] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+        <div
+            class="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all">
+            <!-- Content Inject by JS -->
+            <div id="transit-detail-content"></div>
+        </div>
+    </div>
+
+    <!-- Lightbox Modal -->
+    <div id="lightbox-modal"
+        class="hidden fixed inset-0 z-[300] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
+        onclick="closeLightbox()">
+        <button type="button" onclick="closeLightbox()"
+            class="absolute top-4 right-4 text-white hover:text-gray-300 p-2 z-[210]">
+            <span class="material-symbols-outlined text-4xl">close</span>
+        </button>
+        <button type="button" onclick="event.stopPropagation(); navigateLightbox(-1)"
+            class="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 p-2 z-[210] hidden"
+            id="lightbox-prev">
+            <span class="material-symbols-outlined text-4xl">chevron_left</span>
+        </button>
+        <button type="button" onclick="event.stopPropagation(); navigateLightbox(1)"
+            class="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 p-2 z-[210] hidden"
+            id="lightbox-next">
+            <span class="material-symbols-outlined text-4xl">chevron_right</span>
+        </button>
+        <div class="max-w-7xl max-h-[90vh] relative flex flex-col items-center" onclick="event.stopPropagation()">
+            <img id="lightbox-image" src="" alt="확대된 이미지"
+                class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl">
+            <p id="lightbox-caption" class="text-white text-center mt-4 text-lg font-medium"></p>
+        </div>
+    </div>
+
+    <!-- Minimal Scripts -->
+    <!-- Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+
+    <!-- Footer -->
+    <footer
+        class="mt-auto py-8 px-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-card-dark transition-colors">
+        <div class="max-w-[1280px] mx-auto">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                <div class="flex flex-col items-center md:items-start gap-1">
+                    <div class="flex items-center gap-4">
+                        <div class="w-4 h-4 flex items-center justify-center opacity-80">
+                            <span class="font-display font-black text-primary text-sm tracking-tighter">PLIN.</span>
+                        </div>
+                        <span class="text-xs font-medium text-gray-400">© 2026 PLIN Inc.</span>
+                    </div>
+                    <p class="text-[10px] text-gray-400">Plan becomes a Memory.</p>
+                </div>
+                <div class="flex items-center gap-6 flex-wrap justify-center">
+                    <a href="/company.html"
+                        class="text-xs font-medium text-gray-400 hover:text-primary transition-colors">회사소개</a>
+                    <div class="w-px h-3 bg-gray-200 dark:bg-gray-700"></div>
+                    <a href="/terms.html"
+                        class="text-xs font-medium text-gray-400 hover:text-primary transition-colors">이용약관</a>
+                    <div class="w-px h-3 bg-gray-200 dark:bg-gray-700"></div>
+                    <a href="/location-terms.html"
+                        class="text-xs font-medium text-gray-400 hover:text-primary transition-colors">위치기반서비스 약관</a>
+                    <div class="w-px h-3 bg-gray-200 dark:bg-gray-700"></div>
+                    <a href="/operation-policy.html"
+                        class="text-xs font-medium text-gray-400 hover:text-primary transition-colors">운영정책</a>
+                    <div class="w-px h-3 bg-gray-200 dark:bg-gray-700"></div>
+                    <a href="/youth-protection-policy.html"
+                        class="text-xs font-medium text-gray-400 hover:text-primary transition-colors">청소년보호정책</a>
+                    <div class="w-px h-3 bg-gray-200 dark:bg-gray-700"></div>
+                    <a href="/privacy.html"
+                        class="text-xs font-medium text-gray-400 hover:text-primary transition-colors">개인정보처리방침</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- App Logic -->
+
+</body>
+
+</html>

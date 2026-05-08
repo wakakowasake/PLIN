@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ko" class="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>공지사항 | PLIN</title>
+
+    <meta name="description" content="PLIN 서비스 공지, 업데이트, 점검 안내를 확인하는 공지사항 게시판입니다.">
+    <link rel="canonical" href="https://plin.ink/notices.html">
+
+    <link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png">
+
+    <link rel="stylesheet" as="style" crossorigin
+        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#ff6600',
+                    },
+                    fontFamily: {
+                        sans: ['Pretendard', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="/css/policy-docs.css">
+</head>
+
+<body>
+    <div class="policy-page notice-page">
+        <header class="policy-header">
+            <div class="policy-topbar">
+                <a href="/" class="policy-brand">PLIN</a>
+                <nav class="policy-topnav" aria-label="PLIN 앱">
+                    <a href="/?tab=notices" aria-current="page">앱에서 공지 보기</a>
+                </nav>
+            </div>
+            <p class="policy-kicker">Notice Board</p>
+            <h1>공지사항</h1>
+            <p class="policy-meta">서비스 업데이트, 점검, 운영 안내를 이곳에서 확인할 수 있습니다.</p>
+        </header>
+
+        <main class="policy-main notice-main">
+            <section class="notice-admin-panel notice-editor-page hidden" id="notice-admin-panel" aria-labelledby="notice-admin-title">
+                <div class="notice-section-header">
+                    <div>
+                        <p class="notice-eyebrow">Admin</p>
+                        <h2 id="notice-admin-title">공지 작성</h2>
+                    </div>
+                    <button type="button" class="notice-ghost-button" id="notice-cancel-edit-btn">목록으로</button>
+                </div>
+
+                <form class="notice-form" id="notice-form">
+                    <input type="hidden" id="notice-edit-id">
+                    <label>
+                        <span>분류</span>
+                        <select id="notice-category" required>
+                            <option value="공지">공지</option>
+                            <option value="업데이트">업데이트</option>
+                            <option value="점검">점검</option>
+                            <option value="이벤트">이벤트</option>
+                        </select>
+                    </label>
+                    <label>
+                        <span>제목</span>
+                        <input type="text" id="notice-title-input" maxlength="80" placeholder="공지 제목을 입력하세요" required>
+                    </label>
+                    <label class="notice-rich-editor-field">
+                        <span>내용</span>
+                        <textarea id="notice-body-input" maxlength="20000" rows="12" placeholder="공지 내용을 입력하세요."></textarea>
+                    </label>
+                    <p class="notice-richtext-help">상단 편집 도구로 제목, 굵게, 목록, 링크, 이미지, 표를 넣을 수 있습니다.</p>
+                    <label class="notice-checkbox-row">
+                        <input type="checkbox" id="notice-pinned-input">
+                        <span>상단 고정</span>
+                    </label>
+                    <div class="notice-form-footer">
+                        <p id="notice-admin-status" class="notice-admin-status" role="status"></p>
+                        <button type="submit" class="notice-primary-button" id="notice-submit-btn">공지 등록</button>
+                    </div>
+                </form>
+            </section>
+
+            <section id="notice-list-section" aria-labelledby="notice-list-title">
+                <div class="notice-section-header">
+                    <div>
+                        <p class="notice-eyebrow">PLIN Updates</p>
+                        <h2 id="notice-list-title">최근 공지</h2>
+                    </div>
+                    <div class="notice-section-actions">
+                        <button type="button" class="notice-primary-button hidden" id="notice-write-btn">글쓰기</button>
+                        <button type="button" class="notice-secondary-button" id="notice-refresh-btn">새로고침</button>
+                    </div>
+                </div>
+
+                <div class="notice-list" id="notice-list" aria-live="polite">
+                    <article class="notice-loading-card">
+                        <strong>공지사항을 불러오는 중입니다.</strong>
+                        <p>잠시만 기다려 주세요.</p>
+                    </article>
+                </div>
+            </section>
+
+            <footer class="policy-footer-note">
+                <p>관리자 계정으로 로그인한 경우 이 화면에서 공지를 등록하고 수정할 수 있습니다.</p>
+            </footer>
+        </main>
+
+        <div class="policy-footer-nav">
+            <a href="/">PLIN 홈으로 돌아가기</a>
+            <a href="/?tab=notices">앱 안에서 보기</a>
+        </div>
+    </div>
+
+    <script type="module" src="/js/pages/notices.js"></script>
+</body>
+
+</html>

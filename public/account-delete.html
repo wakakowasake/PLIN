@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PLIN 계정 삭제</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f2ea;
+      --surface: #ffffff;
+      --surface-soft: #f3e7d8;
+      --text: #2f2217;
+      --muted: #6e5b49;
+      --accent: #b86c05;
+      --accent-soft: #fff2e2;
+      --danger: #b54b34;
+      --danger-soft: #fff0ec;
+      --border: rgba(115, 84, 52, 0.14);
+      --shadow: 0 24px 48px rgba(82, 53, 24, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+      background:
+        radial-gradient(circle at top right, rgba(255, 208, 149, 0.55), transparent 28%),
+        linear-gradient(180deg, #fcf7f0 0%, var(--bg) 100%);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    main {
+      width: min(100%, 720px);
+      background: var(--surface);
+      border-radius: 28px;
+      padding: 28px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    h1 {
+      margin: 16px 0 10px;
+      font-size: 32px;
+      line-height: 1.15;
+    }
+
+    p {
+      margin: 0;
+      line-height: 1.65;
+      color: var(--muted);
+    }
+
+    ul, ol {
+      margin: 0;
+      padding-left: 20px;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    li + li {
+      margin-top: 6px;
+    }
+
+    .stack {
+      display: grid;
+      gap: 14px;
+      margin-top: 24px;
+    }
+
+    .card {
+      padding: 18px;
+      border-radius: 20px;
+      background: var(--surface-soft);
+      border: 1px solid rgba(184, 108, 5, 0.12);
+    }
+
+    .card.warning {
+      background: var(--danger-soft);
+      border-color: rgba(181, 75, 52, 0.18);
+    }
+
+    .card > strong {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+
+    .card strong {
+      color: var(--text);
+    }
+
+    .card h2 {
+      margin: 0 0 10px;
+      color: var(--text);
+      font-size: 18px;
+      line-height: 1.35;
+    }
+
+    .meta-grid {
+      display: grid;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .meta-row {
+      display: grid;
+      grid-template-columns: 120px minmax(0, 1fr);
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.62);
+      color: var(--muted);
+      font-size: 14px;
+      overflow-wrap: anywhere;
+    }
+
+    .meta-row span:first-child {
+      color: var(--text);
+      font-weight: 800;
+    }
+
+    .status {
+      min-height: 24px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .status[data-tone="warning"] {
+      color: var(--danger);
+    }
+
+    .actions {
+      display: grid;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .sign-in-options {
+      display: grid;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .sign-in-options[hidden] {
+      display: none;
+    }
+
+    button, a.button-link {
+      appearance: none;
+      border: none;
+      border-radius: 16px;
+      padding: 14px 16px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      text-align: center;
+      transition: transform 0.15s ease, opacity 0.15s ease, background 0.15s ease;
+    }
+
+    button:hover, a.button-link:hover {
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .social-login-button {
+      width: 100%;
+      min-height: 56px;
+      display: block;
+      border: 1px solid transparent;
+      box-shadow: 0 10px 20px rgba(47, 34, 23, 0.08);
+    }
+
+    .social-login-button__content {
+      display: grid;
+      grid-template-columns: 30px minmax(0, 1fr) 30px;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .social-login-button__icon-slot {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      min-width: 30px;
+      height: 22px;
+    }
+
+    .social-login-button__label {
+      min-width: 0;
+      text-align: center;
+      font-size: 15px;
+      line-height: 1.35;
+      font-weight: 800;
+    }
+
+    .social-login-button__icon {
+      display: block;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+
+    .social-login-button__icon--google {
+      width: 22px;
+      height: 22px;
+    }
+
+    .social-login-button__icon--kakao {
+      width: 17px;
+      height: 17px;
+    }
+
+    .social-login-button__icon--naver {
+      width: 16px;
+      height: 16px;
+    }
+
+    .social-login-button__apple-glyph {
+      display: block;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+      font-size: 22px;
+      line-height: 1;
+      transform: translateY(-1px);
+    }
+
+    .social-login-button--google {
+      background: #ffffff;
+      border-color: #d9dee7;
+      color: #191919;
+    }
+
+    .social-login-button--apple {
+      background: #111111;
+      border-color: #111111;
+      color: #ffffff;
+    }
+
+    .social-login-button--kakao {
+      background: #fee500;
+      border-color: #f0d900;
+      color: #191919;
+    }
+
+    .social-login-button--naver {
+      background: #03a94d;
+      border-color: #03a94d;
+      color: #ffffff;
+    }
+
+    .danger {
+      background: var(--danger);
+      color: #fff;
+    }
+
+    .secondary {
+      background: #fff;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .fine-print {
+      margin-top: 18px;
+      font-size: 13px;
+    }
+
+    @media (max-width: 640px) {
+      body {
+        align-items: flex-start;
+        padding: 16px;
+      }
+
+      main {
+        padding: 22px;
+        border-radius: 24px;
+      }
+
+      h1 {
+        font-size: 28px;
+      }
+
+      .meta-row {
+        grid-template-columns: 1fr;
+        gap: 2px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <span class="eyebrow">PLIN 계정 관리</span>
+    <h1>웹에서 계정 삭제 요청</h1>
+    <p>이 페이지는 Google Play 스토어 등록정보에 표시되는 PLIN 계정 및 관련 데이터 삭제 요청 링크입니다. 앱에 접근할 수 없을 때도 같은 삭제 요청을 접수할 수 있어요.</p>
+
+    <div class="meta-grid" aria-label="서비스 정보">
+      <div class="meta-row">
+        <span>앱 이름</span>
+        <span>PLIN(플린)</span>
+      </div>
+      <div class="meta-row">
+        <span>개발자</span>
+        <span>우지형</span>
+      </div>
+      <div class="meta-row">
+        <span>계정 삭제 URL</span>
+        <span>https://plin.ink/account-delete.html</span>
+      </div>
+    </div>
+
+    <div class="stack">
+      <section class="card">
+        <strong>현재 로그인 상태</strong>
+        <p id="account-summary">로그인된 계정을 확인하고 있어요.</p>
+      </section>
+
+      <section class="card">
+        <h2>계정 삭제 요청 단계</h2>
+        <ol>
+          <li>삭제하려는 PLIN 계정과 같은 로그인 방식(구글, 카카오, 네이버, 애플)으로 로그인합니다.</li>
+          <li>현재 로그인 상태에 표시된 계정이 삭제할 계정인지 확인합니다.</li>
+          <li><strong>계정 삭제 요청</strong> 버튼을 누르고 확인 창에서 요청을 완료합니다.</li>
+          <li>요청이 완료되면 즉시 로그아웃되고, 계정과 관련 데이터가 삭제됩니다.</li>
+        </ol>
+      </section>
+
+      <section class="card warning">
+        <h2>삭제되는 데이터와 처리 기간</h2>
+        <p>계정 삭제 요청이 완료되면 아래 데이터가 즉시 삭제됩니다.</p>
+        <ul>
+          <li>Firebase 인증 계정, 사용자 프로필, 연결된 로그인 제공자 정보 및 토큰</li>
+          <li>나만 남은 여행 일정, 날짜별 타임라인, 장소, 메모, 가계부, 공유 링크 데이터</li>
+          <li>공유 멤버가 남아 있는 여행에서는 내 멤버 정보가 삭제되고, 내가 소유자라면 소유권이 남은 멤버에게 자동으로 넘어갑니다.</li>
+          <li>커뮤니티 게시글, 댓글, 좋아요, 신고·차단 관련 사용자 활동 기록</li>
+          <li>푸시 알림 설치 정보와 알림 수신 상태</li>
+          <li>로그인·계정 연결 처리에 남은 계정 식별 감사 기록</li>
+          <li>프로필 사진, 여행 대표 사진, 추억 사진, 첨부 이미지·PDF 등 업로드 파일</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>보관될 수 있는 데이터와 추가 보관 기간</h2>
+        <ul>
+          <li>삭제 요청 처리에 필요한 계정 상태와 요청 시각은 삭제 처리 중에만 사용되고 삭제 완료 시 함께 삭제됩니다.</li>
+          <li>관계 법령상 보관 의무가 있는 정보가 발생한 경우에는 해당 법령에서 정한 기간 동안 분리 보관될 수 있습니다.</li>
+          <li>서비스 보안, 오류 진단, 부정 이용 방지를 위한 서버 접속·오류 로그는 개인을 직접 식별하기 어렵게 최소화하여 최대 30일 동안 보관될 수 있습니다.</li>
+          <li>사용자의 브라우저 또는 기기에 남은 캐시, 다운로드 파일, 스크린샷 등은 PLIN 서버 삭제와 별도로 사용자가 직접 정리해야 할 수 있습니다.</li>
+        </ul>
+      </section>
+    </div>
+
+    <div class="actions">
+      <div id="sign-in-options" class="sign-in-options" aria-label="로그인 방식">
+        <button type="button" data-provider="google" class="social-login-button social-login-button--google">
+          <span class="social-login-button__content">
+            <span class="social-login-button__icon-slot" aria-hidden="true">
+              <img src="/images/auth/google-ci-transparent.png" alt="" class="social-login-button__icon social-login-button__icon--google">
+            </span>
+            <span class="social-login-button__label">구글 로그인</span>
+            <span class="social-login-button__icon-slot" aria-hidden="true"></span>
+          </span>
+        </button>
+        <button type="button" data-provider="kakao" class="social-login-button social-login-button--kakao">
+          <span class="social-login-button__content">
+            <span class="social-login-button__icon-slot" aria-hidden="true">
+              <img src="/images/auth/kakao-ci-transparent.png" alt="" class="social-login-button__icon social-login-button__icon--kakao">
+            </span>
+            <span class="social-login-button__label">카카오 로그인</span>
+            <span class="social-login-button__icon-slot" aria-hidden="true"></span>
+          </span>
+        </button>
+        <button type="button" data-provider="naver" class="social-login-button social-login-button--naver">
+          <span class="social-login-button__content">
+            <span class="social-login-button__icon-slot" aria-hidden="true">
+              <img src="/images/auth/naver-ci-transparent.png" alt="" class="social-login-button__icon social-login-button__icon--naver">
+            </span>
+            <span class="social-login-button__label">네이버 로그인</span>
+            <span class="social-login-button__icon-slot" aria-hidden="true"></span>
+          </span>
+        </button>
+        <button type="button" data-provider="apple" class="social-login-button social-login-button--apple">
+          <span class="social-login-button__content">
+            <span class="social-login-button__icon-slot" aria-hidden="true">
+              <span class="social-login-button__apple-glyph"></span>
+            </span>
+            <span class="social-login-button__label">애플 로그인</span>
+            <span class="social-login-button__icon-slot" aria-hidden="true"></span>
+          </span>
+        </button>
+      </div>
+      <button id="delete-account" class="danger" type="button" disabled>계정 삭제 요청</button>
+      <button id="sign-out" class="secondary" type="button" disabled>로그아웃</button>
+      <a class="button-link secondary" href="/">PLIN 홈으로 가기</a>
+      <a class="button-link secondary" href="/privacy.html">개인정보처리방침 보기</a>
+    </div>
+
+    <p id="status" class="status" aria-live="polite"></p>
+    <p class="fine-print">도움이 필요하면 <a href="mailto:plin.ink@gmail.com">plin.ink@gmail.com</a> 로 문의해 주세요.</p>
+  </main>
+
+  <script type="module" src="/js/pages/account-delete.js"></script>
+</body>
+</html>

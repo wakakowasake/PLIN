@@ -1,0 +1,200 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 헬퍼 함수: 사용자 인증 확인
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // 헬퍼 함수: 특정 사용자 확인
+    function isUser(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // 헬퍼 함수: 관리자 여부 확인 (B 방식: 유저 문서의 role 필드 확인)
+    function isAdmin() {
+      return isAuthenticated() &&
+        (
+          request.auth.token.admin == true ||
+          (
+            exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+          )
+        );
+    }
+    
+    function roleForPlan(data) {
+      return !isAuthenticated()
+        ? ''
+        : (
+            data.createdBy == request.auth.uid || data.userId == request.auth.uid
+              ? 'owner'
+              : (
+                  data.members != null && request.auth.uid in data.members
+                    ? (
+                        data.members[request.auth.uid] is string
+                          ? data.members[request.auth.uid]
+                          : (
+                              data.members[request.auth.uid] is map &&
+                              data.members[request.auth.uid].role is string
+                                ? data.members[request.auth.uid].role
+                                : 'member'
+                            )
+                      )
+                    : (
+                        data.members is list && data.members.hasAny([request.auth.uid])
+                          ? 'member'
+                          : ''
+                      )
+                )
+          );
+    }
+
+    function isMember(data) {
+      return roleForPlan(data) != '';
+    }
+
+    function canEditPlan(data) {
+      let role = roleForPlan(data);
+      return role == 'owner' || role == 'editor';
+    }
+
+    function isPlanOwner(data) {
+      return roleForPlan(data) == 'owner';
+    }
+
+    // 사용자 프로필 문서
+    match /users/{userId} {
+      // 본인/관리자만 조회 가능 (개인정보 보호)
+      allow read: if isUser(userId) || isAdmin();
+
+      // [Security Fix] Privilege Escalation Prevention:
+      // 사용자가 스스로 권한/과금 관련 필드를 올리지 못하도록 차단
+      allow create: if isUser(userId) &&
+        (!request.resource.data.keys().hasAny([
+          'role',
+          'isPremium',
+          'points',
+          'credits',
+          'accountStatus',
+          'deletionRequestedAt',
+          'purgeAfter',
+          'blockedUserIds',
+          'deletionReason',
+          'deletionRequestedBy',
+          'purgeLastAttemptAt',
+          'purgeAttempts'
+        ]));
+
+      // 계정 생명주기 필드는 서버(Admin) 경유로만 다룹니다.
+      allow delete: if false;
+
+      allow update: if isUser(userId) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'role',
+          'isPremium',
+          'points',
+          'credits',
+          'accountStatus',
+          'deletionRequestedAt',
+          'purgeAfter',
+          'blockedUserIds',
+          'deletionReason',
+          'deletionRequestedBy',
+          'purgeLastAttemptAt',
+          'purgeAttempts'
+        ]));
+    }
+
+    match /push_installations/{installationId} {
+      allow get, list: if isAuthenticated() &&
+        (
+          resource.data.userId == request.auth.uid
+          || isAdmin()
+        );
+
+      allow create, update: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.expoPushToken is string;
+
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    
+
+    // 여행 계획 문서 (Plans)
+    match /plans/{planId} {
+      // 읽기: 인증된 멤버만 가능. 공개 뷰는 서버 토큰 라우트로만 제공
+      // [Cost Fix] List Query Limit: 전체 목록 조회 시 50개 제한 강제 (비용 폭탄 방지)
+      allow get: if isAuthenticated() && isMember(resource.data);
+      allow list: if isAuthenticated() && isMember(resource.data) && request.query.limit <= 50;
+      
+      // 생성/수정/삭제: 서버(Admin) 경유만 허용
+      allow create, update, delete: if false;
+      
+      // 헬퍼: 부모(Plan) 문서의 멤버십 확인 (isMember 함수 재활용 불가하므로 논리 복사)
+      // 비용: 부모 문서 읽기 1회 발생
+      function parentRole() {
+        let parentData = get(/databases/$(database)/documents/plans/$(planId)).data;
+        return roleForPlan(parentData);
+      }
+
+      function canEditParentPlan() {
+        let role = parentRole();
+        return role == 'owner' || role == 'editor';
+      }
+
+      // 타임라인 아이템 서브컬렉션
+      match /timeline/{itemId} {
+        allow read: if isAuthenticated() && parentRole() != '';
+        allow write: if false;
+      }
+      
+      // 추억 서브컬렉션
+      match /memories/{memoryId} {
+        allow read: if isAuthenticated() && parentRole() != '';
+        allow write: if false;
+      }
+    }
+    
+    // 공유 링크 (읽기 전용 공유)
+    match /sharedTrips/{shareId} {
+      allow read: if false;
+      allow create, update, delete: if false;
+    }
+    
+    // 커뮤니티 포스트 (게시물)
+    match /community_posts/{postId} {
+      // 읽기: 누구나 가능 (전체 피드)
+      allow read: if true;
+      
+      // 생성/수정/삭제: 서버(Admin) 경유만 허용
+      allow create, update, delete: if false;
+
+      // 좋아요 서브컬렉션 (중복 방지용)
+      match /likes/{userId} {
+        allow read: if true;
+        allow write: if false;
+      }
+
+      // 댓글 서브컬렉션
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create, update, delete: if false;
+      }
+    }
+
+    // 공지사항 게시판
+    match /notices/{noticeId} {
+      // 읽기: 사이트 방문자 누구나 가능
+      allow read: if true;
+
+      // 작성/수정/삭제: 관리자 계정만 가능
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

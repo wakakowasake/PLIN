@@ -1,0 +1,23 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "allowJs": true,
+    "checkJs": false,
+    "ignoreDeprecations": "5.0",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ],
+      "@shared/*": [
+        "../../shared/*"
+      ]
+    }
+  },
+  "include": [
+    "App.tsx",
+    "src/**/*",
+    "../../shared/**/*.js"
+  ]
+}

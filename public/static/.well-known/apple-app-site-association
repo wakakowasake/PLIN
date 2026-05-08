@@ -1,0 +1,14 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "B9CQ57K7MA.ink.plin.mobile",
+        "paths": [
+          "/p/*",
+          "/v/invite/*"
+        ]
+      }
+    ]
+  }
+}

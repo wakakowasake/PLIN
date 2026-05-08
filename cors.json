@@ -1,0 +1,12 @@
+[
+  {
+    "origin": [
+      "https://plin.ink",
+      "http://localhost:5173"
+    ],
+    "method": [
+      "GET"
+    ],
+    "maxAgeSeconds": 3600
+  }
+]

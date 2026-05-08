@@ -1,0 +1,107 @@
+{
+  "expo": {
+    "name": "PLIN",
+    "owner": "plin.ink",
+    "slug": "plin-mobile",
+    "scheme": "plinmobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "icon": "./assets/images/app-icon.png",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "plugins": [
+      "expo-apple-authentication",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "PLIN이 여행 대표 사진과 추억 사진을 올릴 때 사진 보관함 접근 권한을 사용해요.",
+          "cameraPermission": "PLIN이 여행 추억 사진을 바로 찍어 올릴 때 카메라 권한을 사용해요."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/auth-logo-white.png",
+          "color": "#ff6600"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 180,
+          "resizeMode": "contain",
+          "backgroundColor": "#ff6600"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "PLIN이 여행 경로 확인과 주변 이동 안내를 위해 위치를 사용해요."
+        }
+      ]
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "ink.plin.mobile",
+      "usesAppleSignIn": true,
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "associatedDomains": [
+        "applinks:plin.ink",
+        "applinks:www.plin.ink"
+      ]
+    },
+    "android": {
+      "package": "ink.plin.mobile",
+      "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/android-adaptive-icon-foreground.png",
+        "backgroundColor": "#ff6600"
+      },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "plin.ink",
+              "pathPrefix": "/p/"
+            },
+            {
+              "scheme": "https",
+              "host": "www.plin.ink",
+              "pathPrefix": "/p/"
+            },
+            {
+              "scheme": "https",
+              "host": "plin.ink",
+              "pathPrefix": "/v/invite/"
+            },
+            {
+              "scheme": "https",
+              "host": "www.plin.ink",
+              "pathPrefix": "/v/invite/"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
+    },
+    "extra": {
+      "eas": {
+        "projectId": "bb3f51bd-4301-418c-9c08-54796093200d"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PLIN - 오프라인</title>
+  <meta name="theme-color" content="#FF6600" />
+  <style>
+    :root {
+      color-scheme: light;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(160deg, #fff8f4, #fff);
+      color: #222;
+      font-family: "Pretendard", "Noto Sans KR", system-ui, -apple-system, sans-serif;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+    .card {
+      width: min(440px, 100%);
+      background: #fff;
+      border: 1px solid #f3dfd6;
+      border-radius: 18px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+      text-align: center;
+    }
+    h1 {
+      margin: 0 0 8px 0;
+      font-size: 1.35rem;
+    }
+    p {
+      margin: 0;
+      color: #555;
+      line-height: 1.6;
+    }
+    button {
+      margin-top: 18px;
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 16px;
+      background: #ff6600;
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>인터넷 연결이 불안정합니다</h1>
+    <p>연결이 복구되면 자동으로 다시 불러오거나, 아래 버튼으로 재시도해 주세요.</p>
+    <button type="button" onclick="location.reload()">다시 시도</button>
+  </main>
+</body>
+</html>

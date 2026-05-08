@@ -1,0 +1,63 @@
+{
+  "name": "plin",
+  "version": "1.0.0",
+  "description": "여행 계획 및 기록 관리 애플리케이션 - 설레는 계획부터 소중한 추억까지",
+  "main": "public/index.html",
+  "scripts": {
+    "dev": "vite",
+    "serve": "firebase serve --only hosting",
+    "build:web": "VITE_MOBILE_WEB_REDIRECT_MODE=${VITE_MOBILE_WEB_REDIRECT_MODE:-off} vite build",
+    "build:mobile-web": "npm --prefix apps/mobile run export:web",
+    "build": "npm run build:web && npm run build:mobile-web",
+    "preview": "vite preview",
+    "build:css": "npx tailwindcss -i ./public/static/css/input.css -o ./public/static/css/style.css --minify",
+    "watch:css": "npx tailwindcss -i ./public/static/css/input.css -o ./public/static/css/style.css --watch",
+    "test:mobile": "npm --prefix apps/mobile run test",
+    "sync:openview": "node scripts/sync-openview.cjs",
+    "deploy": "npm run build && npm run sync:openview && firebase deploy",
+    "deploy:hosting": "npm run build && npm run sync:openview && firebase deploy --only hosting",
+    "deploy:functions": "firebase deploy --only functions",
+    "deploy:rules": "firebase deploy --only firestore:rules,storage:rules",
+    "logs": "firebase functions:log",
+    "clean": "node scripts/rm-paths.cjs node_modules functions/node_modules dist",
+    "update": "npm update && cd functions && npm update && cd ..",
+    "deploy:all": "npm run build && npm run sync:openview && firebase deploy"
+  },
+  "keywords": [
+    "travel",
+    "planner",
+    "itinerary",
+    "trip",
+    "vacation",
+    "firebase",
+    "pwa"
+  ],
+  "author": "PLIN Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/plin.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/plin/issues"
+  },
+  "homepage": "https://plin.ink",
+  "dependencies": {
+    "autoprefixer": "^10.4.23",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "firebase": "^12.9.0",
+    "morphdom": "^2.7.8",
+    "node-fetch": "^2.7.0",
+    "postcss": "^8.5.6",
+    "tinymce": "^8.5.0"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.0",
+    "vite": "^7.3.1"
+  },
+  "engines": {
+    "node": "20",
+    "npm": ">=9.0.0"
+  }
+}

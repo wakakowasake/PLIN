@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PLIN 로그인 완료 중...</title>
+    <style>
+        :root {
+            color-scheme: light;
+            font-family: Pretendard, Inter, "Noto Sans KR", system-ui, sans-serif;
+            background: #ffffff;
+            color: #1a1c20;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            background:
+                radial-gradient(circle at top, rgba(255, 102, 0, 0.18), transparent 36%),
+                linear-gradient(180deg, #ffffff, #f3f4f5);
+        }
+
+        .card {
+            width: min(420px, calc(100vw - 32px));
+            border-radius: 28px;
+            border: 1px solid rgba(220, 222, 227, 0.95);
+            background: rgba(255, 255, 255, 0.96);
+            box-shadow: 0 24px 40px rgba(26, 28, 32, 0.12);
+            padding: 28px 24px;
+            text-align: center;
+        }
+
+        .icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 16px;
+            border-radius: 20px;
+            display: grid;
+            place-items: center;
+            background: rgba(255, 102, 0, 0.1);
+            color: #ff6600;
+            font-weight: 800;
+            font-size: 24px;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: 24px;
+        }
+
+        p {
+            margin: 0;
+            color: #868b94;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon">P</div>
+        <h1 id="title">로그인을 마무리하고 있어요</h1>
+        <p id="description">잠시만 기다리면 원래 보던 화면으로 돌아갑니다.</p>
+    </div>
+    <script>
+        (() => {
+            const SOCIAL_RESULT_KEY = 'plin-pending-social-auth-result';
+            const RETURN_TO_KEY = 'plin-pending-social-return-to';
+            const POPUP_MESSAGE_TYPE = 'plin-social-auth-complete';
+            const POPUP_CHANNEL_NAME = 'plin-social-auth-popup';
+            const POPUP_STORAGE_KEY = 'plin-social-auth-popup-result';
+            const params = new URLSearchParams(window.location.search);
+            const provider = params.get('provider') || '';
+            const ticket = params.get('ticket') || '';
+            const error = params.get('error') || '';
+            const popupMode = params.get('popup') === '1';
+            const titleEl = document.getElementById('title');
+            const descriptionEl = document.getElementById('description');
+
+            function setCopy(title, description) {
+                if (titleEl) titleEl.textContent = title;
+                if (descriptionEl) descriptionEl.textContent = description;
+            }
+
+            if (error) {
+                setCopy('로그인을 끝내지 못했어요', 'PLIN으로 돌아가서 한 번 더 시도해 주세요.');
+            }
+
+            const payload = {
+                type: POPUP_MESSAGE_TYPE,
+                provider,
+                ticket,
+                error,
+                emittedAt: Date.now()
+            };
+
+            function notifyPopupResult() {
+                let notified = false;
+
+                try {
+                    if (window.opener && !window.opener.closed) {
+                        window.opener.postMessage(payload, window.location.origin);
+                        try {
+                            window.opener.focus();
+                        } catch {}
+                        notified = true;
+                    }
+                } catch {}
+
+                try {
+                    if ('BroadcastChannel' in window) {
+                        const channel = new BroadcastChannel(POPUP_CHANNEL_NAME);
+                        channel.postMessage(payload);
+                        channel.close();
+                        notified = true;
+                    }
+                } catch {}
+
+                try {
+                    localStorage.setItem(POPUP_STORAGE_KEY, JSON.stringify(payload));
+                    notified = true;
+                } catch {}
+
+                return notified;
+            }
+
+            function closePopupWindow() {
+                try {
+                    window.close();
+                } catch {}
+
+                if (window.closed) {
+                    return;
+                }
+
+                try {
+                    window.open('', '_self');
+                    window.close();
+                } catch {}
+            }
+
+            if (popupMode) {
+                const notified = notifyPopupResult();
+
+                setCopy(
+                    error ? '결과를 PLIN에 전달했어요' : '로그인을 완료했어요',
+                    notified
+                        ? '원래 창으로 돌아가고 있어요. 이 창은 잠시 후 자동으로 닫힙니다.'
+                        : '이 창을 닫고 원래 PLIN 창으로 돌아가 주세요.'
+                );
+
+                window.setTimeout(closePopupWindow, 60);
+                window.setTimeout(closePopupWindow, 320);
+                window.setTimeout(closePopupWindow, 900);
+                return;
+            }
+
+            if (window.opener && !window.opener.closed) {
+                try {
+                    window.opener.postMessage(payload, window.location.origin);
+                    try {
+                        window.opener.focus();
+                    } catch {}
+                    window.setTimeout(closePopupWindow, 80);
+                    return;
+                } catch {
+                    // Fall back to redirect flow below.
+                }
+            }
+
+            try {
+                sessionStorage.setItem(SOCIAL_RESULT_KEY, JSON.stringify({
+                    provider,
+                    ticket,
+                    error
+                }));
+            } catch {}
+
+            let returnTo = '/';
+            try {
+                returnTo = sessionStorage.getItem(RETURN_TO_KEY) || '/';
+                sessionStorage.removeItem(RETURN_TO_KEY);
+            } catch {}
+
+            window.location.replace(returnTo || '/');
+        })();
+    </script>
+</body>
+</html>
