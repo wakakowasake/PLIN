@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
     hasAcceptedMandatoryTerms,
+    isMandatoryAgreementStateResolved,
     requiresMandatoryAgreement,
     shouldRetryMandatoryAgreementResolution
 } from '../src/auth/mandatory-agreement';
@@ -23,4 +24,15 @@ test('unresolved agreement state keeps the user gated and requires retry', () =>
 
     assert.equal(requiresMandatoryAgreement(user, unresolvedProfile), true);
     assert.equal(shouldRetryMandatoryAgreementResolution(user, unresolvedProfile), true);
+});
+
+test('resolved new profiles can enter the mandatory agreement screen', () => {
+    const newProfile = {
+        agreedToTerms: false,
+        source: 'profile' as const
+    };
+
+    assert.equal(requiresMandatoryAgreement(user, newProfile), true);
+    assert.equal(isMandatoryAgreementStateResolved(user, newProfile), true);
+    assert.equal(shouldRetryMandatoryAgreementResolution(user, newProfile), false);
 });
