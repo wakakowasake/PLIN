@@ -6,7 +6,6 @@ import {
     type NativeStackScreenProps
 } from '@react-navigation/native-stack';
 import {
-    ActivityIndicator,
     Image,
     Pressable,
     ScrollView,
@@ -16,8 +15,6 @@ import {
 } from 'react-native';
 import { useAdaptiveLayout } from '@/hooks/useAdaptiveLayout';
 import { useAuthSession } from '@/hooks/useAuthSession';
-import { useCommunityFeed } from '@/hooks/useCommunityFeed';
-import { useTripList } from '@/hooks/useTripList';
 import type { RootStackParamList, RootTabKey } from '@/navigation/RootNavigator';
 import { CommunityPostDetailScreen } from '@/screens/CommunityPostDetailScreen';
 import { CommunityScreen } from '@/screens/CommunityScreen';
@@ -69,53 +66,11 @@ export function TabletRootShell({ navigation, route }: Props) {
     const [selectedTripId, setSelectedTripId] = React.useState('');
     const [selectedPostId, setSelectedPostId] = React.useState('');
     const [selectedSettingsPane, setSelectedSettingsPane] = React.useState<SettingsPane>('profile');
-    const {
-        items: tripItems,
-        loading: isTripListLoading,
-        error: tripListError,
-        refresh: refreshTrips
-    } = useTripList(user?.uid ?? null);
-    const {
-        items: communityPosts,
-        loading: isCommunityLoading,
-        error: communityError,
-        refresh: refreshCommunity
-    } = useCommunityFeed(user?.uid ?? null);
 
     React.useEffect(() => {
         setActiveSection(getInitialSection(route.name));
     }, [route.name]);
 
-    React.useEffect(() => {
-        if (!tripItems.length) {
-            setSelectedTripId('');
-            return;
-        }
-
-        if (selectedTripId && !tripItems.some((trip) => trip.id === selectedTripId)) {
-            setSelectedTripId('');
-        }
-    }, [selectedTripId, tripItems]);
-
-    React.useEffect(() => {
-        if (!communityPosts.length) {
-            setSelectedPostId('');
-            return;
-        }
-
-        if (selectedPostId && !communityPosts.some((post) => post.id === selectedPostId)) {
-            setSelectedPostId('');
-        }
-    }, [communityPosts, selectedPostId]);
-
-    const selectedTripSummary = React.useMemo(
-        () => tripItems.find((trip) => trip.id === selectedTripId) ?? null,
-        [selectedTripId, tripItems]
-    );
-    const selectedCommunitySummary = React.useMemo(
-        () => communityPosts.find((post) => post.id === selectedPostId) ?? null,
-        [communityPosts, selectedPostId]
-    );
     const profileLabel = getProfileLabel(profileSummary?.displayName, user?.email);
 
     const setRootSection = React.useCallback((section: TabletSection, rootRoute?: RootTabKey) => {
@@ -228,38 +183,6 @@ export function TabletRootShell({ navigation, route }: Props) {
         theme.colors.textPrimary
     ]);
 
-    const renderListState = React.useCallback((title: string, description: string, isLoading: boolean, error: string | null, onRetry: () => void) => {
-        if (isLoading) {
-            return (
-                <View style={styles.stateCard}>
-                    <ActivityIndicator color={theme.colors.accent} />
-                    <Text style={styles.stateTitle}>{title}</Text>
-                    <Text style={styles.stateDescription}>{description}</Text>
-                </View>
-            );
-        }
-
-        if (error) {
-            return (
-                <View style={styles.stateCard}>
-                    <MaterialCommunityIcons name="alert-circle-outline" color={theme.colors.warning} size={26} />
-                    <Text style={styles.stateTitle}>불러오지 못했어요</Text>
-                    <Text style={styles.stateDescription}>{error}</Text>
-                    {renderActionButton('다시 시도', onRetry, 'secondary', 'refresh')}
-                </View>
-            );
-        }
-
-        return null;
-    }, [
-        renderActionButton,
-        styles.stateCard,
-        styles.stateDescription,
-        styles.stateTitle,
-        theme.colors.accent,
-        theme.colors.warning
-    ]);
-
     const renderLeftPane = () => {
         if (route.name === 'Community') {
             return (
@@ -289,7 +212,7 @@ export function TabletRootShell({ navigation, route }: Props) {
     };
 
     const renderTripOverview = () => {
-        if (!selectedTripSummary) {
+        if (!selectedTripId) {
             return (
                 <View style={styles.blankPane}>
                     <Image
@@ -305,7 +228,7 @@ export function TabletRootShell({ navigation, route }: Props) {
         return (
             <View style={styles.rightStackHost}>
                 <TabletRightStack.Navigator
-                    key={selectedTripSummary.id}
+                    key={selectedTripId}
                     initialRouteName="TripDetail"
                     screenOptions={{
                         headerShadowVisible: false,
@@ -328,7 +251,7 @@ export function TabletRootShell({ navigation, route }: Props) {
                     <TabletRightStack.Screen
                         name="TripDetail"
                         component={TripDetailScreen}
-                        initialParams={{ tripId: selectedTripSummary.id }}
+                        initialParams={{ tripId: selectedTripId }}
                         options={{ title: '여행 상세' }}
                     />
                 </TabletRightStack.Navigator>
@@ -353,7 +276,7 @@ export function TabletRootShell({ navigation, route }: Props) {
     );
 
     const renderCommunityOverview = () => {
-        if (!selectedCommunitySummary) {
+        if (!selectedPostId) {
             return (
                 <View style={styles.blankPane}>
                     <Image
@@ -369,7 +292,7 @@ export function TabletRootShell({ navigation, route }: Props) {
         return (
             <View style={styles.rightStackHost}>
                 <TabletRightStack.Navigator
-                    key={selectedCommunitySummary.id}
+                    key={selectedPostId}
                     initialRouteName="CommunityPostDetail"
                     screenOptions={{
                         headerShadowVisible: false,
@@ -392,7 +315,7 @@ export function TabletRootShell({ navigation, route }: Props) {
                     <TabletRightStack.Screen
                         name="CommunityPostDetail"
                         component={CommunityPostDetailScreen}
-                        initialParams={{ postId: selectedCommunitySummary.id }}
+                        initialParams={{ postId: selectedPostId }}
                         options={{ title: '커뮤니티 상세' }}
                     />
                 </TabletRightStack.Navigator>
