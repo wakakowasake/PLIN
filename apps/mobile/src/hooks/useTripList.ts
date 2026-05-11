@@ -8,7 +8,8 @@ import type { MobileTripSummary } from '@/types/trip';
 import {
     DEFAULT_OFFSET_PAGE_LIMIT,
     buildHydrationRevalidateLimit,
-    buildInitialOffsetPageState
+    buildInitialOffsetPageState,
+    mergeOffsetPageItemsById
 } from '@/utils/pagination';
 import { normalizeTripLoadError, type TripLoadErrorKind } from './trip-load-error';
 
@@ -45,26 +46,6 @@ function compareTripSummaries(left: MobileTripSummary, right: MobileTripSummary)
     }
 
     return left.title.localeCompare(right.title, 'ko');
-}
-
-function mergeTripPages(existingItems: MobileTripSummary[], nextItems: MobileTripSummary[]) {
-    if (existingItems.length === 0) {
-        return nextItems;
-    }
-
-    const seenTripIds = new Set(existingItems.map((item) => item.id));
-    const mergedItems = [...existingItems];
-
-    nextItems.forEach((item) => {
-        if (seenTripIds.has(item.id)) {
-            return;
-        }
-
-        seenTripIds.add(item.id);
-        mergedItems.push(item);
-    });
-
-    return mergedItems;
 }
 
 export function useTripList(userId: string | null) {
@@ -119,7 +100,7 @@ export function useTripList(userId: string | null) {
 
     const applyPageResult = useCallback((result: TripListPage, mode: 'replace' | 'append') => {
         const nextItems = mode === 'append'
-            ? mergeTripPages(itemsRef.current, result.items)
+            ? mergeOffsetPageItemsById(itemsRef.current, result.items)
             : result.items;
 
         itemsRef.current = nextItems;

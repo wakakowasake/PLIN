@@ -123,3 +123,26 @@ export function buildInitialOffsetPageState(
         hasMore
     };
 }
+
+export function mergeOffsetPageItemsById<T extends { id: string }>(
+    existingItems: T[],
+    nextItems: T[]
+) {
+    if (existingItems.length === 0) {
+        return nextItems;
+    }
+
+    const seenIds = new Set(existingItems.map((item) => item.id));
+    const mergedItems = [...existingItems];
+
+    nextItems.forEach((item) => {
+        if (seenIds.has(item.id)) {
+            return;
+        }
+
+        seenIds.add(item.id);
+        mergedItems.push(item);
+    });
+
+    return mergedItems;
+}

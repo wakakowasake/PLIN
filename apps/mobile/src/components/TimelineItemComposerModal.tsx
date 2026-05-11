@@ -44,6 +44,8 @@ import {
 } from './InlinePlaceMapPicker';
 import { DurationPickerModal } from './DurationPickerModal';
 import { TimePickerModal } from './TimePickerModal';
+import { useMapOverlayLayout } from './timeline-item-composer/useMapOverlayLayout';
+import { usePlaceSearchFlow } from './timeline-item-composer/usePlaceSearchFlow';
 
 const CATEGORY_OPTIONS: Array<{ code: MobileTimelineItemCategory; label: string }> = [
     { code: 'meal', label: '식사' },
@@ -500,9 +502,14 @@ export function TimelineItemComposerModal({
     const manualConfirmOffset = React.useRef(new Animated.Value(20)).current;
     const mapModeFabOffset = React.useRef(new Animated.Value(theme.spacing.sm)).current;
     const mapZoomControlsOffset = React.useRef(new Animated.Value(80)).current;
-    const searchRequestIdRef = React.useRef(0);
-    const mapCandidatesRequestIdRef = React.useRef(0);
-    const sessionTokenRef = React.useRef(`mobile-timeline-item-${Date.now().toString(36)}`);
+    const {
+        searchRequestIdRef,
+        mapCandidatesRequestIdRef,
+        sessionTokenRef,
+        beginPlaceSearchRequest,
+        invalidateMapCandidatesRequest,
+        invalidatePlaceSearchRequests
+    } = usePlaceSearchFlow('mobile-timeline-item');
     const didManuallyChooseCategoryRef = React.useRef(false);
     const isEditMode = mode === 'edit';
 
@@ -594,41 +601,28 @@ export function TimelineItemComposerModal({
     const timeError = !normalizedTime ? '시간은 HH:MM 형식으로 입력해 주세요.' : null;
     const durationError = normalizedDurationMinutes === null ? '머무는 시간을 선택해 주세요.' : null;
     const canSubmit = !isSaving && !isLoadingPlaceDetail;
-    const manualConfirmBottom = React.useMemo(
-        () => Animated.add(sheetHeight, manualConfirmOffset),
-        [manualConfirmOffset, sheetHeight]
-    );
-    const mapModeFabBottom = React.useMemo(
-        () => Animated.add(sheetHeight, mapModeFabOffset),
-        [mapModeFabOffset, sheetHeight]
-    );
-    const mapPlacePreviewBottom = React.useMemo(
-        () => Animated.add(sheetHeight, mapModeFabOffset),
-        [mapModeFabOffset, sheetHeight]
-    );
-    const areaSearchButtonBottom = React.useMemo(
-        () => Animated.add(sheetHeight, mapModeFabOffset),
-        [mapModeFabOffset, sheetHeight]
-    );
-    const mapZoomControlsBottom = React.useMemo(
-        () => Animated.add(sheetHeight, mapZoomControlsOffset),
-        [mapZoomControlsOffset, sheetHeight]
-    );
-    const manualConfirmFadeStart = React.useMemo(
-        () => sheetHeights[MAX_SHEET_SNAP] - Math.max(72, Math.round(windowHeight * 0.08)),
-        [sheetHeights, windowHeight]
-    );
-    const manualConfirmOpacity = React.useMemo(() => sheetHeight.interpolate({
-        inputRange: [sheetHeights[DEFAULT_SHEET_SNAP], manualConfirmFadeStart, sheetHeights[MAX_SHEET_SNAP]],
-        outputRange: [1, 1, 0],
-        extrapolate: 'clamp'
-    }), [manualConfirmFadeStart, sheetHeight, sheetHeights]);
-    const mapVisibleInsets = React.useMemo(() => ({
-        top: insets.top + theme.spacing.sm + SEARCH_BAR_HEIGHT + theme.spacing.sm,
-        right: theme.spacing.sm,
-        bottom: sheetHeights[sheetSnap] + theme.spacing.sm,
-        left: theme.spacing.sm
-    }), [insets.top, sheetHeights, sheetSnap, theme.spacing.sm]);
+    const {
+        areaSearchButtonBottom,
+        manualConfirmBottom,
+        manualConfirmOpacity,
+        mapModeFabBottom,
+        mapPlacePreviewBottom,
+        mapVisibleInsets,
+        mapZoomControlsBottom
+    } = useMapOverlayLayout({
+        sheetHeight,
+        manualConfirmOffset,
+        mapModeFabOffset,
+        mapZoomControlsOffset,
+        sheetHeights,
+        sheetSnap,
+        defaultSheetSnap: DEFAULT_SHEET_SNAP,
+        maxSheetSnap: MAX_SHEET_SNAP,
+        windowHeight,
+        topInset: insets.top,
+        spacingSm: theme.spacing.sm,
+        searchBarHeight: SEARCH_BAR_HEIGHT
+    });
     const searchPlaceholder = React.useMemo(() => buildSearchPlaceholder(category), [category]);
     const visibleSearchCards = React.useMemo(() => {
         if (searchCards.length > 0) {
@@ -708,7 +702,7 @@ export function TimelineItemComposerModal({
     }, [mapCandidates, mapMode, selectedPlace, sheetHeight, sheetHeights]);
 
     const resetMapInteractionState = React.useCallback(() => {
-        mapCandidatesRequestIdRef.current += 1;
+        invalidateMapCandidatesRequest();
         setMapMode('results');
         setMapCandidates([]);
         setHighlightedCandidateId(null);
@@ -724,7 +718,7 @@ export function TimelineItemComposerModal({
         setIsManualConfirming(false);
         setIsLocatingCurrentPosition(false);
         setIsManualNearbySelection(false);
-    }, []);
+    }, [invalidateMapCandidatesRequest]);
 
     const applySelectedPlace = React.useCallback((
         place: MobileTripCreatePlace,
@@ -900,7 +894,7 @@ export function TimelineItemComposerModal({
         sheetHeight.setValue(sheetHeights[DEFAULT_SHEET_SNAP]);
         sheetHeightRef.current = sheetHeights[DEFAULT_SHEET_SNAP];
         sheetDragStartHeightRef.current = sheetHeights[DEFAULT_SHEET_SNAP];
-        searchRequestIdRef.current += 1;
+        invalidatePlaceSearchRequests();
         sessionTokenRef.current = `mobile-timeline-item-${Date.now().toString(36)}`;
         if (initialSelectedPlace) {
             setMapCandidates([{
@@ -909,7 +903,16 @@ export function TimelineItemComposerModal({
             }]);
             setHighlightedCandidateId(initialSelectedPlace.placeId || null);
         }
-    }, [defaultTime, initialDraft, resetMapInteractionState, sheetHeight, sheetHeights, visible]);
+    }, [
+        defaultTime,
+        initialDraft,
+        invalidatePlaceSearchRequests,
+        resetMapInteractionState,
+        sessionTokenRef,
+        sheetHeight,
+        sheetHeights,
+        visible
+    ]);
 
     React.useEffect(() => {
         if (!visible) {
@@ -970,8 +973,7 @@ export function TimelineItemComposerModal({
     }), [animateSheetToSnap, sheetHeight, sheetHeights]);
 
     const handleSearchQueryChange = React.useCallback((nextValue: string) => {
-        searchRequestIdRef.current += 1;
-        mapCandidatesRequestIdRef.current += 1;
+        invalidatePlaceSearchRequests();
         setSearchQuery(nextValue);
         setSearchResults([]);
         setSearchCards([]);
@@ -998,7 +1000,7 @@ export function TimelineItemComposerModal({
             }
         }
         setActiveSheetTab('results');
-    }, [selectedPlace]);
+    }, [invalidatePlaceSearchRequests, selectedPlace]);
 
     const handleSearchPlaces = React.useCallback(async (locationBias?: ManualCenterDraft) => {
         const query = normalizedSearchQuery;
@@ -1028,10 +1030,10 @@ export function TimelineItemComposerModal({
             return;
         }
 
-        searchRequestIdRef.current += 1;
-        mapCandidatesRequestIdRef.current += 1;
-        const requestId = searchRequestIdRef.current;
-        const mapRequestId = mapCandidatesRequestIdRef.current;
+        const {
+            searchRequestId: requestId,
+            mapCandidatesRequestId: mapRequestId
+        } = beginPlaceSearchRequest();
 
         setIsSearching(true);
         setIsMapCandidatesLoading(true);
@@ -1176,7 +1178,7 @@ export function TimelineItemComposerModal({
                 setIsMapCandidatesLoading(false);
             }
         }
-    }, [animateSheetToSnap, normalizedSearchQuery, selectedPlace]);
+    }, [animateSheetToSnap, beginPlaceSearchRequest, normalizedSearchQuery, selectedPlace]);
 
     const handleMapViewportCenterChange = React.useCallback((
         nextCenter: MapViewportDraft,
@@ -1218,10 +1220,10 @@ export function TimelineItemComposerModal({
             return;
         }
 
-        searchRequestIdRef.current += 1;
-        mapCandidatesRequestIdRef.current += 1;
-        const requestId = searchRequestIdRef.current;
-        const mapRequestId = mapCandidatesRequestIdRef.current;
+        const {
+            searchRequestId: requestId,
+            mapCandidatesRequestId: mapRequestId
+        } = beginPlaceSearchRequest();
 
         setIsSearching(true);
         setIsMapCandidatesLoading(true);
@@ -1315,6 +1317,7 @@ export function TimelineItemComposerModal({
     }, [
         activeSheetTab,
         animateSheetToSnap,
+        beginPlaceSearchRequest,
         isManualNearbySelection,
         isMapCandidatesLoading,
         isSearching,
@@ -1514,10 +1517,10 @@ export function TimelineItemComposerModal({
             return;
         }
 
-        searchRequestIdRef.current += 1;
-        mapCandidatesRequestIdRef.current += 1;
-        const requestId = searchRequestIdRef.current;
-        const mapRequestId = mapCandidatesRequestIdRef.current;
+        const {
+            searchRequestId: requestId,
+            mapCandidatesRequestId: mapRequestId
+        } = beginPlaceSearchRequest();
 
         setIsManualConfirming(true);
         setIsMapCandidatesLoading(true);
@@ -1555,7 +1558,7 @@ export function TimelineItemComposerModal({
                 setIsMapCandidatesLoading(false);
             }
         }
-    }, [showManualNearbyResults]);
+    }, [beginPlaceSearchRequest, showManualNearbyResults]);
 
     const handleSubmit = React.useCallback(() => {
         setDidAttemptSubmit(true);

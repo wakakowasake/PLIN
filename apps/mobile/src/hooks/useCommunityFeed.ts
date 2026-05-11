@@ -6,7 +6,8 @@ import type { MobileCommunityPostSummary } from '@/types/community';
 import {
     DEFAULT_OFFSET_PAGE_LIMIT,
     buildHydrationRevalidateLimit,
-    buildInitialOffsetPageState
+    buildInitialOffsetPageState,
+    mergeOffsetPageItemsById
 } from '@/utils/pagination';
 import {
     normalizeCommunityLoadError,
@@ -20,29 +21,6 @@ type CommunityFeedMemorySnapshot = {
 };
 
 const communityFeedMemoryCache = new Map<string, CommunityFeedMemorySnapshot>();
-
-function mergeCommunityPages(
-    existingItems: MobileCommunityPostSummary[],
-    nextItems: MobileCommunityPostSummary[]
-) {
-    if (existingItems.length === 0) {
-        return nextItems;
-    }
-
-    const seenPostIds = new Set(existingItems.map((item) => item.id));
-    const mergedItems = [...existingItems];
-
-    nextItems.forEach((item) => {
-        if (seenPostIds.has(item.id)) {
-            return;
-        }
-
-        seenPostIds.add(item.id);
-        mergedItems.push(item);
-    });
-
-    return mergedItems;
-}
 
 export function useCommunityFeed(userId: string | null) {
     const { communityRepository } = useAdapters();
@@ -94,7 +72,7 @@ export function useCommunityFeed(userId: string | null) {
 
     const applyPageResult = useCallback((result: CommunityPostListPage, mode: 'replace' | 'append') => {
         const nextItems = mode === 'append'
-            ? mergeCommunityPages(itemsRef.current, result.items)
+            ? mergeOffsetPageItemsById(itemsRef.current, result.items)
             : result.items;
 
         itemsRef.current = nextItems;

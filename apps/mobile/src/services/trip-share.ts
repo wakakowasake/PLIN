@@ -59,24 +59,48 @@ function normalizeLegacyMode(value: unknown): 'restricted' | 'link_view' {
     return value === 'link_view' ? 'link_view' : 'restricted';
 }
 
-function normalizeShareInfo(payload: any): TripShareResponse {
-    const members = Array.isArray(payload?.members)
-        ? payload.members.map((member: any) => ({
-            uid: String(member?.uid || '').trim(),
-            displayName: String(member?.displayName || '').trim() || '멤버',
-            email: String(member?.email || '').trim(),
-            photoURL: String(member?.photoURL || '').trim(),
-            role: normalizeManagedRole(member?.role),
-            isSelf: member?.isSelf === true
-        }))
-        : [];
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
-    const directMode = normalizeShareMode(payload?.shareLink?.mode);
-    const directRole = normalizeShareRole(payload?.shareLink?.role);
-    const directUrl = String(payload?.shareLink?.url || '').trim();
-    const legacyCollaboratorUrl = String(payload?.collaboratorLink?.url || '').trim();
-    const legacyPublicUrl = String(payload?.generalAccess?.url || '').trim();
-    const legacyPublicMode = normalizeLegacyMode(payload?.generalAccess?.mode);
+function readRecord(value: unknown, key: string): Record<string, unknown> {
+    if (!isRecord(value)) {
+        return {};
+    }
+
+    const child = value[key];
+    return isRecord(child) ? child : {};
+}
+
+function readString(value: unknown, fallback = '') {
+    return typeof value === 'string' ? value.trim() : fallback;
+}
+
+function normalizeShareInfo(payload: unknown): TripShareResponse {
+    const payloadRecord = isRecord(payload) ? payload : {};
+    const permissions = readRecord(payloadRecord, 'permissions');
+    const shareLink = readRecord(payloadRecord, 'shareLink');
+    const collaboratorLink = readRecord(payloadRecord, 'collaboratorLink');
+    const generalAccess = readRecord(payloadRecord, 'generalAccess');
+    const rawMembers = Array.isArray(payloadRecord.members) ? payloadRecord.members : [];
+
+    const members = rawMembers
+        .filter(isRecord)
+        .map((member) => ({
+            uid: readString(member.uid),
+            displayName: readString(member.displayName) || '멤버',
+            email: readString(member.email),
+            photoURL: readString(member.photoURL),
+            role: normalizeManagedRole(member.role),
+            isSelf: member.isSelf === true
+        }));
+
+    const directMode = normalizeShareMode(shareLink.mode);
+    const directRole = normalizeShareRole(shareLink.role);
+    const directUrl = readString(shareLink.url);
+    const legacyCollaboratorUrl = readString(collaboratorLink.url);
+    const legacyPublicUrl = readString(generalAccess.url);
+    const legacyPublicMode = normalizeLegacyMode(generalAccess.mode);
 
     let mode: TripShareMode = directMode;
     let role: TripShareLinkRole = directRole;
@@ -89,14 +113,14 @@ function normalizeShareInfo(payload: any): TripShareResponse {
             url = legacyPublicUrl;
         } else if (legacyCollaboratorUrl) {
             mode = 'link';
-            role = normalizeShareRole(payload?.collaboratorLink?.defaultRole);
+            role = normalizeShareRole(collaboratorLink.defaultRole);
             url = legacyCollaboratorUrl;
         }
     }
 
-    const active = mode === 'link' && Boolean(url || payload?.shareLink?.active === true);
-    const rawRole = typeof payload?.permissions?.role === 'string'
-        ? payload.permissions.role
+    const active = mode === 'link' && Boolean(url || shareLink.active === true);
+    const rawRole = typeof permissions.role === 'string'
+        ? permissions.role
         : '';
     const permissionRole = rawRole === 'owner' || rawRole === 'editor' || rawRole === 'member' || rawRole === 'viewer'
         ? rawRole
@@ -105,9 +129,9 @@ function normalizeShareInfo(payload: any): TripShareResponse {
     return {
         permissions: {
             role: permissionRole,
-            canManageShare: payload?.permissions?.canManageShare === true,
-            canManageMembers: payload?.permissions?.canManageMembers === true,
-            canSendAnnouncement: payload?.permissions?.canSendAnnouncement === true
+            canManageShare: permissions.canManageShare === true,
+            canManageMembers: permissions.canManageMembers === true,
+            canSendAnnouncement: permissions.canSendAnnouncement === true
         },
         members,
         shareLink: {
@@ -120,7 +144,7 @@ function normalizeShareInfo(payload: any): TripShareResponse {
 }
 
 export async function fetchTripShareInfo(tripId: string) {
-    const payload = await fetchBackendJson<TripShareResponse>(
+    const payload = await fetchBackendJson<unknown>(
         `/plans/${encodeURIComponent(tripId)}/share`
     );
 
@@ -128,7 +152,7 @@ export async function fetchTripShareInfo(tripId: string) {
 }
 
 export async function updateTripShareInfo(tripId: string, input: TripSharePatchInput) {
-    const payload = await fetchBackendJson<TripShareResponse>(
+    const payload = await fetchBackendJson<unknown>(
         `/plans/${encodeURIComponent(tripId)}/share`,
         {
             method: 'PATCH',
@@ -144,7 +168,7 @@ export async function updateTripMemberRole(
     memberUid: string,
     role: Exclude<TripShareManagedRole, 'owner' | 'viewer'>
 ) {
-    const payload = await fetchBackendJson<TripShareResponse>(
+    const payload = await fetchBackendJson<unknown>(
         `/plans/${encodeURIComponent(tripId)}/members/${encodeURIComponent(memberUid)}`,
         {
             method: 'PATCH',
@@ -156,7 +180,7 @@ export async function updateTripMemberRole(
 }
 
 export async function removeTripMember(tripId: string, memberUid: string) {
-    const payload = await fetchBackendJson<TripShareResponse>(
+    const payload = await fetchBackendJson<unknown>(
         `/plans/${encodeURIComponent(tripId)}/members/${encodeURIComponent(memberUid)}`,
         {
             method: 'DELETE'
@@ -167,7 +191,7 @@ export async function removeTripMember(tripId: string, memberUid: string) {
 }
 
 export async function transferTripOwnership(tripId: string, memberUid: string) {
-    const payload = await fetchBackendJson<TripShareResponse>(
+    const payload = await fetchBackendJson<unknown>(
         `/plans/${encodeURIComponent(tripId)}/owner-transfer`,
         {
             method: 'POST',

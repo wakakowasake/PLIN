@@ -10,14 +10,19 @@ import {
     LayoutAnimation,
     Linking,
     Modal,
+    type NativeScrollEvent,
+    type NativeSyntheticEvent,
     PanResponder,
     Platform,
     Pressable,
     RefreshControl,
     ScrollView,
+    type ImageStyle,
+    type StyleProp,
     StyleSheet,
     Text,
     TextInput,
+    type ViewStyle,
     UIManager,
     View,
     useWindowDimensions
@@ -25,6 +30,11 @@ import {
 import { useIsFocused } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { PanGestureHandler, PinchGestureHandler, State } from 'react-native-gesture-handler';
+import type {
+    PanGestureHandlerStateChangeEvent,
+    PinchGestureHandlerGestureEvent,
+    PinchGestureHandlerStateChangeEvent
+} from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAdapters } from '@/adapters/useAdapters';
@@ -35,7 +45,6 @@ import {
 } from '@/components/BudgetExpenseComposerModal';
 import { BottomImageGradient } from '@/components/BottomImageGradient';
 import { BottomNavBar } from '@/components/BottomNavBar';
-import { DaySection } from '@/components/DaySection';
 import { EmptyState } from '@/components/EmptyState';
 import { Alert } from '@/feedback';
 import { LoadingView } from '@/components/LoadingView';
@@ -52,6 +61,14 @@ import { TripHeader } from '@/components/TripHeader';
 import { useTripDetailAnnouncementActions } from '@/features/trip-detail/useTripDetailAnnouncementActions';
 import { useTripDetailShareActions } from '@/features/trip-detail/useTripDetailShareActions';
 import { useTripDetailScreenController } from '@/features/trip-detail/useTripDetailScreenController';
+import { TripDetailExtrasSection } from '@/features/trip-detail/TripDetailExtrasSection';
+import { TripDetailFilterBar } from '@/features/trip-detail/TripDetailFilterBar';
+import {
+    TripDetailBudgetSummarySection,
+    TripDetailPhotoSummarySection
+} from '@/features/trip-detail/TripDetailSummarySections';
+import { TripDetailTimelineSection } from '@/features/trip-detail/TripDetailTimelineSection';
+import { useTripDetailTimelineMemoryActions } from '@/features/trip-detail/useTripDetailTimelineMemoryActions';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { useKeyboardAwareInputScroll } from '@/hooks/useKeyboardAwareInputScroll';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
@@ -66,7 +83,6 @@ import {
     type TripReminderRecord
 } from '@/services/trip-reminders';
 import { searchTripQuickRouteOptions } from '@/services/trip-quick-route-search';
-import { uploadTripMemoryAssets, type PickedTripMemoryAsset } from '@/services/trip-memory-upload';
 import { useConnectivityStatus } from '@/state/connectivity-store';
 import { usePrimaryScrollActivityReporter } from '@/state/primary-scroll-activity';
 import { publishTripDetailUpdated } from '@/state/trip-write-sync';
@@ -206,8 +222,8 @@ type ZoomableGalleryImageProps = {
     pageWidth: number;
     pageHeight: number;
     isActive: boolean;
-    imageStyle: any;
-    wrapperStyle: any;
+    imageStyle: StyleProp<ImageStyle>;
+    wrapperStyle: StyleProp<ViewStyle>;
     onZoomStateChange?: (zoomed: boolean) => void;
 };
 
@@ -396,14 +412,14 @@ function ZoomableGalleryImage({
         [{ nativeEvent: { scale: pinchScale } }],
         {
             useNativeDriver: true,
-            listener: (event: any) => {
+            listener: (event: PinchGestureHandlerGestureEvent) => {
                 const nextScale = clampNumericValue(scaleRef.current * Number(event.nativeEvent.scale || 1), 1, 3);
                 notifyZoomState(nextScale > 1.01);
             }
         }
     );
 
-    const handlePinchStateChange = React.useCallback((event: any) => {
+    const handlePinchStateChange = React.useCallback((event: PinchGestureHandlerStateChangeEvent) => {
         if (event.nativeEvent.oldState !== State.ACTIVE) {
             return;
         }
@@ -430,7 +446,7 @@ function ZoomableGalleryImage({
         { useNativeDriver: true }
     );
 
-    const handlePanStateChange = React.useCallback((event: any) => {
+    const handlePanStateChange = React.useCallback((event: PanGestureHandlerStateChangeEvent) => {
         if (event.nativeEvent.oldState !== State.ACTIVE) {
             return;
         }
@@ -2031,7 +2047,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
         });
     }, [detailStickyHeaderOffset, theme.spacing.xs]);
 
-    const handleDetailScroll = React.useCallback((event: any) => {
+    const handleDetailScroll = React.useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
         const offsetY = event.nativeEvent.contentOffset.y;
         const nextHeaderFillProgress = hasHeroCoverImage
             ? Math.max(0, Math.min(offsetY / Math.max(heroHeaderCollapseOffset, 1), 1))
@@ -3165,57 +3181,18 @@ export function TripDetailScreen({ navigation, route }: Props) {
         user?.uid
     ]);
 
-    const handleSubmitTimelineMemory = React.useCallback(async (input: { assets: PickedTripMemoryAsset[] }) => {
-        if (!user?.uid || !timelineMemoryComposerTarget || isTimelineInsertSaving) {
-            return;
-        }
-
-        try {
-            setTimelineInsertSaving(true);
-            setTimelineInsertError(null);
-
-            const uploadedPhotoUrls = await uploadTripMemoryAssets({
-                tripId: route.params.tripId,
-                dayIndex: timelineMemoryComposerTarget.dayIndex,
-                itemIndex: timelineMemoryComposerTarget.itemIndex,
-                assets: input.assets
-            });
-            const updatedTrip = await tripRepository.appendTimelineItemMemories(
-                user.uid,
-                route.params.tripId,
-                timelineMemoryComposerTarget.dayId,
-                timelineMemoryComposerTarget.itemId,
-                timelineMemoryComposerTarget.itemIndex,
-                {
-                    uploadedPhotoUrls,
-                    createdAt: new Date().toISOString()
-                }
-            );
-
-            if (!updatedTrip) {
-                throw new Error('추억을 추가하지 못했어요.');
-            }
-
-            publishTripDetailUpdatedWithFeedback(updatedTrip);
-            setTimelineMemoryComposerTarget(null);
-        } catch (error) {
-            const message = error instanceof Error ? error.message : '추억을 추가하지 못했어요.';
-            if (await recoverTripWriteConflict(message, { inlineError: setTimelineInsertError })) {
-                return;
-            }
-            setTimelineInsertError(message);
-        } finally {
-            setTimelineInsertSaving(false);
-        }
-    }, [
-        publishTripDetailUpdatedWithFeedback,
-        recoverTripWriteConflict,
-        isTimelineInsertSaving,
-        route.params.tripId,
-        timelineMemoryComposerTarget,
+    const { handleSubmitTimelineMemory } = useTripDetailTimelineMemoryActions({
+        userId: user?.uid,
+        tripId: route.params.tripId,
+        target: timelineMemoryComposerTarget,
+        isSaving: isTimelineInsertSaving,
+        setSaving: setTimelineInsertSaving,
+        setError: setTimelineInsertError,
+        setTarget: setTimelineMemoryComposerTarget,
         tripRepository,
-        user?.uid
-    ]);
+        publishTripDetailUpdatedWithFeedback,
+        recoverTripWriteConflict
+    });
 
     const scheduleAutoReminderForTransitItem = React.useCallback(async (
         tripDetail: typeof detail,
@@ -4407,139 +4384,30 @@ export function TripDetailScreen({ navigation, route }: Props) {
         && (timelineDetail?.days.every((day) => day.items.length === 0) ?? false);
     const firstTimelineDay = timelineDetail?.days[0] || null;
 
-    const budgetSummarySection = detail.budgetSummary ? (
-        <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="예산 상세 보기"
-            onPress={handleOpenBudgetSummary}
-            style={({ pressed }) => [
-                styles.summaryCard,
-                pressed ? styles.summaryCardPressed : null
-            ]}
-        >
-            <Text style={styles.summaryLabel}>예산 요약</Text>
-            <Text style={styles.summaryValue}>{detail.budgetSummary.totalLabel}</Text>
-            <Text style={styles.summaryCaption}>{detail.budgetSummary.caption}</Text>
-            <View style={styles.metaRow}>
-                <View style={styles.metaPill}>
-                    <Text style={styles.metaPillLabel}>기록 {detail.budgetSummary.entryCount}건</Text>
-                </View>
-                <View style={styles.metaPill}>
-                    <Text style={styles.metaPillLabel}>합계 기록일 {detail.budgetSummary.daysWithExpenseCount}일</Text>
-                </View>
-                {budgetAveragePerDayLabel ? (
-                    <View style={styles.metaPill}>
-                        <Text style={styles.metaPillLabel}>일 평균 {budgetAveragePerDayLabel}</Text>
-                    </View>
-                ) : null}
-            </View>
-        </Pressable>
-    ) : (
-        <View style={styles.summaryCard}>
-            <View style={styles.summaryHeaderRow}>
-                <View style={styles.summaryHeaderCopy}>
-                    <Text style={styles.summaryLabel}>예산 요약</Text>
-                    <Text style={styles.summaryCaption}>
-                        {firstBudgetQuickAddDayId
-                            ? '아직 기록된 지출이 없어요.'
-                            : '일정을 추가하면 지출을 연결할 수 있어요.'}
-                    </Text>
-                </View>
-                {canEditContent ? (
-                    <Pressable
-                        accessibilityRole="button"
-                        disabled={!canQuickAddBudget}
-                        onPress={handleOpenQuickBudgetExpenseComposer}
-                        style={({ pressed }) => [
-                            styles.summaryActionButton,
-                            !canQuickAddBudget ? styles.summaryActionButtonDisabled : null,
-                            pressed && canQuickAddBudget ? styles.summaryActionButtonPressed : null
-                        ]}
-                    >
-                        <Text style={styles.summaryActionButtonText}>추가</Text>
-                    </Pressable>
-                ) : null}
-            </View>
-            <Text style={styles.summaryValue}>₩0</Text>
-            <Text style={styles.listEmptyText}>지출 내역을 바로 추가해 예산 흐름을 기록해 보세요.</Text>
-        </View>
+    const budgetSummarySection = (
+        <TripDetailBudgetSummarySection
+            averagePerDayLabel={budgetAveragePerDayLabel}
+            budgetSummary={detail.budgetSummary}
+            canEditContent={canEditContent}
+            canQuickAddBudget={canQuickAddBudget}
+            firstBudgetQuickAddDayId={firstBudgetQuickAddDayId}
+            onOpenBudgetSummary={handleOpenBudgetSummary}
+            onOpenQuickBudgetExpenseComposer={handleOpenQuickBudgetExpenseComposer}
+            styles={styles}
+        />
     );
 
-    const photoSummarySection = detail.photoCount > 0 ? (
-        <View style={styles.summaryCard}>
-            <View style={styles.summaryHeaderRow}>
-                <View style={styles.summaryHeaderCopy}>
-                    <Text style={styles.summaryLabel}>추억 사진</Text>
-                    <Text style={styles.summaryCaption}>등록된 사진 {detail.photoCount}장</Text>
-                </View>
-                <Pressable
-                    accessibilityRole="button"
-                    onPress={handleOpenPhotoGallery}
-                    style={({ pressed }) => [
-                        styles.summaryActionButton,
-                        pressed ? styles.summaryActionButtonPressed : null
-                    ]}
-                >
-                    <Text style={styles.summaryActionButtonText}>전체 보기</Text>
-                </Pressable>
-            </View>
-            <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.photoStrip}
-            >
-                {detail.photoGalleryUrls.map((url, index) => (
-                    <Pressable
-                        key={`${detail.id}-trip-photo-${index}`}
-                        accessibilityRole="button"
-                        accessibilityLabel={`추억 사진 ${index + 1}번 보기`}
-                        onPress={() => {
-                            handleOpenSummaryPhotoViewer(index);
-                        }}
-                        style={({ pressed }) => [
-                            styles.tripPhotoPreview,
-                            index < detail.photoGalleryUrls.length - 1 ? styles.tripPhotoPreviewSpaced : null,
-                            pressed ? styles.tripPhotoPreviewPressed : null
-                        ]}
-                    >
-                        <Image
-                            source={{ uri: url }}
-                            style={styles.tripPhotoPreviewImage}
-                        />
-                    </Pressable>
-                ))}
-            </ScrollView>
-        </View>
-    ) : (
-        <View style={styles.summaryCard}>
-            <View style={styles.summaryHeaderRow}>
-                <View style={styles.summaryHeaderCopy}>
-                    <Text style={styles.summaryLabel}>추억 사진</Text>
-                    <Text style={styles.summaryCaption}>
-                        {firstMemoryQuickAddTarget
-                            ? '아직 등록된 추억 사진이 없어요.'
-                            : '일정을 추가하면 추억 사진을 붙일 수 있어요.'}
-                    </Text>
-                </View>
-                {canEditContent ? (
-                    <Pressable
-                        accessibilityRole="button"
-                        disabled={!canQuickAddMemory}
-                        onPress={handleOpenQuickMemoryComposer}
-                        style={({ pressed }) => [
-                            styles.summaryActionButton,
-                            !canQuickAddMemory ? styles.summaryActionButtonDisabled : null,
-                            pressed && canQuickAddMemory ? styles.summaryActionButtonPressed : null
-                        ]}
-                    >
-                        <Text style={styles.summaryActionButtonText}>추가</Text>
-                    </Pressable>
-                ) : null}
-            </View>
-            <Text style={styles.listEmptyText}>
-                사진을 고르면 일정 카드의 추억으로 바로 저장돼요.
-            </Text>
-        </View>
+    const photoSummarySection = (
+        <TripDetailPhotoSummarySection
+            canEditContent={canEditContent}
+            canQuickAddMemory={canQuickAddMemory}
+            detail={detail}
+            firstMemoryQuickAddTargetExists={Boolean(firstMemoryQuickAddTarget)}
+            onOpenPhotoGallery={handleOpenPhotoGallery}
+            onOpenQuickMemoryComposer={handleOpenQuickMemoryComposer}
+            onOpenSummaryPhotoViewer={handleOpenSummaryPhotoViewer}
+            styles={styles}
+        />
     );
 
     const checklistSection = (
@@ -4674,43 +4542,13 @@ export function TripDetailScreen({ navigation, route }: Props) {
     );
 
     const detailFilterBarContent = (
-        <View style={styles.filterChipBar}>
-            <ScrollView
-                ref={detailFilterScrollRef}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.filterChipRow}
-            >
-                {detailFilterChips.map((chip, index) => {
-                    const isActive = selectedDetailFilterKey === chip.key;
-
-                    return (
-                        <Pressable
-                            key={chip.key}
-                            accessibilityRole="button"
-                            onPress={() => {
-                                scrollToDetailSection(chip.key);
-                            }}
-                            style={({ pressed }) => [
-                                styles.filterChip,
-                                isActive ? styles.filterChipActive : null,
-                                pressed ? styles.filterChipPressed : null,
-                                index < detailFilterChips.length - 1 ? styles.filterChipSpaced : null
-                            ]}
-                        >
-                            <Text
-                                style={[
-                                    styles.filterChipText,
-                                    isActive ? styles.filterChipTextActive : null
-                                ]}
-                            >
-                                {chip.label}
-                            </Text>
-                        </Pressable>
-                    );
-                })}
-            </ScrollView>
-        </View>
+        <TripDetailFilterBar
+            chips={detailFilterChips}
+            onSelect={scrollToDetailSection}
+            scrollRef={detailFilterScrollRef}
+            selectedKey={selectedDetailFilterKey}
+            styles={styles}
+        />
     );
 
     return (
@@ -4976,53 +4814,31 @@ export function TripDetailScreen({ navigation, route }: Props) {
                     </Pressable>
                 </View>
             ) : null}
-            <>
-                {(timelineDetail?.days.length || 0) === 0 ? (
-                    <EmptyState
-                        title="아직 일정이 없어요."
-                        description="등록된 일정이 아직 없거나, 연결이 완전히 돌아오지 않아 최신 내용을 아직 다 불러오지 못했을 수 있어요."
-                    />
-                ) : (
-                    (timelineDetail?.days || []).map((day) => (
-                        <View
-                            key={day.id}
-                            onLayout={(event) => {
-                                registerDetailSectionOffset(day.id, event.nativeEvent.layout.y);
-                            }}
-                        >
-                            <DaySection
-                                day={day}
-                                isTimelineEditMode={canEditContent && isTimelineEditMode}
-                                canAddEmptyDayItem={canEditContent}
-                                onAddItem={handleOpenTimelineInsertOptions}
-                                onOpenSortMenu={handleOpenTimelineSortMenu}
-                                onSelectItem={handleOpenTimelineItem}
-                                onMoveItem={handleMoveTimelineItem}
-                                onToggleReminder={handleToggleTimelineReminderForItem}
-                                hasReminder={hasTimelineReminderRecord}
-                                onDeleteItem={handleDeleteTimelineItemWithConfirmation}
-                                isDeletingItem={isTimelineItemDeleting || isTripContentSyncing}
-                                isMovingItem={isTimelineItemReordering || isTripContentSyncing}
-                            />
-                        </View>
-                    ))
-                )}
-            </>
-            <View
-                onLayout={(event) => {
-                    registerDetailSectionOffset('extras', event.nativeEvent.layout.y);
+            <TripDetailTimelineSection
+                days={timelineDetail?.days || []}
+                isTimelineEditMode={canEditContent && isTimelineEditMode}
+                canAddEmptyDayItem={canEditContent}
+                onAddItem={handleOpenTimelineInsertOptions}
+                onOpenSortMenu={handleOpenTimelineSortMenu}
+                onSelectItem={handleOpenTimelineItem}
+                onMoveItem={handleMoveTimelineItem}
+                onToggleReminder={handleToggleTimelineReminderForItem}
+                hasReminder={hasTimelineReminderRecord}
+                onDeleteItem={handleDeleteTimelineItemWithConfirmation}
+                isDeletingItem={isTimelineItemDeleting || isTripContentSyncing}
+                isMovingItem={isTimelineItemReordering || isTripContentSyncing}
+                registerSectionOffset={registerDetailSectionOffset}
+            />
+            <TripDetailExtrasSection
+                budgetSummarySection={budgetSummarySection}
+                checklistSection={checklistSection}
+                onLayout={(y) => {
+                    registerDetailSectionOffset('extras', y);
                 }}
-                style={styles.extraContentStack}
-            >
-                <View style={styles.bottomSummaryStack}>
-                    {photoSummarySection}
-                    {budgetSummarySection}
-                </View>
-                <View style={styles.bottomListStack}>
-                    {checklistSection}
-                    {shoppingListSection}
-                </View>
-            </View>
+                photoSummarySection={photoSummarySection}
+                shoppingListSection={shoppingListSection}
+                styles={styles}
+            />
             <TimelineInsertOptionsModal
                 visible={Boolean(timelineInsertTarget)}
                 dayLabel={timelineInsertTarget?.dayLabel || ''}
