@@ -22,7 +22,6 @@ import {
     formatCalendarDisplayDate,
     parseIsoDateInput
 } from '@/components/DateCalendarModal';
-import { DebugInfoCard } from '@/components/DebugInfoCard';
 import { Alert } from '@/feedback';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { useKeyboardAwareInputScroll } from '@/hooks/useKeyboardAwareInputScroll';
@@ -834,12 +833,6 @@ export function TripInfoEditScreen({ navigation, route }: Props) {
                         </Pressable>
                     </View>
                 </View>
-
-                <DebugInfoCard
-                    screen="TripInfoEdit"
-                    dataState={isSaving ? 'saving' : saveError ? 'save-error' : hasChanges ? 'editing' : 'ready'}
-                    lastDataError={saveError}
-                />
             </ScrollView>
             <Modal
                 animationType="fade"

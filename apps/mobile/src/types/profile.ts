@@ -7,6 +7,7 @@ export type MobileProfileSummary = {
     email: string;
     photoURL: string | null;
     role: MobileProfileRole;
+    emailVerificationExempt: boolean;
     agreedToTerms: boolean | null;
     agreedToPrivacy: boolean | null;
     agreedAt: string | null;

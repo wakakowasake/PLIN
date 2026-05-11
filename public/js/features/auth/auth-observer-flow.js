@@ -1,14 +1,34 @@
 import { firebaseReady } from '../../firebase.js';
-import { assertAuthServicesReady, observeAuthState, readCurrentSignInMethod, signOutCurrentUser } from '../../services/firebase/auth-service.js';
+import {
+    assertAuthServicesReady,
+    observeAuthState,
+    signOutCurrentUser
+} from '../../services/firebase/auth-service.js';
 import { fetchUserProfile, mergeUserProfile } from '../../services/firebase/profile-repository.js';
-import { setCurrentUser, defaultTravelData, isGuestMode, setIsGuestMode } from '../../state.js';
-import { cacheUserIdentity, enterGuestModeState, initializeCachedAvatarOnLoad, syncPendingGuestSession } from './session-sync.js';
+import {
+    setCurrentUser,
+    defaultTravelData,
+    isGuestMode,
+    setIsGuestMode,
+    setCurrentTripId,
+    setTravelData
+} from '../../state.js';
+import {
+    cacheUserIdentity,
+    clearUserProfileCache,
+    enterGuestModeState,
+    initializeCachedAvatarOnLoad,
+    syncPendingGuestSession
+} from './session-sync.js';
+import { isEmailVerificationRequiredForUser } from './email-verification-policy.js';
 import { buildUserProfileSeed } from '../../../../shared/services/firebase/profile-data-helpers.js';
 import { sanitizeImageUrl } from '../../ui-utils.js';
 import { showToast } from '../../ui/modals.js';
+import { clearTripListForAuthChange, loadTripList } from '../../ui/trips.js';
 
 const PENDING_DELETION_MESSAGE = '계정 삭제가 요청되어 다시 로그인할 수 없어요. 데이터 삭제 처리 중입니다.';
 let initialTabApplied = false;
+let observedAuthUid = null;
 
 function applyInitialTabFromUrl() {
     if (initialTabApplied || typeof window.switchTab !== 'function') return;
@@ -44,15 +64,6 @@ function showEmailVerificationView(user) {
     document.getElementById('login-btn')?.classList.add('hidden');
     document.getElementById('user-profile')?.classList.add('hidden');
     view.classList.remove('hidden');
-}
-
-async function shouldShowEmailVerification(user) {
-    if (!user || user.emailVerified) {
-        return false;
-    }
-
-    const signInMethod = await readCurrentSignInMethod().catch(() => null);
-    return signInMethod === 'email';
 }
 
 function renderGuestEntrance() {
@@ -102,6 +113,21 @@ function showGuestEntrance(hideLoading) {
     renderGuestEntrance();
 }
 
+function resetAccountScopedTripUi(nextUid, previousUid) {
+    clearTripListForAuthChange(nextUid);
+
+    if (previousUid && previousUid !== nextUid) {
+        clearUserProfileCache();
+        setCurrentTripId(null);
+        setTravelData(JSON.parse(JSON.stringify(defaultTravelData)));
+        window.currentTripPermissions = null;
+        document.getElementById('detail-view')?.classList.add('hidden');
+        document.getElementById('back-btn')?.classList.add('hidden');
+        document.getElementById('share-btn')?.classList.add('hidden');
+        document.querySelectorAll('[id^="trip-menu-"]').forEach((menu) => menu.classList.add('hidden'));
+    }
+}
+
 async function handleAuthenticatedUser(user, { saveAllDayData, renderItinerary }) {
     const loginButtons = document.getElementById('login-provider-buttons');
     const loginBtn = document.getElementById('login-btn');
@@ -113,7 +139,7 @@ async function handleAuthenticatedUser(user, { saveAllDayData, renderItinerary }
     const signupView = document.getElementById('signup-view');
     const appHeader = document.getElementById('app-header');
 
-    if (await shouldShowEmailVerification(user)) {
+    if (await isEmailVerificationRequiredForUser(user)) {
         showEmailVerificationView(user);
         return;
     }
@@ -165,7 +191,7 @@ async function handleAuthenticatedUser(user, { saveAllDayData, renderItinerary }
                 mainView?.classList.remove('hidden');
                 appHeader?.classList.remove('hidden');
 
-                if (window.loadTripList) window.loadTripList(user.uid);
+                await loadTripList(user.uid);
                 if (window.checkInviteLink) window.checkInviteLink();
             }
 
@@ -282,6 +308,13 @@ export async function startAuthStateObserver({ hideLoading, saveAllDayData, rend
     }
 
     return observeAuthState(async (user) => {
+        const nextUid = user?.uid || '';
+        const previousUid = observedAuthUid || '';
+        if (previousUid !== nextUid) {
+            resetAccountScopedTripUi(nextUid, previousUid);
+            observedAuthUid = nextUid;
+        }
+
         setCurrentUser(user);
         const faviconLink = document.querySelector("link[rel~='icon']");
 

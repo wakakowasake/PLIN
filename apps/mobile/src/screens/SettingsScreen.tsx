@@ -18,9 +18,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { AvatarImage } from '@/components/AvatarImage';
 import { BottomNavBar } from '@/components/BottomNavBar';
-import { DebugInfoCard } from '@/components/DebugInfoCard';
 import { EmptyState } from '@/components/EmptyState';
-import { isPrivilegedDebugUser } from '@/dev/debug-access';
 import { Alert } from '@/feedback';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { useKeyboardAwareInputScroll } from '@/hooks/useKeyboardAwareInputScroll';
@@ -102,6 +100,7 @@ function buildFallbackSummary(user: ReturnType<typeof useAuthSession>['user']) {
         email: user.email,
         photoURL: user.photoURL || null,
         role: 'user' as const,
+        emailVerificationExempt: false,
         agreedToTerms: null,
         agreedToPrivacy: null,
         agreedAt: null,
@@ -173,7 +172,6 @@ export function SettingsScreen({ navigation }: Props) {
     const { notifyPrimaryScrollActivity, scrollEventThrottle } = usePrimaryScrollActivityReporter();
 
     const summary = profileSummary || buildFallbackSummary(user);
-    const canAccessDiagnostics = __DEV__ && isPrivilegedDebugUser(profileSummary, user);
     const isPendingDeletion = summary?.accountStatus === 'pending_deletion';
     const profilePrimaryLabel = getProfilePrimaryLabel(summary ?? { displayName: null, email: null });
     const editableProfileName = getEditableProfileName(summary ?? { displayName: null, email: null });
@@ -535,36 +533,6 @@ export function SettingsScreen({ navigation }: Props) {
                             ) : null}
                         </View>
                     </View>
-
-                    {canAccessDiagnostics ? (
-                        <View style={styles.sectionBlock}>
-                            <Text style={styles.sectionLabel}>기타</Text>
-                            <View style={styles.groupCard}>
-                                <Pressable
-                                    accessibilityRole="button"
-                                    onPress={() => navigation.navigate('EmojiDiagnostics')}
-                                    style={({ pressed }) => [
-                                        styles.menuRow,
-                                        pressed ? styles.actionPressed : null
-                                    ]}
-                                >
-                                    <View style={styles.rowCopy}>
-                                        <Text style={styles.rowTitle}>Emoji Diagnostics</Text>
-                                        <Text style={styles.rowDescription}>
-                                            개발용 진단 화면을 열어요.
-                                        </Text>
-                                    </View>
-                                    <Ionicons
-                                        name="chevron-forward"
-                                        size={20}
-                                        color={theme.colors.textSecondary}
-                                    />
-                                </Pressable>
-                            </View>
-                        </View>
-                    ) : null}
-
-                    <DebugInfoCard screen="Settings" dataState="ready" />
                 </ScrollView>
             </SafeAreaView>
             <Modal

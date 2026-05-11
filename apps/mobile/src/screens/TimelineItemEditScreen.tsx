@@ -35,9 +35,9 @@ import {
     DEFAULT_EXPENSE_CURRENCY,
     normalizeExpenseCurrency
 } from '@/components/BudgetExpenseComposerModal';
-import { DebugInfoCard } from '@/components/DebugInfoCard';
 import { Alert } from '@/feedback';
 import { DurationPickerModal } from '@/components/DurationPickerModal';
+import { SheetBackButton } from '@/components/SheetBackButton';
 import { TimelineItemComposerModal } from '@/components/TimelineItemComposerModal';
 import { TimelineMemoryComposerModal } from '@/components/TimelineMemoryComposerModal';
 import { TimePickerModal } from '@/components/TimePickerModal';
@@ -1985,48 +1985,39 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
                         <View style={styles.editSheetHandle} />
                     </View>
                     <View style={styles.actionRow}>
-                        <Pressable
-                            accessibilityRole="button"
-                            disabled={isSaving || isDeleting}
-                            onPress={requestClose}
-                            style={({ pressed }) => [
-                                styles.secondaryAction,
-                                (isSaving || isDeleting) ? styles.secondaryActionDisabled : null,
-                                pressed && !isSaving && !isDeleting ? styles.secondaryActionPressed : null
-                            ]}
-                        >
-                            <Text numberOfLines={1} style={styles.secondaryActionText}>취소</Text>
-                        </Pressable>
-                        <Pressable
-                            accessibilityRole="button"
-                            disabled={saveDisabled}
-                            onPress={() => {
-                                void handleSave();
-                            }}
-                            style={({ pressed }) => [
-                                styles.primaryAction,
-                                saveDisabled ? styles.primaryActionDisabled : null,
-                                pressed && !saveDisabled ? styles.primaryActionPressed : null
-                            ]}
-                        >
-                            <Text numberOfLines={1} style={styles.primaryActionText}>
-                                {isSaving ? '저장 중...' : '저장'}
-                            </Text>
-                        </Pressable>
-                        <Pressable
-                            accessibilityRole="button"
-                            disabled={isSaving || isDeleting}
-                            onPress={handleDelete}
-                            style={({ pressed }) => [
-                                styles.deleteAction,
-                                pressed && !isSaving && !isDeleting ? styles.deleteActionPressed : null,
-                                (isSaving || isDeleting) ? styles.deleteActionDisabled : null
-                            ]}
-                        >
-                            <Text numberOfLines={1} style={styles.deleteActionText}>
-                                {isDeleting ? '삭제 중...' : '삭제'}
-                            </Text>
-                        </Pressable>
+                        <SheetBackButton disabled={isSaving || isDeleting} onPress={requestClose} />
+                        <View style={styles.actionRowActions}>
+                            <Pressable
+                                accessibilityRole="button"
+                                disabled={saveDisabled}
+                                onPress={() => {
+                                    void handleSave();
+                                }}
+                                style={({ pressed }) => [
+                                    styles.primaryAction,
+                                    saveDisabled ? styles.primaryActionDisabled : null,
+                                    pressed && !saveDisabled ? styles.primaryActionPressed : null
+                                ]}
+                            >
+                                <Text numberOfLines={1} style={styles.primaryActionText}>
+                                    {isSaving ? '저장 중...' : '저장'}
+                                </Text>
+                            </Pressable>
+                            <Pressable
+                                accessibilityRole="button"
+                                disabled={isSaving || isDeleting}
+                                onPress={handleDelete}
+                                style={({ pressed }) => [
+                                    styles.deleteAction,
+                                    pressed && !isSaving && !isDeleting ? styles.deleteActionPressed : null,
+                                    (isSaving || isDeleting) ? styles.deleteActionDisabled : null
+                                ]}
+                            >
+                                <Text numberOfLines={1} style={styles.deleteActionText}>
+                                    {isDeleting ? '삭제 중...' : '삭제'}
+                                </Text>
+                            </Pressable>
+                        </View>
                     </View>
                     <ScrollView
                         ref={scrollRef}
@@ -2839,12 +2830,6 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
                         ) : null}
                     </View>
                 ) : null}
-
-                <DebugInfoCard
-                    screen="TimelineItemEdit"
-                    dataState={isSaving || isDeleting ? 'saving' : saveError ? 'save-error' : hasChanges ? 'editing' : 'ready'}
-                    lastDataError={saveError}
-                />
                     </ScrollView>
                 </Animated.View>
             </KeyboardAvoidingView>
@@ -3574,12 +3559,19 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     actionRow: {
         flexDirection: 'row',
         gap: theme.spacing.xs,
+        alignItems: 'center',
+        justifyContent: 'space-between',
         paddingHorizontal: theme.spacing.md,
         paddingTop: theme.spacing.micro,
         paddingBottom: theme.spacing.xs,
         borderBottomWidth: StyleSheet.hairlineWidth,
         borderBottomColor: theme.colors.border,
         backgroundColor: theme.colors.background
+    },
+    actionRowActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: theme.spacing.xs
     },
     secondaryAction: {
         flex: 1,
@@ -3602,10 +3594,11 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         fontFamily: theme.fonts.semibold
     },
     primaryAction: {
-        flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
+        minWidth: 88,
         minHeight: 36,
+        paddingHorizontal: theme.spacing.sm,
         paddingVertical: theme.spacing.xs,
         borderRadius: theme.radius.sm,
         backgroundColor: theme.colors.accent
@@ -3622,10 +3615,11 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         fontFamily: theme.fonts.bold
     },
     deleteAction: {
-        flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
+        minWidth: 88,
         minHeight: 36,
+        paddingHorizontal: theme.spacing.sm,
         paddingVertical: theme.spacing.xs,
         borderRadius: theme.radius.sm,
         backgroundColor: theme.colors.warningSoft

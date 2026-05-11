@@ -16,7 +16,7 @@ import {
 } from '@shared/features/transit/transit-item-helpers.js';
 import { calculateFlightDurationValue } from '@shared/features/transit/flight-time-helpers.js';
 
-import { logImageBoundary, logUnicodeBoundary } from '@/dev/unicode-diagnostics';
+import { logImageBoundary } from '@/dev/image-diagnostics';
 import type {
     CanonicalTripDay,
     CanonicalTripDocument,
@@ -856,12 +856,6 @@ export function mapTripDetail(
         permissions: buildTripPermissions(trip, userId)
     };
 
-    logUnicodeBoundary('trip:mapper:detail', 'trip.meta.title', detail.title, {
-        tripId: trip.id
-    });
-    logUnicodeBoundary('trip:mapper:detail', 'trip.meta.subInfo', detail.subInfo, {
-        tripId: trip.id
-    });
     logImageBoundary('trip:mapper:detail', 'trip.meta.coverImage', detail.coverImage, {
         tripId: trip.id
     });

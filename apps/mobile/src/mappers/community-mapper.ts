@@ -1,6 +1,5 @@
 import { normalizeTripDocument } from '@shared/features/trips/trip-canonical.js';
 
-import { logUnicodeBoundary } from '@/dev/unicode-diagnostics';
 import { mapTripDetail } from '@/mappers/trip-detail-mapper';
 import { mapTripSummary } from '@/mappers/trip-summary-mapper';
 import type {
@@ -129,32 +128,20 @@ export function normalizeCommunityPost(postId: string, data: unknown): RawCommun
 }
 
 export function mapCommunityPostSummary(post: RawCommunityPost): MobileCommunityPostSummary {
-    const summary = {
+    return {
         ...mapTripSummary(normalizeTripDocument(post.id, post) as CanonicalTripDocument),
         ...buildBaseCommunityFields(post),
         isLiked: false
     };
-
-    logUnicodeBoundary('community:mapper:post-summary', 'community.authorName', summary.authorName, {
-        postId: post.id
-    });
-
-    return summary;
 }
 
 export function mapCommunityPostDetail(post: RawCommunityPost): MobileCommunityPostDetail {
-    const detail = {
+    return {
         id: post.id,
         trip: mapTripDetail(normalizeTripDocument(post.id, post) as CanonicalTripDocument),
         ...buildBaseCommunityFields(post),
         isLiked: false
     };
-
-    logUnicodeBoundary('community:mapper:post-detail', 'community.authorName', detail.authorName, {
-        postId: post.id
-    });
-
-    return detail;
 }
 
 function formatCommentCreatedLabel(value: unknown) {
@@ -186,7 +173,7 @@ export function normalizeCommunityComment(commentId: string, data: unknown): Raw
 }
 
 export function mapCommunityComment(comment: RawCommunityComment): MobileCommunityComment {
-    const mappedComment = {
+    return {
         id: comment.id,
         text: readString(comment.text) || '',
         authorUid: readString(comment.authorUid) || '',
@@ -194,13 +181,4 @@ export function mapCommunityComment(comment: RawCommunityComment): MobileCommuni
         authorPhotoURL: readNullableString(comment.authorPhoto),
         createdLabel: formatCommentCreatedLabel(comment.createdAt)
     };
-
-    logUnicodeBoundary('community:mapper:comment', 'community.comment.text', mappedComment.text, {
-        commentId: comment.id
-    });
-    logUnicodeBoundary('community:mapper:comment', 'community.authorName', mappedComment.authorName, {
-        commentId: comment.id
-    });
-
-    return mappedComment;
 }

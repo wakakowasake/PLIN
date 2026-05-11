@@ -10,6 +10,14 @@ firebase-debug.*.log*
 # Firebase cache
 .firebase/
 
+# Repository metadata is not needed on EAS and makes uploads much larger.
+.git
+.git/
+.git/**
+**/.git
+**/.git/**
+.codex/
+
 # Runtime data
 pids
 *.pid
@@ -68,6 +76,32 @@ apps/mobile/firebase-service-account*.json
 .env.local
 .env.*.local
 
+# Web/backend deploy assets are handled by Firebase, not mobile EAS builds.
+functions/
+docs/
+*.docx
+public/*.html
+public/auth/
+public/css/
+public/images/
+public/js/
+public/*.ico
+public/static/*.html
+public/static/*.ico
+public/static/*.json
+public/static/*.xml
+public/static/*.txt
+public/static/*.js
+public/static/*.ttf
+public/static/css/
+public/static/fonts/
+public/static/js/
+public/static/images/*
+!public/static/images/trip-destinations
+!public/static/images/trip-destinations/
+public/static/images/trip-destinations/*
+!public/static/images/trip-destinations/destination-image-file-list.json
+
 # dataconnect generated files
 .dataconnect
 
@@ -84,6 +118,13 @@ dist/
 build/
 apps/mobile/ios/Pods/
 apps/mobile/ios/build/
+apps/mobile/dist-mobile-web-check/
+apps/mobile/reports/
+apps/mobile/.tmp-tests/
+apps/mobile/android/.gradle/
+apps/mobile/android/.kotlin/
+apps/mobile/android/build/
+apps/mobile/android/app/build/
 *.min.js
 *.min.css
 

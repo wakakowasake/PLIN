@@ -21,6 +21,7 @@ import type {
 } from '@/services/trip-share';
 import { type AppTheme, useAppTheme } from '@/theme';
 import { MOBILE_BOTTOM_SHEET_HEIGHTS } from '@/theme/bottomSheet';
+import { SheetBackButton } from './SheetBackButton';
 
 type Props = {
     visible: boolean;
@@ -454,34 +455,20 @@ export function TripShareSheet({
                         styles.sheet,
                         sheetInsetStyle
                     ]}
-                >
-                    <View style={styles.handle} />
-                    <View style={styles.headerRow}>
-                        <View style={styles.headerCopy}>
-                            <Text style={styles.eyebrow}>여행 공유</Text>
-                            <Text numberOfLines={2} style={styles.title}>
-                                {tripTitle || '여행'}
-                            </Text>
-                            <Text style={styles.subtitle}>
-                                {buildBusyLabel(loading, displayShareMode, busyAction, actionDisabled)}
-                            </Text>
+                    >
+                        <View style={styles.handle} />
+                        <View style={styles.headerRow}>
+                            <SheetBackButton disabled={isBusy} onPress={onClose} />
+                            <View style={styles.headerCopy}>
+                                <Text style={styles.eyebrow}>여행 공유</Text>
+                                <Text numberOfLines={2} style={styles.title}>
+                                    {tripTitle || '여행'}
+                                </Text>
+                                <Text style={styles.subtitle}>
+                                    {buildBusyLabel(loading, displayShareMode, busyAction, actionDisabled)}
+                                </Text>
+                            </View>
                         </View>
-                        <Pressable
-                            accessibilityRole="button"
-                            disabled={isBusy}
-                            onPress={onClose}
-                            style={({ pressed }) => [
-                                styles.closeButton,
-                                pressed && !isBusy ? styles.buttonPressed : null
-                            ]}
-                        >
-                            <MaterialCommunityIcons
-                                name="close"
-                                size={18}
-                                color={theme.colors.textSecondary}
-                            />
-                        </Pressable>
-                    </View>
 
                     <ScrollView
                         style={styles.scrollArea}
@@ -712,14 +699,6 @@ const createStyles = (theme: AppTheme) => {
         fontSize: 13,
         lineHeight: 18,
         color: theme.colors.textSecondary
-        },
-        closeButton: {
-        width: 36,
-        height: 36,
-        borderRadius: theme.radius.full,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: theme.colors.surface
         },
         scrollArea: {
         marginTop: theme.spacing.md

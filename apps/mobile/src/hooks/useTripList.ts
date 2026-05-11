@@ -20,6 +20,16 @@ type TripListMemorySnapshot = {
 
 const tripListMemoryCache = new Map<string, TripListMemorySnapshot>();
 
+export function clearTripListMemoryCache(userId?: string | null) {
+    const safeUserId = String(userId || '').trim();
+    if (safeUserId) {
+        tripListMemoryCache.delete(safeUserId);
+        return;
+    }
+
+    tripListMemoryCache.clear();
+}
+
 function resolveTripRecencyTimestamp(summary: Pick<MobileTripSummary, 'updatedAt' | 'createdAt' | 'startDate'>) {
     const rawTimestamp = summary.updatedAt || summary.createdAt || summary.startDate;
     const parsed = Date.parse(String(rawTimestamp || '').trim());

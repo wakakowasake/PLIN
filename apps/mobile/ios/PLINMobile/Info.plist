@@ -29,6 +29,7 @@
         <array>
           <string>plinmobile</string>
           <string>ink.plin.mobile</string>
+          <string>com.googleusercontent.apps.68227359192-v35hop0uqur05pu4ramrljelieh1obig</string>
         </array>
       </dict>
     </array>
@@ -69,6 +70,8 @@
     <array>
       <string>UIInterfaceOrientationPortrait</string>
       <string>UIInterfaceOrientationPortraitUpsideDown</string>
+      <string>UIInterfaceOrientationLandscapeLeft</string>
+      <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
     <key>UISupportedInterfaceOrientations~ipad</key>
     <array>

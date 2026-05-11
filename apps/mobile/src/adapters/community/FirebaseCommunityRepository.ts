@@ -13,7 +13,6 @@ import {
     getMobileFirestore
 } from '@/adapters/firebase/mobile-firebase';
 import { assertTripCreationEnabled } from '@/features/trip-creation';
-import { logUnicodeBoundary } from '@/dev/unicode-diagnostics';
 import {
     mapCommunityComment,
     mapCommunityPostDetail,
@@ -66,59 +65,6 @@ type CommunityBlockMutationResponse = {
 type TripDetailResponse = {
     trip?: Record<string, unknown> & { id?: string };
 };
-
-function logRawCommunityPostUnicodeBoundary(context: string, postId: string, rawData: unknown) {
-    if (!__DEV__ || !rawData || typeof rawData !== 'object' || Array.isArray(rawData)) {
-        return;
-    }
-
-    const safeData = rawData as Record<string, unknown>;
-
-    logUnicodeBoundary(`community:${context}:raw`, 'community.authorName', safeData.authorName, {
-        postId
-    });
-}
-
-function logNormalizedCommunityPostUnicodeBoundary(
-    context: string,
-    post: ReturnType<typeof normalizeCommunityPost>
-) {
-    logUnicodeBoundary(`community:${context}:normalized`, 'community.authorName', post.authorName || '', {
-        postId: post.id
-    });
-}
-
-function logRawCommunityCommentUnicodeBoundary(context: string, postId: string, commentId: string, rawData: unknown) {
-    if (!__DEV__ || !rawData || typeof rawData !== 'object' || Array.isArray(rawData)) {
-        return;
-    }
-
-    const safeData = rawData as Record<string, unknown>;
-
-    logUnicodeBoundary(`community:${context}:raw`, 'community.comment.text', safeData.text, {
-        postId,
-        commentId
-    });
-    logUnicodeBoundary(`community:${context}:raw`, 'community.authorName', safeData.authorName, {
-        postId,
-        commentId
-    });
-}
-
-function logNormalizedCommunityCommentUnicodeBoundary(
-    context: string,
-    postId: string,
-    comment: ReturnType<typeof normalizeCommunityComment>
-) {
-    logUnicodeBoundary(`community:${context}:normalized`, 'community.comment.text', comment.text || '', {
-        postId,
-        commentId: comment.id
-    });
-    logUnicodeBoundary(`community:${context}:normalized`, 'community.authorName', comment.authorName || '', {
-        postId,
-        commentId: comment.id
-    });
-}
 
 export class FirebaseCommunityRepository implements CommunityRepository {
     private authorProfileCache = new Map<string, Promise<ResolvedAuthorProfile | null>>();
@@ -278,9 +224,7 @@ export class FirebaseCommunityRepository implements CommunityRepository {
 
         const summaries = await Promise.all(visibleSnapshots.map(async (postSnapshot) => {
             const rawData = postSnapshot.data();
-            logRawCommunityPostUnicodeBoundary('list-posts', postSnapshot.id, rawData);
             const normalized = normalizeCommunityPost(postSnapshot.id, rawData);
-            logNormalizedCommunityPostUnicodeBoundary('list-posts', normalized);
             const resolved = await this.resolvePostAuthor(normalized);
             const summary = mapCommunityPostSummary(resolved);
             const isLiked = await this.readLikeState(userId, postSnapshot.id);
@@ -334,10 +278,7 @@ export class FirebaseCommunityRepository implements CommunityRepository {
             return null;
         }
 
-        logRawCommunityPostUnicodeBoundary('detail-post', postSnapshot.id, rawData);
-
         const normalized = normalizeCommunityPost(postSnapshot.id, rawData);
-        logNormalizedCommunityPostUnicodeBoundary('detail-post', normalized);
         const resolved = await this.resolvePostAuthor(normalized);
         const detail = mapCommunityPostDetail(resolved);
 
@@ -392,11 +333,7 @@ export class FirebaseCommunityRepository implements CommunityRepository {
 
         return Promise.all(visibleSnapshots.map(async (commentSnapshot) => {
             const rawData = commentSnapshot.data();
-
-            logRawCommunityCommentUnicodeBoundary('list-comments', postId, commentSnapshot.id, rawData);
-
             const normalized = normalizeCommunityComment(commentSnapshot.id, rawData);
-            logNormalizedCommunityCommentUnicodeBoundary('list-comments', postId, normalized);
             const resolved = await this.resolveCommentAuthor(normalized);
             return mapCommunityComment(resolved);
         }));

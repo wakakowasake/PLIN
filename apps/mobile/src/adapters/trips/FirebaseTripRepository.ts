@@ -39,7 +39,6 @@ import {
     removeCachedTrip,
     setCachedTripList
 } from '@/adapters/trips/trip-local-cache';
-import { logUnicodeBoundary } from '@/dev/unicode-diagnostics';
 import { mapTripDetail } from '@/mappers/trip-detail-mapper';
 import { mapTripSummary } from '@/mappers/trip-summary-mapper';
 import { BackendRequestError, fetchBackendJson } from '@/services/backend-client';
@@ -1147,35 +1146,6 @@ function getCanonicalTripSortKey(trip: CanonicalTripDocument) {
     return trip.meta.startDate || trip.days[0]?.date || '';
 }
 
-function logRawTripUnicodeBoundary(context: string, tripId: string, rawData: unknown) {
-    if (!__DEV__) {
-        return;
-    }
-
-    const safeData = isPlainObject(rawData) ? rawData : {};
-    const meta = isPlainObject(safeData.meta) ? safeData.meta : {};
-
-    logUnicodeBoundary(`trip:${context}:raw`, 'trip.meta.title', meta.title ?? safeData.title, {
-        tripId
-    });
-    logUnicodeBoundary(`trip:${context}:raw`, 'trip.meta.subInfo', meta.subInfo ?? safeData.dates, {
-        tripId
-    });
-}
-
-function logCanonicalTripUnicodeBoundary(context: string, trip: CanonicalTripDocument) {
-    if (!__DEV__) {
-        return;
-    }
-
-    logUnicodeBoundary(`trip:${context}:canonical`, 'trip.meta.title', trip.meta.title, {
-        tripId: trip.id
-    });
-    logUnicodeBoundary(`trip:${context}:canonical`, 'trip.meta.subInfo', trip.meta.subInfo, {
-        tripId: trip.id
-    });
-}
-
 function reportLegacyFallbacks(context: string, trip: CanonicalTripDocument) {
     if (!__DEV__ || trip.legacyFallbacks.length === 0) {
         return;
@@ -1232,8 +1202,6 @@ function readTripSummariesFromResponse(
         }
 
         const canonicalTrip = normalizeTripDocument(tripId, trip) as CanonicalTripDocument;
-
-        logCanonicalTripUnicodeBoundary('list', canonicalTrip);
 
         if (!isCanonicalTripMember(canonicalTrip, userId)) {
             return entries;

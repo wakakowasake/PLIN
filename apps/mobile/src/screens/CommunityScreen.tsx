@@ -25,7 +25,6 @@ import {
     formatCalendarDisplayDate,
     parseIsoDateInput
 } from '@/components/DateCalendarModal';
-import { DebugInfoCard } from '@/components/DebugInfoCard';
 import { EmptyState } from '@/components/EmptyState';
 import { Alert } from '@/feedback';
 import {
@@ -1029,11 +1028,6 @@ export function CommunityScreen({ navigation }: Props) {
                                 }}
                             />
                         ) : null}
-                        <DebugInfoCard
-                            screen="Community"
-                            dataState="error"
-                            lastDataError={error || undefined}
-                        />
                     </View>
                 </SafeAreaView>
                 <BottomNavBar activeTab="Community" />
@@ -1199,9 +1193,6 @@ export function CommunityScreen({ navigation }: Props) {
                                 >
                                     <Text style={styles.loadMoreButtonText}>글 더 보기</Text>
                                 </Pressable>
-                            ) : null}
-                            {!isInitialLoading ? (
-                                <DebugInfoCard screen="Community" dataState="ready" />
                             ) : null}
                         </View>
                     )}
@@ -2653,8 +2644,4 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         fontSize: 14,
         fontFamily: theme.fonts.bold
     },
-    debugBlock: {
-        paddingHorizontal: theme.spacing.sm,
-        paddingBottom: theme.spacing.md
-    }
 });

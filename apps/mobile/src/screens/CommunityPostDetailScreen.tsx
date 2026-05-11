@@ -22,14 +22,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAdapters } from '@/adapters/useAdapters';
 import { AvatarImage } from '@/components/AvatarImage';
 import { BottomNavBar } from '@/components/BottomNavBar';
-import { DebugInfoCard } from '@/components/DebugInfoCard';
 import { DaySection } from '@/components/DaySection';
 import { EmojiText, containsEmojiText, emojiSafeFontFamily } from '@/components/EmojiText';
 import { EmptyState } from '@/components/EmptyState';
 import { Alert } from '@/feedback';
 import { LoadingView } from '@/components/LoadingView';
 import { TripHeader } from '@/components/TripHeader';
-import { logUnicodeBoundary } from '@/dev/unicode-diagnostics';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { normalizeCommunityLoadError } from '@/hooks/community-load-error';
 import { useCommunityPostDetail } from '@/hooks/useCommunityPostDetail';
@@ -301,19 +299,6 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
         setLikesCount(detail?.likesCount ?? 0);
     }, [detail?.id, detail?.isLiked, detail?.likesCount]);
 
-    React.useEffect(() => {
-        if (!detail) {
-            return;
-        }
-
-        logUnicodeBoundary('community:render:detail', 'trip.meta.title', detail.trip.title, {
-            postId: detail.id
-        });
-        logUnicodeBoundary('community:render:detail', 'community.authorName', detail.authorName, {
-            postId: detail.id
-        });
-    }, [detail]);
-
     const isCommunityAdmin = isPlinAdminProfile(profileSummary, user);
     const isPostAuthor = Boolean(detail && user && detail.authorUid === user.uid);
     const canDeletePost = Boolean(detail && user && (isPostAuthor || isCommunityAdmin));
@@ -572,19 +557,6 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
 
     const representativeComment = comments[0] ?? null;
 
-    React.useEffect(() => {
-        if (!representativeComment) {
-            return;
-        }
-
-        logUnicodeBoundary('community:render:comment', 'community.comment.text', representativeComment.text, {
-            commentId: representativeComment.id
-        });
-        logUnicodeBoundary('community:render:comment', 'community.authorName', representativeComment.authorName, {
-            commentId: representativeComment.id
-        });
-    }, [representativeComment]);
-
     useForegroundResumeRefresh({
         enabled: isFocused && Boolean(user),
         onRefresh: handleRefresh
@@ -630,13 +602,6 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
                                 void retry();
                             }}
                         />
-                        <View style={styles.stateDebugBlock}>
-                            <DebugInfoCard
-                                screen="CommunityPostDetail"
-                                dataState="error"
-                                lastDataError={error}
-                            />
-                        </View>
                     </View>
                 </View>
                 <BottomNavBar activeTab="Community" />
@@ -842,7 +807,6 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
                     <DaySection key={day.id} day={day} />
                 ))}
 
-                <DebugInfoCard screen="CommunityPostDetail" dataState="ready" />
             </ScrollView>
             <BottomNavBar activeTab="Community" />
 
@@ -1561,17 +1525,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         lineHeight: 20,
         fontFamily: theme.fonts.body
     },
-    debugBlock: {
-        paddingHorizontal: theme.spacing.sm,
-        paddingBottom: theme.spacing.md
-    },
     stateContent: {
         flex: 1,
         paddingHorizontal: theme.spacing.sm,
         paddingTop: theme.spacing.md,
         paddingBottom: theme.spacing.md
-    },
-    stateDebugBlock: {
-        marginTop: theme.spacing.sm
     }
 });

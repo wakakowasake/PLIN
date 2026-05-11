@@ -1,4 +1,4 @@
-import { logImageBoundary, logUnicodeBoundary } from '@/dev/unicode-diagnostics';
+import { logImageBoundary } from '@/dev/image-diagnostics';
 import type {
     CanonicalTripDocument,
     CanonicalTripMemberRole,
@@ -207,12 +207,6 @@ export function mapTripSummary(
         collaborators: buildTripCollaborators(sourceData, userId)
     };
 
-    logUnicodeBoundary('trip:mapper:summary', 'trip.meta.title', summary.title, {
-        tripId: trip.id
-    });
-    logUnicodeBoundary('trip:mapper:summary', 'trip.meta.subInfo', summary.subInfo, {
-        tripId: trip.id
-    });
     logImageBoundary('trip:mapper:summary', 'trip.meta.coverImage', summary.coverImage, {
         tripId: trip.id
     });

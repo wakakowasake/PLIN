@@ -335,21 +335,21 @@
 
     html:not([data-appearance='diary']) .social-login-button {
         border-radius: var(--plin-radius-md);
-        box-shadow: 0 10px 20px rgba(26, 28, 32, 0.08);
+        box-shadow: none;
     }
 
     html:not([data-appearance='diary']) .social-login-button:hover {
         transform: translateY(-1px);
-        box-shadow: 0 12px 22px rgba(26, 28, 32, 0.1);
+        box-shadow: none;
     }
 
     html.dark:not([data-appearance='diary']) .social-login-button--apple {
         border-color: rgba(243, 244, 245, 0.22);
-        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.28), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+        box-shadow: none;
     }
 
     html.dark:not([data-appearance='diary']) .social-login-button--apple:hover {
-        box-shadow: 0 12px 22px rgba(0, 0, 0, 0.34), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+        box-shadow: none;
     }
 
     html.dark:not([data-appearance='diary']) .social-login-button--email {
@@ -370,7 +370,7 @@
     .email-auth-mode-button.is-active {
         background: #ffffff;
         color: #1a1c20;
-        box-shadow: 0 8px 18px rgba(26, 28, 32, 0.08);
+        box-shadow: none;
     }
 
     html.dark:not([data-appearance='diary']) .email-auth-mode-button {
@@ -380,7 +380,7 @@
     html.dark:not([data-appearance='diary']) .email-auth-mode-button.is-active {
         background: #25272c;
         color: #f3f4f5;
-        box-shadow: 0 8px 18px rgba(0, 0, 0, 0.24);
+        box-shadow: none;
     }
 
     .email-auth-status[data-tone='info'] {
@@ -418,28 +418,28 @@
     #signup-view .signup-agreement-card {
         background: rgba(247, 248, 249, 0.98);
         border: 1px solid #dcdee3;
-        box-shadow: 0 12px 24px rgba(26, 28, 32, 0.08);
+        box-shadow: none;
         color: #1a1c20;
     }
 
     #email-verification-view .email-verification-card {
         background: rgba(247, 248, 249, 0.98);
         border: 1px solid #dcdee3;
-        box-shadow: 0 12px 24px rgba(26, 28, 32, 0.08);
+        box-shadow: none;
         color: #1a1c20;
     }
 
     html.dark:not([data-appearance='diary']) #signup-view .signup-agreement-card {
         background: rgba(37, 39, 44, 0.98);
         border-color: #3e4145;
-        box-shadow: 0 18px 38px rgba(0, 0, 0, 0.34);
+        box-shadow: none;
         color: #f3f4f5;
     }
 
     html.dark:not([data-appearance='diary']) #email-verification-view .email-verification-card {
         background: rgba(37, 39, 44, 0.98);
         border-color: #3e4145;
-        box-shadow: 0 18px 38px rgba(0, 0, 0, 0.34);
+        box-shadow: none;
         color: #f3f4f5;
     }
 
@@ -2985,6 +2985,70 @@
         background: linear-gradient(180deg, var(--default-mode-accent-soft) 0%, var(--default-mode-surface) 76%);
     }
 
+    .notice-list-row {
+        display: flex;
+        align-items: stretch;
+        gap: 12px;
+        overflow: hidden;
+        background: var(--default-mode-surface);
+        border: 1px solid var(--default-mode-border);
+        border-radius: var(--plin-radius-md);
+    }
+
+    .notice-list-row.is-pinned {
+        border-color: rgba(255, 102, 0, 0.34);
+        background: linear-gradient(180deg, var(--default-mode-accent-soft) 0%, var(--default-mode-surface) 76%);
+    }
+
+    .notice-list-row-button {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex: 1;
+        min-width: 0;
+        gap: 18px;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+        padding: 18px 20px;
+        text-align: left;
+    }
+
+    .notice-list-row-button:hover,
+    .notice-list-row-button:focus-visible {
+        background: rgba(255, 102, 0, 0.06);
+        outline: 0;
+    }
+
+    .notice-list-row-copy {
+        min-width: 0;
+    }
+
+    .notice-list-row-title {
+        display: block;
+        overflow: hidden;
+        margin: 0;
+        color: var(--default-mode-text);
+        font-size: 17px;
+        line-height: 1.35;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .notice-list-row-arrow {
+        color: var(--default-mode-text-secondary);
+        flex-shrink: 0;
+        font-size: 28px;
+        font-weight: 300;
+        line-height: 1;
+    }
+
+    .notice-list-row > .notice-card-actions {
+        align-self: center;
+        padding: 0 14px 0 0;
+    }
+
     .notice-card-head {
         display: flex;
         align-items: flex-start;
@@ -3024,6 +3088,49 @@
         font-size: 15px;
         line-height: 1.75;
         word-break: keep-all;
+    }
+
+    .notice-detail-section:not(.hidden) {
+        display: grid;
+        gap: 18px;
+    }
+
+    .notice-detail-card {
+        background: var(--default-mode-surface);
+        border: 1px solid var(--default-mode-border);
+        border-radius: var(--plin-radius-md);
+        padding: 26px;
+    }
+
+    .notice-detail-card.is-pinned {
+        border-color: rgba(255, 102, 0, 0.34);
+        background: linear-gradient(180deg, var(--default-mode-accent-soft) 0%, var(--default-mode-surface) 48%);
+    }
+
+    .notice-detail-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        border-bottom: 1px solid var(--default-mode-border);
+        margin-bottom: 22px;
+        padding-bottom: 20px;
+    }
+
+    .notice-detail-copy {
+        min-width: 0;
+    }
+
+    .notice-detail-card h2 {
+        margin: 0;
+        color: var(--default-mode-text);
+        font-size: 28px;
+        line-height: 1.3;
+        word-break: keep-all;
+    }
+
+    .notice-detail-body {
+        margin-top: 0 !important;
     }
 
     .notice-markdown {
@@ -3176,9 +3283,36 @@
     @media (max-width: 767px) {
         .notice-section-header,
         .notice-card-head,
+        .notice-detail-head,
         .notice-form-footer {
             flex-direction: column;
             align-items: stretch;
+        }
+
+        .notice-list-row {
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .notice-list-row-button {
+            align-items: flex-start;
+            padding: var(--plin-space-sm);
+        }
+
+        .notice-list-row-title {
+            white-space: normal;
+        }
+
+        .notice-list-row > .notice-card-actions {
+            padding: 0 var(--plin-space-sm) var(--plin-space-sm);
+        }
+
+        .notice-detail-card {
+            padding: 20px;
+        }
+
+        .notice-detail-card h2 {
+            font-size: 23px;
         }
 
         .notice-card-actions {

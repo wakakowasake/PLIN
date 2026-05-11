@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useKeyboardAwareInputScroll } from '@/hooks/useKeyboardAwareInputScroll';
 import { type AppTheme, useAppTheme } from '@/theme';
 import { MOBILE_BOTTOM_SHEET_HEIGHTS } from '@/theme/bottomSheet';
+import { SheetBackButton } from './SheetBackButton';
 
 type Props = {
     visible: boolean;
@@ -93,11 +94,16 @@ export function TripAnnouncementSheet({
                     ]}
                 >
                     <View style={styles.handle} />
-                    <Text style={styles.eyebrow}>참가자 공지</Text>
-                    <Text style={styles.title}>참가자에게 공지 보내기</Text>
-                    <Text style={styles.description}>
-                        {tripTitle || '이 여행'} 참가자에게 바로 알림을 보낼 수 있어요.
-                    </Text>
+                    <View style={styles.headerRow}>
+                        <SheetBackButton disabled={busy} onPress={onClose} />
+                        <View style={styles.headerCopy}>
+                            <Text style={styles.eyebrow}>참가자 공지</Text>
+                            <Text style={styles.title}>참가자에게 공지 보내기</Text>
+                            <Text style={styles.description}>
+                                {tripTitle || '이 여행'} 참가자에게 바로 알림을 보낼 수 있어요.
+                            </Text>
+                        </View>
+                    </View>
 
                     <ScrollView
                         ref={scrollRef}
@@ -215,6 +221,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         borderRadius: theme.radius.full,
         backgroundColor: theme.colors.border,
         marginBottom: theme.spacing.sm
+    },
+    headerRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: theme.spacing.xs
+    },
+    headerCopy: {
+        flex: 1
     },
     eyebrow: {
         color: theme.colors.accent,

@@ -35,7 +35,6 @@ import {
 } from '@/components/BudgetExpenseComposerModal';
 import { BottomImageGradient } from '@/components/BottomImageGradient';
 import { BottomNavBar } from '@/components/BottomNavBar';
-import { DebugInfoCard } from '@/components/DebugInfoCard';
 import { DaySection } from '@/components/DaySection';
 import { EmptyState } from '@/components/EmptyState';
 import { Alert } from '@/feedback';
@@ -50,7 +49,6 @@ import { TimelineQuickRoutePickerModal } from '@/components/TimelineQuickRoutePi
 import { TimelineTransitComposerModal } from '@/components/TimelineTransitComposerModal';
 import { TimelineTransitTypePickerModal } from '@/components/TimelineTransitTypePickerModal';
 import { TripHeader } from '@/components/TripHeader';
-import { logUnicodeBoundary } from '@/dev/unicode-diagnostics';
 import { useTripDetailAnnouncementActions } from '@/features/trip-detail/useTripDetailAnnouncementActions';
 import { useTripDetailShareActions } from '@/features/trip-detail/useTripDetailShareActions';
 import { useTripDetailScreenController } from '@/features/trip-detail/useTripDetailScreenController';
@@ -186,6 +184,9 @@ type BudgetExpenseComposerTarget = {
         location: string;
     }>;
 } | null;
+type BudgetExpenseComposerOpenOptions = {
+    closeSummaryFirst?: boolean;
+};
 
 type TripListComposerTarget = MobileTripListType | null;
 type TripDetailFilterKey = 'extras' | string;
@@ -1949,19 +1950,6 @@ export function TripDetailScreen({ navigation, route }: Props) {
 
         resetTripRevisionSheetState();
     }, [canEditContentByPermission, isTripRevisionSheetVisible, resetTripRevisionSheetState]);
-
-    React.useEffect(() => {
-        if (!detail) {
-            return;
-        }
-
-        logUnicodeBoundary('trip:render:detail', 'trip.meta.title', detail.title, {
-            tripId: detail.id
-        });
-        logUnicodeBoundary('trip:render:detail', 'trip.meta.subInfo', detail.subInfo, {
-            tripId: detail.id
-        });
-    }, [detail]);
 
     React.useEffect(() => {
         setBudgetSummaryVisible(false);
@@ -3731,23 +3719,38 @@ export function TripDetailScreen({ navigation, route }: Props) {
         setBudgetSummaryVisible(false);
     }, []);
 
-    const handleOpenBudgetExpenseComposer = React.useCallback((dayId: string) => {
+    const handleOpenBudgetExpenseComposer = React.useCallback((dayId: string, options: BudgetExpenseComposerOpenOptions = {}) => {
         const targetDay = budgetDetailDays.find((day) => day.id === dayId);
-        if (!targetDay || targetDay.itemOptions.length === 0 || !canEditContent) {
+        if (!targetDay || !canEditContent) {
             return;
         }
 
-        setBudgetExpenseComposerTarget({
-            dayId: targetDay.id,
-            dayLabel: targetDay.label,
-            dayDate: targetDay.date,
-            options: targetDay.itemOptions
-        });
-        setBudgetExpenseSelectedItemId(targetDay.itemOptions[0]?.itemId || '');
-        setBudgetExpenseDescription('');
-        setBudgetExpenseAmount('');
-        setBudgetExpenseCurrency(DEFAULT_EXPENSE_CURRENCY);
-        setBudgetExpenseShoppingIndex(null);
+        if (targetDay.itemOptions.length === 0) {
+            Alert.alert('지출 추가', '이 날에는 아직 지출을 연결할 일정이 없어요. 먼저 일정을 추가해 주세요.');
+            return;
+        }
+
+        const openComposer = () => {
+            setBudgetExpenseComposerTarget({
+                dayId: targetDay.id,
+                dayLabel: targetDay.label,
+                dayDate: targetDay.date,
+                options: targetDay.itemOptions
+            });
+            setBudgetExpenseSelectedItemId(targetDay.itemOptions[0]?.itemId || '');
+            setBudgetExpenseDescription('');
+            setBudgetExpenseAmount('');
+            setBudgetExpenseCurrency(DEFAULT_EXPENSE_CURRENCY);
+            setBudgetExpenseShoppingIndex(null);
+        };
+
+        if (options.closeSummaryFirst) {
+            setBudgetSummaryVisible(false);
+            setTimeout(openComposer, Platform.OS === 'android' ? 260 : 180);
+            return;
+        }
+
+        openComposer();
     }, [budgetDetailDays, canEditContent]);
 
     const handleOpenQuickMemoryComposer = React.useCallback(() => {
@@ -3936,15 +3939,19 @@ export function TripDetailScreen({ navigation, route }: Props) {
         setTripListLocationKey('');
     }, [canEditContent]);
 
+    const resetTripListComposer = React.useCallback(() => {
+        setTripListComposerTarget(null);
+        setTripListInput('');
+        setTripListLocationKey('');
+    }, []);
+
     const handleCloseTripListComposer = React.useCallback(() => {
         if (isTripListSaving) {
             return;
         }
 
-        setTripListComposerTarget(null);
-        setTripListInput('');
-        setTripListLocationKey('');
-    }, [isTripListSaving]);
+        resetTripListComposer();
+    }, [isTripListSaving, resetTripListComposer]);
 
     const handleSubmitTripListItem = React.useCallback(async () => {
         if (!tripListComposerTarget || !user?.uid || isTripListToggleSyncing) {
@@ -3977,7 +3984,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
             }
 
             publishTripDetailUpdatedWithFeedback(updatedTrip);
-            handleCloseTripListComposer();
+            resetTripListComposer();
         } catch (error) {
             const message = error instanceof Error ? error.message : '항목을 추가하지 못했어요.';
             if (await recoverTripWriteConflict(message, { alertTitle: '리스트 저장 실패' })) {
@@ -3988,9 +3995,9 @@ export function TripDetailScreen({ navigation, route }: Props) {
             setTripListSaving(false);
         }
     }, [
-        handleCloseTripListComposer,
         isTripListToggleSyncing,
         publishTripDetailUpdatedWithFeedback,
+        resetTripListComposer,
         recoverTripWriteConflict,
         route.params.tripId,
         tripListComposerTarget,
@@ -4362,13 +4369,6 @@ export function TripDetailScreen({ navigation, route }: Props) {
                                 void retry();
                             }}
                         />
-                        <View style={styles.stateDebugBlock}>
-                            <DebugInfoCard
-                                screen="TripDetail"
-                                dataState="error"
-                                lastDataError={error}
-                            />
-                        </View>
                     </View>
                 </View>
                 <BottomNavBar activeTab="TripList" />
@@ -4394,12 +4394,6 @@ export function TripDetailScreen({ navigation, route }: Props) {
                                 navigation.navigate('TripList');
                             }}
                         />
-                        <View style={styles.stateDebugBlock}>
-                            <DebugInfoCard
-                                screen="TripDetail"
-                                dataState="not-found"
-                            />
-                        </View>
                     </View>
                 </View>
                 <BottomNavBar activeTab="TripList" />
@@ -5029,10 +5023,6 @@ export function TripDetailScreen({ navigation, route }: Props) {
                     {shoppingListSection}
                 </View>
             </View>
-            <DebugInfoCard
-                screen="TripDetail"
-                dataState="ready"
-            />
             <TimelineInsertOptionsModal
                 visible={Boolean(timelineInsertTarget)}
                 dayLabel={timelineInsertTarget?.dayLabel || ''}
@@ -5286,11 +5276,11 @@ export function TripDetailScreen({ navigation, route }: Props) {
                                                     {day.date} · 총 {day.totalLabel}
                                                 </Text>
                                             </View>
-                                            {canEditContent && day.itemOptions.length > 0 ? (
+                                            {canEditContent ? (
                                                 <Pressable
                                                     accessibilityRole="button"
                                                     onPress={() => {
-                                                        handleOpenBudgetExpenseComposer(day.id);
+                                                        handleOpenBudgetExpenseComposer(day.id, { closeSummaryFirst: true });
                                                     }}
                                                     style={({ pressed }) => [
                                                         styles.summaryActionButton,
@@ -5380,7 +5370,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
                                             : '여행 전에 챙길 항목을 기록해 둬요.'}
                                         </Text>
                                 </View>
-                                <View style={styles.sheetHeaderActions}>
+                                <View style={[styles.sheetHeaderActions, styles.tripListSheetHeaderActions]}>
                                     <Pressable
                                         accessibilityRole="button"
                                         disabled={isTripListSaving || isTripListToggleSyncing}
@@ -5393,6 +5383,27 @@ export function TripDetailScreen({ navigation, route }: Props) {
                                         ]}
                                     >
                                         <Text style={styles.sheetCloseButtonText}>닫기</Text>
+                                    </Pressable>
+                                    <Pressable
+                                        accessibilityRole="button"
+                                        accessibilityLabel="항목 저장"
+                                        disabled={isTripListSaving || isTripListToggleSyncing}
+                                        onPress={() => {
+                                            void handleSubmitTripListItem();
+                                        }}
+                                        style={({ pressed }) => [
+                                            styles.sheetSaveButton,
+                                            pressed && !isTripListSaving && !isTripListToggleSyncing
+                                                ? styles.sheetSaveButtonPressed
+                                                : null,
+                                            isTripListSaving || isTripListToggleSyncing
+                                                ? styles.sheetHeaderActionDisabled
+                                                : null
+                                        ]}
+                                    >
+                                        <Text style={styles.sheetSaveButtonText}>
+                                            {isTripListSaving || isTripListToggleSyncing ? '저장 중' : '저장'}
+                                        </Text>
                                     </Pressable>
                                 </View>
                             </View>
@@ -5470,30 +5481,6 @@ export function TripDetailScreen({ navigation, route }: Props) {
                                         </View>
                                     </View>
                                 ) : null}
-                                <Pressable
-                                    accessibilityRole="button"
-                                    disabled={isTripListSaving || isTripListToggleSyncing}
-                                    onPress={() => {
-                                        void handleSubmitTripListItem();
-                                    }}
-                                    style={({ pressed }) => [
-                                        styles.primaryActionButton,
-                                        pressed && !isTripListSaving && !isTripListToggleSyncing
-                                            ? styles.primaryActionButtonPressed
-                                            : null,
-                                        isTripListSaving || isTripListToggleSyncing
-                                            ? styles.primaryActionButtonDisabled
-                                            : null
-                                    ]}
-                                >
-                                    <Text style={styles.primaryActionButtonText}>
-                                        {isTripListSaving
-                                            ? '저장 중...'
-                                            : isTripListToggleSyncing
-                                                ? '체크 저장 중...'
-                                                : '항목 저장'}
-                                    </Text>
-                                </Pressable>
                             </ScrollView>
                             </View>
                         ) : null}
@@ -6374,9 +6361,6 @@ const createStyles = (theme: AppTheme) => {
         paddingHorizontal: theme.spacing.xs,
         paddingBottom: theme.spacing.lg
     },
-    stateDebugBlock: {
-        marginTop: theme.spacing.md
-    },
     headerSurfacePressed: {
         opacity: 0.96
     },
@@ -6388,10 +6372,6 @@ const createStyles = (theme: AppTheme) => {
         color: theme.colors.textPrimary,
         fontSize: 18,
         fontFamily: theme.fonts.semibold
-    },
-    debugBlock: {
-        paddingHorizontal: theme.spacing.xs,
-        paddingBottom: theme.spacing.sm
     },
     topActions: {
         flexDirection: 'row',
@@ -7178,6 +7158,11 @@ const createStyles = (theme: AppTheme) => {
     sheetHeaderActions: {
         alignItems: 'flex-end'
     },
+    tripListSheetHeaderActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: theme.spacing.xs
+    },
     sheetHeaderActionDisabled: {
         opacity: 0.55
     },
@@ -7252,6 +7237,19 @@ const createStyles = (theme: AppTheme) => {
     sheetCloseButtonText: {
         color: theme.colors.textPrimary,
         fontFamily: theme.fonts.semibold
+    },
+    sheetSaveButton: {
+        borderRadius: theme.radius.md,
+        paddingHorizontal: theme.spacing.sm,
+        paddingVertical: theme.spacing.xs,
+        backgroundColor: theme.colors.accent
+    },
+    sheetSaveButtonPressed: {
+        opacity: 0.9
+    },
+    sheetSaveButtonText: {
+        color: '#fff',
+        fontFamily: theme.fonts.bold
     },
     sheetScroll: {
         flexGrow: 0
@@ -7371,24 +7369,6 @@ const createStyles = (theme: AppTheme) => {
         backgroundColor: theme.colors.surfaceMuted,
         color: theme.colors.textPrimary,
         fontFamily: theme.fonts.body
-    },
-    primaryActionButton: {
-        minHeight: 48,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginTop: theme.spacing.sm,
-        borderRadius: theme.radius.md,
-        backgroundColor: theme.colors.accent
-    },
-    primaryActionButtonPressed: {
-        opacity: 0.9
-    },
-    primaryActionButtonDisabled: {
-        opacity: 0.55
-    },
-    primaryActionButtonText: {
-        color: '#fff',
-        fontFamily: theme.fonts.bold
     },
     statPill: {
         marginRight: theme.spacing.micro,

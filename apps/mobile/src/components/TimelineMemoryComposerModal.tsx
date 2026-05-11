@@ -23,6 +23,7 @@ import {
 } from '@/services/trip-memory-upload';
 import { type AppTheme, useAppTheme } from '@/theme';
 import { MOBILE_BOTTOM_SHEET_HEIGHTS } from '@/theme/bottomSheet';
+import { SheetBackButton } from './SheetBackButton';
 
 type Props = {
     visible: boolean;
@@ -233,6 +234,7 @@ export function TimelineMemoryComposerModal({
                             <View style={styles.handle} />
                         </View>
                         <View style={styles.header}>
+                            <SheetBackButton disabled={isSaving || isPhotoActionBusy} onPress={onClose} />
                             <View style={styles.headerCopy}>
                                 <Text style={styles.headerLabel}>추억 추가</Text>
                                 <Text style={styles.headerTitle}>위 카드에 추억 붙이기</Text>
@@ -409,6 +411,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'flex-start',
         justifyContent: 'space-between',
+        gap: theme.spacing.xs,
         paddingHorizontal: theme.spacing.sm,
         paddingTop: theme.spacing.sm,
         paddingBottom: theme.spacing.xs

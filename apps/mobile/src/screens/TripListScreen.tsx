@@ -25,7 +25,6 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAdapters } from '@/adapters/useAdapters';
 import { AvatarImage } from '@/components/AvatarImage';
 import { BottomNavBar } from '@/components/BottomNavBar';
-import { DebugInfoCard } from '@/components/DebugInfoCard';
 import { EmptyState } from '@/components/EmptyState';
 import { Alert } from '@/feedback';
 import {
@@ -35,7 +34,6 @@ import {
 } from '@/features/trip-creation';
 import { LoadingView } from '@/components/LoadingView';
 import { TripCard } from '@/components/TripCard';
-import { logUnicodeBoundary } from '@/dev/unicode-diagnostics';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { useKeyboardAwareInputScroll } from '@/hooks/useKeyboardAwareInputScroll';
 import { useTripList } from '@/hooks/useTripList';
@@ -81,6 +79,7 @@ const OFFLINE_ANNOUNCEMENT_DISABLED_MESSAGE = '오프라인에서는 참가자 �
 const VIEW_MODE_SWITCH_BLANK_MS = 200;
 const PROFILE_NAME_MAX_LENGTH = 24;
 const SHOW_EMPTY_HOME_QUICK_ACTIONS = false;
+const NOTICES_URL = 'https://plin.ink/?tab=notices&desktop=1';
 const EMPTY_HOME_HERO_IMAGE_URL = 'https://plin-db93d.web.app/images/trip-destinations/hyeopjae.jpg?v=2026-04-20';
 const EMPTY_HOME_POSTCARD_IMAGE_URLS = [
     'https://plin-db93d.web.app/images/trip-destinations/paris.jpg?v=2026-04-20',
@@ -339,6 +338,7 @@ function buildFallbackProfileSummary(user: ReturnType<typeof useAuthSession>['us
         email: user.email,
         photoURL: user.photoURL || null,
         role: 'user' as const,
+        emailVerificationExempt: false,
         agreedToTerms: null,
         agreedToPrivacy: null,
         agreedAt: null,
@@ -1374,20 +1374,12 @@ export function TripListScreen({ navigation, route }: Props) {
             );
         }
     }, [tripListBanner?.targetUrl]);
-
-    React.useEffect(() => {
-        const firstTrip = sortedItems[0];
-        if (!firstTrip) {
-            return;
-        }
-
-        logUnicodeBoundary('trip:render:list', 'trip.meta.title', firstTrip.title, {
-            tripId: firstTrip.id
+    const handleOpenNotices = React.useCallback(() => {
+        navigation.navigate('InAppBrowser', {
+            url: NOTICES_URL,
+            title: '공지사항'
         });
-        logUnicodeBoundary('trip:render:list', 'trip.meta.subInfo', firstTrip.subInfo, {
-            tripId: firstTrip.id
-        });
-    }, [sortedItems]);
+    }, [navigation]);
 
     const noticeStack = (
         <>
@@ -1511,11 +1503,6 @@ export function TripListScreen({ navigation, route }: Props) {
 
                                 void retry();
                             }}
-                        />
-                        <DebugInfoCard
-                            screen="TripList"
-                            dataState="error"
-                            lastDataError={error || undefined}
                         />
                     </View>
                 </SafeAreaView>
@@ -1826,6 +1813,27 @@ export function TripListScreen({ navigation, route }: Props) {
                                 ))}
                             </View>
                         </View>
+
+                        <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel="공지사항 보기"
+                            onPress={handleOpenNotices}
+                            style={({ pressed }) => [
+                                styles.emptyHomeNoticeLink,
+                                pressed ? styles.emptyHomeNoticeLinkPressed : null
+                            ]}
+                        >
+                            <View style={styles.emptyHomeNoticeIconWrap}>
+                                <Ionicons name="megaphone-outline" size={18} color={theme.colors.accent} />
+                            </View>
+                            <View style={styles.emptyHomeNoticeCopy}>
+                                <Text numberOfLines={1} style={styles.emptyHomeNoticeTitle}>공지사항</Text>
+                                <Text numberOfLines={1} style={styles.emptyHomeNoticeDescription}>
+                                    서비스 안내와 업데이트를 확인해요.
+                                </Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
+                        </Pressable>
                     </ScrollView>
                 </View>
                 <BottomNavBar activeTab={activeRootTab} />
@@ -1986,12 +1994,6 @@ export function TripListScreen({ navigation, route }: Props) {
                                 >
                                     <Text style={styles.loadMoreButtonText}>여행 더 보기</Text>
                                 </Pressable>
-                            ) : null}
-                            {!isInitialLoading ? (
-                                <DebugInfoCard
-                                    screen="TripList"
-                                    dataState="ready"
-                                />
                             ) : null}
                         </View>
                     )}
@@ -3201,6 +3203,45 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         bottom: 8,
         transform: [{ rotate: '10deg' }]
     },
+    emptyHomeNoticeLink: {
+        minHeight: 64,
+        marginTop: theme.spacing.sm,
+        marginHorizontal: theme.spacing.sm,
+        paddingVertical: theme.spacing.sm,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: theme.colors.border,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: theme.spacing.xs
+    },
+    emptyHomeNoticeLinkPressed: {
+        opacity: 0.72
+    },
+    emptyHomeNoticeIconWrap: {
+        width: 36,
+        height: 36,
+        borderRadius: theme.radius.md,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: theme.colors.accentSoft
+    },
+    emptyHomeNoticeCopy: {
+        flex: 1,
+        minWidth: 0
+    },
+    emptyHomeNoticeTitle: {
+        color: theme.colors.textPrimary,
+        fontSize: 14,
+        lineHeight: 20,
+        fontFamily: theme.fonts.semibold
+    },
+    emptyHomeNoticeDescription: {
+        marginTop: theme.spacing.micro,
+        color: theme.colors.textSecondary,
+        fontSize: 12,
+        lineHeight: 17,
+        fontFamily: theme.fonts.body
+    },
     emptyHomeLoadingHero: {
         backgroundColor: theme.colors.surfaceMuted
     },
@@ -3350,10 +3391,6 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         lineHeight: 20,
         fontFamily: theme.fonts.medium,
         textAlign: 'center'
-    },
-    debugBlock: {
-        paddingHorizontal: theme.spacing.sm,
-        paddingBottom: theme.spacing.sm
     },
     profileSheetBackdrop: {
         flex: 1,

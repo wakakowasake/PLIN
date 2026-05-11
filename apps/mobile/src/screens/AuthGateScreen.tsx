@@ -19,7 +19,6 @@ import {
     isMandatoryAgreementStateResolved,
     shouldRetryMandatoryAgreementResolution
 } from '@/auth/mandatory-agreement';
-import { DebugInfoCard } from '@/components/DebugInfoCard';
 import { EmptyState } from '@/components/EmptyState';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
@@ -249,7 +248,7 @@ export function AuthGateScreen({ navigation }: Props) {
     const isAuthActionConfigIssue = isConfigLikeMessage(authActionError);
     const isAuthActionCancelled = isCancelledMessage(authActionError);
     const isPendingDeletionIssue = isPendingDeletionMessage(authActionError) || isPendingDeletionMessage(bootstrapError);
-    const needsEmailVerification = requiresEmailVerification(user);
+    const needsEmailVerification = requiresEmailVerification(user, profileSummary);
     const needsMandatoryAgreement = Boolean(user)
         && !needsEmailVerification
         && !hasAcceptedMandatoryTerms(profileSummary);
@@ -405,7 +404,7 @@ export function AuthGateScreen({ navigation }: Props) {
     async function handlePrimaryAction() {
         if (needsEmailVerification) {
             const refreshedUser = await refreshSession();
-            if (requiresEmailVerification(refreshedUser)) {
+            if (requiresEmailVerification(refreshedUser, profileSummary)) {
                 setEmailVerificationNotice('아직 이메일 인증이 확인되지 않았어요.');
             }
             return;
@@ -493,7 +492,7 @@ export function AuthGateScreen({ navigation }: Props) {
 
     async function handleRefreshEmailVerification() {
         const refreshedUser = await refreshSession();
-        if (requiresEmailVerification(refreshedUser)) {
+        if (requiresEmailVerification(refreshedUser, profileSummary)) {
             setEmailVerificationNotice('아직 이메일 인증이 확인되지 않았어요.');
         }
     }
@@ -1028,26 +1027,6 @@ export function AuthGateScreen({ navigation }: Props) {
                     />
                 </View>
             ) : null}
-
-            <View style={styles.debugBlock}>
-                <DebugInfoCard
-                    screen="AuthGate"
-                            dataState={
-                        isAuthActionLoading
-                            ? needsMandatoryAgreement
-                                ? shouldRetryAgreementState
-                                    ? 'retrying-agreement-check'
-                                    : 'saving-agreement'
-                                : 'signing-in'
-                            : needsMandatoryAgreement
-                                ? shouldRetryAgreementState
-                                    ? 'awaiting-agreement-check'
-                                    : 'awaiting-agreement'
-                                : 'awaiting-auth'
-                    }
-                    lastDataError={authActionError || bootstrapError}
-                />
-            </View>
         </ScrollView>
     );
 }
@@ -1123,11 +1102,11 @@ const createStyles = (theme: AppTheme) => {
             backgroundColor: theme.colors.border
         },
         agreementBody: {
-            paddingTop: theme.spacing.sm,
+            paddingTop: theme.spacing.md,
             paddingHorizontal: theme.spacing.sm
         },
         agreementAllButton: {
-            minHeight: 52,
+            minHeight: 54,
             borderRadius: theme.radius.md,
             backgroundColor: theme.colors.accent,
             flexDirection: 'row',
@@ -1143,16 +1122,21 @@ const createStyles = (theme: AppTheme) => {
         },
         agreementList: {
             marginTop: theme.spacing.sm,
-            gap: theme.spacing.sm
+            gap: theme.spacing.xs
         },
         agreementItemRow: {
-            minHeight: 40,
+            minHeight: 56,
             flexDirection: 'row',
-            alignItems: 'center'
+            alignItems: 'center',
+            paddingHorizontal: theme.spacing.sm,
+            borderWidth: 1,
+            borderColor: authColors.cardBorder,
+            borderRadius: theme.radius.md,
+            backgroundColor: authColors.softSurface
         },
         agreementCheckboxButton: {
-            width: 36,
-            height: 36,
+            width: 40,
+            height: 44,
             alignItems: 'flex-start',
             justifyContent: 'center'
         },
@@ -1171,7 +1155,7 @@ const createStyles = (theme: AppTheme) => {
         },
         agreementItemCopy: {
             flex: 1,
-            minHeight: 36,
+            minHeight: 44,
             justifyContent: 'center'
         },
         agreementItemText: {
@@ -1182,7 +1166,7 @@ const createStyles = (theme: AppTheme) => {
         },
         agreementViewLink: {
             minWidth: 44,
-            minHeight: 36,
+            minHeight: 44,
             alignItems: 'flex-end',
             justifyContent: 'center'
         },
@@ -1273,10 +1257,12 @@ const createStyles = (theme: AppTheme) => {
             fontFamily: theme.fonts.medium
         },
     accountCard: {
-        marginTop: theme.spacing.sm,
-        paddingTop: theme.spacing.sm,
-        borderTopWidth: 1,
-        borderTopColor: authColors.cardBorder
+        marginTop: theme.spacing.md,
+        padding: theme.spacing.sm,
+        borderWidth: 1,
+        borderColor: authColors.cardBorder,
+        borderRadius: theme.radius.md,
+        backgroundColor: authColors.softSurface
     },
     accountLabel: {
         color: authColors.textSecondary,
@@ -1318,7 +1304,7 @@ const createStyles = (theme: AppTheme) => {
     },
     emailVerificationCard: {
         marginTop: theme.spacing.md,
-        padding: theme.spacing.sm,
+        padding: theme.spacing.md,
         borderRadius: theme.radius.lg,
         borderWidth: 1,
         borderColor: authColors.cardBorder,
@@ -1357,7 +1343,7 @@ const createStyles = (theme: AppTheme) => {
     },
     emailVerificationActionRow: {
         flexDirection: 'row',
-        gap: theme.spacing.xs
+        gap: theme.spacing.sm
     },
     emailVerificationSecondaryButton: {
         flex: 1,
@@ -1403,12 +1389,7 @@ const createStyles = (theme: AppTheme) => {
     },
     socialProviderButtonGoogle: {
         backgroundColor: '#FFFFFF',
-        borderColor: '#D9DEE7',
-        shadowColor: authColors.cardShadow,
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 3 },
-        elevation: 2
+        borderColor: '#D9DEE7'
     },
     socialProviderButtonNaver: {
         backgroundColor: '#03A94D',
@@ -1550,9 +1531,6 @@ const createStyles = (theme: AppTheme) => {
         fontFamily: theme.fonts.body
     },
     stateBlock: {
-        marginTop: theme.spacing.md
-    },
-    debugBlock: {
         marginTop: theme.spacing.md
     }
     });

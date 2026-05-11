@@ -5,7 +5,7 @@
     "slug": "plin-mobile",
     "scheme": "plinmobile",
     "version": "0.1.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "userInterfaceStyle": "light",
     "icon": "./assets/images/app-icon.png",
     "assetBundlePatterns": [
@@ -47,12 +47,22 @@
       "supportsTablet": true,
       "bundleIdentifier": "ink.plin.mobile",
       "usesAppleSignIn": true,
+      "infoPlist": {
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "plinmobile",
+              "ink.plin.mobile",
+              "com.googleusercontent.apps.68227359192-v35hop0uqur05pu4ramrljelieh1obig"
+            ]
+          }
+        ]
+      },
       "config": {
         "usesNonExemptEncryption": false
       },
       "associatedDomains": [
-        "applinks:plin.ink",
-        "applinks:www.plin.ink"
+        "applinks:plin.ink"
       ]
     },
     "android": {
@@ -74,17 +84,7 @@
             },
             {
               "scheme": "https",
-              "host": "www.plin.ink",
-              "pathPrefix": "/p/"
-            },
-            {
-              "scheme": "https",
               "host": "plin.ink",
-              "pathPrefix": "/v/invite/"
-            },
-            {
-              "scheme": "https",
-              "host": "www.plin.ink",
               "pathPrefix": "/v/invite/"
             }
           ],

@@ -49,6 +49,33 @@ let tripCreateSelectedDestinationId = '';
 let tripCreatePlaceEventBound = false;
 let tripCreateReturnView = 'main';
 
+function renderTripListLoading(listEl) {
+    if (!listEl) return;
+
+    listEl.innerHTML = '<div class="col-span-full text-center py-12"><div class="inline-block animate-spin rounded-full h-10 w-10 border-4 border-gray-200 border-t-primary"></div><p class="mt-4 text-gray-400 text-sm">여행 계획을 불러오는 중...</p></div>';
+}
+
+function isActiveTripListRequest(listEl, uid) {
+    const safeUid = String(uid || '').trim();
+    return Boolean(safeUid)
+        && listEl?.dataset.tripListOwnerUid === safeUid
+        && currentUser?.uid === safeUid;
+}
+
+export function clearTripListForAuthChange(uid = '') {
+    const listEl = ensureTripListContainer();
+    if (!listEl) return;
+
+    const safeUid = String(uid || '').trim();
+    listEl.dataset.tripListOwnerUid = safeUid;
+    if (safeUid) {
+        renderTripListLoading(listEl);
+        return;
+    }
+
+    listEl.innerHTML = '';
+}
+
 // [Helper] 여행 목록 컨테이너가 없으면 생성
 function ensureTripListContainer() {
     let listEl = document.getElementById('trip-list');
@@ -599,7 +626,10 @@ function ensureNewTripModal() {
 
 export async function loadTripList(uid) {
     await firebaseReady;
-    if (!uid) return;
+    if (!uid) {
+        clearTripListForAuthChange('');
+        return;
+    }
 
     const listEl = ensureTripListContainer();
     if (!listEl) {
@@ -611,10 +641,15 @@ export async function loadTripList(uid) {
     const staticCreateBtn = document.querySelector('button[data-action="create-trip"]:not(#trip-list *)');
     if (staticCreateBtn) staticCreateBtn.classList.add('hidden');
 
-    listEl.innerHTML = '<div class="col-span-full text-center py-12"><div class="inline-block animate-spin rounded-full h-10 w-10 border-4 border-gray-200 border-t-primary"></div><p class="mt-4 text-gray-400 text-sm">여행 계획을 불러오는 중...</p></div>';
+    listEl.dataset.tripListOwnerUid = uid;
+    renderTripListLoading(listEl);
 
     try {
         const result = await fetchBackendJson('/plans?limit=50');
+        if (!isActiveTripListRequest(listEl, uid)) {
+            return;
+        }
+
         const trips = Array.isArray(result?.trips) ? result.trips : [];
 
         if (trips.length === 0) {
@@ -735,6 +770,10 @@ export async function loadTripList(uid) {
         listEl.innerHTML = html;
 
     } catch (e) {
+        if (!isActiveTripListRequest(listEl, uid)) {
+            return;
+        }
+
         console.error("Error loading trips:", e);
         listEl.innerHTML = '<div class="col-span-full text-center text-red-500 py-8 bg-red-50 rounded-xl">여행 목록을 불러오는데 실패했습니다.<br><span class="text-xs text-gray-500">' + e.message + '</span></div>';
     }

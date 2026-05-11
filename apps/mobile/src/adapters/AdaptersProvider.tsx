@@ -1,4 +1,4 @@
-import React, { createContext, useEffect, useMemo } from 'react';
+import React, { createContext, useMemo } from 'react';
 
 import {
     FirebaseAuthSessionAdapter,
@@ -15,10 +15,7 @@ import {
 } from '@/adapters/trips/FirebaseTripRepository';
 import type { AuthSessionAdapter } from '@/adapters/auth/AuthSessionAdapter';
 import type { TripRepository } from '@/adapters/trips/TripRepository';
-import {
-    getMobileAdapterModes,
-    getMobileDiagnosticsSnapshot
-} from '@/config/mobile-runtime-config';
+import { getMobileAdapterModes } from '@/config/mobile-runtime-config';
 
 export type AdaptersContextValue = {
     authSessionAdapter: AuthSessionAdapter;
@@ -59,26 +56,6 @@ export function AdaptersProvider({ children }: Props) {
                 ? null
                 : '커뮤니티는 데모 데이터로 표시되고 있어요.'
         };
-    }, []);
-
-    useEffect(() => {
-        if (!__DEV__) {
-            return;
-        }
-
-        const snapshot = getMobileDiagnosticsSnapshot();
-        console.info('[mobile] adapter diagnostics', {
-            firebaseReady: snapshot.firebaseReady,
-            googleAuthReady: snapshot.googleAuthReady,
-            authMode: snapshot.authMode,
-            tripRepositoryBackend: 'firebase',
-            communityRepositoryMode: snapshot.firebase.isReady ? 'real' : 'mock',
-            profileSummaryMode: snapshot.firebase.isReady ? 'real' : 'mock',
-            firebaseState: snapshot.firebase.state,
-            googleState: snapshot.google.state,
-            hasDemoUid: snapshot.demo.hasExplicitDemoUid,
-            missingEnvKeys: snapshot.missingEnvKeys
-        });
     }, []);
 
     return (

@@ -33,6 +33,7 @@ import {
     startWebSocialAuthSession,
     waitForWebSocialAuthPopupResult
 } from '../../services/backend/social-auth-service.js';
+import { isEmailVerificationRequiredForUser } from './email-verification-policy.js';
 
 const CUSTOM_WEB_AUTH_PROVIDERS = new Set(['kakao', 'naver']);
 const POPUP_DISABLED_CUSTOM_WEB_AUTH_PROVIDERS = new Set(['naver']);
@@ -242,7 +243,7 @@ export async function submitEmailAuthFlow(event = null, { saveAllDayData, render
             ? await signUpWithEmailPassword(email, password, displayName)
             : await signInWithEmailPassword(email, password);
 
-        if (!result?.user?.emailVerified) {
+        if (await isEmailVerificationRequiredForUser(result?.user)) {
             if (!isSignup) {
                 await sendCurrentUserEmailVerification().catch((error) => {
                     console.warn('인증 메일 재발송 실패:', error);
@@ -267,7 +268,7 @@ export async function submitEmailAuthFlow(event = null, { saveAllDayData, render
         const currentUser = getCurrentAuthUser();
         const message = readEmailAuthErrorMessage(error);
 
-        if (isSignup && currentUser?.email === email && !currentUser.emailVerified) {
+        if (isSignup && currentUser?.email === email && await isEmailVerificationRequiredForUser(currentUser)) {
             if (emailAuthGuestDataToSave) {
                 storePendingGuestData(emailAuthGuestDataToSave);
             }

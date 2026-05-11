@@ -1,5 +1,5 @@
 import React from 'react';
-import { Linking, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { BackHandler, Linking, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { DefaultTheme, NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as SplashScreen from 'expo-splash-screen';
@@ -17,10 +17,10 @@ import { AuthGateScreen } from '@/screens/AuthGateScreen';
 import { CommunityPostDetailScreen } from '@/screens/CommunityPostDetailScreen';
 import { CommunityScreen } from '@/screens/CommunityScreen';
 import { EmailAuthScreen } from '@/screens/EmailAuthScreen';
-import { EmojiDiagnosticsScreen } from '@/screens/EmojiDiagnosticsScreen';
 import { InAppBrowserScreen } from '@/screens/InAppBrowserScreen';
 import { SettingsAccountScreen } from '@/screens/SettingsAccountScreen';
 import { SettingsScreen } from '@/screens/SettingsScreen';
+import { TabletRootShell } from '@/screens/TabletRootShell';
 import { acceptTripInvite } from '@/services/trip-invites';
 import { configureTripReminderNotifications } from '@/services/trip-reminders';
 import { PublicTripViewScreen } from '@/screens/PublicTripViewScreen';
@@ -30,6 +30,7 @@ import { TripInfoEditScreen } from '@/screens/TripInfoEditScreen';
 import { TripListScreen } from '@/screens/TripListScreen';
 import { TripPartnerBookingScreen } from '@/screens/TripPartnerBookingScreen';
 import { TimelineItemEditScreen } from '@/screens/TimelineItemEditScreen';
+import { useAdaptiveLayout } from '@/hooks/useAdaptiveLayout';
 import { useConnectivityStatus } from '@/state/connectivity-store';
 import { publishTripCreated } from '@/state/trip-write-sync';
 import { type AppTheme, useAppTheme } from '@/theme';
@@ -61,7 +62,6 @@ export type RootStackParamList = {
     Settings: undefined;
     SettingsAccount: undefined;
     InAppBrowser: { url: string; title?: string };
-    EmojiDiagnostics: undefined;
     TripCreate: undefined;
     FlightBooking: undefined;
     StayBooking: undefined;
@@ -191,6 +191,7 @@ function HomeBootSkeletonScreen() {
 
 export function RootNavigator() {
     const theme = useAppTheme();
+    const { isTablet } = useAdaptiveLayout();
     const {
         status,
         user,
@@ -207,16 +208,17 @@ export function RootNavigator() {
         && isOfflineMode
         && !isMandatoryAgreementStateResolved(user, profileSummary);
     const needsMandatoryAgreement = Boolean(user)
-        && !requiresEmailVerification(user)
+        && !requiresEmailVerification(user, profileSummary)
         && !hasAcceptedMandatoryTerms(profileSummary)
         && !shouldDeferMandatoryAgreementGate;
-    const needsEmailVerification = requiresEmailVerification(user);
+    const needsEmailVerification = requiresEmailVerification(user, profileSummary);
     const isRootBooting = status === 'booting' || isWaitingForProfileGate;
     const [isNavigationReady, setIsNavigationReady] = React.useState(false);
     const [pendingInviteToken, setPendingInviteToken] = React.useState<string | null>(null);
     const [pendingPublicTripToken, setPendingPublicTripToken] = React.useState<string | null>(null);
     const processingInviteTokenRef = React.useRef<string | null>(null);
     const hasCleanedMobileWebUrlRef = React.useRef(false);
+    const isExitPromptVisibleRef = React.useRef(false);
 
     React.useEffect(() => {
         void configureTripReminderNotifications();
@@ -225,6 +227,57 @@ export function RootNavigator() {
     React.useEffect(() => {
         void SplashScreen.hideAsync().catch(() => {});
     }, []);
+
+    React.useEffect(() => {
+        if (Platform.OS !== 'android') {
+            return undefined;
+        }
+
+        const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+            if (!navigationRef.isReady() || navigationRef.canGoBack()) {
+                return false;
+            }
+
+            if (isExitPromptVisibleRef.current) {
+                return true;
+            }
+
+            isExitPromptVisibleRef.current = true;
+            Alert.alert(
+                '앱을 나갈까요?',
+                'PLIN을 닫으시겠어요?',
+                [
+                    {
+                        text: '취소',
+                        style: 'cancel',
+                        onPress: () => {
+                            isExitPromptVisibleRef.current = false;
+                        }
+                    },
+                    {
+                        text: '나가기',
+                        isPreferred: true,
+                        onPress: () => {
+                            isExitPromptVisibleRef.current = false;
+                            BackHandler.exitApp();
+                        }
+                    }
+                ],
+                {
+                    cancelable: true,
+                    onDismiss: () => {
+                        isExitPromptVisibleRef.current = false;
+                    }
+                }
+            );
+
+            return true;
+        });
+
+        return () => {
+            subscription.remove();
+        };
+    }, [navigationRef]);
 
     const queueInviteToken = React.useCallback((url: string | null | undefined) => {
         const inviteToken = readTripInviteTokenFromUrl(url || '');
@@ -494,7 +547,7 @@ export function RootNavigator() {
                     <>
                         <Stack.Screen
                             name="Home"
-                            component={TripListScreen}
+                            component={isTablet ? TabletRootShell : TripListScreen}
                             options={{
                                 ...buildRootTabScreenOptions('홈'),
                                 headerShown: false
@@ -502,7 +555,7 @@ export function RootNavigator() {
                         />
                         <Stack.Screen
                             name="TripList"
-                            component={TripListScreen}
+                            component={isTablet ? TabletRootShell : TripListScreen}
                             options={{
                                 ...buildRootTabScreenOptions('여행'),
                                 headerShown: false
@@ -510,7 +563,7 @@ export function RootNavigator() {
                         />
                         <Stack.Screen
                             name="Community"
-                            component={CommunityScreen}
+                            component={isTablet ? TabletRootShell : CommunityScreen}
                             options={{
                                 ...buildRootTabScreenOptions('커뮤니티'),
                                 headerShown: false
@@ -518,7 +571,7 @@ export function RootNavigator() {
                         />
                         <Stack.Screen
                             name="Settings"
-                            component={SettingsScreen}
+                            component={isTablet ? TabletRootShell : SettingsScreen}
                             options={{
                                 ...buildRootTabScreenOptions('설정'),
                                 headerShown: false
@@ -529,13 +582,6 @@ export function RootNavigator() {
                             component={SettingsAccountScreen}
                             options={{ title: '설정' }}
                         />
-                        {__DEV__ ? (
-                            <Stack.Screen
-                                name="EmojiDiagnostics"
-                                component={EmojiDiagnosticsScreen}
-                                options={{ title: 'Emoji Diagnostics' }}
-                            />
-                        ) : null}
                         <Stack.Screen
                             name="TripDetail"
                             component={TripDetailScreen}

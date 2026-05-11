@@ -20,6 +20,7 @@ import { type AppTheme, useAppTheme } from '@/theme';
 import { MOBILE_BOTTOM_SHEET_HEIGHTS } from '@/theme/bottomSheet';
 import type { MobileTimelineMemoCreateInput } from '@/types/trip';
 import { useKeyboardAwareInputScroll } from '@/hooks/useKeyboardAwareInputScroll';
+import { SheetBackButton } from './SheetBackButton';
 
 type Props = {
     visible: boolean;
@@ -190,6 +191,7 @@ export function TimelineMemoComposerModal({
                             <View style={styles.handle} />
                         </View>
                         <View style={styles.header}>
+                            <SheetBackButton disabled={isSaving} onPress={onClose} />
                             <View style={styles.headerCopy}>
                                 <Text style={styles.headerLabel}>여행 일정 수정</Text>
                                 <Text style={styles.headerTitle}>위 일정에 메모 붙이기</Text>
@@ -293,6 +295,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'flex-start',
         justifyContent: 'space-between',
+        gap: theme.spacing.xs,
         paddingHorizontal: theme.spacing.sm,
         paddingTop: theme.spacing.sm,
         paddingBottom: theme.spacing.xs

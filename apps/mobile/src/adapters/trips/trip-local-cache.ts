@@ -23,6 +23,10 @@ function buildTripDetailCacheKey(userId: string, tripId: string) {
     return `${TRIP_DETAIL_CACHE_PREFIX}:${userId}:${tripId}`;
 }
 
+function buildTripDetailCacheKeyPrefix(userId: string) {
+    return `${TRIP_DETAIL_CACHE_PREFIX}:${userId}:`;
+}
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -239,6 +243,23 @@ export async function setCachedTripList(userId: string, items: MobileTripSummary
     };
 
     await AsyncStorage.setItem(buildTripListCacheKey(userId), JSON.stringify(payload));
+}
+
+export async function clearCachedTripsForUser(userId: string) {
+    if (!userId) {
+        return;
+    }
+
+    const listKey = buildTripListCacheKey(userId);
+    const detailKeyPrefix = buildTripDetailCacheKeyPrefix(userId);
+    const keys = await AsyncStorage.getAllKeys();
+    const targetKeys = keys.filter((key) => key === listKey || key.startsWith(detailKeyPrefix));
+
+    if (targetKeys.length === 0) {
+        return;
+    }
+
+    await AsyncStorage.multiRemove(targetKeys);
 }
 
 export async function getCachedTripDetail(userId: string, tripId: string) {

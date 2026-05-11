@@ -11,7 +11,6 @@ import {
 import { getTransitTypeMeta } from '@shared/features/transit/transit-item-helpers.js';
 import React from 'react';
 import {
-    Keyboard,
     KeyboardAvoidingView,
     Modal,
     Platform,
@@ -32,6 +31,7 @@ import type {
     MobileTimelineTransitCreateInput
 } from '@/types/trip';
 import { DurationPickerModal } from './DurationPickerModal';
+import { SheetBackButton } from './SheetBackButton';
 import { TimePickerModal } from './TimePickerModal';
 
 type Props = {
@@ -148,15 +148,12 @@ export function TimelineTransitComposerModal({
     const theme = useAppTheme();
     const insets = useSafeAreaInsets();
     const styles = React.useMemo(() => createStyles(theme), [theme]);
-    const [isIosKeyboardVisible, setIsIosKeyboardVisible] = React.useState(false);
     const sheetInsetStyle = React.useMemo(() => ({
         paddingTop: insets.top
     }), [insets.top]);
-    const actionInsetStyle = React.useMemo(() => ({
-        paddingBottom: Platform.OS === 'ios' && isIosKeyboardVisible
-            ? 0
-            : insets.bottom + theme.spacing.md
-    }), [insets.bottom, isIosKeyboardVisible, theme.spacing.md]);
+    const contentInsetStyle = React.useMemo(() => ({
+        paddingBottom: insets.bottom + theme.spacing.md
+    }), [insets.bottom, theme.spacing.md]);
     const {
         scrollRef,
         createFocusHandler,
@@ -182,26 +179,7 @@ export function TimelineTransitComposerModal({
     const [activeAirportField, setActiveAirportField] = React.useState<AirportFieldKey | null>(null);
 
     React.useEffect(() => {
-        if (Platform.OS !== 'ios') {
-            return undefined;
-        }
-
-        const showSubscription = Keyboard.addListener('keyboardWillShow', () => {
-            setIsIosKeyboardVisible(true);
-        });
-        const hideSubscription = Keyboard.addListener('keyboardWillHide', () => {
-            setIsIosKeyboardVisible(false);
-        });
-
-        return () => {
-            showSubscription.remove();
-            hideSubscription.remove();
-        };
-    }, []);
-
-    React.useEffect(() => {
         if (!visible) {
-            setIsIosKeyboardVisible(false);
             setActivePicker(null);
             setDurationPickerVisible(false);
             setActiveAirportField(null);
@@ -410,6 +388,7 @@ export function TimelineTransitComposerModal({
                     <View style={[styles.sheet, sheetInsetStyle]}>
                         <View style={styles.handle} />
                         <View style={styles.header}>
+                            <SheetBackButton disabled={isSaving} onPress={onClose} />
                             <View style={styles.headerCopy}>
                                 <Text style={styles.headerLabel}>이동 카드 추가</Text>
                                 <Text style={styles.headerTitle}>{isAirplane ? '비행기 추가' : `${meta.tag} 추가`}</Text>
@@ -419,20 +398,23 @@ export function TimelineTransitComposerModal({
                             </View>
                             <Pressable
                                 accessibilityRole="button"
-                                disabled={isSaving}
-                                onPress={onClose}
+                                disabled={!canSubmit}
+                                onPress={handleSubmit}
                                 style={({ pressed }) => [
-                                    styles.closeButton,
-                                    pressed && !isSaving ? styles.buttonPressed : null
+                                    styles.saveButton,
+                                    !canSubmit ? styles.saveButtonDisabled : null,
+                                    pressed && canSubmit ? styles.buttonPressed : null
                                 ]}
                             >
-                                <Text style={styles.closeButtonText}>닫기</Text>
+                                <Text style={styles.saveButtonText}>
+                                    {isSaving ? '저장 중...' : '저장'}
+                                </Text>
                             </Pressable>
                         </View>
 
                         <ScrollView
                             ref={scrollRef}
-                            contentContainerStyle={[styles.content, keyboardAwareContentInsetStyle]}
+                            contentContainerStyle={[styles.content, contentInsetStyle, keyboardAwareContentInsetStyle]}
                             {...scrollViewProps}
                         >
                             <View style={styles.formCard}>
@@ -825,34 +807,6 @@ export function TimelineTransitComposerModal({
                                 </View>
                             ) : null}
                         </ScrollView>
-
-                        <View style={[styles.actionRow, actionInsetStyle]}>
-                            <Pressable
-                                accessibilityRole="button"
-                                disabled={isSaving}
-                                onPress={onClose}
-                                style={({ pressed }) => [
-                                    styles.secondaryAction,
-                                    pressed && !isSaving ? styles.buttonPressed : null
-                                ]}
-                            >
-                                <Text style={styles.secondaryActionText}>취소</Text>
-                            </Pressable>
-                            <Pressable
-                                accessibilityRole="button"
-                                disabled={!canSubmit}
-                                onPress={handleSubmit}
-                                style={({ pressed }) => [
-                                    styles.primaryAction,
-                                    !canSubmit ? styles.primaryActionDisabled : null,
-                                    pressed && canSubmit ? styles.buttonPressed : null
-                                ]}
-                            >
-                                <Text style={styles.primaryActionText}>
-                                    {isSaving ? '추가 중...' : '이동 카드 추가'}
-                                </Text>
-                            </Pressable>
-                        </View>
                     </View>
                 </KeyboardAvoidingView>
             </View>
@@ -930,6 +884,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'flex-start',
         justifyContent: 'space-between',
+        gap: theme.spacing.xs,
         paddingHorizontal: theme.spacing.sm,
         paddingTop: theme.spacing.sm,
         paddingBottom: theme.spacing.xs
@@ -955,14 +910,17 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         color: theme.colors.textSecondary,
         fontFamily: theme.fonts.body
     },
-    closeButton: {
+    saveButton: {
         borderRadius: theme.radius.sm,
         paddingHorizontal: theme.spacing.sm,
         paddingVertical: theme.spacing.xs,
-        backgroundColor: theme.colors.surfaceMuted
+        backgroundColor: theme.colors.accent
     },
-    closeButtonText: {
-        color: theme.colors.textPrimary,
+    saveButtonDisabled: {
+        opacity: 0.5
+    },
+    saveButtonText: {
+        color: theme.colors.surface,
         fontFamily: theme.fonts.semibold
     },
     content: {
@@ -1189,42 +1147,6 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     statusText: {
         color: theme.colors.textSecondary,
         fontFamily: theme.fonts.body
-    },
-    actionRow: {
-        flexDirection: 'row',
-        gap: theme.spacing.xs,
-        paddingHorizontal: theme.spacing.sm,
-        paddingTop: theme.spacing.xs,
-        paddingBottom: theme.spacing.md,
-        borderTopWidth: 1,
-        borderTopColor: theme.colors.border
-    },
-    secondaryAction: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: 48,
-        borderRadius: theme.radius.md,
-        backgroundColor: theme.colors.surfaceMuted
-    },
-    secondaryActionText: {
-        color: theme.colors.textPrimary,
-        fontFamily: theme.fonts.semibold
-    },
-    primaryAction: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: 48,
-        borderRadius: theme.radius.md,
-        backgroundColor: theme.colors.accent
-    },
-    primaryActionDisabled: {
-        opacity: 0.5
-    },
-    primaryActionText: {
-        color: theme.colors.surface,
-        fontFamily: theme.fonts.bold
     },
     buttonPressed: {
         opacity: 0.88

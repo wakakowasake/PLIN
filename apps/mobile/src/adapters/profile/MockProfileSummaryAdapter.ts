@@ -15,6 +15,7 @@ function normalizeAuthSummary(user: AuthSessionUser): MobileProfileSummary {
             ? seed.photoURL
             : null,
         role: 'user',
+        emailVerificationExempt: false,
         agreedToTerms: true,
         agreedToPrivacy: true,
         agreedAt: null,

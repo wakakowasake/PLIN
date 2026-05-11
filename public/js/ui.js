@@ -113,7 +113,6 @@ import * as Navigation from './app/main/navigation-controller.js';
 import * as Trips from './ui/trips.js';
 import * as Memories from './ui/memories.js';
 import { openExpenseDetailModal } from './ui/expense-detail.js';
-import { saveProfileChanges } from './ui/actions.js';
 import { fetchWeeklyWeather, fetchHourlyWeatherForDate, searchMode, setSearchMode, injectMapHandlers } from './map.js';
 import { fetchServerConfig } from './config.js';
 
@@ -2361,7 +2360,7 @@ export const deleteMemory = Memories.deleteMemory;
             openTripInfoEditor,
             enableProfileEdit,
             cancelProfileEdit,
-            saveProfileChanges,
+            saveProfileChanges: Profile.saveProfileChanges,
             confirmWithdrawal,
             closeTripSelectionModal,
             saveNewItem,
@@ -2743,6 +2742,8 @@ window.Renderers = Renderers;
 window.Auth = Auth;
 window.Profile = Profile;
 window.Trips = Trips;
+window.loadTripList = Trips.loadTripList;
+window.clearTripListForAuthChange = Trips.clearTripListForAuthChange;
 window.Memories = Memories;
 window.ListManager = ListManager;
 window.openShoppingListModal = ListManager.openShoppingListModal;

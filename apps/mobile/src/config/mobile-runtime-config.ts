@@ -412,10 +412,6 @@ export function getMobileMissingEnvKeys() {
     return getMobileAdapterModes().missingEnvKeys;
 }
 
-export function getMobileDiagnosticsSnapshot() {
-    return getMobileAdapterModes();
-}
-
 export function getMobileRuntimeGateState() {
     const modes = getMobileAdapterModes();
 

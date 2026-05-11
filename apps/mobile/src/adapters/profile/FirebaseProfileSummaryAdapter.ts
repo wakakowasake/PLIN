@@ -33,6 +33,7 @@ function buildFallbackSummary(user: AuthSessionUser): MobileProfileSummary {
             ? seed.photoURL
             : null,
         role: 'user',
+        emailVerificationExempt: false,
         agreedToTerms: null,
         agreedToPrivacy: null,
         agreedAt: null,
@@ -56,7 +57,8 @@ export class FirebaseProfileSummaryAdapter implements ProfileSummaryAdapter {
             return {
                 ...fallback,
                 agreedToTerms: false,
-                agreedToPrivacy: false
+                agreedToPrivacy: false,
+                source: 'profile'
             };
         }
 
@@ -80,6 +82,7 @@ export class FirebaseProfileSummaryAdapter implements ProfileSummaryAdapter {
         const role = readString(safeData.role).toLowerCase() === 'admin'
             ? 'admin'
             : 'user';
+        const emailVerificationExempt = safeData.emailVerificationExempt === true;
         const deletionRequestedAt = readNullableString(safeData.deletionRequestedAt);
         const purgeAfter = readNullableString(safeData.purgeAfter);
         const blockedUserIds = Array.isArray(safeData.blockedUserIds)
@@ -94,6 +97,7 @@ export class FirebaseProfileSummaryAdapter implements ProfileSummaryAdapter {
             email,
             photoURL,
             role,
+            emailVerificationExempt,
             agreedToTerms,
             agreedToPrivacy,
             agreedAt,

@@ -23,6 +23,8 @@ const EMAIL_VERIFICATION_ACTION_CODE_SETTINGS = {
     handleCodeInApp: false
 };
 
+export const EMAIL_VERIFICATION_REQUIRED = true;
+
 export function assertAuthServicesReady() {
     if (!app || !auth || !provider) {
         throw new Error("Firebase가 아직 준비되지 않았습니다. 잠시 후 다시 시도해주세요.");
@@ -120,7 +122,7 @@ export async function signUpWithEmailPassword(email, password, displayName = '')
         await updateProfile(result.user, { displayName: safeDisplayName });
     }
 
-    if (!result.user.emailVerified) {
+    if (EMAIL_VERIFICATION_REQUIRED && !result.user.emailVerified) {
         await firebaseSendEmailVerification(result.user, EMAIL_VERIFICATION_ACTION_CODE_SETTINGS);
     }
 
@@ -133,6 +135,10 @@ export async function sendCurrentUserEmailVerification() {
     const user = auth.currentUser;
     if (!user) {
         throw new Error("로그인이 필요합니다.");
+    }
+
+    if (!EMAIL_VERIFICATION_REQUIRED) {
+        return user;
     }
 
     await user.reload();

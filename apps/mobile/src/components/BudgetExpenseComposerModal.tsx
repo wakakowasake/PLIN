@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useKeyboardAwareInputScroll } from '@/hooks/useKeyboardAwareInputScroll';
 import { type AppTheme, useAppTheme } from '@/theme';
 import { MOBILE_BOTTOM_SHEET_HEIGHTS } from '@/theme/bottomSheet';
+import { SheetBackButton } from './SheetBackButton';
 
 export type BudgetExpenseComposerOption = {
     itemId: string;
@@ -262,6 +263,7 @@ export function BudgetExpenseComposerModal({
                                 <View style={styles.sheetHandle} />
                             </View>
                             <View style={styles.sheetHeader}>
+                                <SheetBackButton disabled={isSaving} onPress={onClose} />
                                 <View style={styles.sheetHeaderCopy}>
                                     <View style={styles.sheetBadge}>
                                         <Text style={styles.sheetBadgeText}>지출 추가</Text>
@@ -537,6 +539,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'flex-start',
         justifyContent: 'space-between',
+        gap: theme.spacing.xs,
         paddingHorizontal: theme.spacing.sm,
         paddingTop: theme.spacing.sm,
         paddingBottom: theme.spacing.xs

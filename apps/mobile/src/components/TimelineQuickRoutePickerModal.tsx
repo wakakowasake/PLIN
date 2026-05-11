@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { type AppTheme, useAppTheme } from '@/theme';
 import { MOBILE_BOTTOM_SHEET_HEIGHTS } from '@/theme/bottomSheet';
 import type { MobileQuickRouteOption } from '@/types/trip';
+import { SheetBackButton } from './SheetBackButton';
 
 type Props = {
     visible: boolean;
@@ -225,6 +226,7 @@ export function TimelineQuickRoutePickerModal({
                         <View style={styles.handle} />
                     </View>
                     <View style={styles.header}>
+                        <SheetBackButton disabled={isSaving} onPress={onClose} />
                         <View style={styles.headerCopy}>
                             <Text style={styles.headerLabel}>자동 추천 경로 추가</Text>
                             <Text style={styles.headerTitle}>이동 카드를 골라서 넣을까요?</Text>
@@ -352,6 +354,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'flex-start',
         justifyContent: 'space-between',
+        gap: theme.spacing.xs,
         paddingHorizontal: theme.spacing.sm,
         paddingTop: theme.spacing.sm,
         paddingBottom: theme.spacing.xs

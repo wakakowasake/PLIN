@@ -14,7 +14,9 @@ import {
     getCachedProfileSummary,
     setCachedProfileSummary
 } from '@/adapters/profile/profile-summary-cache';
+import { clearCachedTripsForUser } from '@/adapters/trips/trip-local-cache';
 import { useForegroundResumeRefresh } from '@/hooks/useForegroundResumeRefresh';
+import { clearTripListMemoryCache } from '@/hooks/useTripList';
 import { requestAccountDeletion as requestAccountDeletionRemote } from '@/services/account-lifecycle';
 import { clearTripAnnouncementPushInstallation, syncTripAnnouncementPushInstallation } from '@/services/trip-announcements';
 import { resetTripWriteSync } from '@/state/trip-write-sync';
@@ -156,9 +158,18 @@ export function SessionStoreProvider({ children }: Props) {
 
     const applySessionUser = useCallback((nextUser: AuthSessionUser | null) => {
         const nextUid = nextUser?.uid ?? null;
+        const previousUid = activeSessionUidRef.current;
 
-        if (activeSessionUidRef.current !== nextUid) {
+        if (previousUid !== nextUid) {
             resetTripWriteSync();
+            if (previousUid) {
+                clearTripListMemoryCache(previousUid);
+                clearCachedTripsForUser(previousUid).catch((error) => {
+                    if (__DEV__) {
+                        console.warn('Failed to clear previous user trip cache', error);
+                    }
+                });
+            }
             activeSessionUidRef.current = nextUid;
         }
 
@@ -210,6 +221,7 @@ export function SessionStoreProvider({ children }: Props) {
         email: sessionUser.email || '',
         photoURL: sessionUser.photoURL || null,
         role: 'user',
+        emailVerificationExempt: false,
         agreedToTerms: null,
         agreedToPrivacy: null,
         agreedAt: null,

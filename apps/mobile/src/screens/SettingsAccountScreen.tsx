@@ -6,6 +6,7 @@ import {
     Text,
     View
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -32,6 +33,7 @@ function buildFallbackSummary(user: ReturnType<typeof useAuthSession>['user']) {
         email: user.email,
         photoURL: user.photoURL || null,
         role: 'user' as const,
+        emailVerificationExempt: false,
         agreedToTerms: null,
         agreedToPrivacy: null,
         agreedAt: null,
@@ -151,7 +153,17 @@ export function SettingsAccountScreen({ navigation }: Props) {
     const currentSignInMethodLabel = currentSignInMethod
         ? getProviderDisplayName(currentSignInMethod)
         : '확인되지 않음';
-    const connectedProviderCount = providerEntries.filter((entry) => entry.linked).length;
+    const connectedProviderEntries = React.useMemo(
+        () => providerEntries.filter((entry) => entry.linked),
+        [providerEntries]
+    );
+    const hiddenProviderEntries = React.useMemo(
+        () => providerEntries.filter((entry) => !entry.linked),
+        [providerEntries]
+    );
+    const connectedProviderCount = connectedProviderEntries.length;
+    const hiddenProviderCount = hiddenProviderEntries.length;
+    const [areOtherProvidersVisible, setOtherProvidersVisible] = React.useState(false);
     const handleRefresh = React.useCallback(async () => {
         await refreshSession();
         await refreshLinkedProviders();
@@ -314,10 +326,10 @@ export function SettingsAccountScreen({ navigation }: Props) {
                         </View>
                     </View>
                     <Text style={styles.cardDescription}>
-                        현재 로그인한 PLIN 계정에 다른 소셜 로그인을 연결하거나 해제할 수 있어요.
+                        현재 연결된 로그인 수단만 먼저 보여드려요. 필요한 경우 다른 소셜 로그인도 펼쳐서 연결할 수 있어요.
                     </Text>
                     <View style={styles.providerList}>
-                        {providerEntries.map((entry) => {
+                        {connectedProviderEntries.length > 0 ? connectedProviderEntries.map((entry) => {
                             const providerLabel = getProviderDisplayName(entry.provider);
                             const statusLabel = entry.isCurrentSignInMethod
                                 ? '현재 로그인 방식'
@@ -376,8 +388,98 @@ export function SettingsAccountScreen({ navigation }: Props) {
                                     </Pressable>
                                 </View>
                             );
-                        })}
+                        }) : (
+                            <View style={styles.providerEmptyCard}>
+                                <Text style={styles.providerEmptyTitle}>연결된 소셜 로그인이 없어요.</Text>
+                                <Text style={styles.providerEmptyText}>
+                                    지금은 {currentSignInMethodLabel}로 로그인 중이에요.
+                                </Text>
+                            </View>
+                        )}
                     </View>
+                    {hiddenProviderCount > 0 ? (
+                        <>
+                            <Pressable
+                                accessibilityRole="button"
+                                accessibilityState={{ expanded: areOtherProvidersVisible }}
+                                onPress={() => {
+                                    setOtherProvidersVisible((current) => !current);
+                                }}
+                                style={({ pressed }) => [
+                                    styles.providerToggle,
+                                    pressed ? styles.actionPressed : null
+                                ]}
+                            >
+                                <View style={styles.providerToggleCopy}>
+                                    <Text style={styles.providerToggleText}>
+                                        {areOtherProvidersVisible ? '다른 로그인 수단 숨기기' : `다른 로그인 수단 ${hiddenProviderCount}개 보기`}
+                                    </Text>
+                                    <Text style={styles.providerToggleHint}>
+                                        연결되지 않은 로그인 수단은 여기 접어뒀어요.
+                                    </Text>
+                                </View>
+                                <Ionicons
+                                    name={areOtherProvidersVisible ? 'chevron-up' : 'chevron-down'}
+                                    size={18}
+                                    color={theme.colors.textSecondary}
+                                />
+                            </Pressable>
+                            {areOtherProvidersVisible ? (
+                                <View style={styles.providerList}>
+                                    {hiddenProviderEntries.map((entry) => {
+                                        const providerLabel = getProviderDisplayName(entry.provider);
+                                        const statusLabel = entry.available ? '연결 가능' : '준비 중';
+                                        const detailLabel = entry.emailHint
+                                            || (entry.available
+                                                ? '로그인 후 현재 계정에 추가할 수 있어요.'
+                                                : '이 로그인 방식은 현재 빌드에서 시작할 수 없어요.');
+                                        const canAct = entry.canLink || entry.canUnlink;
+
+                                        return (
+                                            <View key={entry.provider} style={styles.providerRow}>
+                                                <View style={styles.providerCopy}>
+                                                    <View style={styles.providerTitleRow}>
+                                                        <Text style={styles.providerTitle}>{providerLabel}</Text>
+                                                        <View style={styles.providerBadge}>
+                                                            <Text style={styles.providerBadgeText}>{statusLabel}</Text>
+                                                        </View>
+                                                    </View>
+                                                    <Text style={styles.providerDescription}>{detailLabel}</Text>
+                                                </View>
+                                                <Pressable
+                                                    accessibilityRole="button"
+                                                    disabled={!canAct || isAuthActionLoading || isAuthProvidersLoading}
+                                                    onPress={() => {
+                                                        if (entry.canLink) {
+                                                            handleLinkProvider(entry.provider);
+                                                            return;
+                                                        }
+
+                                                        if (entry.canUnlink) {
+                                                            handleUnlinkProvider(entry.provider);
+                                                        }
+                                                    }}
+                                                    style={({ pressed }) => [
+                                                        styles.providerAction,
+                                                        (!canAct || isAuthActionLoading || isAuthProvidersLoading)
+                                                            ? styles.actionDisabled
+                                                            : null,
+                                                        pressed && canAct && !isAuthActionLoading && !isAuthProvidersLoading
+                                                            ? styles.actionPressed
+                                                            : null
+                                                    ]}
+                                                >
+                                                    <Text style={styles.providerActionText}>
+                                                        {entry.canLink ? '연결' : entry.canUnlink ? '해제' : entry.available ? '사용 중' : '대기'}
+                                                    </Text>
+                                                </Pressable>
+                                            </View>
+                                        );
+                                    })}
+                                </View>
+                            ) : null}
+                        </>
+                    ) : null}
                     <View style={styles.actionRowSingle}>
                         <Pressable
                             accessibilityRole="button"
@@ -570,6 +672,23 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         marginTop: theme.spacing.sm,
         gap: theme.spacing.sm
     },
+    providerEmptyCard: {
+        padding: theme.spacing.sm,
+        borderRadius: theme.radius.md,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        backgroundColor: theme.colors.surfaceMuted
+    },
+    providerEmptyTitle: {
+        color: theme.colors.textPrimary,
+        fontFamily: theme.fonts.semibold
+    },
+    providerEmptyText: {
+        marginTop: theme.spacing.micro,
+        color: theme.colors.textSecondary,
+        lineHeight: 18,
+        fontFamily: theme.fonts.body
+    },
     providerRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -607,6 +726,31 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     providerDescription: {
         color: theme.colors.textSecondary,
         lineHeight: 18,
+        fontFamily: theme.fonts.body
+    },
+    providerToggle: {
+        marginTop: theme.spacing.sm,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: theme.spacing.sm,
+        paddingHorizontal: theme.spacing.sm,
+        paddingVertical: theme.spacing.sm,
+        borderRadius: theme.radius.md,
+        backgroundColor: theme.colors.surfaceMuted
+    },
+    providerToggleCopy: {
+        flex: 1
+    },
+    providerToggleText: {
+        color: theme.colors.textPrimary,
+        fontFamily: theme.fonts.semibold
+    },
+    providerToggleHint: {
+        marginTop: theme.spacing.micro,
+        color: theme.colors.textSecondary,
+        fontSize: 12,
+        lineHeight: 17,
         fontFamily: theme.fonts.body
     },
     providerAction: {

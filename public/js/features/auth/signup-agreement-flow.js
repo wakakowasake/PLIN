@@ -1,6 +1,7 @@
 import { firebaseReady } from '../../firebase.js';
 import { assertAuthServicesReady, getCurrentAuthUser } from '../../services/firebase/auth-service.js';
 import { mergeUserProfile } from '../../services/firebase/profile-repository.js';
+import { loadTripList } from '../../ui/trips.js';
 
 export async function confirmMandatoryTermsFlow() {
     const check = document.getElementById('mandatory-terms-check');
@@ -55,7 +56,7 @@ export async function completeSignupFlow() {
         document.getElementById('main-view')?.classList.remove('hidden');
         document.getElementById('app-header')?.classList.remove('hidden');
 
-        if (window.loadTripList) window.loadTripList(user.uid);
+        await loadTripList(user.uid);
         if (window.checkInviteLink) window.checkInviteLink();
     } catch (error) {
         console.error("Signup completion failed", error);

@@ -34,6 +34,9 @@ import { fetchUserProfile } from '../services/firebase/profile-repository.js';
 
 const NOTICE_LIMIT = 50;
 const NOTICE_BODY_HTML_LIMIT = 20000;
+const NOTICE_ADMIN_EMAILS = new Set([
+    'plin.ink@gmail.com'
+]);
 const noticesRef = collection(db, 'notices');
 
 const els = {
@@ -51,13 +54,17 @@ const els = {
     editorTitle: document.getElementById('notice-admin-title'),
     status: document.getElementById('notice-admin-status'),
     list: document.getElementById('notice-list'),
-    refresh: document.getElementById('notice-refresh-btn')
+    refresh: document.getElementById('notice-refresh-btn'),
+    detailSection: document.getElementById('notice-detail-section'),
+    detailContent: document.getElementById('notice-detail-content'),
+    detailBack: document.getElementById('notice-detail-back-btn')
 };
 
 const state = {
     isAdmin: false,
     currentUser: null,
-    notices: []
+    notices: [],
+    selectedNoticeId: ''
 };
 let eventsBound = false;
 let authObserverStarted = false;
@@ -68,6 +75,7 @@ let noticeEditorInitPromise = null;
 function setNoticeEditorVisible(isVisible) {
     els.adminPanel?.classList.toggle('hidden', !isVisible);
     els.listSection?.classList.toggle('hidden', isVisible);
+    els.detailSection?.classList.add('hidden');
     els.write?.classList.toggle('hidden', isVisible || !state.isAdmin);
     if (isVisible) {
         window.requestAnimationFrame(() => {
@@ -612,36 +620,90 @@ function closeNoticeEditor() {
     });
 }
 
-function buildNoticeCard(notice) {
+function buildNoticeAdminActions(noticeId) {
+    if (!state.isAdmin) return '';
+
+    return `
+        <div class="notice-card-actions">
+            <button type="button" data-notice-action="edit" data-notice-id="${escapeHtml(noticeId)}">수정</button>
+            <button type="button" data-notice-action="delete" data-notice-id="${escapeHtml(noticeId)}">삭제</button>
+        </div>
+    `;
+}
+
+function buildNoticeListRow(notice) {
+    const dateLabel = formatNoticeDate(notice.updatedAt || notice.createdAt);
+    const authorLabel = notice.authorName ? ` · ${escapeHtml(notice.authorName)}` : '';
+    const pinnedBadge = notice.pinned ? '<span class="notice-pin-badge">상단 고정</span>' : '';
+    const adminActions = buildNoticeAdminActions(notice.id);
+
+    return `
+        <article class="notice-list-row ${notice.pinned ? 'is-pinned' : ''}">
+            <button type="button" class="notice-list-row-button" data-notice-action="view" data-notice-id="${escapeHtml(notice.id)}">
+                <span class="notice-list-row-copy">
+                    <span class="notice-card-meta">
+                        <span>${escapeHtml(notice.category)}</span>
+                        ${pinnedBadge}
+                        <span>${dateLabel}${authorLabel}</span>
+                    </span>
+                    <span class="notice-list-row-title">${escapeHtml(notice.title)}</span>
+                </span>
+                <span class="notice-list-row-arrow" aria-hidden="true">›</span>
+            </button>
+            ${adminActions}
+        </article>
+    `;
+}
+
+function buildNoticeDetail(notice) {
     const dateLabel = formatNoticeDate(notice.updatedAt || notice.createdAt);
     const authorLabel = notice.authorName ? ` · ${escapeHtml(notice.authorName)}` : '';
     const pinnedBadge = notice.pinned ? '<span class="notice-pin-badge">상단 고정</span>' : '';
     const bodyHtml = notice.bodyHtml ? sanitizeRichTextHtml(notice.bodyHtml) : renderMarkdown(notice.body);
-    const adminActions = state.isAdmin
-        ? `
-            <div class="notice-card-actions">
-                <button type="button" data-notice-action="edit" data-notice-id="${escapeHtml(notice.id)}">수정</button>
-                <button type="button" data-notice-action="delete" data-notice-id="${escapeHtml(notice.id)}">삭제</button>
-            </div>
-        `
-        : '';
+    const adminActions = buildNoticeAdminActions(notice.id);
 
     return `
-        <article class="notice-card ${notice.pinned ? 'is-pinned' : ''}">
-            <div class="notice-card-head">
-                <div>
+        <article class="notice-detail-card ${notice.pinned ? 'is-pinned' : ''}">
+            <div class="notice-detail-head">
+                <div class="notice-detail-copy">
                     <div class="notice-card-meta">
                         <span>${escapeHtml(notice.category)}</span>
                         ${pinnedBadge}
                     </div>
-                    <h3>${escapeHtml(notice.title)}</h3>
+                    <h2>${escapeHtml(notice.title)}</h2>
+                    <p class="notice-card-date">${dateLabel}${authorLabel}</p>
                 </div>
                 ${adminActions}
             </div>
-            <div class="notice-card-body notice-markdown">${bodyHtml}</div>
-            <p class="notice-card-date">${dateLabel}${authorLabel}</p>
+            <div class="notice-detail-body notice-markdown">${bodyHtml}</div>
         </article>
     `;
+}
+
+function openNoticeDetail(noticeId) {
+    const notice = state.notices.find((entry) => entry.id === noticeId);
+    if (!notice || !els.detailContent) return;
+
+    state.selectedNoticeId = noticeId;
+    els.detailContent.innerHTML = buildNoticeDetail(notice);
+    els.adminPanel?.classList.add('hidden');
+    els.listSection?.classList.add('hidden');
+    els.detailSection?.classList.remove('hidden');
+    els.write?.classList.toggle('hidden', !state.isAdmin);
+
+    window.requestAnimationFrame(() => {
+        els.detailSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+}
+
+function closeNoticeDetail() {
+    state.selectedNoticeId = '';
+    els.detailSection?.classList.add('hidden');
+    els.listSection?.classList.remove('hidden');
+    els.write?.classList.toggle('hidden', !state.isAdmin);
+    window.requestAnimationFrame(() => {
+        els.listSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
 }
 
 function renderNoticeList() {
@@ -664,7 +726,7 @@ function renderNoticeList() {
         return rightTime - leftTime;
     });
 
-    els.list.innerHTML = notices.map(buildNoticeCard).join('');
+    els.list.innerHTML = notices.map(buildNoticeListRow).join('');
 }
 
 async function loadNotices() {
@@ -687,6 +749,14 @@ async function loadNotices() {
         ));
         state.notices = snapshot.docs.map(normalizeNoticeDoc);
         renderNoticeList();
+        if (state.selectedNoticeId) {
+            const stillExists = state.notices.some((notice) => notice.id === state.selectedNoticeId);
+            if (stillExists) {
+                openNoticeDetail(state.selectedNoticeId);
+            } else {
+                closeNoticeDetail();
+            }
+        }
     } catch (error) {
         console.error('공지사항 조회 실패:', error);
         els.list.innerHTML = `
@@ -712,6 +782,7 @@ async function readAdminState(user) {
     }
 
     const editorWasOpen = els.adminPanel && !els.adminPanel.classList.contains('hidden');
+    const isEmailAdmin = NOTICE_ADMIN_EMAILS.has(String(user.email || '').trim().toLowerCase());
 
     let isTokenAdmin = false;
     try {
@@ -722,10 +793,10 @@ async function readAdminState(user) {
     try {
         const profile = await fetchUserProfile(user.uid);
         const role = String(profile.data()?.role || '').trim().toLowerCase();
-        state.isAdmin = isTokenAdmin || role === 'admin';
+        state.isAdmin = isTokenAdmin || isEmailAdmin || role === 'admin';
     } catch (error) {
         console.warn('관리자 권한 확인 실패:', error);
-        state.isAdmin = isTokenAdmin;
+        state.isAdmin = isTokenAdmin || isEmailAdmin;
     }
 
     setNoticeEditorVisible(state.isAdmin && editorWasOpen);
@@ -828,7 +899,21 @@ function bindEvents() {
     els.write?.addEventListener('click', () => openNoticeEditor());
     els.cancelEdit?.addEventListener('click', closeNoticeEditor);
     els.refresh?.addEventListener('click', loadNotices);
+    els.detailBack?.addEventListener('click', closeNoticeDetail);
     els.list?.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-notice-action]');
+        if (!button) return;
+
+        const noticeId = button.dataset.noticeId || '';
+        if (button.dataset.noticeAction === 'view') {
+            openNoticeDetail(noticeId);
+        } else if (button.dataset.noticeAction === 'edit') {
+            startEditNotice(noticeId);
+        } else if (button.dataset.noticeAction === 'delete') {
+            deleteNotice(noticeId);
+        }
+    });
+    els.detailContent?.addEventListener('click', (event) => {
         const button = event.target.closest('[data-notice-action]');
         if (!button) return;
 
