@@ -5,10 +5,12 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
     ActivityIndicator,
     Animated,
+    FlatList,
     Image,
     KeyboardAvoidingView,
     LayoutAnimation,
     Linking,
+    type ListRenderItemInfo,
     Modal,
     type NativeScrollEvent,
     type NativeSyntheticEvent,
@@ -41,7 +43,9 @@ import { useAdapters } from '@/adapters/useAdapters';
 import {
     BudgetExpenseComposerModal,
     DEFAULT_EXPENSE_CURRENCY,
-    normalizeExpenseCurrency
+    normalizeExpenseCurrency,
+    resolveDefaultExpenseCurrencyForTrip,
+    type BudgetExpenseComposerOption
 } from '@/components/BudgetExpenseComposerModal';
 import { BottomImageGradient } from '@/components/BottomImageGradient';
 import { BottomNavBar } from '@/components/BottomNavBar';
@@ -49,6 +53,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { Alert } from '@/feedback';
 import { LoadingView } from '@/components/LoadingView';
 import { PlinIcon, type PlinIconName } from '@/components/PlinIcon';
+import { SheetBackButton } from '@/components/SheetBackButton';
 import { TimelineItemComposerModal } from '@/components/TimelineItemComposerModal';
 import { TimelineExistingItemPickerModal } from '@/components/TimelineExistingItemPickerModal';
 import { TimelineInsertOptionsModal } from '@/components/TimelineInsertOptionsModal';
@@ -88,6 +93,7 @@ import { usePrimaryScrollActivityReporter } from '@/state/primary-scroll-activit
 import { publishTripDetailUpdated } from '@/state/trip-write-sync';
 import { type AppTheme, useAppTheme } from '@/theme';
 import { MOBILE_BOTTOM_SHEET_HEIGHTS } from '@/theme/bottomSheet';
+import { isPlinAdminProfile } from '@/utils/admin-access';
 import type {
     MobileQuickRouteOption,
     MobileTripDetail,
@@ -102,6 +108,11 @@ import type {
     MobileTripListType,
     TripRevisionEntry
 } from '@/types/trip';
+import {
+    buildCachedImageSource,
+    prefetchImageUrls,
+    useDeferredImagePrefetch
+} from '@/utils/image-cache';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TripDetail'>;
 type SelectedTimelineTarget = {
@@ -120,17 +131,8 @@ const TRIP_WRITE_CONFLICT_MESSAGE = '다른 기기에서 먼저 수정했어요.
 const OFFLINE_SHARE_DISABLED_MESSAGE = '오프라인에서는 공유와 멤버 관리를 할 수 없어요.';
 const OFFLINE_ANNOUNCEMENT_DISABLED_MESSAGE = '오프라인에서는 참가자 공지를 보낼 수 없어요.';
 const TRIP_REVISION_HISTORY_ENABLED = false;
-const TIMELINE_DETAIL_SHEET_SNAP_VALUES = [
-    MOBILE_BOTTOM_SHEET_HEIGHTS.detailCompactPercent,
-    MOBILE_BOTTOM_SHEET_HEIGHTS.detailExpandedPercent
-] as const;
-type TimelineDetailSheetSnap = (typeof TIMELINE_DETAIL_SHEET_SNAP_VALUES)[number];
-type TimelineDetailSheetReleaseTarget = TimelineDetailSheetSnap | 'close';
-const MIN_TIMELINE_DETAIL_SHEET_SNAP: TimelineDetailSheetSnap = MOBILE_BOTTOM_SHEET_HEIGHTS.detailCompactPercent;
-const DEFAULT_TIMELINE_DETAIL_SHEET_SNAP: TimelineDetailSheetSnap = MOBILE_BOTTOM_SHEET_HEIGHTS.detailExpandedPercent;
-const MAX_TIMELINE_DETAIL_SHEET_SNAP: TimelineDetailSheetSnap = MOBILE_BOTTOM_SHEET_HEIGHTS.detailExpandedPercent;
-const TIMELINE_DETAIL_SHEET_FLICK_VELOCITY_THRESHOLD = 1.05;
-const TIMELINE_DETAIL_SHEET_RELEASE_PROJECTION = 112;
+const WORKFLOW_SHEET_DISMISS_DRAG_DISTANCE = 96;
+const WORKFLOW_SHEET_DISMISS_VELOCITY = 0.85;
 const TRIP_SAVED_NOTICE_DURATION_MS = 1800;
 
 type TripSyncNoticeTone = 'checking' | 'saving' | 'saved' | 'warning';
@@ -193,12 +195,7 @@ type BudgetExpenseComposerTarget = {
     dayLabel: string;
     dayDate: string;
     isItemSelectionLocked?: boolean;
-    options: Array<{
-        itemId: string;
-        itemIndex: number;
-        title: string;
-        location: string;
-    }>;
+    options: BudgetExpenseComposerOption[];
 } | null;
 type BudgetExpenseComposerOpenOptions = {
     closeSummaryFirst?: boolean;
@@ -229,56 +226,6 @@ type ZoomableGalleryImageProps = {
 
 function clampNumericValue(value: number, min: number, max: number) {
     return Math.min(Math.max(value, min), max);
-}
-
-function resolveNearestTimelineDetailSheetSnap(
-    projectedHeight: number,
-    sheetHeights: Record<TimelineDetailSheetSnap, number>
-) {
-    let nearestSnap: TimelineDetailSheetSnap = TIMELINE_DETAIL_SHEET_SNAP_VALUES[0];
-    let nearestDistance = Number.POSITIVE_INFINITY;
-
-    TIMELINE_DETAIL_SHEET_SNAP_VALUES.forEach((snap) => {
-        const distance = Math.abs(projectedHeight - sheetHeights[snap]);
-        if (distance < nearestDistance) {
-            nearestDistance = distance;
-            nearestSnap = snap;
-        }
-    });
-
-    return nearestSnap;
-}
-
-function resolveTimelineDetailSheetReleaseSnap(
-    currentHeight: number,
-    projectedHeight: number,
-    velocityY: number,
-    sheetHeights: Record<TimelineDetailSheetSnap, number>
-): TimelineDetailSheetReleaseTarget {
-    const currentSnap = resolveNearestTimelineDetailSheetSnap(currentHeight, sheetHeights);
-    const minimumSnapHeight = sheetHeights[MIN_TIMELINE_DETAIL_SHEET_SNAP];
-    const closeThreshold = Math.max(72, Math.round(minimumSnapHeight * 0.08));
-
-    if (velocityY >= TIMELINE_DETAIL_SHEET_FLICK_VELOCITY_THRESHOLD && currentSnap === MIN_TIMELINE_DETAIL_SHEET_SNAP) {
-        return 'close';
-    }
-
-    if (projectedHeight < minimumSnapHeight - closeThreshold) {
-        return 'close';
-    }
-
-    if (Math.abs(velocityY) >= TIMELINE_DETAIL_SHEET_FLICK_VELOCITY_THRESHOLD) {
-        const currentIndex = TIMELINE_DETAIL_SHEET_SNAP_VALUES.indexOf(currentSnap);
-        const nextIndex = clampNumericValue(
-            currentIndex + (velocityY < 0 ? 1 : -1),
-            0,
-            TIMELINE_DETAIL_SHEET_SNAP_VALUES.length - 1
-        );
-
-        return TIMELINE_DETAIL_SHEET_SNAP_VALUES[nextIndex];
-    }
-
-    return resolveNearestTimelineDetailSheetSnap(projectedHeight, sheetHeights);
 }
 
 function formatTripRevisionRestorePoint(value: string) {
@@ -492,7 +439,7 @@ function ZoomableGalleryImage({
                         ]}
                     >
                         <Animated.Image
-                            source={{ uri }}
+                            source={buildCachedImageSource(uri)}
                             resizeMode="contain"
                             style={imageStyle}
                         />
@@ -1169,23 +1116,22 @@ export function TripDetailScreen({ navigation, route }: Props) {
     const budgetSheetContentInsetStyle = React.useMemo(() => ({
         paddingBottom: insets.bottom + theme.spacing.md
     }), [insets.bottom, theme.spacing.md]);
+    const tripListComposerSheetInsetStyle = React.useMemo(() => ({
+        paddingTop: insets.top
+    }), [insets.top]);
     const {
         scrollRef: tripListComposerScrollRef,
         createFocusHandler: createTripListComposerFocusHandler,
         keyboardAwareContentInsetStyle: tripListComposerKeyboardInsetStyle,
         scrollViewProps: tripListComposerScrollViewProps
     } = useKeyboardAwareInputScroll(112);
+    const selectedTimelineDetailSheetInsetStyle = React.useMemo(() => ({
+        paddingTop: insets.top
+    }), [insets.top]);
     const selectedTimelineDetailSheetContentInsetStyle = React.useMemo(() => ({
         paddingBottom: insets.bottom + theme.spacing.md
     }), [insets.bottom, theme.spacing.md]);
-    const selectedTimelineDetailSheetHeights = React.useMemo<Record<TimelineDetailSheetSnap, number>>(() => ({
-        [MOBILE_BOTTOM_SHEET_HEIGHTS.detailCompactPercent]: Math.round(
-            windowHeight * (MOBILE_BOTTOM_SHEET_HEIGHTS.detailCompactPercent / 100)
-        ),
-        [MOBILE_BOTTOM_SHEET_HEIGHTS.detailExpandedPercent]: Math.round(
-            windowHeight * (MOBILE_BOTTOM_SHEET_HEIGHTS.detailExpandedPercent / 100)
-        )
-    }), [windowHeight]);
+    const selectedTimelineDetailSheetFullHeight = windowHeight;
     const heroHeaderHeight = React.useMemo(() => {
         const widthDrivenHeight = Math.round(windowWidth * 0.8);
         const heightDrivenCap = Math.round(windowHeight * 0.34);
@@ -1207,22 +1153,18 @@ export function TripDetailScreen({ navigation, route }: Props) {
     ), [heroHeaderFillProgress]);
     const detailScrollRef = React.useRef<ScrollView | null>(null);
     const detailFilterScrollRef = React.useRef<ScrollView | null>(null);
-    const galleryScrollRef = React.useRef<ScrollView | null>(null);
-    const selectedTimelineDetailSheetHeight = React.useRef(
-        new Animated.Value(selectedTimelineDetailSheetHeights[DEFAULT_TIMELINE_DETAIL_SHEET_SNAP])
-    ).current;
-    const selectedTimelineDetailSheetHeightRef = React.useRef(
-        selectedTimelineDetailSheetHeights[DEFAULT_TIMELINE_DETAIL_SHEET_SNAP]
-    );
-    const selectedTimelineDetailSheetDragStartHeightRef = React.useRef(
-        selectedTimelineDetailSheetHeights[DEFAULT_TIMELINE_DETAIL_SHEET_SNAP]
-    );
+    const galleryScrollRef = React.useRef<FlatList<string> | null>(null);
+    const selectedTimelineDetailSheetTranslateY = React.useRef(new Animated.Value(selectedTimelineDetailSheetFullHeight)).current;
+    const selectedTimelineDetailBackdropOpacity = React.useMemo(() => (
+        selectedTimelineDetailSheetTranslateY.interpolate({
+            inputRange: [0, selectedTimelineDetailSheetFullHeight],
+            outputRange: [1, 0],
+            extrapolate: 'clamp'
+        })
+    ), [selectedTimelineDetailSheetFullHeight, selectedTimelineDetailSheetTranslateY]);
     const detailSectionOffsetsRef = React.useRef<Record<string, number>>({});
     const pendingDetailFilterKeyRef = React.useRef<TripDetailFilterKey>('');
     const [selectedTimelineTarget, setSelectedTimelineTarget] = React.useState<SelectedTimelineTarget>(null);
-    const [selectedTimelineDetailSheetSnap, setSelectedTimelineDetailSheetSnap] = React.useState<TimelineDetailSheetSnap>(
-        DEFAULT_TIMELINE_DETAIL_SHEET_SNAP
-    );
     const [pendingTimelineDayOrders, setPendingTimelineDayOrders] = React.useState<PendingTimelineDayOrders>({});
     const [timelineInsertTarget, setTimelineInsertTarget] = React.useState<TimelineComposerTarget>(null);
     const [timelineComposerTarget, setTimelineComposerTarget] = React.useState<TimelineComposerTarget>(null);
@@ -1259,6 +1201,8 @@ export function TripDetailScreen({ navigation, route }: Props) {
     const [tripListLocationKey, setTripListLocationKey] = React.useState('');
     const [isTripListSaving, setTripListSaving] = React.useState(false);
     const [isTripListToggleSyncing, setTripListToggleSyncing] = React.useState(false);
+    const isTripListComposerBusy = isTripListSaving || isTripListToggleSyncing;
+    const tripListComposerSheetTranslateY = React.useRef(new Animated.Value(0)).current;
     const [optimisticTripLists, setOptimisticTripLists] = React.useState<Record<MobileTripListType, MobileTripListItem[] | null>>({
         checklist: null,
         shopping: null
@@ -1299,7 +1243,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
         checklist: 0,
         shopping: 0
     });
-    const { user, retryBootstrap, refreshSession } = useAuthSession();
+    const { user, profileSummary, retryBootstrap, refreshSession } = useAuthSession();
     const { notifyPrimaryScrollActivity, scrollEventThrottle } = usePrimaryScrollActivityReporter();
     const {
         detail,
@@ -1335,6 +1279,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
         pendingTimelineDayOrders,
         optimisticTripLists
     });
+    const canPublishCommunityByAdmin = canPublishCommunity && isPlinAdminProfile(profileSummary, user);
     const hasPendingTimelineDayOrders = React.useMemo(
         () => Object.keys(pendingTimelineDayOrders).length > 0,
         [pendingTimelineDayOrders]
@@ -1415,6 +1360,36 @@ export function TripDetailScreen({ navigation, route }: Props) {
         const targetDay = budgetDetailDays.find((day) => day.itemOptions.length > 0);
         return targetDay?.id || '';
     }, [budgetDetailDays]);
+    const budgetExpenseDefaultCurrencyContext = React.useMemo(() => ({
+        countryCodes: budgetDetailDays.flatMap((day) => (
+            day.itemOptions.map((option) => option.countryCode)
+        )),
+        destinationText: [
+            detail?.locationLabel,
+            detail?.editInfo.location,
+            detail?.title,
+            detail?.subInfo
+        ].filter(Boolean).join(' ')
+    }), [
+        budgetDetailDays,
+        detail?.editInfo.location,
+        detail?.locationLabel,
+        detail?.subInfo,
+        detail?.title
+    ]);
+    const resolveBudgetExpenseInitialCurrency = React.useCallback((
+        targetOption?: BudgetExpenseComposerOption | null
+    ) => resolveDefaultExpenseCurrencyForTrip({
+        countryCodes: [
+            targetOption?.countryCode,
+            ...budgetExpenseDefaultCurrencyContext.countryCodes
+        ],
+        destinationText: [
+            targetOption?.title,
+            targetOption?.location,
+            budgetExpenseDefaultCurrencyContext.destinationText
+        ].filter(Boolean).join(' ')
+    }), [budgetExpenseDefaultCurrencyContext]);
     const firstMemoryQuickAddTarget = React.useMemo<TimelineMemoryComposerTarget>(() => {
         if (!timelineDetail) {
             return null;
@@ -1453,7 +1428,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
         detail,
         userId: user?.uid ?? null,
         canManageShare,
-        canPublishCommunity,
+        canPublishCommunity: canPublishCommunityByAdmin,
         isOfflineMode,
         startInCommunityPublishFlow: route.params.startInCommunityPublishFlow === true,
         onRequestOpenShareSheet: () => {
@@ -1615,40 +1590,30 @@ export function TripDetailScreen({ navigation, route }: Props) {
     }, [selectedDay, selectedTimelineTarget]);
     const isSelectedTimelineDetailVisible = Boolean(selectedTimelineItem && selectedDay);
 
-    const animateSelectedTimelineDetailSheetToSnap = React.useCallback((nextSnap: TimelineDetailSheetSnap) => {
-        const nextHeight = selectedTimelineDetailSheetHeights[nextSnap];
-        setSelectedTimelineDetailSheetSnap(nextSnap);
-        Animated.spring(selectedTimelineDetailSheetHeight, {
-            toValue: nextHeight,
-            useNativeDriver: false,
+    const resetSelectedTimelineDetailSheetPosition = React.useCallback(() => {
+        Animated.spring(selectedTimelineDetailSheetTranslateY, {
+            toValue: 0,
+            useNativeDriver: true,
             damping: 15,
             stiffness: 220,
             mass: 0.78
+        }).start();
+    }, [selectedTimelineDetailSheetTranslateY]);
+
+    const dismissSelectedTimelineDetailSheetFromHandle = React.useCallback(() => {
+        Animated.timing(selectedTimelineDetailSheetTranslateY, {
+            toValue: selectedTimelineDetailSheetFullHeight,
+            duration: 220,
+            useNativeDriver: true
         }).start(({ finished }) => {
             if (finished) {
-                selectedTimelineDetailSheetHeightRef.current = nextHeight;
+                closeSelectedTimelineDetailSheet();
             }
         });
-    }, [selectedTimelineDetailSheetHeight, selectedTimelineDetailSheetHeights]);
-
-    React.useEffect(() => {
-        if (!isSelectedTimelineDetailVisible) {
-            return;
-        }
-
-        setSelectedTimelineDetailSheetSnap(DEFAULT_TIMELINE_DETAIL_SHEET_SNAP);
-        selectedTimelineDetailSheetHeight.stopAnimation();
-        selectedTimelineDetailSheetHeight.setValue(
-            selectedTimelineDetailSheetHeights[DEFAULT_TIMELINE_DETAIL_SHEET_SNAP]
-        );
-        selectedTimelineDetailSheetHeightRef.current =
-            selectedTimelineDetailSheetHeights[DEFAULT_TIMELINE_DETAIL_SHEET_SNAP];
-        selectedTimelineDetailSheetDragStartHeightRef.current =
-            selectedTimelineDetailSheetHeights[DEFAULT_TIMELINE_DETAIL_SHEET_SNAP];
     }, [
-        isSelectedTimelineDetailVisible,
-        selectedTimelineDetailSheetHeight,
-        selectedTimelineDetailSheetHeights
+        closeSelectedTimelineDetailSheet,
+        selectedTimelineDetailSheetFullHeight,
+        selectedTimelineDetailSheetTranslateY
     ]);
 
     React.useEffect(() => {
@@ -1656,16 +1621,19 @@ export function TripDetailScreen({ navigation, route }: Props) {
             return;
         }
 
-        const nextHeight = selectedTimelineDetailSheetHeights[selectedTimelineDetailSheetSnap];
-        selectedTimelineDetailSheetHeight.stopAnimation();
-        selectedTimelineDetailSheetHeight.setValue(nextHeight);
-        selectedTimelineDetailSheetHeightRef.current = nextHeight;
-        selectedTimelineDetailSheetDragStartHeightRef.current = nextHeight;
+        selectedTimelineDetailSheetTranslateY.stopAnimation();
+        selectedTimelineDetailSheetTranslateY.setValue(selectedTimelineDetailSheetFullHeight);
+        Animated.spring(selectedTimelineDetailSheetTranslateY, {
+            toValue: 0,
+            useNativeDriver: true,
+            damping: 18,
+            stiffness: 220,
+            mass: 0.82
+        }).start();
     }, [
         isSelectedTimelineDetailVisible,
-        selectedTimelineDetailSheetHeight,
-        selectedTimelineDetailSheetHeights,
-        selectedTimelineDetailSheetSnap
+        selectedTimelineDetailSheetFullHeight,
+        selectedTimelineDetailSheetTranslateY
     ]);
 
     const selectedTimelineDetailSheetPanResponder = React.useMemo(() => PanResponder.create({
@@ -1681,53 +1649,29 @@ export function TripDetailScreen({ navigation, route }: Props) {
         ),
         onPanResponderTerminationRequest: () => false,
         onPanResponderGrant: () => {
-            selectedTimelineDetailSheetHeight.stopAnimation((value) => {
-                selectedTimelineDetailSheetDragStartHeightRef.current = value;
-                selectedTimelineDetailSheetHeightRef.current = value;
-            });
+            selectedTimelineDetailSheetTranslateY.stopAnimation();
         },
         onPanResponderMove: (_event, gestureState) => {
-            const nextValue = clampNumericValue(
-                selectedTimelineDetailSheetDragStartHeightRef.current - gestureState.dy,
-                0,
-                selectedTimelineDetailSheetHeights[MAX_TIMELINE_DETAIL_SHEET_SNAP]
-            );
-
-            selectedTimelineDetailSheetHeight.setValue(nextValue);
-            selectedTimelineDetailSheetHeightRef.current = nextValue;
+            selectedTimelineDetailSheetTranslateY.setValue(Math.max(0, gestureState.dy));
         },
         onPanResponderRelease: (_event, gestureState) => {
-            const projectedValue = (
-                selectedTimelineDetailSheetDragStartHeightRef.current
-                - gestureState.dy
-                - gestureState.vy * TIMELINE_DETAIL_SHEET_RELEASE_PROJECTION
-            );
-
-            const nextTarget = resolveTimelineDetailSheetReleaseSnap(
-                selectedTimelineDetailSheetHeightRef.current,
-                projectedValue,
-                gestureState.vy,
-                selectedTimelineDetailSheetHeights
-            );
-
-            if (nextTarget === 'close') {
-                closeSelectedTimelineDetailSheet();
+            if (
+                gestureState.dy > WORKFLOW_SHEET_DISMISS_DRAG_DISTANCE
+                || gestureState.vy > WORKFLOW_SHEET_DISMISS_VELOCITY
+            ) {
+                dismissSelectedTimelineDetailSheetFromHandle();
                 return;
             }
 
-            animateSelectedTimelineDetailSheetToSnap(nextTarget);
+            resetSelectedTimelineDetailSheetPosition();
         },
         onPanResponderTerminate: () => {
-            animateSelectedTimelineDetailSheetToSnap(resolveNearestTimelineDetailSheetSnap(
-                selectedTimelineDetailSheetHeightRef.current,
-                selectedTimelineDetailSheetHeights
-            ));
+            resetSelectedTimelineDetailSheetPosition();
         }
     }), [
-        animateSelectedTimelineDetailSheetToSnap,
-        closeSelectedTimelineDetailSheet,
-        selectedTimelineDetailSheetHeight,
-        selectedTimelineDetailSheetHeights
+        dismissSelectedTimelineDetailSheetFromHandle,
+        resetSelectedTimelineDetailSheetPosition,
+        selectedTimelineDetailSheetTranslateY
     ]);
 
     const selectedTimelineRouteAnchors = React.useMemo(() => {
@@ -1775,6 +1719,39 @@ export function TripDetailScreen({ navigation, route }: Props) {
         selectedTimelineItem && !selectedTimelineItem.isTransit && selectedTimelineItem.badgeLabel === '메모'
     );
 
+    const selectedTimelineDetailHeaderTitle = React.useMemo(() => {
+        if (!selectedTimelineItem) {
+            return '일정 상세';
+        }
+
+        if (isSelectedStandaloneMemo) {
+            return '메모 상세';
+        }
+
+        return selectedTimelineItem.isTransit ? '이동 상세' : '일정 상세';
+    }, [isSelectedStandaloneMemo, selectedTimelineItem]);
+
+    const selectedTimelineDetailTitle = React.useMemo(() => {
+        if (!selectedTimelineItem) {
+            return '일정 상세';
+        }
+
+        if (isSelectedStandaloneMemo) {
+            return '메모';
+        }
+
+        return String(selectedTimelineItem.title || '').trim()
+            || String(selectedTimelineItem.badgeLabel || '').trim()
+            || '일정 상세';
+    }, [isSelectedStandaloneMemo, selectedTimelineItem]);
+
+    const selectedTimelineDayMeta = React.useMemo(() => (
+        [selectedDay?.label, selectedDay?.date]
+            .map((value) => String(value || '').trim())
+            .filter(Boolean)
+            .join(' · ')
+    ), [selectedDay]);
+
     const selectedTimelineStatLabel = isSelectedStandaloneMemo
         ? ''
         : String(selectedTimelineItem?.transitWindowLabel || selectedTimelineItem?.timeLabel || '').trim() || '시간 미정';
@@ -1791,6 +1768,26 @@ export function TripDetailScreen({ navigation, route }: Props) {
         [photoGalleryState]
     );
     const currentPhotoGalleryCount = currentPhotoGalleryUrls.length;
+    const detailEntryPrefetchUrls = React.useMemo(
+        () => [
+            detail?.coverImage || null,
+            ...(detail?.photoPreviewUrls || []).slice(0, 3)
+        ],
+        [detail?.coverImage, detail?.photoPreviewUrls]
+    );
+    const activeGalleryPrefetchUrls = React.useMemo(() => {
+        if (!isPhotoViewerVisible || currentPhotoGalleryUrls.length === 0) {
+            return [];
+        }
+
+        return [
+            currentPhotoGalleryUrls[photoGalleryIndex - 1],
+            currentPhotoGalleryUrls[photoGalleryIndex],
+            currentPhotoGalleryUrls[photoGalleryIndex + 1]
+        ].filter(Boolean);
+    }, [currentPhotoGalleryUrls, isPhotoViewerVisible, photoGalleryIndex]);
+    useDeferredImagePrefetch(detailEntryPrefetchUrls, 4);
+    useDeferredImagePrefetch(activeGalleryPrefetchUrls, 3);
 
     const selectedTimelineReminderSchedule = React.useMemo(() => {
         if (!selectedDay || !selectedTimelineItem || isSelectedStandaloneMemo) {
@@ -1873,6 +1870,8 @@ export function TripDetailScreen({ navigation, route }: Props) {
 
     const shouldShowSelectedTimelineStats = Boolean(
         selectedTimelineItem && (
+            String(selectedTimelineItem.badgeLabel || '').trim() ||
+            selectedTimelineDayMeta ||
             (!isSelectedStandaloneMemo && selectedTimelineStatLabel) ||
             String(selectedTimelineItem.durationLabel || '').trim() ||
             String(selectedTimelineItem.expenseSummaryLabel || '').trim()
@@ -2223,34 +2222,11 @@ export function TripDetailScreen({ navigation, route }: Props) {
     }, [budgetDetailDays, timelineInsertAnchorItem, timelineInsertTarget]);
     const canAddBudgetFromInsert = Boolean(timelineInsertAnchorBudgetTarget && canEditContent);
 
-    const quickRouteAnchorLabels = React.useMemo(() => {
-        if (!timelineDetail || !timelineQuickRouteTarget) {
-            return {
-                origin: '',
-                destination: ''
-            };
-        }
-
-        const targetDay = timelineDetail.days.find((day) => day.id === timelineQuickRouteTarget.dayId);
-        if (!targetDay) {
-            return {
-                origin: '',
-                destination: ''
-            };
-        }
-
-        const anchors = findTimelineRouteAnchors(targetDay, timelineQuickRouteTarget.insertAfterItemIndex);
-
-        return {
-            origin: buildTimelineRouteQuery(anchors.previousPlace),
-            destination: buildTimelineRouteQuery(anchors.nextPlace)
-        };
-    }, [timelineDetail, timelineQuickRouteTarget]);
-
     const openTimelineItemEditor = React.useCallback((
         day: MobileTripDaySection,
         item: MobileTimelineDisplayItem,
-        itemIndex: number
+        itemIndex: number,
+        options: { initialExpenseIndex?: number } = {}
     ) => {
         const isMemo = !item.isTransit && item.badgeLabel === '메모';
         const initialDurationMinutes = parseDurationStr(String(item.durationLabel || '').replace(/\n/g, ' '));
@@ -2279,6 +2255,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
             dayDate: day.date,
             isMemo,
             isTransit: item.isTransit,
+            initialExpenseIndex: options.initialExpenseIndex,
             initialInput: {
                 title: !isMemo ? String(item.title || '').trim() : '',
                 note: isMemo
@@ -2309,6 +2286,8 @@ export function TripDetailScreen({ navigation, route }: Props) {
                 memories: !isMemo
                     ? item.memoryEntries.map((memory) => ({
                         photoUrl: memory.photoUrl || null,
+                        previewUrl: memory.previewUrl || memory.photoUrl || null,
+                        thumbnailUrl: memory.previewUrl || null,
                         createdAt: String(memory.createdAt || '').trim()
                     }))
                     : [],
@@ -2912,10 +2891,10 @@ export function TripDetailScreen({ navigation, route }: Props) {
         setBudgetExpenseSelectedItemId(timelineInsertAnchorBudgetTarget.option.itemId);
         setBudgetExpenseDescription('');
         setBudgetExpenseAmount('');
-        setBudgetExpenseCurrency(DEFAULT_EXPENSE_CURRENCY);
+        setBudgetExpenseCurrency(resolveBudgetExpenseInitialCurrency(timelineInsertAnchorBudgetTarget.option));
         setBudgetExpenseShoppingIndex(null);
         setTimelineInsertTarget(null);
-    }, [canEditContent, timelineInsertAnchorBudgetTarget, timelineInsertTarget]);
+    }, [canEditContent, resolveBudgetExpenseInitialCurrency, timelineInsertAnchorBudgetTarget, timelineInsertTarget]);
 
     const handleSelectTimelineMemory = React.useCallback(() => {
         if (!timelineInsertTarget || !timelineInsertAnchorItem) {
@@ -3387,7 +3366,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
         user?.uid
     ]);
 
-    const handleCloseTimelineItem = closeSelectedTimelineDetailSheet;
+    const handleCloseTimelineItem = dismissSelectedTimelineDetailSheetFromHandle;
 
     const handleEditSelectedTimelineItem = React.useCallback(() => {
         if (!canEditContent || !selectedDay || !selectedTimelineItem || !selectedTimelineTarget) {
@@ -3400,6 +3379,26 @@ export function TripDetailScreen({ navigation, route }: Props) {
         }
 
         openTimelineItemEditor(selectedDay, selectedTimelineItem, selectedTimelineTarget.itemIndex);
+    }, [
+        canEditContent,
+        isRemoteReady,
+        openTimelineItemEditor,
+        selectedDay,
+        selectedTimelineItem,
+        selectedTimelineTarget
+    ]);
+
+    const handleEditSelectedTimelineExpense = React.useCallback((initialExpenseIndex: number) => {
+        if (!canEditContent || !selectedDay || !selectedTimelineItem || !selectedTimelineTarget) {
+            return;
+        }
+
+        if (!isRemoteReady) {
+            Alert.alert('최신 확인 중', '최신 여행 내용을 확인한 뒤 수정할 수 있어요.');
+            return;
+        }
+
+        openTimelineItemEditor(selectedDay, selectedTimelineItem, selectedTimelineTarget.itemIndex, { initialExpenseIndex });
     }, [
         canEditContent,
         isRemoteReady,
@@ -3665,6 +3664,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
             title: `전체 사진 ${detail.photoCount}장`,
             photoUrls: detail.photoGalleryUrls
         });
+        prefetchImageUrls(detail.photoGalleryUrls, 8);
     }, [detail]);
 
     const handleOpenSummaryPhotoViewer = React.useCallback((initialIndex: number) => {
@@ -3682,6 +3682,11 @@ export function TripDetailScreen({ navigation, route }: Props) {
         });
         setPhotoGalleryIndex(safeIndex);
         setPhotoViewerVisible(true);
+        prefetchImageUrls([
+            detail.photoGalleryUrls[safeIndex - 1],
+            detail.photoGalleryUrls[safeIndex],
+            detail.photoGalleryUrls[safeIndex + 1]
+        ], 3);
     }, [detail]);
 
     const handleOpenBudgetSummary = React.useCallback(() => {
@@ -3696,6 +3701,39 @@ export function TripDetailScreen({ navigation, route }: Props) {
         setBudgetSummaryVisible(false);
     }, []);
 
+    const handleEditBudgetExpenseItem = React.useCallback((
+        dayId: string,
+        itemId: string,
+        fallbackItemIndex: number,
+        initialExpenseIndex: number
+    ) => {
+        if (!canEditContent || !timelineDetail) {
+            return;
+        }
+
+        if (!isRemoteReady) {
+            Alert.alert('최신 확인 중', '최신 여행 내용을 확인한 뒤 수정할 수 있어요.');
+            return;
+        }
+
+        const targetDay = timelineDetail.days.find((day) => day.id === dayId);
+        if (!targetDay) {
+            return;
+        }
+
+        const itemIndex = targetDay.items.findIndex((item) => item.id === itemId);
+        const safeItemIndex = itemIndex >= 0 ? itemIndex : fallbackItemIndex;
+        const targetItem = targetDay.items[safeItemIndex] || null;
+        if (!targetItem) {
+            return;
+        }
+
+        setBudgetSummaryVisible(false);
+        setTimeout(() => {
+            openTimelineItemEditor(targetDay, targetItem, safeItemIndex, { initialExpenseIndex });
+        }, Platform.OS === 'android' ? 260 : 180);
+    }, [canEditContent, isRemoteReady, openTimelineItemEditor, timelineDetail]);
+
     const handleOpenBudgetExpenseComposer = React.useCallback((dayId: string, options: BudgetExpenseComposerOpenOptions = {}) => {
         const targetDay = budgetDetailDays.find((day) => day.id === dayId);
         if (!targetDay || !canEditContent) {
@@ -3708,16 +3746,17 @@ export function TripDetailScreen({ navigation, route }: Props) {
         }
 
         const openComposer = () => {
+            const initialOption = targetDay.itemOptions[0] || null;
             setBudgetExpenseComposerTarget({
                 dayId: targetDay.id,
                 dayLabel: targetDay.label,
                 dayDate: targetDay.date,
                 options: targetDay.itemOptions
             });
-            setBudgetExpenseSelectedItemId(targetDay.itemOptions[0]?.itemId || '');
+            setBudgetExpenseSelectedItemId(initialOption?.itemId || '');
             setBudgetExpenseDescription('');
             setBudgetExpenseAmount('');
-            setBudgetExpenseCurrency(DEFAULT_EXPENSE_CURRENCY);
+            setBudgetExpenseCurrency(resolveBudgetExpenseInitialCurrency(initialOption));
             setBudgetExpenseShoppingIndex(null);
         };
 
@@ -3728,7 +3767,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
         }
 
         openComposer();
-    }, [budgetDetailDays, canEditContent]);
+    }, [budgetDetailDays, canEditContent, resolveBudgetExpenseInitialCurrency]);
 
     const handleOpenQuickMemoryComposer = React.useCallback(() => {
         if (!canEditContent) {
@@ -3830,9 +3869,9 @@ export function TripDetailScreen({ navigation, route }: Props) {
         setBudgetExpenseSelectedItemId('');
         setBudgetExpenseDescription('');
         setBudgetExpenseAmount('');
-        setBudgetExpenseCurrency(DEFAULT_EXPENSE_CURRENCY);
+        setBudgetExpenseCurrency(resolveBudgetExpenseInitialCurrency(null));
         setBudgetExpenseShoppingIndex(null);
-    }, [isBudgetExpenseSaving]);
+    }, [isBudgetExpenseSaving, resolveBudgetExpenseInitialCurrency]);
 
     const handleSubmitBudgetExpense = React.useCallback(async () => {
         if (!detail || !budgetExpenseComposerTarget || !budgetExpenseSelectedItemId || !user?.uid) {
@@ -3923,12 +3962,75 @@ export function TripDetailScreen({ navigation, route }: Props) {
     }, []);
 
     const handleCloseTripListComposer = React.useCallback(() => {
-        if (isTripListSaving) {
+        if (isTripListComposerBusy) {
             return;
         }
 
         resetTripListComposer();
-    }, [isTripListSaving, resetTripListComposer]);
+    }, [isTripListComposerBusy, resetTripListComposer]);
+
+    const resetTripListComposerSheetPosition = React.useCallback(() => {
+        Animated.spring(tripListComposerSheetTranslateY, {
+            toValue: 0,
+            useNativeDriver: true,
+            damping: 18,
+            stiffness: 180
+        }).start();
+    }, [tripListComposerSheetTranslateY]);
+
+    const dismissTripListComposerFromHandle = React.useCallback(() => {
+        Animated.timing(tripListComposerSheetTranslateY, {
+            toValue: windowHeight,
+            duration: 180,
+            useNativeDriver: true
+        }).start(({ finished }) => {
+            if (finished) {
+                resetTripListComposer();
+            }
+        });
+    }, [resetTripListComposer, tripListComposerSheetTranslateY, windowHeight]);
+
+    const tripListComposerSheetPanResponder = React.useMemo(() => PanResponder.create({
+        onStartShouldSetPanResponder: () => !isTripListComposerBusy,
+        onStartShouldSetPanResponderCapture: () => !isTripListComposerBusy,
+        onMoveShouldSetPanResponder: (_event, gestureState) => (
+            !isTripListComposerBusy
+            && gestureState.dy > 2
+            && Math.abs(gestureState.dy) > Math.abs(gestureState.dx)
+        ),
+        onMoveShouldSetPanResponderCapture: (_event, gestureState) => (
+            !isTripListComposerBusy
+            && gestureState.dy > 2
+            && Math.abs(gestureState.dy) > Math.abs(gestureState.dx)
+        ),
+        onPanResponderTerminationRequest: () => false,
+        onPanResponderMove: (_event, gestureState) => {
+            tripListComposerSheetTranslateY.setValue(Math.max(0, gestureState.dy));
+        },
+        onPanResponderRelease: (_event, gestureState) => {
+            if (
+                gestureState.dy > WORKFLOW_SHEET_DISMISS_DRAG_DISTANCE
+                || gestureState.vy > WORKFLOW_SHEET_DISMISS_VELOCITY
+            ) {
+                dismissTripListComposerFromHandle();
+                return;
+            }
+
+            resetTripListComposerSheetPosition();
+        },
+        onPanResponderTerminate: resetTripListComposerSheetPosition
+    }), [
+        dismissTripListComposerFromHandle,
+        isTripListComposerBusy,
+        resetTripListComposerSheetPosition,
+        tripListComposerSheetTranslateY
+    ]);
+
+    React.useEffect(() => {
+        if (tripListComposerTarget) {
+            tripListComposerSheetTranslateY.setValue(0);
+        }
+    }, [tripListComposerSheetTranslateY, tripListComposerTarget]);
 
     const handleSubmitTripListItem = React.useCallback(async () => {
         if (!tripListComposerTarget || !user?.uid || isTripListToggleSyncing) {
@@ -4283,14 +4385,97 @@ export function TripDetailScreen({ navigation, route }: Props) {
         } catch {}
     }, []);
 
+    const galleryPageWidth = Math.max(windowWidth, 1);
+    const galleryThumbWidth = React.useMemo(
+        () => (Math.max(windowWidth, 1) - theme.spacing.sm * 2 - theme.spacing.xs) / 2,
+        [theme.spacing.sm, theme.spacing.xs, windowWidth]
+    );
+    const galleryPhotoKeyExtractor = React.useCallback((url: string, index: number) => (
+        `gallery-photo-${index}-${url}`
+    ), []);
+    const getGalleryPhotoItemLayout = React.useCallback((_: ArrayLike<string> | null | undefined, index: number) => ({
+        length: galleryPageWidth,
+        offset: galleryPageWidth * index,
+        index
+    }), [galleryPageWidth]);
+    const handlePhotoViewerMomentumScrollEnd = React.useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+        const nextIndex = Math.round(event.nativeEvent.contentOffset.x / galleryPageWidth);
+        const safeIndex = Math.min(Math.max(nextIndex, 0), Math.max(currentPhotoGalleryUrls.length - 1, 0));
+        setPhotoViewerZoomed(false);
+        setPhotoGalleryIndex(safeIndex);
+    }, [currentPhotoGalleryUrls.length, galleryPageWidth]);
+    const handlePhotoViewerScrollToIndexFailed = React.useCallback((info: { index: number }) => {
+        galleryScrollRef.current?.scrollToOffset({
+            offset: galleryPageWidth * info.index,
+            animated: false
+        });
+    }, [galleryPageWidth]);
+    const renderGalleryGridItem = React.useCallback(({ item: url, index }: ListRenderItemInfo<string>) => (
+        <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+                handleOpenPhotoViewer(index);
+            }}
+            style={[
+                styles.galleryThumbCard,
+                {
+                    width: galleryThumbWidth
+                },
+                index % 2 === 0 ? styles.galleryThumbCardLeft : styles.galleryThumbCardRight
+            ]}
+        >
+            <Image
+                source={buildCachedImageSource(url)}
+                style={styles.galleryThumbImage}
+            />
+        </Pressable>
+    ), [
+        galleryThumbWidth,
+        handleOpenPhotoViewer,
+        styles.galleryThumbCard,
+        styles.galleryThumbCardLeft,
+        styles.galleryThumbCardRight,
+        styles.galleryThumbImage
+    ]);
+    const renderGalleryPhotoItem = React.useCallback(({ item: url, index }: ListRenderItemInfo<string>) => (
+        <View
+            style={[
+                styles.galleryPage,
+                { width: galleryPageWidth }
+            ]}
+        >
+            <ZoomableGalleryImage
+                uri={url}
+                pageWidth={galleryPageWidth}
+                pageHeight={windowHeight}
+                isActive={index === photoGalleryIndex}
+                imageStyle={styles.galleryImage}
+                wrapperStyle={styles.galleryGestureSurface}
+                onZoomStateChange={(zoomed) => {
+                    if (index === photoGalleryIndex) {
+                        setPhotoViewerZoomed(zoomed);
+                    }
+                }}
+            />
+        </View>
+    ), [
+        galleryPageWidth,
+        photoGalleryIndex,
+        styles.galleryGestureSurface,
+        styles.galleryImage,
+        styles.galleryPage,
+        windowHeight
+    ]);
+
     React.useEffect(() => {
-        if (!isPhotoViewerVisible) {
+        if (!isPhotoViewerVisible || currentPhotoGalleryUrls.length === 0) {
             return;
         }
 
+        const safeIndex = Math.min(Math.max(photoGalleryIndex, 0), currentPhotoGalleryUrls.length - 1);
         const frame = requestAnimationFrame(() => {
-            galleryScrollRef.current?.scrollTo({
-                x: Math.max(windowWidth, 1) * photoGalleryIndex,
+            galleryScrollRef.current?.scrollToIndex({
+                index: safeIndex,
                 animated: false
             });
         });
@@ -4298,7 +4483,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
         return () => {
             cancelAnimationFrame(frame);
         };
-    }, [isPhotoViewerVisible, photoGalleryIndex, windowWidth]);
+    }, [currentPhotoGalleryUrls.length, isPhotoViewerVisible, photoGalleryIndex]);
 
     React.useEffect(() => () => {
         if (savedNoticeTimerRef.current) {
@@ -4594,7 +4779,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
                             ]}
                         >
                             <Image
-                                source={{ uri: detail.coverImage }}
+                                source={buildCachedImageSource(detail.coverImage)}
                                 style={styles.heroHeaderImage}
                                 resizeMode="cover"
                             />
@@ -4869,10 +5054,6 @@ export function TripDetailScreen({ navigation, route }: Props) {
             />
             <TimelineQuickRoutePickerModal
                 visible={Boolean(timelineQuickRouteTarget)}
-                dayLabel={timelineQuickRouteTarget?.dayLabel || ''}
-                dayDate={timelineQuickRouteTarget?.dayDate || ''}
-                originLabel={quickRouteAnchorLabels.origin}
-                destinationLabel={quickRouteAnchorLabels.destination}
                 loading={isQuickRouteLoading}
                 isSaving={isTimelineInsertSaving}
                 routeOptions={quickRouteOptions}
@@ -4979,8 +5160,6 @@ export function TripDetailScreen({ navigation, route }: Props) {
             />
             <TimelineMemoComposerModal
                 visible={Boolean(timelineMemoComposerTarget)}
-                dayLabel={timelineMemoComposerTarget?.dayLabel || ''}
-                dayDate={timelineMemoComposerTarget?.dayDate || ''}
                 targetTitle={timelineMemoComposerTarget?.itemTitle || ''}
                 defaultTime={timelineMemoComposerTarget?.defaultTime || '09:00'}
                 isSaving={isTimelineInsertSaving}
@@ -4992,8 +5171,6 @@ export function TripDetailScreen({ navigation, route }: Props) {
             />
             <TimelineMemoryComposerModal
                 visible={Boolean(timelineMemoryComposerTarget)}
-                dayLabel={timelineMemoryComposerTarget?.dayLabel || ''}
-                dayDate={timelineMemoryComposerTarget?.dayDate || ''}
                 targetTitle={timelineMemoryComposerTarget?.itemTitle || ''}
                 isSaving={isTimelineInsertSaving}
                 errorMessage={timelineInsertError}
@@ -5004,7 +5181,6 @@ export function TripDetailScreen({ navigation, route }: Props) {
             />
             <TimelineTransitComposerModal
                 visible={Boolean(timelineTransitComposerTarget)}
-                dayLabel={timelineTransitComposerTarget?.dayLabel || ''}
                 dayDate={timelineTransitComposerTarget?.dayDate || ''}
                 transitType={timelineTransitComposerTarget?.transitType || 'walk'}
                 defaultStartTime={timelineTransitComposerTarget?.defaultTime || '09:00'}
@@ -5109,18 +5285,41 @@ export function TripDetailScreen({ navigation, route }: Props) {
                                         </View>
                                         {day.expenseItems.length > 0 ? (
                                             <View style={styles.expenseDetailList}>
-                                                {day.expenseItems.map((expense) => (
-                                                    <View key={expense.id} style={styles.expenseDetailRow}>
-                                                        <View style={styles.expenseDetailCopy}>
-                                                            <Text style={styles.expenseDetailTitle}>{expense.description}</Text>
-                                                            <Text style={styles.expenseDetailMeta}>
-                                                                {expense.title}
-                                                                {expense.location ? ` · ${expense.location}` : ''}
+                                                {day.expenseItems.map((expense) => {
+                                                    const expenseTitle = String(expense.description || '').trim() || '이름 없는 지출';
+
+                                                    return (
+                                                        <Pressable
+                                                            key={expense.id}
+                                                            accessibilityRole="button"
+                                                            accessibilityLabel={`${expenseTitle} 지출 수정`}
+                                                            disabled={!canEditContent || isTripContentSyncing}
+                                                            onPress={() => {
+                                                                handleEditBudgetExpenseItem(
+                                                                    day.id,
+                                                                    expense.itemId,
+                                                                    expense.itemIndex,
+                                                                    expense.expenseIndex
+                                                                );
+                                                            }}
+                                                            style={({ pressed }) => [
+                                                                styles.expenseDetailRow,
+                                                                pressed && canEditContent && !isTripContentSyncing
+                                                                    ? styles.expenseDetailRowPressed
+                                                                    : null
+                                                            ]}
+                                                        >
+                                                            <View style={styles.expenseDetailCopy}>
+                                                                <Text numberOfLines={1} style={styles.expenseDetailTitle}>
+                                                                    {expenseTitle}
+                                                                </Text>
+                                                            </View>
+                                                            <Text numberOfLines={1} style={styles.expenseDetailAmount}>
+                                                                {expense.amountLabel}
                                                             </Text>
-                                                        </View>
-                                                        <Text style={styles.expenseDetailAmount}>{expense.amountLabel}</Text>
-                                                    </View>
-                                                ))}
+                                                        </Pressable>
+                                                    );
+                                                })}
                                             </View>
                                         ) : (
                                             <Text style={styles.sectionSupport}>아직 기록된 지출이 없어요.</Text>
@@ -5134,8 +5333,6 @@ export function TripDetailScreen({ navigation, route }: Props) {
             </Modal>
             <BudgetExpenseComposerModal
                 visible={Boolean(budgetExpenseComposerTarget)}
-                dayLabel={budgetExpenseComposerTarget?.dayLabel || ''}
-                dayDate={budgetExpenseComposerTarget?.dayDate || ''}
                 itemOptions={budgetExpenseComposerTarget?.options || []}
                 selectedItemId={budgetExpenseSelectedItemId}
                 description={budgetExpenseDescription}
@@ -5162,44 +5359,39 @@ export function TripDetailScreen({ navigation, route }: Props) {
                 onRequestClose={handleCloseTripListComposer}
             >
                 <View style={styles.modalOverlay}>
-                    <Pressable style={styles.modalBackdrop} onPress={handleCloseTripListComposer} />
+                    <Pressable style={styles.modalBackdrop} />
                     <KeyboardAvoidingView
                         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                         style={styles.modalKeyboardArea}
                     >
                         {tripListComposerTarget ? (
-                            <View style={styles.sheet}>
-                            <View style={styles.sheetHandle} />
-                            <View style={styles.sheetHeader}>
-                                <View style={styles.sheetHeaderCopy}>
-                                    <View style={styles.sheetBadge}>
-                                        <Text style={styles.sheetBadgeText}>
-                                            {tripListComposerTarget === 'shopping' ? '쇼핑 리스트' : '준비물'}
-                                        </Text>
-                                    </View>
-                                    <Text style={styles.sheetTitle}>
+                            <Animated.View
+                                style={[
+                                    styles.tripListComposerSheet,
+                                    tripListComposerSheetInsetStyle,
+                                    {
+                                        transform: [{ translateY: tripListComposerSheetTranslateY }]
+                                    }
+                                ]}
+                            >
+                            <View
+                                {...tripListComposerSheetPanResponder.panHandlers}
+                                collapsable={false}
+                                style={styles.sheetHandleTouch}
+                            >
+                                <View style={[styles.sheetHandle, styles.sheetHandleInTouch]} />
+                            </View>
+                            <View style={[styles.sheetHeader, styles.workflowSheetHeader]}>
+                                <SheetBackButton
+                                    disabled={isTripListSaving || isTripListToggleSyncing}
+                                    onPress={handleCloseTripListComposer}
+                                />
+                                <View style={styles.workflowSheetHeaderCopy}>
+                                    <Text numberOfLines={1} style={styles.workflowSheetTitle}>
                                         {tripListComposerTarget === 'shopping' ? '쇼핑 항목 추가' : '준비물 추가'}
                                     </Text>
-                                        <Text style={styles.sheetMeta}>
-                                            {tripListComposerTarget === 'shopping'
-                                            ? '같은 여행 데이터에 함께 저장돼요.'
-                                            : '여행 전에 챙길 항목을 기록해 둬요.'}
-                                        </Text>
                                 </View>
                                 <View style={[styles.sheetHeaderActions, styles.tripListSheetHeaderActions]}>
-                                    <Pressable
-                                        accessibilityRole="button"
-                                        disabled={isTripListSaving || isTripListToggleSyncing}
-                                        onPress={handleCloseTripListComposer}
-                                        style={({ pressed }) => [
-                                            styles.sheetCloseButton,
-                                            pressed && !isTripListSaving && !isTripListToggleSyncing
-                                                ? styles.sheetCloseButtonPressed
-                                                : null
-                                        ]}
-                                    >
-                                        <Text style={styles.sheetCloseButtonText}>닫기</Text>
-                                    </Pressable>
                                     <Pressable
                                         accessibilityRole="button"
                                         accessibilityLabel="항목 저장"
@@ -5298,7 +5490,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
                                     </View>
                                 ) : null}
                             </ScrollView>
-                            </View>
+                            </Animated.View>
                         ) : null}
                     </KeyboardAvoidingView>
                 </View>
@@ -5334,33 +5526,20 @@ export function TripDetailScreen({ navigation, route }: Props) {
                             <Text style={styles.galleryScreenCloseButtonText}>닫기</Text>
                         </Pressable>
                     </View>
-                    <ScrollView
+                    <FlatList
                         style={styles.galleryGridScroll}
                         contentContainerStyle={styles.galleryGridContent}
+                        data={currentPhotoGalleryUrls}
+                        renderItem={renderGalleryGridItem}
+                        keyExtractor={(url, index) => `gallery-grid-${index}-${url}`}
+                        numColumns={2}
+                        initialNumToRender={8}
+                        maxToRenderPerBatch={6}
+                        updateCellsBatchingPeriod={48}
+                        windowSize={5}
+                        removeClippedSubviews={Platform.OS === 'android'}
                         showsVerticalScrollIndicator={false}
-                    >
-                        {currentPhotoGalleryUrls.map((url, index) => (
-                            <Pressable
-                                key={`gallery-grid-${index}-${url}`}
-                                accessibilityRole="button"
-                                onPress={() => {
-                                    handleOpenPhotoViewer(index);
-                                }}
-                                style={[
-                                    styles.galleryThumbCard,
-                                    {
-                                        width: (Math.max(windowWidth, 1) - theme.spacing.sm * 2 - theme.spacing.xs) / 2
-                                    },
-                                    index % 2 === 0 ? styles.galleryThumbCardLeft : styles.galleryThumbCardRight
-                                ]}
-                            >
-                                <Image
-                                    source={{ uri: url }}
-                                    style={styles.galleryThumbImage}
-                                />
-                            </Pressable>
-                        ))}
-                    </ScrollView>
+                    />
                 </View>
             </Modal>
             <Modal
@@ -5389,58 +5568,56 @@ export function TripDetailScreen({ navigation, route }: Props) {
                             <Text style={styles.galleryCloseButtonText}>닫기</Text>
                         </Pressable>
                     </View>
-                    <ScrollView
+                    <FlatList
                         ref={galleryScrollRef}
+                        style={styles.galleryViewerList}
                         horizontal
                         pagingEnabled
                         scrollEnabled={!isPhotoViewerZoomed}
+                        data={currentPhotoGalleryUrls}
+                        renderItem={renderGalleryPhotoItem}
+                        keyExtractor={galleryPhotoKeyExtractor}
+                        getItemLayout={getGalleryPhotoItemLayout}
+                        initialScrollIndex={
+                            currentPhotoGalleryUrls.length > 0
+                                ? Math.min(photoGalleryIndex, currentPhotoGalleryUrls.length - 1)
+                                : undefined
+                        }
+                        initialNumToRender={1}
+                        maxToRenderPerBatch={2}
+                        updateCellsBatchingPeriod={64}
+                        windowSize={3}
+                        removeClippedSubviews={false}
                         showsHorizontalScrollIndicator={false}
-                        onMomentumScrollEnd={(event) => {
-                            const nextIndex = Math.round(event.nativeEvent.contentOffset.x / Math.max(windowWidth, 1));
-                            setPhotoViewerZoomed(false);
-                            setPhotoGalleryIndex(nextIndex);
-                        }}
-                    >
-                        {currentPhotoGalleryUrls.map((url, index) => (
-                            <View
-                                key={`gallery-photo-${index}-${url}`}
-                                style={[
-                                    styles.galleryPage,
-                                    { width: Math.max(windowWidth, 1) }
-                                ]}
-                            >
-                                <ZoomableGalleryImage
-                                    uri={url}
-                                    pageWidth={Math.max(windowWidth, 1)}
-                                    pageHeight={windowHeight}
-                                    isActive={index === photoGalleryIndex}
-                                    imageStyle={styles.galleryImage}
-                                    wrapperStyle={styles.galleryGestureSurface}
-                                    onZoomStateChange={(zoomed) => {
-                                        if (index === photoGalleryIndex) {
-                                            setPhotoViewerZoomed(zoomed);
-                                        }
-                                    }}
-                                />
-                            </View>
-                        ))}
-                    </ScrollView>
+                        onMomentumScrollEnd={handlePhotoViewerMomentumScrollEnd}
+                        onScrollToIndexFailed={handlePhotoViewerScrollToIndexFailed}
+                    />
                 </View>
             </Modal>
             <Modal
                 visible={isSelectedTimelineDetailVisible}
                 transparent
-                animationType="slide"
+                animationType="none"
                 onRequestClose={handleCloseTimelineItem}
             >
-                <View style={styles.modalOverlay}>
-                    <Pressable style={styles.modalBackdrop} onPress={handleCloseTimelineItem} />
+                <View style={styles.timelineDetailModalOverlay}>
+                    <Pressable style={StyleSheet.absoluteFill} onPress={handleCloseTimelineItem}>
+                        <Animated.View
+                            pointerEvents="none"
+                            style={[
+                                styles.timelineDetailModalBackdrop,
+                                { opacity: selectedTimelineDetailBackdropOpacity }
+                            ]}
+                        />
+                    </Pressable>
                     {selectedTimelineItem && selectedDay ? (
                         <Animated.View
                             style={[
                                 styles.timelineDetailSheet,
+                                selectedTimelineDetailSheetInsetStyle,
                                 {
-                                    height: selectedTimelineDetailSheetHeight
+                                    height: selectedTimelineDetailSheetFullHeight,
+                                    transform: [{ translateY: selectedTimelineDetailSheetTranslateY }]
                                 }
                             ]}
                         >
@@ -5452,28 +5629,22 @@ export function TripDetailScreen({ navigation, route }: Props) {
                                 <View style={styles.timelineDetailSheetHandle} />
                             </View>
                             <View style={styles.timelineDetailSheetHeader}>
+                                <SheetBackButton
+                                    disabled={isTimelineItemDeleting}
+                                    onPress={handleCloseTimelineItem}
+                                />
                                 <View style={styles.timelineDetailSheetHeaderCopy}>
-                                    <View style={styles.sheetBadge}>
-                                        <Text
-                                            numberOfLines={1}
-                                            ellipsizeMode="clip"
-                                            style={styles.sheetBadgeText}
-                                        >
-                                            {selectedTimelineItem.badgeLabel}
-                                        </Text>
-                                    </View>
-                                    {!isSelectedStandaloneMemo ? (
-                                        <Text style={styles.sheetTitle}>{selectedTimelineItem.title}</Text>
-                                    ) : null}
-                                    <Text style={[styles.sheetMeta, isSelectedStandaloneMemo ? styles.sheetMetaCompact : null]}>
-                                        {selectedDay.label} · {selectedDay.date}
+                                    <Text numberOfLines={1} style={styles.timelineDetailSheetTitle}>
+                                        {selectedTimelineDetailHeaderTitle}
                                     </Text>
                                 </View>
-                                <View style={styles.sheetHeaderActions}>
+                                <View style={styles.timelineDetailSheetHeaderActions}>
                                     {isTimelineEditMode ? (
                                         <Pressable
                                             accessibilityRole="button"
+                                            accessibilityLabel="일정 삭제"
                                             disabled={isTimelineItemDeleting}
+                                            hitSlop={8}
                                             onPress={handleDeleteTimelineItem}
                                             style={({ pressed }) => [
                                                 styles.sheetDeleteButton,
@@ -5481,7 +5652,9 @@ export function TripDetailScreen({ navigation, route }: Props) {
                                                 isTimelineItemDeleting ? styles.sheetHeaderActionDisabled : null
                                             ]}
                                         >
-                                            <Text style={styles.sheetDeleteButtonText}>삭제</Text>
+                                            <Text numberOfLines={1} style={styles.sheetDeleteButtonText}>
+                                                {isTimelineItemDeleting ? '삭제 중...' : '삭제'}
+                                            </Text>
                                         </Pressable>
                                     ) : null}
                                     {canEditContent ? (
@@ -5489,6 +5662,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
                                             accessibilityRole="button"
                                             accessibilityLabel="일정 수정"
                                             disabled={isTripContentSyncing || isTimelineItemDeleting}
+                                            hitSlop={8}
                                             onPress={handleEditSelectedTimelineItem}
                                             style={({ pressed }) => [
                                                 styles.sheetEditButton,
@@ -5500,7 +5674,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
                                                     : null
                                             ]}
                                         >
-                                            <Text style={styles.sheetEditButtonText}>수정</Text>
+                                            <Text numberOfLines={1} style={styles.sheetEditButtonText}>수정</Text>
                                         </Pressable>
                                     ) : null}
                                 </View>
@@ -5513,27 +5687,42 @@ export function TripDetailScreen({ navigation, route }: Props) {
                                 ]}
                                 showsVerticalScrollIndicator={false}
                             >
-                                {shouldShowSelectedTimelineStats ? (
-                                    <View style={styles.sheetStatsRow}>
-                                        {selectedTimelineStatLabel ? (
-                                            <View style={styles.statPill}>
-                                                <Text style={styles.statPillText}>
-                                                    {selectedTimelineStatLabel}
-                                                </Text>
-                                            </View>
-                                        ) : null}
-                                        {selectedTimelineItem.durationLabel ? (
-                                            <View style={styles.statPill}>
-                                                <Text style={styles.statPillText}>{selectedTimelineItem.durationLabel}</Text>
-                                            </View>
-                                        ) : null}
-                                        {selectedTimelineItem.expenseSummaryLabel ? (
-                                            <View style={styles.statPill}>
-                                                <Text style={styles.statPillText}>{selectedTimelineItem.expenseSummaryLabel}</Text>
-                                            </View>
-                                        ) : null}
-                                    </View>
-                                ) : null}
+                                <View style={styles.timelineDetailSummaryCard}>
+                                    <Text numberOfLines={2} style={styles.timelineDetailSummaryTitle}>
+                                        {selectedTimelineDetailTitle}
+                                    </Text>
+                                    {shouldShowSelectedTimelineStats ? (
+                                        <View style={styles.timelineDetailMetaRow}>
+                                            {selectedTimelineItem.badgeLabel ? (
+                                                <View style={styles.statPill}>
+                                                    <Text style={styles.statPillText}>{selectedTimelineItem.badgeLabel}</Text>
+                                                </View>
+                                            ) : null}
+                                            {selectedTimelineDayMeta ? (
+                                                <View style={styles.statPill}>
+                                                    <Text style={styles.statPillText}>{selectedTimelineDayMeta}</Text>
+                                                </View>
+                                            ) : null}
+                                            {selectedTimelineStatLabel ? (
+                                                <View style={styles.statPill}>
+                                                    <Text style={styles.statPillText}>
+                                                        {selectedTimelineStatLabel}
+                                                    </Text>
+                                                </View>
+                                            ) : null}
+                                            {selectedTimelineItem.durationLabel ? (
+                                                <View style={styles.statPill}>
+                                                    <Text style={styles.statPillText}>{selectedTimelineItem.durationLabel}</Text>
+                                                </View>
+                                            ) : null}
+                                            {selectedTimelineItem.expenseSummaryLabel ? (
+                                                <View style={styles.statPill}>
+                                                    <Text style={styles.statPillText}>{selectedTimelineItem.expenseSummaryLabel}</Text>
+                                                </View>
+                                            ) : null}
+                                        </View>
+                                    ) : null}
+                                </View>
 
                                 {selectedTimelineItem.location || (selectedTimelineItem.isTransit && selectedTimelineRouteAnchors.canOpenRoute) ? (
                                     <View style={styles.sheetSection}>
@@ -5812,40 +6001,47 @@ export function TripDetailScreen({ navigation, route }: Props) {
                                             showsHorizontalScrollIndicator={false}
                                             contentContainerStyle={styles.memoryStrip}
                                         >
-                                            {selectedTimelineItem.memoryEntries.map((memory, index) => (
-                                                <Pressable
-                                                    key={memory.id}
-                                                    accessibilityRole={memory.photoUrl ? 'button' : undefined}
-                                                    disabled={!memory.photoUrl}
-                                                    onPress={() => {
-                                                        const photoIndex = memory.photoUrl
-                                                            ? selectedTimelineMemoryPhotoUrls.indexOf(memory.photoUrl)
-                                                            : -1;
-                                                        handleOpenSelectedTimelineMemoryViewer(photoIndex >= 0 ? photoIndex : 0);
-                                                    }}
-                                                    style={({ pressed }) => [
-                                                        styles.memoryCard,
-                                                        memory.photoUrl ? styles.memoryCardInteractive : null,
-                                                        pressed && memory.photoUrl ? styles.memoryCardPressed : null,
-                                                        index < selectedTimelineItem.memoryEntries.length - 1
-                                                            ? styles.memoryCardSpaced
-                                                            : null
-                                                    ]}
-                                                >
-                                                    {memory.photoUrl ? (
-                                                        <Image source={{ uri: memory.photoUrl }} style={styles.memoryImage} />
-                                                    ) : (
-                                                        <View style={styles.memoryImageFallback}>
-                                                            <Text style={styles.memoryImageFallbackText}>사진</Text>
-                                                        </View>
-                                                    )}
-                                                    {memory.createdAt ? (
-                                                        <Text style={styles.memoryDate}>
-                                                            {formatMemoryDate(memory.createdAt)}
-                                                        </Text>
-                                                    ) : null}
-                                                </Pressable>
-                                            ))}
+                                            {selectedTimelineItem.memoryEntries.map((memory, index) => {
+                                                const memoryPreviewUrl = String(memory.previewUrl || memory.photoUrl || '').trim();
+
+                                                return (
+                                                    <Pressable
+                                                        key={memory.id}
+                                                        accessibilityRole={memory.photoUrl ? 'button' : undefined}
+                                                        disabled={!memory.photoUrl}
+                                                        onPress={() => {
+                                                            const photoIndex = memory.photoUrl
+                                                                ? selectedTimelineMemoryPhotoUrls.indexOf(memory.photoUrl)
+                                                                : -1;
+                                                            handleOpenSelectedTimelineMemoryViewer(photoIndex >= 0 ? photoIndex : 0);
+                                                        }}
+                                                        style={({ pressed }) => [
+                                                            styles.memoryCard,
+                                                            memory.photoUrl ? styles.memoryCardInteractive : null,
+                                                            pressed && memory.photoUrl ? styles.memoryCardPressed : null,
+                                                            index < selectedTimelineItem.memoryEntries.length - 1
+                                                                ? styles.memoryCardSpaced
+                                                                : null
+                                                        ]}
+                                                    >
+                                                        {memoryPreviewUrl ? (
+                                                            <Image
+                                                                source={buildCachedImageSource(memoryPreviewUrl)}
+                                                                style={styles.memoryImage}
+                                                            />
+                                                        ) : (
+                                                            <View style={styles.memoryImageFallback}>
+                                                                <Text style={styles.memoryImageFallbackText}>사진</Text>
+                                                            </View>
+                                                        )}
+                                                        {memory.createdAt ? (
+                                                            <Text style={styles.memoryDate}>
+                                                                {formatMemoryDate(memory.createdAt)}
+                                                            </Text>
+                                                        ) : null}
+                                                    </Pressable>
+                                                );
+                                            })}
                                         </ScrollView>
                                     </View>
                                 ) : null}
@@ -5881,7 +6077,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
                                                         >
                                                             {attachment.previewUrl ? (
                                                                 <Image
-                                                                    source={{ uri: attachment.previewUrl }}
+                                                                    source={buildCachedImageSource(attachment.previewUrl)}
                                                                     style={styles.attachmentImage}
                                                                 />
                                                             ) : (
@@ -5938,19 +6134,36 @@ export function TripDetailScreen({ navigation, route }: Props) {
                                             총 {selectedTimelineItem.expenseItems.length}건 · 비용 {selectedTimelineItem.expenseItems[0] ? `₩${Math.round(selectedTimelineItem.expenseTotalAmount).toLocaleString()}` : ''}
                                         </Text>
                                         <View style={styles.expenseList}>
-                                            {selectedTimelineItem.expenseItems.map((expense) => (
-                                                <View key={expense.id} style={styles.expenseRow}>
-                                                    <View style={styles.expenseCopy}>
-                                                        <Text style={styles.expenseTitle}>
-                                                            {expense.title || '지출'}
+                                            {selectedTimelineItem.expenseItems.map((expense) => {
+                                                const expenseTitle = String(expense.description || '').trim() || '이름 없는 지출';
+
+                                                return (
+                                                    <Pressable
+                                                        key={expense.id}
+                                                        accessibilityRole="button"
+                                                        accessibilityLabel={`${expenseTitle} 지출 수정`}
+                                                        disabled={!canEditContent || isTripContentSyncing || isTimelineItemDeleting}
+                                                        onPress={() => {
+                                                            handleEditSelectedTimelineExpense(expense.expenseIndex);
+                                                        }}
+                                                        style={({ pressed }) => [
+                                                            styles.expenseRow,
+                                                            pressed && canEditContent && !isTripContentSyncing && !isTimelineItemDeleting
+                                                                ? styles.expenseRowPressed
+                                                                : null
+                                                        ]}
+                                                    >
+                                                        <View style={styles.expenseCopy}>
+                                                            <Text numberOfLines={1} style={styles.expenseTitle}>
+                                                                {expenseTitle}
+                                                            </Text>
+                                                        </View>
+                                                        <Text numberOfLines={1} style={styles.expenseAmount}>
+                                                            {expense.amountLabel}
                                                         </Text>
-                                                        <Text style={styles.expenseDescription}>
-                                                            {expense.description}
-                                                        </Text>
-                                                    </View>
-                                                    <Text style={styles.expenseAmount}>{expense.amountLabel}</Text>
-                                                </View>
-                                            ))}
+                                                    </Pressable>
+                                                );
+                                            })}
                                         </View>
                                     </View>
                                 ) : null}
@@ -6033,7 +6246,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
                     visible={isTripShareSheetVisible}
                     tripTitle={detail?.title || '여행'}
                     shareInfo={shareActions.resolvedTripShareInfo}
-                    canPublishCommunity={canPublishCommunity}
+                    canPublishCommunity={canPublishCommunityByAdmin}
                     loading={shareActions.isTripShareSheetLoading}
                     error={isOfflineMode ? OFFLINE_SHARE_DISABLED_MESSAGE : shareActions.tripShareError}
                     busyAction={shareActions.tripShareBusyAction}
@@ -6806,8 +7019,6 @@ const createStyles = (theme: AppTheme) => {
         flex: 1
     },
     galleryGridContent: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
         paddingHorizontal: theme.spacing.sm,
         paddingBottom: theme.spacing.lg
     },
@@ -6831,6 +7042,9 @@ const createStyles = (theme: AppTheme) => {
     galleryOverlay: {
         flex: 1,
         backgroundColor: 'rgba(14,18,24,0.96)'
+    },
+    galleryViewerList: {
+        flex: 1
     },
     galleryHeader: {
         flexDirection: 'row',
@@ -6937,7 +7151,17 @@ const createStyles = (theme: AppTheme) => {
     },
     modalKeyboardArea: {
         width: '100%',
+        height: MOBILE_BOTTOM_SHEET_HEIGHTS.workflow,
         justifyContent: 'flex-end'
+    },
+    timelineDetailModalOverlay: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        backgroundColor: 'transparent'
+    },
+    timelineDetailModalBackdrop: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.28)'
     },
     sheet: {
         maxHeight: `${MOBILE_BOTTOM_SHEET_HEIGHTS.detailExpandedPercent}%`,
@@ -6951,6 +7175,20 @@ const createStyles = (theme: AppTheme) => {
         borderTopLeftRadius: 0,
         borderTopRightRadius: 0
     },
+    tripListComposerSheet: {
+        height: MOBILE_BOTTOM_SHEET_HEIGHTS.workflow,
+        maxHeight: MOBILE_BOTTOM_SHEET_HEIGHTS.workflow,
+        borderTopLeftRadius: 0,
+        borderTopRightRadius: 0,
+        backgroundColor: theme.colors.surface
+    },
+    sheetHandleTouch: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: theme.spacing.xl,
+        paddingTop: theme.spacing.xs,
+        paddingBottom: theme.spacing.xs
+    },
     sheetHandle: {
         alignSelf: 'center',
         width: 48,
@@ -6958,6 +7196,9 @@ const createStyles = (theme: AppTheme) => {
         borderRadius: theme.radius.full,
         marginTop: theme.spacing.xs,
         backgroundColor: theme.colors.border
+    },
+    sheetHandleInTouch: {
+        marginTop: 0
     },
     sheetHeader: {
         flexDirection: 'row',
@@ -6967,8 +7208,18 @@ const createStyles = (theme: AppTheme) => {
         paddingTop: theme.spacing.sm,
         paddingBottom: theme.spacing.xs
     },
+    workflowSheetHeader: {
+        alignItems: 'center',
+        paddingTop: theme.spacing.xs
+    },
     sheetHeaderCopy: {
         flex: 1,
+        paddingRight: theme.spacing.sm
+    },
+    workflowSheetHeaderCopy: {
+        flex: 1,
+        justifyContent: 'center',
+        minHeight: theme.spacing.xl,
         paddingRight: theme.spacing.sm
     },
     sheetHeaderActions: {
@@ -7005,6 +7256,12 @@ const createStyles = (theme: AppTheme) => {
         lineHeight: 30,
         fontFamily: theme.fonts.bold
     },
+    workflowSheetTitle: {
+        color: theme.colors.textPrimary,
+        fontSize: 18,
+        lineHeight: 24,
+        fontFamily: theme.fonts.bold
+    },
     sheetMeta: {
         marginTop: theme.spacing.xs,
         color: theme.colors.textSecondary,
@@ -7014,32 +7271,36 @@ const createStyles = (theme: AppTheme) => {
         marginTop: theme.spacing.micro
     },
     sheetEditButton: {
+        alignItems: 'center',
+        justifyContent: 'center',
         borderRadius: theme.radius.md,
         paddingHorizontal: theme.spacing.sm,
         paddingVertical: theme.spacing.xs,
-        backgroundColor: theme.colors.accentSoft,
-        marginBottom: theme.spacing.micro
+        backgroundColor: theme.colors.accent
     },
     sheetEditButtonPressed: {
         opacity: 0.88
     },
     sheetEditButtonText: {
-        color: theme.colors.accent,
-        fontFamily: theme.fonts.semibold
+        color: '#ffffff',
+        fontSize: 13,
+        fontFamily: theme.fonts.bold
     },
     sheetDeleteButton: {
+        alignItems: 'center',
+        justifyContent: 'center',
         borderRadius: theme.radius.md,
         paddingHorizontal: theme.spacing.sm,
         paddingVertical: theme.spacing.xs,
-        backgroundColor: theme.colors.warningSoft,
-        marginBottom: theme.spacing.micro
+        backgroundColor: theme.colors.warningSoft
     },
     sheetDeleteButtonPressed: {
         opacity: 0.88
     },
     sheetDeleteButtonText: {
         color: theme.colors.warning,
-        fontFamily: theme.fonts.semibold
+        fontSize: 13,
+        fontFamily: theme.fonts.bold
     },
     sheetCloseButton: {
         borderRadius: theme.radius.md,
@@ -7079,15 +7340,15 @@ const createStyles = (theme: AppTheme) => {
     },
     timelineDetailSheet: {
         width: '100%',
-        borderTopLeftRadius: theme.radius.xl,
-        borderTopRightRadius: theme.radius.xl,
+        borderTopLeftRadius: 0,
+        borderTopRightRadius: 0,
         backgroundColor: theme.colors.surface,
         overflow: 'hidden'
     },
     timelineDetailSheetHandleTouch: {
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: 34,
+        minHeight: theme.spacing.xl,
         paddingTop: theme.spacing.xs,
         paddingBottom: theme.spacing.xs
     },
@@ -7099,21 +7360,53 @@ const createStyles = (theme: AppTheme) => {
     },
     timelineDetailSheetHeader: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: theme.spacing.md,
+        gap: theme.spacing.xs,
+        paddingHorizontal: theme.spacing.sm,
+        paddingTop: theme.spacing.xs,
         paddingBottom: theme.spacing.xs
     },
     timelineDetailSheetHeaderCopy: {
         flex: 1,
+        justifyContent: 'center',
+        minHeight: theme.spacing.xl,
         paddingRight: theme.spacing.sm
     },
+    timelineDetailSheetTitle: {
+        color: theme.colors.textPrimary,
+        fontSize: 18,
+        lineHeight: 24,
+        fontFamily: theme.fonts.bold
+    },
+    timelineDetailSheetHeaderActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: theme.spacing.xs
+    },
     timelineDetailSheetScroll: {
-        flexGrow: 0
+        flex: 1
     },
     timelineDetailSheetContent: {
         paddingHorizontal: theme.spacing.md,
         paddingBottom: theme.spacing.md
+    },
+    timelineDetailSummaryCard: {
+        padding: theme.spacing.sm,
+        borderRadius: theme.radius.md,
+        backgroundColor: theme.colors.background,
+        marginBottom: theme.spacing.sm
+    },
+    timelineDetailSummaryTitle: {
+        color: theme.colors.textPrimary,
+        fontSize: 18,
+        lineHeight: 24,
+        fontFamily: theme.fonts.bold
+    },
+    timelineDetailMetaRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        marginTop: theme.spacing.xs
     },
     sheetStatsRow: {
         flexDirection: 'row',
@@ -7575,36 +7868,41 @@ const createStyles = (theme: AppTheme) => {
     },
     expenseList: {
         marginTop: theme.spacing.xs,
-        marginHorizontal: -theme.spacing.sm
+        gap: theme.spacing.xs
     },
     expenseRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
+        minHeight: theme.spacing.xxl,
         paddingHorizontal: theme.spacing.sm,
         paddingTop: theme.spacing.xs,
         paddingBottom: theme.spacing.xs,
-        borderTopWidth: 1,
-        borderTopColor: theme.colors.border
+        borderRadius: theme.radius.md,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: theme.colors.border,
+        backgroundColor: theme.colors.background
+    },
+    expenseRowPressed: {
+        backgroundColor: theme.colors.surfaceMuted
     },
     expenseCopy: {
         flex: 1,
+        minWidth: 0,
         paddingRight: theme.spacing.sm
     },
     expenseTitle: {
         color: theme.colors.textPrimary,
-        fontFamily: theme.fonts.semibold
-    },
-    expenseDescription: {
-        marginTop: 4,
-        color: theme.colors.textSecondary,
-        fontSize: 12,
-        lineHeight: 18,
-        fontFamily: theme.fonts.body
+        fontFamily: theme.fonts.semibold,
+        fontSize: 15,
+        lineHeight: 22
     },
     expenseAmount: {
         color: theme.colors.accent,
-        fontFamily: theme.fonts.bold
+        fontFamily: theme.fonts.bold,
+        fontSize: 15,
+        lineHeight: 22,
+        textAlign: 'right'
     },
     extraContentStack: {
         marginTop: theme.spacing.xs
@@ -7618,35 +7916,42 @@ const createStyles = (theme: AppTheme) => {
         gap: theme.spacing.md
     },
     expenseDetailList: {
-        marginTop: theme.spacing.sm
+        marginTop: theme.spacing.xs,
+        gap: theme.spacing.xs
     },
     expenseDetailRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
+        minHeight: theme.spacing.xxl,
+        paddingHorizontal: theme.spacing.sm,
         paddingTop: theme.spacing.xs,
         paddingBottom: theme.spacing.xs,
-        borderTopWidth: 1,
-        borderTopColor: theme.colors.border
+        borderRadius: theme.radius.md,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: theme.colors.border,
+        backgroundColor: theme.colors.background
+    },
+    expenseDetailRowPressed: {
+        backgroundColor: theme.colors.surfaceMuted
     },
     expenseDetailCopy: {
         flex: 1,
+        minWidth: 0,
         paddingRight: theme.spacing.sm
     },
     expenseDetailTitle: {
         color: theme.colors.textPrimary,
-        fontFamily: theme.fonts.contentSemibold
-    },
-    expenseDetailMeta: {
-        marginTop: theme.spacing.micro,
-        color: theme.colors.textSecondary,
-        fontSize: 12,
-        lineHeight: 18,
-        fontFamily: theme.fonts.body
+        fontFamily: theme.fonts.semibold,
+        fontSize: 15,
+        lineHeight: 22
     },
     expenseDetailAmount: {
         color: theme.colors.accent,
-        fontFamily: theme.fonts.bold
+        fontFamily: theme.fonts.bold,
+        fontSize: 15,
+        lineHeight: 22,
+        textAlign: 'right'
     }
     });
 };

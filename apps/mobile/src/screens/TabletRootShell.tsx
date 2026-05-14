@@ -357,7 +357,7 @@ export function TabletRootShell({ navigation, route }: Props) {
                 description: '회사 소개, 이용약관, 위치기반서비스 약관, 운영정책, 청소년보호정책, 개인정보처리방침을 확인합니다.',
                 actionLabel: '정책 열기',
                 action: () => navigation.navigate('InAppBrowser', {
-                    url: 'https://plin.ink/terms.html',
+                    url: 'https://plin.ink/terms',
                     title: '이용약관'
                 }),
                 icon: 'file-document-outline'

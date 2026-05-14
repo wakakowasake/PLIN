@@ -2,17 +2,22 @@ import React from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
     Image,
+    type ImageStyle,
+    InteractionManager,
     Platform,
     Pressable,
-    ScrollView,
     StyleSheet,
+    type StyleProp,
     Text,
-    View
+    type TextStyle,
+    View,
+    type ViewStyle
 } from 'react-native';
 import { formatTimeStr, parseDurationStr, parseTimeStr } from '@shared/core/utils/time-value-helpers.js';
 
 import { type AppTheme, useAppTheme } from '@/theme';
 import type { MobileTimelineDisplayItem } from '@/types/trip';
+import { buildCachedImageSource } from '@/utils/image-cache';
 
 type Props = {
     item: MobileTimelineDisplayItem;
@@ -21,6 +26,7 @@ type Props = {
     hideDivider?: boolean;
     hasReminderIndicator?: boolean;
     editAction?: React.ReactNode;
+    photoPreviewLoadIndex?: number;
     moveControls?: {
         canMoveUp: boolean;
         canMoveDown: boolean;
@@ -29,6 +35,73 @@ type Props = {
         onMoveDown?: () => void;
     };
 };
+
+type TimelinePhotoPreviewProps = {
+    url: string;
+    imageStyle: StyleProp<ImageStyle>;
+    fallbackStyle: StyleProp<ViewStyle>;
+    fallbackTextStyle: StyleProp<TextStyle>;
+    loadDelayMs: number;
+};
+
+const TIMELINE_ROW_PHOTO_PREVIEW_LIMIT = 1;
+
+function TimelinePhotoPreview({
+    url,
+    imageStyle,
+    fallbackStyle,
+    fallbackTextStyle,
+    loadDelayMs
+}: TimelinePhotoPreviewProps) {
+    const [didFail, setDidFail] = React.useState(false);
+    const [shouldLoad, setShouldLoad] = React.useState(false);
+
+    React.useEffect(() => {
+        setDidFail(false);
+        setShouldLoad(false);
+
+        if (!url) {
+            return undefined;
+        }
+
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
+        let didCancel = false;
+        const task = InteractionManager.runAfterInteractions(() => {
+            timeoutId = setTimeout(() => {
+                if (!didCancel) {
+                    setShouldLoad(true);
+                }
+            }, loadDelayMs);
+        });
+
+        return () => {
+            didCancel = true;
+            task.cancel();
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+            }
+        };
+    }, [loadDelayMs, url]);
+
+    if (!url || didFail || !shouldLoad) {
+        return (
+            <View style={fallbackStyle}>
+                <Text style={fallbackTextStyle}>사진</Text>
+            </View>
+        );
+    }
+
+    return (
+        <Image
+            source={buildCachedImageSource(url)}
+            style={imageStyle}
+            resizeMode="cover"
+            onError={() => {
+                setDidFail(true);
+            }}
+        />
+    );
+}
 
 function splitTransitTimeLabel(label: string) {
     const normalized = String(label || '').trim();
@@ -95,11 +168,17 @@ export function TimelineItemRow({
     hideDivider = false,
     hasReminderIndicator = false,
     editAction,
+    photoPreviewLoadIndex = 0,
     moveControls
 }: Props) {
     const theme = useAppTheme();
     const styles = React.useMemo(() => createStyles(theme), [theme]);
-    const hasPhotos = item.photoPreviewUrls.length > 0;
+    const visiblePhotoPreviewUrls = React.useMemo(
+        () => item.photoPreviewUrls.slice(0, TIMELINE_ROW_PHOTO_PREVIEW_LIMIT),
+        [item.photoPreviewUrls]
+    );
+    const hasPhotos = visiblePhotoPreviewUrls.length > 0;
+    const photoPreviewLoadDelayMs = Math.min(900, Math.max(0, photoPreviewLoadIndex) * 120);
     const hasMemories = item.memoriesCount > 0;
     const hasExpense = Boolean(item.expenseSummaryLabel);
     const isMemoRow = !item.isTransit && item.badgeLabel === '메모';
@@ -117,7 +196,7 @@ export function TimelineItemRow({
     const memoryLabel = hasMemories
         ? `추억 ${item.memoriesCount}개`
         : hasPhotos
-            ? `사진 ${item.photoPreviewUrls.length}장`
+            ? `사진 ${visiblePhotoPreviewUrls.length}장`
             : '';
     const hasTransitRouteChips = item.isTransit && item.transitRouteChips.length > 0;
     const showTransitChipTitle = rowVariant === 'transit' && hasTransitRouteChips;
@@ -461,23 +540,23 @@ export function TimelineItemRow({
                 ) : null}
                 {hasPhotos ? (
                     <View style={styles.photoSection}>
-                        <ScrollView
-                            horizontal
-                            nestedScrollEnabled
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.photoRow}
-                        >
-                            {item.photoPreviewUrls.map((url, index) => (
-                                <Image
-                                    key={`${item.id}-photo-${index}`}
-                                    source={{ uri: url }}
-                                    style={[
-                                        styles.photoPreview,
-                                        index < item.photoPreviewUrls.length - 1 ? styles.photoPreviewSpaced : null
-                                    ]}
-                                />
-                            ))}
-                        </ScrollView>
+                        {visiblePhotoPreviewUrls.map((url, index) => (
+                            <TimelinePhotoPreview
+                                key={`${item.id}-photo-${index}`}
+                                url={url}
+                                imageStyle={[
+                                    styles.photoPreview,
+                                    index < visiblePhotoPreviewUrls.length - 1 ? styles.photoPreviewSpaced : null
+                                ]}
+                                fallbackStyle={[
+                                    styles.photoPreview,
+                                    styles.photoPreviewFallback,
+                                    index < visiblePhotoPreviewUrls.length - 1 ? styles.photoPreviewSpaced : null
+                                ]}
+                                fallbackTextStyle={styles.photoPreviewFallbackText}
+                                loadDelayMs={photoPreviewLoadDelayMs}
+                            />
+                        ))}
                     </View>
                 ) : null}
             </Pressable>
@@ -768,6 +847,16 @@ const createStyles = (theme: AppTheme) => {
         height: 76,
         borderRadius: theme.radius.sm,
         backgroundColor: theme.colors.surfaceMuted
+    },
+    photoPreviewFallback: {
+        alignItems: 'center',
+        justifyContent: 'center'
+    },
+    photoPreviewFallbackText: {
+        color: theme.colors.textSecondary,
+        fontSize: 11,
+        lineHeight: 14,
+        fontFamily: theme.fonts.bold
     },
     photoPreviewSpaced: {
         marginRight: theme.spacing.micro

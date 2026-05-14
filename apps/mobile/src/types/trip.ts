@@ -2,6 +2,8 @@ export type TripStatus = 'planning' | 'completed';
 
 export type MemoryEntry = {
     photoUrl?: string | null;
+    previewUrl?: string | null;
+    thumbnailUrl?: string | null;
     comment?: string;
     createdAt?: string;
     [key: string]: unknown;
@@ -33,12 +35,14 @@ export type RawAttachmentEntry = {
 export type MobileMemoryDisplayEntry = {
     id: string;
     photoUrl?: string | null;
+    previewUrl?: string | null;
     comment: string;
     createdAt: string;
 };
 
 export type MobileExpenseDisplayEntry = {
     id: string;
+    expenseIndex: number;
     title: string;
     description: string;
     amount: number;
@@ -422,6 +426,7 @@ export type MobileTimelineTransitCreateInput = {
 
 export type MobileTimelineMemoryCreateInput = {
     uploadedPhotoUrls: string[];
+    uploadedMemoryEntries?: MemoryEntry[];
     createdAt?: string;
 };
 

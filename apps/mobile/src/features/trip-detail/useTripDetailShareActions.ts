@@ -249,10 +249,10 @@ export function useTripDetailShareActions({
             resetTripShareSheetState();
             Alert.alert(
                 '업로드 완료',
-                '커뮤니티에 성공적으로 게시했어요.',
+                'PLIN 큐레이션에 등록했어요.',
                 [
                     {
-                        text: '커뮤니티 보기',
+                        text: '큐레이션 보기',
                         onPress: onNavigateCommunity
                     }
                 ]
@@ -282,15 +282,15 @@ export function useTripDetailShareActions({
         }
 
         if (!canPublishCommunity) {
-            const message = '이 여행은 커뮤니티 게시 권한이 없어요.';
+            const message = 'PLIN 큐레이션 업로드는 관리자만 가능해요.';
             setTripShareError(message);
             Alert.alert('업로드 불가', message);
             return;
         }
 
         Alert.alert(
-            '커뮤니티에 자랑하기',
-            '장소와 경로 정보 위주로 공개 포스트를 만들어요.\n상세 메모, 지출, 사진 같은 개인 정보는 제외됩니다.\n\n민감한 정보가 없는지 한 번 더 확인해 주세요.',
+            'PLIN 큐레이션에 올리기',
+            '장소와 경로 정보 위주로 공개 플랜을 만들어요.\n상세 메모, 지출, 사진 같은 개인 정보는 제외됩니다.\n\n민감한 정보가 없는지 한 번 더 확인해 주세요.',
             [
                 {
                     text: '취소',

@@ -90,6 +90,14 @@ const MOBILE_PUBLIC_ENV = {
         envName: 'EXPO_PUBLIC_PLIN_BACKEND_URL',
         value: process.env.EXPO_PUBLIC_PLIN_BACKEND_URL
     },
+    revenueCatIosApiKey: {
+        envName: 'EXPO_PUBLIC_PLIN_REVENUECAT_IOS_API_KEY',
+        value: process.env.EXPO_PUBLIC_PLIN_REVENUECAT_IOS_API_KEY
+    },
+    revenueCatAndroidApiKey: {
+        envName: 'EXPO_PUBLIC_PLIN_REVENUECAT_ANDROID_API_KEY',
+        value: process.env.EXPO_PUBLIC_PLIN_REVENUECAT_ANDROID_API_KEY
+    },
     webBasePath: {
         envName: 'EXPO_PUBLIC_PLIN_WEB_BASE_PATH',
         value: process.env.EXPO_PUBLIC_PLIN_WEB_BASE_PATH

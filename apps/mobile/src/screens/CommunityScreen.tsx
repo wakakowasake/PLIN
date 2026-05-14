@@ -38,6 +38,11 @@ import { useCommunityFeed } from '@/hooks/useCommunityFeed';
 import { useKeyboardAwareInputScroll } from '@/hooks/useKeyboardAwareInputScroll';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
 import { readCommunityViewMode, writeCommunityViewMode } from '@/services/list-view-preferences';
+import {
+    isPurchaseCancelledError,
+    purchasePlanMarketplacePost,
+    restorePlanMarketplacePostPurchase
+} from '@/services/plan-marketplace-purchases';
 import { usePrimaryScrollActivityReporter } from '@/state/primary-scroll-activity';
 import { publishTripCreated } from '@/state/trip-write-sync';
 import { type AppTheme, useAppTheme } from '@/theme';
@@ -98,8 +103,8 @@ const COMMUNITY_LOADING_PLACEHOLDERS = [0, 1, 2];
 const COMMUNITY_SHARE_BASE_URL = 'https://plin.ink';
 
 function buildCommunityShareMessage(title: string) {
-    const safeTitle = String(title || '').trim() || '공개 일정';
-    return `PLIN 커뮤니티에서 "${safeTitle}" 일정을 확인해 보세요.\n${COMMUNITY_SHARE_BASE_URL}`;
+    const safeTitle = String(title || '').trim() || '큐레이션 플랜';
+    return `PLIN 큐레이션 플랜 "${safeTitle}"을 확인해 보세요.\n${COMMUNITY_SHARE_BASE_URL}`;
 }
 
 function parseDateOnly(value: string) {
@@ -383,6 +388,7 @@ export function CommunityScreen({ navigation }: Props) {
     const [isDuplicateDatePickerVisible, setIsDuplicateDatePickerVisible] = React.useState(false);
     const [actionError, setActionError] = React.useState<string | null>(null);
     const [processingPostId, setProcessingPostId] = React.useState<string | null>(null);
+    const [purchaseBusyPostId, setPurchaseBusyPostId] = React.useState<string | null>(null);
     const [pendingSharePost, setPendingSharePost] = React.useState<MobileCommunityPostSummary | null>(null);
     const viewModeTransitionTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const { notifyPrimaryScrollActivity, scrollEventThrottle } = usePrimaryScrollActivityReporter();
@@ -431,7 +437,9 @@ export function CommunityScreen({ navigation }: Props) {
     const publishSheetInsetStyle = React.useMemo(() => ({
         paddingBottom: insets.bottom + theme.spacing.md
     }), [insets.bottom, theme.spacing.md]);
-    const hasPendingAction = Boolean(processingPostId);
+    const hasPendingAction = Boolean(processingPostId || purchaseBusyPostId);
+    const activeMenuIsLockedPlan = activeMenuPost?.marketplace.purchaseState === 'locked';
+    const activeMenuPriceLabel = activeMenuPost?.marketplace.priceLabel || '유료 플랜';
     const communityRenderItems = React.useMemo<Array<MobileCommunityPostSummary | LoadingCommunityRow>>(
         () => (
             isInitialLoading
@@ -545,7 +553,13 @@ export function CommunityScreen({ navigation }: Props) {
     const loadPublishableTrips = React.useCallback(async () => {
         if (!user?.uid) {
             setPublishableTrips([]);
-            setPublishHubError('로그인 후 공개 가능한 여행을 확인할 수 있어요.');
+            setPublishHubError('로그인 후 업로드 가능한 여행을 확인할 수 있어요.');
+            return;
+        }
+
+        if (!isCommunityAdmin) {
+            setPublishableTrips([]);
+            setPublishHubError('PLIN 큐레이션 업로드는 관리자만 가능해요.');
             return;
         }
 
@@ -561,13 +575,13 @@ export function CommunityScreen({ navigation }: Props) {
             setPublishHubError(
                 loadError instanceof Error
                     ? loadError.message
-                    : '공개 가능한 여행을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.'
+                    : '업로드 가능한 여행을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.'
             );
             setPublishableTrips([]);
         } finally {
             setPublishHubLoading(false);
         }
-    }, [tripRepository, user?.uid]);
+    }, [isCommunityAdmin, tripRepository, user?.uid]);
 
     const closePublishHub = React.useCallback(() => {
         if (isPublishHubLoading) {
@@ -683,8 +697,8 @@ export function CommunityScreen({ navigation }: Props) {
         }
 
         Alert.alert(
-            '공개 여행을 삭제할까요?',
-            `"${post.title}" 여행이 커뮤니티에서 내려가요.`,
+            '큐레이션 플랜을 삭제할까요?',
+            `"${post.title}" 플랜이 내려가요.`,
             [
                 { text: '취소', style: 'cancel' },
                 {
@@ -704,7 +718,7 @@ export function CommunityScreen({ navigation }: Props) {
                                 setActionError(
                                     deleteError instanceof Error
                                         ? deleteError.message
-                                        : '공개 일정을 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.'
+                                        : '큐레이션 플랜을 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.'
                                 );
                             } finally {
                                 setProcessingPostId(null);
@@ -765,8 +779,8 @@ export function CommunityScreen({ navigation }: Props) {
         Alert.alert(
             isBlocked ? '사용자 차단을 해제할까요?' : '이 사용자를 차단할까요?',
             isBlocked
-                ? `${post.authorName}님의 커뮤니티 글을 다시 표시할게요.`
-                : `${post.authorName}님의 커뮤니티 글과 댓글을 숨길게요.`,
+                ? `${post.authorName}님의 플랜을 다시 표시할게요.`
+                : `${post.authorName}님의 플랜과 댓글을 숨길게요.`,
             [
                 { text: '취소', style: 'cancel' },
                 {
@@ -820,6 +834,11 @@ export function CommunityScreen({ navigation }: Props) {
             return;
         }
 
+        if (post.marketplace.purchaseState === 'locked') {
+            setActionError('구매한 큐레이션 플랜만 내 여행으로 가져올 수 있어요.');
+            return;
+        }
+
         if (!isTripCreationEnabled) {
             setActiveMenuPost(null);
             Alert.alert(TRIP_CREATION_DISABLED_TITLE, TRIP_CREATION_DISABLED_MESSAGE);
@@ -830,6 +849,78 @@ export function CommunityScreen({ navigation }: Props) {
         setActiveMenuPost(null);
         setDuplicateDraft(buildDuplicateDraft(post));
     }, [hasPendingAction]);
+
+    const handlePurchasePost = React.useCallback(async (post: MobileCommunityPostSummary) => {
+        if (!user?.uid || hasPendingAction) {
+            return;
+        }
+
+        const productId = post.marketplace.productId;
+        if (!productId) {
+            setActionError('구매할 플랜 정보를 찾지 못했어요.');
+            return;
+        }
+
+        setActionError(null);
+        setPurchaseBusyPostId(post.id);
+
+        try {
+            await purchasePlanMarketplacePost({
+                userId: user.uid,
+                postId: post.id,
+                productId
+            });
+            await refresh();
+            setActiveMenuPost(null);
+            Alert.alert('구매 완료', '이제 내 여행으로 가져올 수 있어요.');
+        } catch (purchaseError) {
+            if (isPurchaseCancelledError(purchaseError)) {
+                return;
+            }
+
+            const message = purchaseError instanceof Error
+                ? purchaseError.message
+                : '구매를 완료하지 못했어요. 잠시 후 다시 시도해 주세요.';
+            setActionError(message);
+            Alert.alert('구매 실패', message);
+        } finally {
+            setPurchaseBusyPostId(null);
+        }
+    }, [hasPendingAction, refresh, user?.uid]);
+
+    const handleRestorePostPurchase = React.useCallback(async (post: MobileCommunityPostSummary) => {
+        if (!user?.uid || hasPendingAction) {
+            return;
+        }
+
+        const productId = post.marketplace.productId;
+        if (!productId) {
+            setActionError('복원할 플랜 정보를 찾지 못했어요.');
+            return;
+        }
+
+        setActionError(null);
+        setPurchaseBusyPostId(post.id);
+
+        try {
+            await restorePlanMarketplacePostPurchase({
+                userId: user.uid,
+                postId: post.id,
+                productId
+            });
+            await refresh();
+            setActiveMenuPost(null);
+            Alert.alert('구매 복원 완료', '이제 내 여행으로 가져올 수 있어요.');
+        } catch (restoreError) {
+            const message = restoreError instanceof Error
+                ? restoreError.message
+                : '구매 내역을 복원하지 못했어요.';
+            setActionError(message);
+            Alert.alert('복원 실패', message);
+        } finally {
+            setPurchaseBusyPostId(null);
+        }
+    }, [hasPendingAction, refresh, user?.uid]);
 
     const handleOpenDuplicateDatePicker = React.useCallback(() => {
         if (!duplicateDraft || hasPendingAction) {
@@ -1002,12 +1093,12 @@ export function CommunityScreen({ navigation }: Props) {
                                         ? '세션을 다시 확인해 주세요.'
                                         : errorKind === 'network'
                                             ? '연결이 잠시 불안정해요.'
-                                            : '커뮤니티를 불러오지 못했어요.'
+                                            : '큐레이션 플랜을 불러오지 못했어요.'
                                 }
                                 description={error}
                                 supportText={
                                     errorKind === 'network'
-                                        ? '인터넷 연결이 돌아오면 새로고침으로 글 목록을 다시 확인할 수 있어요.'
+                                        ? '인터넷 연결이 돌아오면 새로고침으로 플랜 목록을 다시 확인할 수 있어요.'
                                         : undefined
                                 }
                                 actionLabel={
@@ -1138,7 +1229,7 @@ export function CommunityScreen({ navigation }: Props) {
                                 {trimmedSearchQuery ? (
                                     <EmptyState
                                         title="검색 결과가 없어요."
-                                        description={`"${trimmedSearchQuery}"와 일치하는 공개 일정을 찾지 못했어요.`}
+                                        description={`"${trimmedSearchQuery}"와 일치하는 큐레이션 플랜을 찾지 못했어요.`}
                                         actionLabel="검색 지우기"
                                         onAction={() => {
                                             setSearchQuery('');
@@ -1146,8 +1237,8 @@ export function CommunityScreen({ navigation }: Props) {
                                     />
                                 ) : isEmptyFeedState ? (
                                     <EmptyState
-                                        title="아직 공개된 글이 없어요."
-                                        description="첫 공개 여행이 올라오면 여기에 보여드릴게요. 내 여행에서 마음에 드는 여행을 골라 바로 공개할 수도 있어요."
+                                        title="아직 올라온 플랜이 없어요."
+                                        description="PLIN이 준비한 큐레이션 플랜이 올라오면 여기에 보여드릴게요."
                                         actionLabel="내 여행 보기"
                                         onAction={() => {
                                             navigation.navigate('TripList');
@@ -1156,7 +1247,7 @@ export function CommunityScreen({ navigation }: Props) {
                                 ) : (
                                     <EmptyState
                                         title="검색 결과가 없어요."
-                                        description={`"${trimmedSearchQuery}"와 일치하는 공개 일정을 찾지 못했어요.`}
+                                        description={`"${trimmedSearchQuery}"와 일치하는 큐레이션 플랜을 찾지 못했어요.`}
                                         actionLabel="검색 지우기"
                                         onAction={() => {
                                             setSearchQuery('');
@@ -1171,7 +1262,7 @@ export function CommunityScreen({ navigation }: Props) {
                             {isInitialLoading || loadingMore ? (
                                 <View style={styles.loadingSpinnerWrap}>
                                     <LoadingView
-                                        title={loadingMore ? '커뮤니티 더 불러오는 중' : '커뮤니티 불러오는 중'}
+                                        title={loadingMore ? '플랜 더 불러오는 중' : '플랜 불러오는 중'}
                                         fullscreen={false}
                                     />
                                 </View>
@@ -1266,9 +1357,9 @@ export function CommunityScreen({ navigation }: Props) {
                     />
                     <View style={styles.actionModalCard}>
                         <View style={styles.actionModalHeader}>
-                            <Text style={styles.actionModalEyebrow}>커뮤니티 메뉴</Text>
+                            <Text style={styles.actionModalEyebrow}>플랜 메뉴</Text>
                             <Text style={styles.actionModalTitle} numberOfLines={2}>
-                                {activeMenuPost?.title || '공개 일정'}
+                                {activeMenuPost?.title || '큐레이션 플랜'}
                             </Text>
                             <Text style={styles.actionModalSubtitle} numberOfLines={2}>
                                 {activeMenuPost?.subInfo || '이 여행에서 할 작업을 선택해 주세요.'}
@@ -1296,25 +1387,73 @@ export function CommunityScreen({ navigation }: Props) {
                         </Pressable>
 
                         {isTripCreationEnabled ? (
-                            <Pressable
-                                accessibilityRole="button"
-                                disabled={hasPendingAction || !activeMenuPost}
-                                onPress={() => {
-                                    if (activeMenuPost) {
-                                        openDuplicateModal(activeMenuPost);
-                                    }
-                                }}
-                                style={({ pressed }) => [
-                                    styles.actionMenuButton,
-                                    pressed && !hasPendingAction ? styles.actionMenuButtonPressed : null
-                                ]}
-                            >
-                                <View style={styles.actionMenuCopy}>
-                                    <Text style={styles.actionMenuLabel}>내 여행으로 가져오기</Text>
-                                    <Text style={styles.actionMenuHint}>이름과 날짜를 정해 내 여행으로 가져와요.</Text>
-                                </View>
-                                <Text style={styles.actionMenuArrow}>›</Text>
-                            </Pressable>
+                            activeMenuIsLockedPlan ? (
+                                <>
+                                    <Pressable
+                                        accessibilityRole="button"
+                                        disabled={hasPendingAction || !activeMenuPost}
+                                        onPress={() => {
+                                            if (activeMenuPost) {
+                                                void handlePurchasePost(activeMenuPost);
+                                            }
+                                        }}
+                                        style={({ pressed }) => [
+                                            styles.actionMenuButton,
+                                            styles.actionMenuPrimaryButton,
+                                            pressed && !hasPendingAction ? styles.actionMenuButtonPressed : null
+                                        ]}
+                                    >
+                                        <View style={styles.actionMenuCopy}>
+                                            <Text style={[styles.actionMenuLabel, styles.actionMenuPrimaryLabel]}>
+                                                구매 후 가져오기
+                                            </Text>
+                                            <Text style={styles.actionMenuHint}>
+                                                {`${activeMenuPriceLabel} 결제 후 내 여행으로 담을 수 있어요.`}
+                                            </Text>
+                                        </View>
+                                        <Text style={[styles.actionMenuArrow, styles.actionMenuPrimaryLabel]}>›</Text>
+                                    </Pressable>
+                                    <Pressable
+                                        accessibilityRole="button"
+                                        disabled={hasPendingAction || !activeMenuPost}
+                                        onPress={() => {
+                                            if (activeMenuPost) {
+                                                void handleRestorePostPurchase(activeMenuPost);
+                                            }
+                                        }}
+                                        style={({ pressed }) => [
+                                            styles.actionMenuButton,
+                                            pressed && !hasPendingAction ? styles.actionMenuButtonPressed : null
+                                        ]}
+                                    >
+                                        <View style={styles.actionMenuCopy}>
+                                            <Text style={styles.actionMenuLabel}>구매 복원</Text>
+                                            <Text style={styles.actionMenuHint}>이미 구매했다면 이 계정에 다시 연결해요.</Text>
+                                        </View>
+                                        <Text style={styles.actionMenuArrow}>›</Text>
+                                    </Pressable>
+                                </>
+                            ) : (
+                                <Pressable
+                                    accessibilityRole="button"
+                                    disabled={hasPendingAction || !activeMenuPost}
+                                    onPress={() => {
+                                        if (activeMenuPost) {
+                                            openDuplicateModal(activeMenuPost);
+                                        }
+                                    }}
+                                    style={({ pressed }) => [
+                                        styles.actionMenuButton,
+                                        pressed && !hasPendingAction ? styles.actionMenuButtonPressed : null
+                                    ]}
+                                >
+                                    <View style={styles.actionMenuCopy}>
+                                        <Text style={styles.actionMenuLabel}>내 여행으로 가져오기</Text>
+                                        <Text style={styles.actionMenuHint}>이름과 날짜를 정해 내 여행으로 가져와요.</Text>
+                                    </View>
+                                    <Text style={styles.actionMenuArrow}>›</Text>
+                                </Pressable>
+                            )
                         ) : null}
 
                         {!canDeleteActivePost ? (
@@ -1361,7 +1500,7 @@ export function CommunityScreen({ navigation }: Props) {
                                         <Text style={styles.actionMenuHint}>
                                             {isActivePostBlocked
                                                 ? '이 작성자의 글과 댓글을 다시 표시해요.'
-                                                : '이 작성자의 글과 댓글을 내 커뮤니티에서 숨겨요.'}
+                                                : '이 작성자의 플랜과 댓글을 숨겨요.'}
                                         </Text>
                                     </View>
                                     <Text style={[styles.actionMenuArrow, styles.actionMenuWarnLabel]}>›</Text>
@@ -1386,7 +1525,7 @@ export function CommunityScreen({ navigation }: Props) {
                             >
                                 <View style={styles.actionMenuCopy}>
                                     <Text style={[styles.actionMenuLabel, styles.actionMenuDeleteLabel]}>삭제</Text>
-                                    <Text style={styles.actionMenuHint}>작성자와 관리자가 커뮤니티 글을 삭제할 수 있어요.</Text>
+                                    <Text style={styles.actionMenuHint}>작성자와 관리자가 큐레이션 플랜을 삭제할 수 있어요.</Text>
                                 </View>
                                 <Text style={[styles.actionMenuArrow, styles.actionMenuDeleteLabel]}>›</Text>
                             </Pressable>
@@ -1511,7 +1650,7 @@ export function CommunityScreen({ navigation }: Props) {
                         <View style={styles.actionModalHeader}>
                             <Text style={styles.actionModalEyebrow}>가져오기 설정</Text>
                             <Text style={styles.actionModalTitle} numberOfLines={2}>
-                                {duplicateDraft?.post.title || '공개 일정'}
+                                {duplicateDraft?.post.title || '큐레이션 플랜'}
                             </Text>
                             <Text style={styles.actionModalSubtitle}>
                                 여행 이름과 날짜를 정한 뒤 내 여행으로 가져올 수 있어요.
@@ -1668,10 +1807,10 @@ export function CommunityScreen({ navigation }: Props) {
                     <View style={[styles.publishSheet, publishSheetInsetStyle]}>
                         <View style={styles.publishSheetHandle} />
                         <View style={styles.publishSheetHeader}>
-                            <Text style={styles.publishSheetEyebrow}>공유하기</Text>
-                            <Text style={styles.publishSheetTitle}>공개할 여행 선택</Text>
+                            <Text style={styles.publishSheetEyebrow}>큐레이션 업로드</Text>
+                            <Text style={styles.publishSheetTitle}>등록할 여행 선택</Text>
                             <Text style={styles.publishSheetSubtitle}>
-                                공개 가능한 내 여행을 고르면 기존 여행 상세의 공개 흐름으로 이어져요.
+                                PLIN이 직접 검수한 여행 플랜만 공개 공간에 올릴 수 있어요.
                             </Text>
                         </View>
 
@@ -1701,7 +1840,7 @@ export function CommunityScreen({ navigation }: Props) {
                             <View style={styles.publishSheetStateBlock}>
                                 <EmptyState
                                     title="공개할 여행이 아직 없어요."
-                                    description="내 여행에서 공개 가능한 여행을 먼저 준비해 주세요."
+                                    description="관리자 계정의 여행에서 업로드할 플랜을 먼저 준비해 주세요."
                                     actionLabel="내 여행 보기"
                                     onAction={() => {
                                         setPublishHubVisible(false);
@@ -1740,7 +1879,7 @@ export function CommunityScreen({ navigation }: Props) {
                                                 {trip.subInfo || '여행 정보를 확인해 공개할 수 있어요.'}
                                             </Text>
                                         </View>
-                                        <Text style={styles.publishTripActionText}>공개</Text>
+                                        <Text style={styles.publishTripActionText}>등록</Text>
                                     </Pressable>
                                 ))}
                             </ScrollView>
@@ -1760,10 +1899,10 @@ export function CommunityScreen({ navigation }: Props) {
                     </View>
                 </View>
             </Modal>
-            {hasAnyTrips ? (
+            {hasAnyTrips && isCommunityAdmin ? (
                 <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="커뮤니티 공유하기"
+                    accessibilityLabel="큐레이션 업로드"
                     disabled={isPublishHubLoading}
                     onPress={handleOpenPublishHub}
                     style={({ pressed }) => [
@@ -1773,7 +1912,7 @@ export function CommunityScreen({ navigation }: Props) {
                         pressed && !isPublishHubLoading ? styles.composeFabPressed : null
                     ]}
                 >
-                    <Text style={styles.composeFabText}>공유하기</Text>
+                    <Text style={styles.composeFabText}>업로드</Text>
                 </Pressable>
             ) : null}
             <BottomNavBar activeTab="Community" />
@@ -2482,6 +2621,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         backgroundColor: theme.colors.surfaceMuted,
         marginBottom: theme.spacing.xs
     },
+    actionMenuPrimaryButton: {
+        backgroundColor: theme.colors.accentSoft
+    },
     actionMenuDeleteButton: {
         backgroundColor: theme.mode === 'dark' ? '#2f211c' : '#fff6ef'
     },
@@ -2508,6 +2650,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     },
     actionMenuWarnLabel: {
         color: theme.colors.warning
+    },
+    actionMenuPrimaryLabel: {
+        color: theme.colors.accent
     },
     actionMenuArrow: {
         color: theme.colors.textSecondary,

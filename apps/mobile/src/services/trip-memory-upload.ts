@@ -11,6 +11,12 @@ export type PickedTripMemoryAsset = {
     base64?: string | null;
 };
 
+export type UploadedTripMemoryAsset = {
+    photoUrl: string;
+    previewUrl?: string | null;
+    thumbnailUrl?: string | null;
+};
+
 type ImagePickerAsset = Awaited<ReturnType<typeof ImagePicker.launchImageLibraryAsync>> extends {
     assets: infer T;
 }
@@ -113,7 +119,11 @@ async function uploadTripMemoryAssetViaBackend({
     contentType: string;
     base64: string;
 }) {
-    const response = await fetchBackendJson<{ url?: string }>('/storage/upload-trip-image', {
+    const response = await fetchBackendJson<{
+        url?: string;
+        previewUrl?: string | null;
+        thumbnailUrl?: string | null;
+    }>('/storage/upload-trip-image', {
         method: 'POST',
         body: {
             kind: 'memory',
@@ -127,7 +137,12 @@ async function uploadTripMemoryAssetViaBackend({
     if (!url) {
         throw new Error('추억 사진을 업로드하지 못했어요.');
     }
-    return url;
+    const thumbnailUrl = String(response?.thumbnailUrl || response?.previewUrl || '').trim() || null;
+    return {
+        photoUrl: url,
+        previewUrl: thumbnailUrl,
+        thumbnailUrl
+    };
 }
 
 export async function pickTripMemoryAssets(): Promise<PickedTripMemoryAsset[]> {
@@ -198,7 +213,7 @@ export async function uploadTripMemoryAssets({
     }
 
     const timestamp = Date.now();
-    const uploadedUrls: string[] = [];
+    const uploadedEntries: UploadedTripMemoryAsset[] = [];
 
     try {
         for (let index = 0; index < safeAssets.length; index += 1) {
@@ -225,7 +240,7 @@ export async function uploadTripMemoryAssets({
                 throw new Error('선택한 사진 파일을 읽지 못했어요.');
             }
 
-            uploadedUrls.push(await uploadTripMemoryAssetViaBackend({
+            uploadedEntries.push(await uploadTripMemoryAssetViaBackend({
                 tripId,
                 fileName,
                 contentType: metadata.contentType,
@@ -236,5 +251,5 @@ export async function uploadTripMemoryAssets({
         throw new Error(mapTripMemoryUploadError(error));
     }
 
-    return uploadedUrls;
+    return uploadedEntries;
 }

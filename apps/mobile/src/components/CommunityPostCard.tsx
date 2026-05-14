@@ -38,6 +38,22 @@ function formatCompactDateRange(startDate: string, endDate: string) {
     return `${startLabel}-${endLabel}`;
 }
 
+function buildMarketplaceLabel(post: MobileCommunityPostSummary) {
+    if (post.marketplace.purchaseState === 'owned') {
+        return '구매 완료';
+    }
+
+    if (post.marketplace.purchaseState === 'unavailable') {
+        return '판매 중지';
+    }
+
+    if (post.marketplace.productId) {
+        return post.marketplace.priceLabel || '유료 플랜';
+    }
+
+    return '무료 플랜';
+}
+
 export function CommunityPostCard({
     post,
     onPress,
@@ -95,6 +111,9 @@ export function CommunityPostCard({
 
         return [];
     }, [feedLocationLabel, feedScheduleLabel, post.subInfo]);
+    const marketplaceLabel = React.useMemo(() => buildMarketplaceLabel(post), [post]);
+    const isPaidMarketplace = Boolean(post.marketplace.productId);
+    const isOwnedMarketplace = post.marketplace.purchaseState === 'owned';
 
     const renderMenuButton = React.useCallback((isOnImage = false) => {
         if (!onOpenActions) {
@@ -187,6 +206,19 @@ export function CommunityPostCard({
                         </View>
 
                         <View style={styles.feedBottomRow}>
+                            <View style={[
+                                styles.feedMetaChip,
+                                isPaidMarketplace ? styles.marketplaceChip : null,
+                                isOwnedMarketplace ? styles.marketplaceChipOwned : null
+                            ]}>
+                                <Text style={[
+                                    styles.feedMetaChipText,
+                                    isPaidMarketplace ? styles.marketplaceChipText : null,
+                                    isOwnedMarketplace ? styles.marketplaceChipOwnedText : null
+                                ]}>
+                                    {marketplaceLabel}
+                                </Text>
+                            </View>
                             <View style={styles.feedMetaChip}>
                                 <Text style={styles.feedMetaChipText}>{post.dayCount}</Text>
                             </View>
@@ -245,7 +277,7 @@ export function CommunityPostCard({
                                         style={[styles.badgeText, hasCoverImage ? styles.badgeTextOnImage : null]}
                                         numberOfLines={1}
                                     >
-                                        {`${post.authorName} 게시`}
+                                        PLIN 큐레이션
                                     </EmojiText>
                                 </View>
                             </View>
@@ -254,6 +286,23 @@ export function CommunityPostCard({
 
                         <View style={styles.headerBottom}>
                             <View style={styles.cardMetaRow}>
+                                <View style={[
+                                    styles.metaChip,
+                                    isPaidMarketplace ? styles.marketplaceChip : null,
+                                    isOwnedMarketplace ? styles.marketplaceChipOwned : null,
+                                    hasCoverImage ? styles.marketplaceChipOnImage : null
+                                ]}>
+                                    <Text
+                                        style={[
+                                            styles.metaChipText,
+                                            isPaidMarketplace ? styles.marketplaceChipText : null,
+                                            isOwnedMarketplace ? styles.marketplaceChipOwnedText : null,
+                                            hasCoverImage ? styles.marketplaceChipTextOnImage : null
+                                        ]}
+                                    >
+                                        {marketplaceLabel}
+                                    </Text>
+                                </View>
                                 <View style={[styles.metaChip, hasCoverImage ? styles.metaChipOnImage : null]}>
                                     <Text
                                         style={[
@@ -464,6 +513,18 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         textAlignVertical: 'center',
         fontFamily: theme.fonts.semibold
     },
+    marketplaceChip: {
+        backgroundColor: theme.colors.accentSoft
+    },
+    marketplaceChipOwned: {
+        backgroundColor: theme.mode === 'dark' ? '#234139' : '#ddf4e8'
+    },
+    marketplaceChipText: {
+        color: theme.colors.accent
+    },
+    marketplaceChipOwnedText: {
+        color: theme.mode === 'dark' ? '#9be0bf' : '#257a4e'
+    },
     headerShell: {
         minHeight: 192,
         backgroundColor: theme.mode === 'dark' ? '#26211d' : '#f3ecdf'
@@ -559,6 +620,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         backgroundColor: 'rgba(18, 24, 32, 0.34)'
     },
     metaChipTextOnImage: {
+        color: '#ffffff'
+    },
+    marketplaceChipOnImage: {
+        backgroundColor: 'rgba(255, 102, 0, 0.76)'
+    },
+    marketplaceChipTextOnImage: {
         color: '#ffffff'
     },
     dateChip: {

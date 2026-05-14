@@ -76,7 +76,7 @@ function resolveWebTripPermissions(tripData, user) {
         canEditContent: role === 'owner' || role === 'editor',
         canManageShare: role === 'owner' || role === 'editor',
         canDeleteTrip: role === 'owner',
-        canPublishCommunity: role === 'owner' || role === 'editor'
+        canPublishCommunity: (role === 'owner' || role === 'editor') && user?.role === 'admin'
     };
 }
 

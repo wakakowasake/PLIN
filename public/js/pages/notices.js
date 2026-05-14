@@ -35,7 +35,7 @@ import { fetchUserProfile } from '../services/firebase/profile-repository.js';
 const NOTICE_LIMIT = 50;
 const NOTICE_BODY_HTML_LIMIT = 20000;
 const NOTICE_ADMIN_EMAILS = new Set([
-    'plin.ink@gmail.com'
+    'contact@plin.ink'
 ]);
 const noticesRef = collection(db, 'notices');
 
@@ -782,7 +782,8 @@ async function readAdminState(user) {
     }
 
     const editorWasOpen = els.adminPanel && !els.adminPanel.classList.contains('hidden');
-    const isEmailAdmin = NOTICE_ADMIN_EMAILS.has(String(user.email || '').trim().toLowerCase());
+    const isEmailAdmin = user.emailVerified === true
+        && NOTICE_ADMIN_EMAILS.has(String(user.email || '').trim().toLowerCase());
 
     let isTokenAdmin = false;
     try {

@@ -25,6 +25,7 @@ import type {
     MobileCommunityComment,
     MobileCommunityCommentCreateInput,
     MobileCommunityLikeResult,
+    MobileCommunityMarketplaceInfo,
     MobileCommunityPostDetail,
     MobileCommunityPostSummary,
     MobileCommunityTripDuplicateInput
@@ -64,6 +65,14 @@ type CommunityBlockMutationResponse = {
 
 type TripDetailResponse = {
     trip?: Record<string, unknown> & { id?: string };
+};
+
+type MarketplacePurchasesResponse = {
+    purchases?: Array<{
+        postId?: unknown;
+        productId?: unknown;
+        status?: unknown;
+    }>;
 };
 
 export class FirebaseCommunityRepository implements CommunityRepository {
@@ -112,6 +121,64 @@ export class FirebaseCommunityRepository implements CommunityRepository {
                 .map((entry) => this.readString(entry))
                 .filter(Boolean)
             : [];
+    }
+
+    private async readPurchasedCommunityPostIds(userId: string): Promise<Set<string> | null> {
+        if (!userId) {
+            return new Set<string>();
+        }
+
+        try {
+            const response = await fetchBackendJson<MarketplacePurchasesResponse>('/marketplace/purchases');
+            const purchases = Array.isArray(response?.purchases) ? response.purchases : [];
+            return new Set(
+                purchases
+                    .filter((purchase) => this.readString(purchase.status).toLowerCase() !== 'revoked')
+                    .map((purchase) => this.readString(purchase.postId))
+                    .filter(Boolean)
+            );
+        } catch {
+            console.warn('[Marketplace] 구매 내역 조회 실패 — 유료 플랜 상태를 확인하지 못했어요.');
+            return null;
+        }
+    }
+
+    private applyMarketplacePurchaseState<T extends { id: string; marketplace: MobileCommunityMarketplaceInfo }>(
+        item: T,
+        purchasedPostIds: Set<string> | null
+    ): T {
+        if (item.marketplace.salesStatus === 'unavailable') {
+            return {
+                ...item,
+                marketplace: {
+                    ...item.marketplace,
+                    purchaseState: 'unavailable'
+                }
+            };
+        }
+
+        if (!item.marketplace.productId) {
+            return {
+                ...item,
+                marketplace: {
+                    ...item.marketplace,
+                    purchaseState: 'free'
+                }
+            };
+        }
+
+        // 구매 내역 조회 실패 시 기존 서버 상태를 유지 (무조건 locked 처리 방지)
+        if (!purchasedPostIds) {
+            return item;
+        }
+
+        return {
+            ...item,
+            marketplace: {
+                ...item.marketplace,
+                purchaseState: purchasedPostIds.has(item.id) ? 'owned' : 'locked'
+            }
+        };
     }
 
     private readAuthorProfile(userId: string) {
@@ -212,7 +279,10 @@ export class FirebaseCommunityRepository implements CommunityRepository {
             snapshots = await getDocs(query(postsCollection, limit(fetchLimit)));
         }
 
-        const blockedUserIds = await this.readBlockedUserIds(userId);
+        const [blockedUserIds, purchasedPostIds] = await Promise.all([
+            this.readBlockedUserIds(userId),
+            this.readPurchasedCommunityPostIds(userId)
+        ]);
         const blockedUserIdSet = new Set(blockedUserIds);
 
         const visibleSnapshots = snapshots.docs.filter((postSnapshot) => {
@@ -230,7 +300,7 @@ export class FirebaseCommunityRepository implements CommunityRepository {
             const isLiked = await this.readLikeState(userId, postSnapshot.id);
 
             return {
-                ...summary,
+                ...this.applyMarketplacePurchaseState(summary, purchasedPostIds),
                 isLiked
             };
         }));
@@ -278,14 +348,37 @@ export class FirebaseCommunityRepository implements CommunityRepository {
             return null;
         }
 
+        const purchasedPostIds = await this.readPurchasedCommunityPostIds(userId);
         const normalized = normalizeCommunityPost(postSnapshot.id, rawData);
         const resolved = await this.resolvePostAuthor(normalized);
-        const detail = mapCommunityPostDetail(resolved);
+        let detail = mapCommunityPostDetail(resolved);
 
-        return {
-            ...detail,
+        detail = {
+            ...this.applyMarketplacePurchaseState(detail, purchasedPostIds),
             isLiked: await this.readLikeState(userId, postId)
         };
+
+        if (detail.marketplace.purchaseState === 'owned' && detail.marketplace.productId) {
+            try {
+                const paidContent = await fetchBackendJson<{ days?: unknown[] }>(
+                    `/marketplace/posts/${encodeURIComponent(postId)}/paid-content`
+                );
+                if (Array.isArray(paidContent?.days) && paidContent.days.length > 0) {
+                    const fullTrip = normalizeTripDocument(postId, {
+                        ...rawData,
+                        days: paidContent.days
+                    }) as CanonicalTripDocument;
+                    detail = {
+                        ...detail,
+                        trip: mapTripDetail(fullTrip, userId)
+                    };
+                }
+            } catch {
+                // 전체 일정 로드 실패 시 미리보기 유지
+            }
+        }
+
+        return detail;
     }
 
     async publishTrip(userId: string, trip: MobileTripDetail): Promise<void> {
@@ -294,7 +387,7 @@ export class FirebaseCommunityRepository implements CommunityRepository {
         }
 
         if (!trip?.id) {
-            throw new Error('게시할 여행을 찾을 수 없어요.');
+            throw new Error('업로드할 여행을 찾을 수 없어요.');
         }
 
         await fetchBackendJson('/community/posts', {
@@ -374,7 +467,7 @@ export class FirebaseCommunityRepository implements CommunityRepository {
 
     async reportPost(postId: string, reason = 'other'): Promise<void> {
         if (!postId) {
-            throw new Error('신고할 공개 일정을 찾을 수 없어요.');
+            throw new Error('신고할 큐레이션 플랜을 찾을 수 없어요.');
         }
 
         await fetchBackendJson(`/community/posts/${encodeURIComponent(postId)}/report`, {
@@ -429,7 +522,7 @@ export class FirebaseCommunityRepository implements CommunityRepository {
 
     async deletePost(userId: string, postId: string): Promise<void> {
         if (!userId || !postId) {
-            throw new Error('삭제할 공개 일정을 찾을 수 없어요.');
+            throw new Error('삭제할 큐레이션 플랜을 찾을 수 없어요.');
         }
 
         await fetchBackendJson(`/community/posts/${encodeURIComponent(postId)}`, {

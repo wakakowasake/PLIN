@@ -5,6 +5,7 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const sharp = require("sharp");
 const admin = require("firebase-admin");
 const ALLOWED_ORIGINS = new Set([
   "https://plin.ink",
@@ -138,6 +139,20 @@ const SAFE_STORAGE_ATTACHMENT_CONTENT_TYPES = new Set([
   "image/heic",
   "image/heif",
   "application/pdf"
+]);
+const PLIN_ADMIN_EMAILS = new Set([
+  "contact@plin.ink"
+]);
+const REVENUECAT_API_BASE_URL = "https://api.revenuecat.com/v1";
+const REVENUECAT_PURCHASE_GRANT_EVENT_TYPES = new Set([
+  "INITIAL_PURCHASE",
+  "NON_RENEWING_PURCHASE",
+  "RENEWAL"
+]);
+const REVENUECAT_PURCHASE_REVOKE_EVENT_TYPES = new Set([
+  "CANCELLATION",
+  "EXPIRATION",
+  "REFUND"
 ]);
 const MAX_STORAGE_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAX_STORAGE_ATTACHMENT_UPLOAD_BYTES = 10 * 1024 * 1024;
@@ -280,6 +295,21 @@ function serializeForJson(value) {
 
 function readString(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeEmail(value) {
+  return readString(value).toLowerCase();
+}
+
+function isConfiguredAdminEmail(value) {
+  return PLIN_ADMIN_EMAILS.has(normalizeEmail(value));
+}
+
+function isVerifiedConfiguredAdminToken(decodedToken = null) {
+  return (
+    decodedToken?.email_verified === true
+    || decodedToken?.emailVerified === true
+  ) && isConfiguredAdminEmail(decodedToken?.email);
 }
 
 function readNullableString(value) {
@@ -449,6 +479,8 @@ function sanitizeWritableMemoryEntry(entry) {
   }
 
   assignSanitizedUrlField(nextEntry, "photoUrl", sanitizeStoredImageUrl);
+  assignSanitizedUrlField(nextEntry, "previewUrl", sanitizeStoredImageUrl);
+  assignSanitizedUrlField(nextEntry, "thumbnailUrl", sanitizeStoredImageUrl);
   const hasPhotoUrl = Boolean(readNullableString(nextEntry.photoUrl));
   return hasPhotoUrl ? nextEntry : null;
 }
@@ -2786,6 +2818,10 @@ async function isAdminUser(uid, decodedToken = null) {
     return true;
   }
 
+  if (isVerifiedConfiguredAdminToken(decodedToken)) {
+    return true;
+  }
+
   try {
     const snapshot = await admin.firestore().collection("users").doc(safeUid).get();
     const data = snapshot.exists ? (snapshot.data() || {}) : {};
@@ -2881,10 +2917,295 @@ function sanitizeCommunityTripData(data) {
   return clean;
 }
 
+function buildPaidPlanPreviewDays(days, maxDays = 2) {
+  const safeDays = Array.isArray(days) ? days : [];
+  return safeDays.slice(0, maxDays).map((day) => {
+    const safeDay = isPlainObject(day) ? { ...day } : {};
+    const items = Array.isArray(safeDay.timeline)
+      ? safeDay.timeline
+      : Array.isArray(safeDay.items)
+        ? safeDay.items
+        : [];
+    const previewItems = items.slice(0, 3).map((item) => {
+      if (!isPlainObject(item)) {
+        return item;
+      }
+      const preview = {
+        title: item.title,
+        tag: item.tag,
+        type: item.type,
+        time: item.time
+      };
+      return preview;
+    });
+    if (Array.isArray(safeDay.timeline)) {
+      safeDay.timeline = previewItems;
+    } else if (Array.isArray(safeDay.items)) {
+      safeDay.items = previewItems;
+    }
+    return safeDay;
+  });
+}
+
 function buildCommunityPostResponse(postId, data) {
   return {
     id: postId,
     ...serializeForJson(data)
+  };
+}
+
+function readMarketplaceProductId(data) {
+  const safeData = isPlainObject(data) ? data : {};
+  const marketplace = isPlainObject(safeData.marketplace) ? safeData.marketplace : {};
+  const meta = isPlainObject(safeData.meta) ? safeData.meta : {};
+
+  return readString(marketplace.productId)
+    || readString(marketplace.revenueCatProductId)
+    || readString(marketplace.storeProductId)
+    || readString(safeData.marketplaceProductId)
+    || readString(meta.marketplaceProductId);
+}
+
+function buildMarketplacePurchaseDocId(uid, postId) {
+  return crypto
+    .createHash("sha256")
+    .update(`${readString(uid)}:${readString(postId)}`)
+    .digest("hex");
+}
+
+function isActiveMarketplacePurchase(data, productId = "") {
+  if (!isPlainObject(data)) {
+    return false;
+  }
+
+  if (readString(data.status).toLowerCase() === "revoked") {
+    return false;
+  }
+
+  const safeProductId = readString(productId);
+  if (safeProductId && readString(data.productId) && readString(data.productId) !== safeProductId) {
+    return false;
+  }
+
+  return true;
+}
+
+function buildMarketplacePurchaseResponse(postId, data) {
+  return {
+    postId,
+    productId: readString(data?.productId),
+    status: readString(data?.status) || "active",
+    purchasedAt: serializeForJson(data?.purchasedAt || data?.createdAt || null),
+    updatedAt: serializeForJson(data?.updatedAt || null)
+  };
+}
+
+function getRevenueCatSecretApiKey() {
+  return readString(process.env.REVENUECAT_SECRET_API_KEY || process.env.REVENUECAT_API_KEY);
+}
+
+function getRevenueCatWebhookToken() {
+  return readString(process.env.REVENUECAT_WEBHOOK_AUTH_TOKEN || process.env.REVENUECAT_WEBHOOK_TOKEN);
+}
+
+function isAuthorizedRevenueCatWebhook(req) {
+  const expectedToken = getRevenueCatWebhookToken();
+  if (!expectedToken) {
+    return false;
+  }
+
+  const header = readString(req.headers.authorization);
+  if (header === expectedToken || header === `Bearer ${expectedToken}`) {
+    return true;
+  }
+
+  return readString(req.headers["x-revenuecat-auth-token"]) === expectedToken;
+}
+
+async function fetchRevenueCatSubscriber(appUserId) {
+  const apiKey = getRevenueCatSecretApiKey();
+  if (!apiKey) {
+    throw new Error("REVENUECAT_NOT_CONFIGURED");
+  }
+
+  const response = await fetch(
+    `${REVENUECAT_API_BASE_URL}/subscribers/${encodeURIComponent(appUserId)}`,
+    {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: "application/json"
+      }
+    }
+  );
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    console.warn("[Marketplace] RevenueCat subscriber lookup failed:", response.status, body.slice(0, 240));
+    throw new Error("REVENUECAT_LOOKUP_FAILED");
+  }
+
+  return response.json();
+}
+
+function isRevenueCatPurchaseRecordActive(value) {
+  if (!isPlainObject(value)) {
+    return false;
+  }
+
+  const expiresDate = readString(value.expires_date || value.expiresDate);
+  if (!expiresDate) {
+    return true;
+  }
+
+  const parsed = new Date(expiresDate);
+  return Number.isNaN(parsed.getTime()) || parsed.getTime() > Date.now();
+}
+
+function revenueCatSubscriberHasProduct(payload, productId) {
+  const safeProductId = readString(productId);
+  if (!safeProductId || !isPlainObject(payload)) {
+    return false;
+  }
+
+  const subscriber = isPlainObject(payload.subscriber) ? payload.subscriber : payload;
+  const nonSubscriptions = isPlainObject(subscriber.non_subscriptions) ? subscriber.non_subscriptions : {};
+  const nonSubscriptionPurchases = nonSubscriptions[safeProductId];
+  if (Array.isArray(nonSubscriptionPurchases) && nonSubscriptionPurchases.length > 0) {
+    return true;
+  }
+
+  const subscriptions = isPlainObject(subscriber.subscriptions) ? subscriber.subscriptions : {};
+  if (isRevenueCatPurchaseRecordActive(subscriptions[safeProductId])) {
+    return true;
+  }
+
+  const entitlements = isPlainObject(subscriber.entitlements) ? subscriber.entitlements : {};
+  return Object.values(entitlements).some((entitlement) => (
+    isPlainObject(entitlement)
+    && readString(entitlement.product_identifier || entitlement.productIdentifier) === safeProductId
+    && isRevenueCatPurchaseRecordActive(entitlement)
+  ));
+}
+
+async function findMarketplacePostByProductId(productId) {
+  const safeProductId = readString(productId);
+  if (!safeProductId) {
+    return null;
+  }
+
+  const snapshot = await admin.firestore()
+    .collection("community_posts")
+    .where("marketplace.productId", "==", safeProductId)
+    .limit(1)
+    .get();
+
+  if (snapshot.empty) {
+    return null;
+  }
+
+  const doc = snapshot.docs[0];
+  return {
+    id: doc.id,
+    data: doc.data() || {}
+  };
+}
+
+async function grantMarketplacePurchase({ uid, postId, productId, source = "sync", event = null }) {
+  const safeUid = readString(uid);
+  const safePostId = readString(postId);
+  const safeProductId = readString(productId);
+
+  if (!safeUid || !safePostId || !safeProductId) {
+    throw new Error("INVALID_MARKETPLACE_PURCHASE");
+  }
+
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  const payload = {
+    uid: safeUid,
+    postId: safePostId,
+    productId: safeProductId,
+    status: "active",
+    source,
+    updatedAt: now,
+    ...(event ? { lastRevenueCatEvent: serializeForJson(event) } : {})
+  };
+  const userPurchaseRef = admin.firestore()
+    .collection("users")
+    .doc(safeUid)
+    .collection("marketplace_purchases")
+    .doc(safePostId);
+  const mirrorPurchaseRef = admin.firestore()
+    .collection("plan_purchases")
+    .doc(buildMarketplacePurchaseDocId(safeUid, safePostId));
+
+  await admin.firestore().runTransaction(async (transaction) => {
+    const purchaseSnapshot = await transaction.get(userPurchaseRef);
+    const createdAt = purchaseSnapshot.exists
+      ? purchaseSnapshot.data()?.createdAt || now
+      : now;
+
+    transaction.set(userPurchaseRef, {
+      ...payload,
+      createdAt,
+      purchasedAt: purchaseSnapshot.data()?.purchasedAt || now
+    }, { merge: true });
+    transaction.set(mirrorPurchaseRef, {
+      ...payload,
+      createdAt,
+      purchasedAt: purchaseSnapshot.data()?.purchasedAt || now
+    }, { merge: true });
+  });
+
+  return {
+    postId: safePostId,
+    productId: safeProductId,
+    status: "active"
+  };
+}
+
+async function revokeMarketplacePurchase({ uid, postId, productId, source = "webhook", event = null }) {
+  const safeUid = readString(uid);
+  const safePostId = readString(postId);
+  const safeProductId = readString(productId);
+
+  if (!safeUid || !safePostId || !safeProductId) {
+    throw new Error("INVALID_MARKETPLACE_PURCHASE");
+  }
+
+  const payload = {
+    uid: safeUid,
+    postId: safePostId,
+    productId: safeProductId,
+    status: "revoked",
+    source,
+    revokedAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    ...(event ? { lastRevenueCatEvent: serializeForJson(event) } : {})
+  };
+
+  const batch = admin.firestore().batch();
+  batch.set(
+    admin.firestore()
+      .collection("users")
+      .doc(safeUid)
+      .collection("marketplace_purchases")
+      .doc(safePostId),
+    payload,
+    { merge: true }
+  );
+  batch.set(
+    admin.firestore()
+      .collection("plan_purchases")
+      .doc(buildMarketplacePurchaseDocId(safeUid, safePostId)),
+    payload,
+    { merge: true }
+  );
+  await batch.commit();
+
+  return {
+    postId: safePostId,
+    productId: safeProductId,
+    status: "revoked"
   };
 }
 
@@ -4481,6 +4802,236 @@ app.post("/account/deletion-request", validateFirebaseIdToken, async (req, res) 
   }
 });
 
+app.get("/marketplace/purchases", validateFirebaseIdToken, async (req, res) => {
+  const uid = req.user.uid;
+
+  try {
+    const snapshot = await admin.firestore()
+      .collection("users")
+      .doc(uid)
+      .collection("marketplace_purchases")
+      .limit(200)
+      .get();
+    const purchases = snapshot.docs
+      .map((doc) => buildMarketplacePurchaseResponse(doc.id, doc.data() || {}))
+      .filter((purchase) => purchase.status !== "revoked");
+
+    return res.json({ purchases });
+  } catch (error) {
+    console.error("[Marketplace] Purchase list error:", error);
+    return res.status(500).json({
+      error: "Marketplace Purchase List Error",
+      message: "구매 내역을 불러오지 못했어요."
+    });
+  }
+});
+
+app.post("/marketplace/purchases/sync", validateFirebaseIdToken, async (req, res) => {
+  const uid = req.user.uid;
+  const postId = readString(req.body?.postId);
+  const productId = readString(req.body?.productId);
+
+  if (!postId || !productId) {
+    return res.status(400).json({
+      error: "Missing marketplace purchase",
+      message: "구매한 플랜 정보를 확인하지 못했어요."
+    });
+  }
+
+  try {
+    const postSnapshot = await admin.firestore().collection("community_posts").doc(postId).get();
+    if (!postSnapshot.exists) {
+      return res.status(404).json({
+        error: "Post Not Found",
+        message: "구매한 플랜을 찾지 못했어요."
+      });
+    }
+
+    const postProductId = readMarketplaceProductId(postSnapshot.data() || {});
+    if (!postProductId || postProductId !== productId) {
+      return res.status(400).json({
+        error: "Product Mismatch",
+        message: "플랜 결제 정보가 맞지 않아요."
+      });
+    }
+
+    const subscriber = await fetchRevenueCatSubscriber(uid);
+    if (!revenueCatSubscriberHasProduct(subscriber, productId)) {
+      return res.status(402).json({
+        error: "Purchase Required",
+        message: "스토어 구매 내역을 확인하지 못했어요."
+      });
+    }
+
+    const purchase = await grantMarketplacePurchase({
+      uid,
+      postId,
+      productId,
+      source: "sync"
+    });
+
+    return res.json({ purchase });
+  } catch (error) {
+    if (error.message === "REVENUECAT_NOT_CONFIGURED") {
+      return res.status(503).json({
+        error: "RevenueCat Not Configured",
+        message: "결제 검증 설정이 아직 준비되지 않았어요."
+      });
+    }
+
+    console.error("[Marketplace] Purchase sync error:", error);
+    return res.status(500).json({
+      error: "Marketplace Purchase Sync Error",
+      message: "구매 내역을 확인하지 못했어요."
+    });
+  }
+});
+
+app.get("/marketplace/posts/:postId/paid-content", validateFirebaseIdToken, async (req, res) => {
+  const uid = req.user.uid;
+  const postId = readString(req.params.postId);
+
+  if (!postId) {
+    return res.status(400).json({
+      error: "Missing postId",
+      message: "플랜을 찾지 못했어요."
+    });
+  }
+
+  try {
+    const db = admin.firestore();
+    const isAdmin = await isAdminUser(uid, req.user);
+    const postSnapshot = await db.collection("community_posts").doc(postId).get();
+    if (!postSnapshot.exists) {
+      return res.status(404).json({
+        error: "Post Not Found",
+        message: "플랜을 찾지 못했어요."
+      });
+    }
+
+    const postData = postSnapshot.data() || {};
+    const productId = readMarketplaceProductId(postData);
+
+    if (!productId) {
+      return res.json({
+        days: serializeForJson(postData.days || [])
+      });
+    }
+
+    if (!isAdmin) {
+      const purchaseSnapshot = await db
+        .collection("users")
+        .doc(uid)
+        .collection("marketplace_purchases")
+        .doc(postId)
+        .get();
+      const purchaseData = purchaseSnapshot.exists ? purchaseSnapshot.data() : null;
+      if (!isActiveMarketplacePurchase(purchaseData, productId)) {
+        return res.status(402).json({
+          error: "Purchase Required",
+          message: "구매한 큐레이션 플랜만 전체 일정을 확인할 수 있어요."
+        });
+      }
+    }
+
+    if (postData._paidContentStored) {
+      const paidContentSnapshot = await db
+        .collection("community_posts")
+        .doc(postId)
+        .collection("paid_content")
+        .doc("full_days")
+        .get();
+      if (paidContentSnapshot.exists) {
+        const paidContent = paidContentSnapshot.data() || {};
+        return res.json({
+          days: serializeForJson(paidContent.days || [])
+        });
+      }
+    }
+
+    return res.json({
+      days: serializeForJson(postData.days || [])
+    });
+  } catch (error) {
+    console.error("[Marketplace] Paid content error:", error);
+    return res.status(500).json({
+      error: "Marketplace Paid Content Error",
+      message: "전체 일정을 불러오지 못했어요."
+    });
+  }
+});
+
+app.post("/marketplace/revenuecat/webhook", async (req, res) => {
+  if (!isAuthorizedRevenueCatWebhook(req)) {
+    return res.status(403).json({
+      error: "Forbidden",
+      message: "웹훅 인증 정보가 올바르지 않습니다."
+    });
+  }
+
+  const event = isPlainObject(req.body?.event) ? req.body.event : req.body;
+  const eventType = readString(event?.type).toUpperCase();
+  const uid = readString(event?.app_user_id || event?.appUserId);
+  const productId = readString(event?.product_id || event?.productId);
+
+  if (!uid || !productId || !eventType) {
+    return res.status(400).json({
+      error: "Invalid RevenueCat Event",
+      message: "웹훅 이벤트 정보가 부족합니다."
+    });
+  }
+
+  if (uid.startsWith("$RCAnonymousID:")) {
+    console.warn("[Marketplace] RevenueCat webhook skipped for anonymous user:", uid, eventType);
+    return res.json({ ok: true, ignored: true });
+  }
+
+  try {
+    await admin.auth().getUser(uid);
+  } catch (authError) {
+    console.warn("[Marketplace] RevenueCat webhook skipped — uid not found in Firebase Auth:", uid, eventType);
+    return res.json({ ok: true, ignored: true });
+  }
+
+  try {
+    const post = await findMarketplacePostByProductId(productId);
+    if (!post) {
+      console.warn("[Marketplace] RevenueCat product has no mapped post:", productId);
+      return res.json({ ok: true, ignored: true });
+    }
+
+    if (REVENUECAT_PURCHASE_GRANT_EVENT_TYPES.has(eventType)) {
+      const purchase = await grantMarketplacePurchase({
+        uid,
+        postId: post.id,
+        productId,
+        source: "revenuecat_webhook",
+        event
+      });
+      return res.json({ ok: true, purchase });
+    }
+
+    if (REVENUECAT_PURCHASE_REVOKE_EVENT_TYPES.has(eventType)) {
+      const purchase = await revokeMarketplacePurchase({
+        uid,
+        postId: post.id,
+        productId,
+        source: "revenuecat_webhook",
+        event
+      });
+      return res.json({ ok: true, purchase });
+    }
+
+    return res.json({ ok: true, ignored: true });
+  } catch (error) {
+    console.error("[Marketplace] RevenueCat webhook error:", error);
+    return res.status(500).json({
+      error: "Marketplace Webhook Error",
+      message: "웹훅 처리 중 오류가 발생했습니다."
+    });
+  }
+});
+
 app.post("/community/posts", validateFirebaseIdToken, async (req, res) => {
   const tripId = readString(req.body?.tripId);
   const uid = req.user.uid;
@@ -4488,23 +5039,31 @@ app.post("/community/posts", validateFirebaseIdToken, async (req, res) => {
   if (!tripId) {
     return res.status(400).json({
       error: "Missing tripId",
-      message: "게시할 여행을 찾지 못했어요."
+      message: "업로드할 여행을 찾지 못했어요."
     });
   }
 
   try {
+    const isAdmin = await isAdminUser(uid, req.user);
+    if (!isAdmin) {
+      return res.status(403).json({
+        error: "Forbidden",
+        message: "PLIN 큐레이션 업로드는 관리자만 가능해요."
+      });
+    }
+
     const tripContext = await getTripAccessContext(uid, tripId);
     if (!tripContext) {
       return res.status(404).json({
         error: "Trip Not Found",
-        message: "게시할 여행을 찾지 못했어요."
+        message: "업로드할 여행을 찾지 못했어요."
       });
     }
 
     if (!canEditTripRole(tripContext.role)) {
       return res.status(403).json({
         error: "Forbidden",
-        message: "이 여행은 게시 권한이 없어요."
+        message: "이 여행은 업로드 권한이 없어요."
       });
     }
 
@@ -4522,7 +5081,25 @@ app.post("/community/posts", validateFirebaseIdToken, async (req, res) => {
       publishedAt
     };
 
-    await postRef.set(postData);
+    const marketplaceProductId = readMarketplaceProductId(req.body || {});
+    if (marketplaceProductId) {
+      postData.marketplace = {
+        ...(isPlainObject(postData.marketplace) ? postData.marketplace : {}),
+        productId: marketplaceProductId,
+        priceLabel: readString(req.body?.marketplace?.priceLabel) || undefined,
+        salesStatus: "paid"
+      };
+      const fullDays = cloneJsonValue(postData.days || []);
+      postData.days = buildPaidPlanPreviewDays(fullDays);
+      postData._paidContentStored = true;
+      await postRef.set(postData);
+      await postRef.collection("paid_content").doc("full_days").set({
+        days: fullDays,
+        storedAt: new Date().toISOString()
+      });
+    } else {
+      await postRef.set(postData);
+    }
 
     return res.json({
       post: buildCommunityPostResponse(postRef.id, postData)
@@ -4531,7 +5108,7 @@ app.post("/community/posts", validateFirebaseIdToken, async (req, res) => {
     console.error("[Community] Publish error:", error);
     return res.status(500).json({
       error: "Community Publish Error",
-      message: "커뮤니티 게시 중 오류가 발생했습니다."
+      message: "큐레이션 플랜 업로드 중 오류가 발생했습니다."
     });
   }
 });
@@ -4543,7 +5120,7 @@ app.post("/community/posts/:postId/like-toggle", validateFirebaseIdToken, async 
   if (!postId) {
     return res.status(400).json({
       error: "Missing postId",
-      message: "좋아요를 처리할 게시글을 찾지 못했어요."
+      message: "좋아요를 처리할 플랜을 찾지 못했어요."
     });
   }
 
@@ -4591,7 +5168,7 @@ app.post("/community/posts/:postId/like-toggle", validateFirebaseIdToken, async 
     if (error.message === "POST_NOT_FOUND") {
       return res.status(404).json({
         error: "Post Not Found",
-        message: "좋아요를 처리할 게시글을 찾지 못했어요."
+        message: "좋아요를 처리할 플랜을 찾지 못했어요."
       });
     }
 
@@ -4611,7 +5188,7 @@ app.post("/community/posts/:postId/report", validateFirebaseIdToken, async (req,
   if (!postId) {
     return res.status(400).json({
       error: "Missing postId",
-      message: "신고할 게시글을 찾지 못했어요."
+      message: "신고할 플랜을 찾지 못했어요."
     });
   }
 
@@ -4621,7 +5198,7 @@ app.post("/community/posts/:postId/report", validateFirebaseIdToken, async (req,
     if (!postSnapshot.exists) {
       return res.status(404).json({
         error: "Post Not Found",
-        message: "신고할 게시글을 찾지 못했어요."
+        message: "신고할 플랜을 찾지 못했어요."
       });
     }
 
@@ -4658,7 +5235,7 @@ app.post("/community/posts/:postId/comments", validateFirebaseIdToken, async (re
   if (!postId) {
     return res.status(400).json({
       error: "Missing postId",
-      message: "댓글을 등록할 게시글을 찾지 못했어요."
+      message: "댓글을 등록할 플랜을 찾지 못했어요."
     });
   }
 
@@ -4675,7 +5252,7 @@ app.post("/community/posts/:postId/comments", validateFirebaseIdToken, async (re
     if (!postSnapshot.exists) {
       return res.status(404).json({
         error: "Post Not Found",
-        message: "댓글을 등록할 게시글을 찾지 못했어요."
+        message: "댓글을 등록할 플랜을 찾지 못했어요."
       });
     }
 
@@ -4801,7 +5378,7 @@ app.delete("/community/posts/:postId", validateFirebaseIdToken, async (req, res)
   if (!postId) {
     return res.status(400).json({
       error: "Missing postId",
-      message: "삭제할 게시글을 찾지 못했어요."
+      message: "삭제할 플랜을 찾지 못했어요."
     });
   }
 
@@ -4811,7 +5388,7 @@ app.delete("/community/posts/:postId", validateFirebaseIdToken, async (req, res)
     if (!snapshot.exists) {
       return res.status(404).json({
         error: "Post Not Found",
-        message: "삭제할 게시글을 찾지 못했어요."
+        message: "삭제할 플랜을 찾지 못했어요."
       });
     }
 
@@ -4820,7 +5397,7 @@ app.delete("/community/posts/:postId", validateFirebaseIdToken, async (req, res)
     if (authorUid !== uid && !isAdmin) {
       return res.status(403).json({
         error: "Forbidden",
-        message: "이 게시글을 삭제할 권한이 없어요."
+        message: "이 플랜을 삭제할 권한이 없어요."
       });
     }
 
@@ -4833,7 +5410,7 @@ app.delete("/community/posts/:postId", validateFirebaseIdToken, async (req, res)
     console.error("[Community] Post delete error:", error);
     return res.status(500).json({
       error: "Community Delete Error",
-      message: "게시글을 삭제하지 못했어요."
+      message: "플랜을 삭제하지 못했어요."
     });
   }
 });
@@ -4910,13 +5487,15 @@ app.post("/community/posts/:postId/duplicate-to-trip", validateFirebaseIdToken, 
   if (!postId) {
     return res.status(400).json({
       error: "Missing postId",
-      message: "가져올 게시글을 찾지 못했어요."
+      message: "가져올 플랜을 찾지 못했어요."
     });
   }
 
   try {
     const db = admin.firestore();
+    const isAdmin = await isAdminUser(uid, req.user);
     const postRef = db.collection("community_posts").doc(postId);
+    const purchaseRef = db.collection("users").doc(uid).collection("marketplace_purchases").doc(postId);
     const tripRef = db.collection("plans").doc();
     const transactionResult = await db.runTransaction(async (transaction) => {
       const postSnapshot = await transaction.get(postRef);
@@ -4925,7 +5504,27 @@ app.post("/community/posts/:postId/duplicate-to-trip", validateFirebaseIdToken, 
       }
 
       const postData = postSnapshot.data() || {};
-      const nextTrip = buildDuplicatedTripFromCommunityPost(postData, uid, overrides);
+      const productId = readMarketplaceProductId(postData);
+      if (productId && !isAdmin) {
+        const purchaseSnapshot = await transaction.get(purchaseRef);
+        const purchaseData = purchaseSnapshot.exists ? purchaseSnapshot.data() : null;
+        if (!isActiveMarketplacePurchase(purchaseData, productId)) {
+          throw new Error("PURCHASE_REQUIRED");
+        }
+      }
+
+      let fullDays = postData.days;
+      if (productId && postData._paidContentStored) {
+        const paidContentSnapshot = await transaction.get(
+          postRef.collection("paid_content").doc("full_days")
+        );
+        if (paidContentSnapshot.exists) {
+          const paidContent = paidContentSnapshot.data() || {};
+          fullDays = Array.isArray(paidContent.days) ? paidContent.days : postData.days;
+        }
+      }
+      const postDataWithFullDays = { ...postData, days: fullDays };
+      const nextTrip = buildDuplicatedTripFromCommunityPost(postDataWithFullDays, uid, overrides);
       const currentClonesCount = Number(postData.clonesCount) || 0;
 
       transaction.set(tripRef, nextTrip);
@@ -4947,7 +5546,7 @@ app.post("/community/posts/:postId/duplicate-to-trip", validateFirebaseIdToken, 
     if (error.message === "POST_NOT_FOUND") {
       return res.status(404).json({
         error: "Post Not Found",
-        message: "가져올 게시글을 찾지 못했어요."
+        message: "가져올 플랜을 찾지 못했어요."
       });
     }
 
@@ -4955,6 +5554,13 @@ app.post("/community/posts/:postId/duplicate-to-trip", validateFirebaseIdToken, 
       return res.status(400).json({
         error: "Invalid date range",
         message: error.message
+      });
+    }
+
+    if (error.message === "PURCHASE_REQUIRED") {
+      return res.status(402).json({
+        error: "Purchase Required",
+        message: "구매한 큐레이션 플랜만 내 여행으로 가져올 수 있어요."
       });
     }
 
@@ -8083,6 +8689,52 @@ function buildFirebaseStorageDownloadUrl(bucketName, storagePath, token) {
   return `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(bucketName)}/o/${encodeURIComponent(storagePath)}?alt=media&token=${encodeURIComponent(token)}`;
 }
 
+async function saveTripMemoryThumbnail({
+  bucket,
+  imageBuffer,
+  tripId,
+  fileName,
+  uid
+}) {
+  const thumbnailBuffer = await sharp(imageBuffer)
+    .rotate()
+    .resize({
+      width: 480,
+      height: 480,
+      fit: "inside",
+      withoutEnlargement: true
+    })
+    .jpeg({
+      quality: 68,
+      mozjpeg: true
+    })
+    .toBuffer();
+  const baseName = String(fileName || `memory_${Date.now()}`)
+    .replace(/\.[^.]+$/, "")
+    .replace(/[^a-zA-Z0-9_-]/g, "_");
+  const thumbnailPath = `memories/${tripId}/thumbs/${baseName}_thumb.jpg`;
+  const thumbnailFile = bucket.file(thumbnailPath);
+  const thumbnailToken = typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : crypto.randomBytes(16).toString("hex");
+
+  await thumbnailFile.save(thumbnailBuffer, {
+    resumable: false,
+    metadata: {
+      contentType: "image/jpeg",
+      cacheControl: "public, max-age=31536000, immutable",
+      metadata: {
+        firebaseStorageDownloadTokens: thumbnailToken,
+        uploadedBy: uid,
+        tripId,
+        role: "memoryThumbnail"
+      }
+    }
+  });
+
+  return buildFirebaseStorageDownloadUrl(bucket.name, thumbnailPath, thumbnailToken);
+}
+
 app.post("/storage/upload-trip-image", validateFirebaseIdToken, storageUploadLimiter, async (req, res) => {
   const uid = req.user.uid;
   const tripId = readString(req.body?.tripId);
@@ -8146,6 +8798,7 @@ app.post("/storage/upload-trip-image", validateFirebaseIdToken, storageUploadLim
       resumable: false,
       metadata: {
         contentType,
+        cacheControl: "public, max-age=31536000, immutable",
         metadata: {
           firebaseStorageDownloadTokens: downloadToken,
           uploadedBy: uid,
@@ -8154,8 +8807,25 @@ app.post("/storage/upload-trip-image", validateFirebaseIdToken, storageUploadLim
       }
     });
 
+    let thumbnailUrl = "";
+    if (uploadKind !== "tripCover") {
+      try {
+        thumbnailUrl = await saveTripMemoryThumbnail({
+          bucket,
+          imageBuffer,
+          tripId: tripContext.tripId,
+          fileName: path.basename(storagePath),
+          uid
+        });
+      } catch (thumbnailError) {
+        console.warn("Trip memory thumbnail generation failed:", thumbnailError);
+      }
+    }
+
     return res.json({
       url: buildFirebaseStorageDownloadUrl(bucket.name, storagePath, downloadToken),
+      previewUrl: thumbnailUrl || null,
+      thumbnailUrl: thumbnailUrl || null,
       path: storagePath,
       size: imageBuffer.length,
       contentType

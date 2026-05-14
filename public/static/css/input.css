@@ -1664,15 +1664,28 @@
 
     html:not([data-appearance='diary']) .timeline-detail-header {
         display: flex;
-        align-items: flex-start;
+        align-items: center;
         justify-content: space-between;
-        gap: var(--plin-space-sm);
-        padding: 0 var(--plin-space-md) var(--plin-space-xs);
+        gap: var(--plin-space-xs);
+        padding: 0 var(--plin-space-sm) var(--plin-space-xs);
     }
 
     html:not([data-appearance='diary']) .timeline-detail-header-copy {
+        display: flex;
+        min-height: var(--plin-space-xl);
+        align-items: center;
         min-width: 0;
         flex: 1;
+        padding-right: var(--plin-space-sm);
+    }
+
+    html:not([data-appearance='diary']) .timeline-detail-header-title {
+        margin: 0;
+        color: var(--default-mode-text);
+        font-size: 18px;
+        line-height: 24px;
+        font-weight: 800;
+        letter-spacing: 0;
     }
 
     html:not([data-appearance='diary']) .timeline-detail-badge,
@@ -1707,11 +1720,12 @@
 
     html:not([data-appearance='diary']) .timeline-detail-actions {
         display: flex;
-        flex-direction: column;
-        align-items: flex-end;
-        gap: var(--plin-space-micro);
+        flex-direction: row;
+        align-items: center;
+        gap: var(--plin-space-xs);
     }
 
+    html:not([data-appearance='diary']) .timeline-detail-back-button,
     html:not([data-appearance='diary']) .timeline-detail-edit-button,
     html:not([data-appearance='diary']) .timeline-detail-delete-button,
     html:not([data-appearance='diary']) .timeline-detail-close-button {
@@ -1721,9 +1735,20 @@
         font-weight: 700;
     }
 
+    html:not([data-appearance='diary']) .timeline-detail-back-button {
+        display: inline-flex;
+        width: 38px;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        padding: 0;
+        background: var(--default-mode-surface-muted);
+        color: var(--default-mode-text);
+    }
+
     html:not([data-appearance='diary']) .timeline-detail-edit-button {
-        background: var(--default-mode-accent-soft);
-        color: var(--color-primary);
+        background: var(--color-primary);
+        color: #ffffff;
     }
 
     html:not([data-appearance='diary']) .timeline-detail-delete-button {
@@ -1747,6 +1772,30 @@
 
     html:not([data-appearance='diary']) .timeline-detail-body {
         padding: 0 var(--plin-space-md) var(--plin-space-md);
+    }
+
+    html:not([data-appearance='diary']) .timeline-detail-summary-card {
+        margin-bottom: var(--plin-space-sm);
+        padding: var(--plin-space-sm);
+        border-radius: var(--plin-radius-md);
+        background: var(--color-background-light);
+    }
+
+    html:not([data-appearance='diary']) .timeline-detail-summary-title {
+        margin: 0;
+        color: var(--default-mode-text);
+        font-size: 18px;
+        line-height: 24px;
+        font-weight: 800;
+        letter-spacing: 0;
+        word-break: keep-all;
+    }
+
+    html:not([data-appearance='diary']) .timeline-detail-meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--plin-space-micro);
+        margin-top: var(--plin-space-xs);
     }
 
     html:not([data-appearance='diary']) .timeline-detail-stats-row {
@@ -1775,10 +1824,19 @@
     }
 
     html:not([data-appearance='diary']) .timeline-detail-section-label {
+        margin: 0;
         color: var(--default-mode-text-secondary);
         font-size: 12px;
         line-height: 16px;
         font-weight: 700;
+    }
+
+    html:not([data-appearance='diary']) .timeline-detail-section-support {
+        margin-top: var(--plin-space-micro);
+        color: var(--default-mode-text-secondary);
+        font-size: 12px;
+        line-height: 16px;
+        font-weight: 500;
     }
 
     html:not([data-appearance='diary']) .timeline-detail-section-body,
@@ -1865,6 +1923,79 @@
         font-size: 18px;
         font-weight: 800;
         outline: none;
+    }
+
+    html:not([data-appearance='diary']) .timeline-detail-expense-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--plin-space-sm);
+        min-height: 48px;
+        border: 1px solid var(--default-mode-border);
+        border-radius: var(--plin-radius-sm);
+        background: var(--default-mode-surface);
+        padding: var(--plin-space-xs) var(--plin-space-sm);
+    }
+
+    html:not([data-appearance='diary']) .timeline-detail-expense-copy {
+        min-width: 0;
+        flex: 1;
+    }
+
+    html:not([data-appearance='diary']) .timeline-detail-expense-title {
+        display: block;
+        overflow: hidden;
+        color: var(--default-mode-text);
+        font-size: 14px;
+        line-height: 20px;
+        font-weight: 700;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    html:not([data-appearance='diary']) .timeline-detail-expense-trailing {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--plin-space-xs);
+        flex-shrink: 0;
+    }
+
+    html:not([data-appearance='diary']) .timeline-detail-expense-amount {
+        color: var(--default-mode-text);
+        font-size: 14px;
+        line-height: 20px;
+        font-weight: 800;
+    }
+
+    html:not([data-appearance='diary']) .timeline-detail-expense-delete {
+        display: inline-flex;
+        width: 28px;
+        height: 28px;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--plin-radius-full);
+        background: var(--default-mode-warning-soft);
+        color: var(--default-mode-warning);
+        opacity: 0;
+        transition: opacity 160ms ease;
+    }
+
+    html:not([data-appearance='diary']) .timeline-detail-expense-row:hover .timeline-detail-expense-delete,
+    html:not([data-appearance='diary']) .timeline-detail-expense-delete:focus-visible {
+        opacity: 1;
+    }
+
+    html:not([data-appearance='diary']) .timeline-detail-expense-list.is-readonly .timeline-detail-expense-delete {
+        display: none;
+    }
+
+    html:not([data-appearance='diary']) .timeline-detail-empty-text {
+        color: var(--default-mode-text-secondary);
+        padding: var(--plin-space-xs) 0;
+        text-align: center;
+        font-size: 12px;
+        line-height: 16px;
+        font-weight: 600;
     }
 
     html:not([data-appearance='diary']) .timeline-detail-attachment-list {

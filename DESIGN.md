@@ -56,7 +56,7 @@ Design verification commands:
 - `Trip Detail`: readable itinerary notebook, today-first clarity
 - `Timeline Editor`: precise workflow surface, low decoration, clear save path
 - `Map / Place Search`: map as canvas, sheet as decision surface
-- `Community`: warm travel story feed, not noisy social media
+- `Plan Marketplace`: curated PLIN itinerary storefront, purchase-aware but still calm and editorial
 - `Settings`: quiet utility surface, less editorial tone
 
 ## 2. Color Palette & Roles
@@ -214,6 +214,13 @@ Action rows:
 - One primary action per footer.
 - Secondary actions should be text/ghost unless they are destructive.
 
+Expense rows:
+- Show total/summary above the list; do not hide total below transaction rows.
+- Transaction rows prioritize description on the left and amount on the right.
+- Do not repeat currency/status metadata in row subtitles when the amount already carries currency.
+- Persistent transaction rows should not show transient "just added" or "just edited" effects.
+- Delete controls should stay visually secondary unless the user is in a destructive confirmation flow.
+
 ### Buttons
 
 - Primary buttons: `brand` fill, white text, medium-to-bold weight, `radius.md(16)` by default
@@ -244,11 +251,11 @@ Action rows:
 - Use color and emphasis to signal priority, weather, transport, or edits without becoming noisy
 - Date chips and plan labels should be compact and tactile
 
-### Community Cards
+### Plan Marketplace Cards
 
-- Community surfaces should feel warmer than a generic social feed
-- Prioritize cover image, author identity, trip context, and a short excerpt
-- Avoid loud badge overload or harsh engagement counters
+- Marketplace surfaces should feel like a curated bookshelf of travel plans, not an open social feed
+- Prioritize cover image, destination, duration, PLIN curation signal, and purchase/access state
+- Avoid loud price badges, engagement counters, or aggressive commerce chrome
 
 ### Sheets, Modals, and Editors
 
@@ -263,8 +270,8 @@ Use `apps/mobile/src/theme/bottomSheet.ts` as the implementation source of truth
 
 | Tier | Height | Use For | Examples |
 |---|---:|---|---|
-| Workflow sheet | `100%` | Any flow where the user enters, edits, uploads, reviews, then saves data | schedule edit, budget/expense add, memo add, memory add, quick route add, existing item copy, manual transit add, trip share, participant announcement |
-| Detail sheet | expanded `92%`, compact `60%` | Read-first detail surfaces that can be expanded but are not primarily form entry | schedule detail view, budget summary, revision history |
+| Workflow sheet | `100%` | Any flow where the user enters, edits, uploads, reviews, saves data, or manages a timeline item with direct edit/delete/add actions | schedule detail view, schedule edit, budget/expense add, memo add, memory add, quick route add, existing item copy, manual transit add, trip share, participant announcement |
+| Detail sheet | expanded `92%`, compact `60%` | Read-first detail surfaces that can be expanded but are not primarily form entry | budget summary, revision history |
 | Map exploration sheet | peek `8%`, default `52%`, expanded `84%` | A map remains the primary canvas and the sheet is used to search, browse, or confirm places | new place search and direct map selection |
 | Contextual action sheet | `78%` max | A focused menu or launcher that leads to another workflow | add-item option sheet |
 | Picker sheet | `70%` max or intrinsic picker height | One-field or one-choice selection | transit type, date, time, duration, currency |
@@ -273,7 +280,7 @@ Use `apps/mobile/src/theme/bottomSheet.ts` as the implementation source of truth
 
 | Sheet kind | Required behavior |
 |---|---|
-| Workflow | Full height, fixed footer CTA, safe-area bottom padding |
+| Workflow | Full height, fixed footer CTA or header actions, safe-area top/bottom padding |
 | Detail | Compact/expanded snap, read-first, rounded top corners allowed |
 | Map exploration | Map remains visible; sheet default must not cover the map |
 | Contextual action | Launcher/menu only; no long form entry |
@@ -287,6 +294,7 @@ Rules:
 Rules:
 - Workflow sheets should use full height even when their content is short. This prevents nested editing flows from changing visual weight unexpectedly.
 - Full-height workflow sheets may remove top radius and rely on the handle/header for sheet affordance.
+- Full-height workflow sheet chrome uses the sheet surface. Handles and headers should sit on `surface`; editable/readable content groups sit on white `background` cards with subtle separation.
 - Detail sheets may keep rounded top corners because they sit on top of an existing view state.
 - Map exploration sheets must not default to full height because the map is part of the active task.
 - Picker sheets should stay visually lighter than workflow sheets and should not become full-screen unless they become a multi-step editor.
@@ -431,7 +439,7 @@ The radius report treats these as review targets:
 
 ### Don't
 
-- Do not make PLIN look like a flight, hotel, or booking marketplace
+- Do not make PLIN look like a flight, hotel, or commodity booking marketplace
 - Do not replace the shared orange with bright red, coral, or secondary accent families as the main brand color
 - Do not introduce cold SaaS blue, purple-heavy gradients, or overly glossy effects
 - Do not pack screens with too many pills, outlines, and badges

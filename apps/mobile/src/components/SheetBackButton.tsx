@@ -44,19 +44,17 @@ export function SheetBackButton({ disabled = false, onPress, style }: Props) {
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
     button: {
-        width: 36,
-        height: 36,
+        width: theme.spacing.xl,
+        height: theme.spacing.xl,
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: theme.radius.sm,
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: theme.colors.border,
-        backgroundColor: theme.colors.surfaceMuted
+        backgroundColor: 'transparent'
     },
     buttonDisabled: {
-        opacity: 0.55
+        opacity: 0.38
     },
     buttonPressed: {
-        opacity: 0.88
+        backgroundColor: theme.colors.surfaceMuted
     }
 });

@@ -386,6 +386,12 @@ function applyShareResponseToCurrentTrip(tripId, shareResponse) {
     };
 }
 
+function setCommunityPublishButtonVisible(isVisible) {
+    document
+        .getElementById('community-publish-btn-container')
+        ?.classList.toggle('hidden', !isVisible);
+}
+
 function buildRoleLabel(role = '') {
     if (role === 'owner') {
         return 'Owner';
@@ -772,6 +778,7 @@ async function handleOpenDirectShareModal(tripId) {
 
     let targetTripId = tripId;
     let tripTitle = '여행 계획';
+    let canPublishThisTrip = window.currentTripPermissions?.canPublishCommunity === true;
 
     if (targetTripId) {
         try {
@@ -789,6 +796,7 @@ async function handleOpenDirectShareModal(tripId) {
                     alert('공유 설정은 여행 소유자나 편집자만 변경할 수 있습니다.');
                     return;
                 }
+                canPublishThisTrip = currentUser?.role === 'admin';
                 tripTitle = (data.meta && data.meta.title) || data.title || '제목 없는 여행';
                 const hydratedData = {
                     ...data,
@@ -821,6 +829,7 @@ async function handleOpenDirectShareModal(tripId) {
     }
 
     const contentEl = document.getElementById('share-settings-content');
+    setCommunityPublishButtonVisible(canPublishThisTrip);
     if (contentEl) {
         contentEl.innerHTML = `
             <div class="rounded-2xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-4 text-sm text-gray-500 dark:text-gray-300">

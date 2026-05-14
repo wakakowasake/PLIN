@@ -174,6 +174,8 @@ export function useTripDetailScreenController({
                 itemIndex: number;
                 title: string;
                 location: string;
+                countryCode?: string;
+                expenseIndex: number;
                 description: string;
                 amount: number;
                 amountLabel: string;
@@ -185,6 +187,8 @@ export function useTripDetailScreenController({
                         itemIndex,
                         title: item.title,
                         location: item.location,
+                        countryCode: item.countryCode,
+                        expenseIndex: expense.expenseIndex,
                         description: expense.description,
                         amount: expense.amount,
                         amountLabel: expense.amountLabel
@@ -199,7 +203,8 @@ export function useTripDetailScreenController({
                     itemId: item.id,
                     itemIndex,
                     title: item.title,
-                    location: item.location
+                    location: item.location,
+                    countryCode: item.countryCode
                 }))
                 .filter((item) => Boolean(item.title.trim()));
 

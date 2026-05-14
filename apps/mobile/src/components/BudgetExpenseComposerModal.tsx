@@ -22,9 +22,10 @@ import { SheetBackButton } from './SheetBackButton';
 
 export type BudgetExpenseComposerOption = {
     itemId: string;
-    itemIndex?: number;
+    itemIndex: number;
     title: string;
     location?: string;
+    countryCode?: string;
 };
 
 export type BudgetExpenseShoppingOption = {
@@ -35,8 +36,7 @@ export type BudgetExpenseShoppingOption = {
 
 type Props = {
     visible: boolean;
-    dayLabel: string;
-    dayDate: string;
+    title?: string;
     itemOptions: BudgetExpenseComposerOption[];
     selectedItemId: string;
     description: string;
@@ -90,11 +90,167 @@ export const EXPENSE_CURRENCY_OPTIONS: ExpenseCurrencyOption[] = [
     { code: 'BRL', label: '브라질 헤알', symbol: 'R$' }
 ];
 
-export function normalizeExpenseCurrency(value: string | null | undefined) {
+const SUPPORTED_EXPENSE_CURRENCY_CODES = new Set(EXPENSE_CURRENCY_OPTIONS.map((option) => option.code));
+const EXPENSE_CURRENCY_BY_COUNTRY_CODE: Record<string, string> = {
+    AD: 'EUR',
+    AE: 'AED',
+    AS: 'USD',
+    AT: 'EUR',
+    AU: 'AUD',
+    BE: 'EUR',
+    BR: 'BRL',
+    CA: 'CAD',
+    CH: 'CHF',
+    CN: 'CNY',
+    CY: 'EUR',
+    DE: 'EUR',
+    EE: 'EUR',
+    ES: 'EUR',
+    FI: 'EUR',
+    FR: 'EUR',
+    GB: 'GBP',
+    GR: 'EUR',
+    GU: 'USD',
+    HK: 'HKD',
+    HR: 'EUR',
+    ID: 'IDR',
+    IE: 'EUR',
+    IN: 'INR',
+    IT: 'EUR',
+    JP: 'JPY',
+    KR: 'KRW',
+    LI: 'CHF',
+    LT: 'EUR',
+    LU: 'EUR',
+    LV: 'EUR',
+    MC: 'EUR',
+    ME: 'EUR',
+    MT: 'EUR',
+    MX: 'MXN',
+    MY: 'MYR',
+    NL: 'EUR',
+    NZ: 'NZD',
+    PH: 'PHP',
+    PR: 'USD',
+    PT: 'EUR',
+    SA: 'SAR',
+    SG: 'SGD',
+    SI: 'EUR',
+    SK: 'EUR',
+    SM: 'EUR',
+    TH: 'THB',
+    TR: 'TRY',
+    TW: 'TWD',
+    US: 'USD',
+    VA: 'EUR',
+    VI: 'USD',
+    VN: 'VND',
+    XK: 'EUR'
+};
+const EXPENSE_CURRENCY_TEXT_MATCHERS: Array<{ currency: string; pattern: RegExp }> = [
+    { currency: 'JPY', pattern: /일본|도쿄|오사카|교토|후쿠오카|삿포로|오키나와|요코하마|하코네|고베|나라|유후인|벳푸|japan|tokyo|osaka|kyoto|fukuoka|sapporo|okinawa|yokohama|hakone|kobe|nara|yufuin|beppu/ },
+    { currency: 'USD', pattern: /미국|괌|사이판|하와이|뉴욕|로스앤젤레스|샌프란시스코|라스베이거스|올랜도|unitedstates|guam|saipan|hawaii|newyork|losangeles|sanfrancisco|lasvegas|orlando/ },
+    { currency: 'EUR', pattern: /유럽|프랑스|파리|이탈리아|로마|밀라노|베네치아|스페인|바르셀로나|마드리드|독일|베를린|프랑크푸르트|네덜란드|암스테르담|포르투갈|리스본|그리스|아테네|오스트리아|비엔나|빈|핀란드|헬싱키|아일랜드|더블린|벨기에|브뤼셀|크로아티아|europe|france|paris|italy|rome|milan|venice|spain|barcelona|madrid|germany|berlin|frankfurt|netherlands|amsterdam|portugal|lisbon|greece|athens|austria|vienna|finland|helsinki|ireland|dublin|belgium|brussels|croatia/ },
+    { currency: 'GBP', pattern: /영국|런던|잉글랜드|unitedkingdom|greatbritain|britain|england|london/ },
+    { currency: 'CNY', pattern: /중국|베이징|상하이|광저우|칭다오|충칭|청두|china|beijing|shanghai|guangzhou|qingdao|chongqing|chengdu/ },
+    { currency: 'HKD', pattern: /홍콩|마카오|hongkong|macau|macao/ },
+    { currency: 'TWD', pattern: /대만|타이베이|타이중|가오슝|taiwan|taipei|taichung|kaohsiung/ },
+    { currency: 'CAD', pattern: /캐나다|밴쿠버|토론토|몬트리올|퀘벡|canada|vancouver|toronto|montreal|quebec/ },
+    { currency: 'AUD', pattern: /호주|시드니|멜버른|브리즈번|케언즈|퍼스|australia|sydney|melbourne|brisbane|cairns|perth/ },
+    { currency: 'NZD', pattern: /뉴질랜드|오클랜드|퀸스타운|newzealand|auckland|queenstown/ },
+    { currency: 'SGD', pattern: /싱가포르|singapore/ },
+    { currency: 'THB', pattern: /태국|방콕|치앙마이|푸켓|끄라비|파타야|thailand|bangkok|chiangmai|phuket|krabi|pattaya/ },
+    { currency: 'VND', pattern: /베트남|다낭|하노이|호치민|나트랑|푸꾸옥|vietnam|danang|hanoi|hochiminh|nhatrang|phuquoc/ },
+    { currency: 'PHP', pattern: /필리핀|세부|보라카이|마닐라|보홀|philippines|cebu|boracay|manila|bohol/ },
+    { currency: 'IDR', pattern: /인도네시아|발리|자카르타|indonesia|bali|jakarta/ },
+    { currency: 'MYR', pattern: /말레이시아|쿠알라룸푸르|코타키나발루|malaysia|kualalumpur|kotakinabalu/ },
+    { currency: 'INR', pattern: /인도|델리|뭄바이|방갈로르|india|delhi|mumbai|bengaluru|bangalore/ },
+    { currency: 'CHF', pattern: /스위스|취리히|제네바|switzerland|zurich|geneva/ },
+    { currency: 'AED', pattern: /두바이|아부다비|아랍에미리트|uae|unitedarabemirates|dubai|abudhabi/ },
+    { currency: 'SAR', pattern: /사우디|리야드|saudi|riyadh/ },
+    { currency: 'TRY', pattern: /튀르키예|터키|이스탄불|turkey|turkiye|istanbul/ },
+    { currency: 'MXN', pattern: /멕시코|칸쿤|mexico|cancun/ },
+    { currency: 'BRL', pattern: /브라질|상파울루|리우|brazil|saopaulo|riodejaneiro/ }
+];
+
+function normalizeSupportedExpenseCurrency(value: string | null | undefined) {
     const normalized = String(value || '').trim().toUpperCase();
-    return EXPENSE_CURRENCY_OPTIONS.some((option) => option.code === normalized)
-        ? normalized
-        : DEFAULT_EXPENSE_CURRENCY;
+    return SUPPORTED_EXPENSE_CURRENCY_CODES.has(normalized) ? normalized : null;
+}
+
+export function normalizeExpenseCurrency(value: string | null | undefined) {
+    return normalizeSupportedExpenseCurrency(value) || DEFAULT_EXPENSE_CURRENCY;
+}
+
+export function resolveExpenseCurrencyForCountryCode(countryCode: string | null | undefined) {
+    const normalizedCountryCode = String(countryCode || '').trim().toUpperCase();
+    if (!normalizedCountryCode) {
+        return null;
+    }
+
+    return normalizeSupportedExpenseCurrency(EXPENSE_CURRENCY_BY_COUNTRY_CODE[normalizedCountryCode]);
+}
+
+function resolveExpenseCurrencyFromCountryCodes(countryCodes: Array<string | null | undefined> = []) {
+    const currencyStats = new Map<string, { count: number; firstIndex: number }>();
+
+    countryCodes.forEach((countryCode, index) => {
+        const currency = resolveExpenseCurrencyForCountryCode(countryCode);
+        if (!currency) {
+            return;
+        }
+
+        const current = currencyStats.get(currency);
+        if (current) {
+            current.count += 1;
+            return;
+        }
+
+        currencyStats.set(currency, {
+            count: 1,
+            firstIndex: index
+        });
+    });
+
+    const rankedCurrencies = Array.from(currencyStats.entries())
+        .sort((left, right) => {
+            if (right[1].count !== left[1].count) {
+                return right[1].count - left[1].count;
+            }
+
+            return left[1].firstIndex - right[1].firstIndex;
+        })
+        .map(([currency]) => currency);
+
+    return rankedCurrencies.find((currency) => currency !== DEFAULT_EXPENSE_CURRENCY)
+        || rankedCurrencies[0]
+        || null;
+}
+
+function normalizeDestinationCurrencyText(value: string | null | undefined) {
+    return String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[\s._-]+/g, '');
+}
+
+function resolveExpenseCurrencyFromDestinationText(value: string | null | undefined) {
+    const normalizedText = normalizeDestinationCurrencyText(value);
+    if (!normalizedText) {
+        return null;
+    }
+
+    return EXPENSE_CURRENCY_TEXT_MATCHERS.find((matcher) => matcher.pattern.test(normalizedText))?.currency || null;
+}
+
+export function resolveDefaultExpenseCurrencyForTrip(input: {
+    countryCodes?: Array<string | null | undefined>;
+    destinationText?: string | null;
+    fallbackCurrency?: string | null;
+} = {}) {
+    return resolveExpenseCurrencyFromCountryCodes(input.countryCodes)
+        || resolveExpenseCurrencyFromDestinationText(input.destinationText)
+        || normalizeExpenseCurrency(input.fallbackCurrency);
 }
 
 function sanitizeAmountInput(value: string) {
@@ -123,8 +279,7 @@ const SHEET_DISMISS_VELOCITY = 0.85;
 
 export function BudgetExpenseComposerModal({
     visible,
-    dayLabel,
-    dayDate,
+    title = '지출 추가',
     itemOptions,
     selectedItemId,
     description,
@@ -241,7 +396,7 @@ export function BudgetExpenseComposerModal({
                 onRequestClose={onClose}
             >
                 <View style={styles.modalOverlay}>
-                    <Pressable style={styles.modalBackdrop} />
+                    <Pressable style={StyleSheet.absoluteFill} />
                     <KeyboardAvoidingView
                         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                         style={styles.keyboardArea}
@@ -265,11 +420,7 @@ export function BudgetExpenseComposerModal({
                             <View style={styles.sheetHeader}>
                                 <SheetBackButton disabled={isSaving} onPress={onClose} />
                                 <View style={styles.sheetHeaderCopy}>
-                                    <View style={styles.sheetBadge}>
-                                        <Text style={styles.sheetBadgeText}>지출 추가</Text>
-                                    </View>
-                                    <Text style={styles.sheetTitle}>{dayLabel}</Text>
-                                    <Text style={styles.sheetMeta}>{dayDate}</Text>
+                                    <Text numberOfLines={1} style={styles.sheetTitle}>{title}</Text>
                                 </View>
                                 <View style={styles.sheetHeaderActions}>
                                     <Pressable
@@ -507,17 +658,15 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     modalOverlay: {
         flex: 1,
         justifyContent: 'flex-end',
-        backgroundColor: 'rgba(0,0,0,0.28)'
-    },
-    modalBackdrop: {
-        flex: 1
+        backgroundColor: theme.colors.surface
     },
     keyboardArea: {
         width: '100%',
-        height: '100%',
+        flex: 1,
         justifyContent: 'flex-end'
     },
     sheet: {
+        width: '100%',
         height: MOBILE_BOTTOM_SHEET_HEIGHTS.workflow,
         maxHeight: MOBILE_BOTTOM_SHEET_HEIGHTS.workflow,
         backgroundColor: theme.colors.surface
@@ -537,47 +686,27 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     },
     sheetHeader: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         justifyContent: 'space-between',
         gap: theme.spacing.xs,
         paddingHorizontal: theme.spacing.sm,
-        paddingTop: theme.spacing.sm,
+        paddingTop: theme.spacing.xs,
         paddingBottom: theme.spacing.xs
     },
     sheetHeaderCopy: {
         flex: 1,
+        justifyContent: 'center',
+        minHeight: theme.spacing.xl,
         paddingRight: theme.spacing.sm
     },
     sheetHeaderActions: {
         alignItems: 'flex-end'
     },
-    sheetBadge: {
-        alignSelf: 'flex-start',
-        minHeight: 24,
-        justifyContent: 'center',
-        paddingHorizontal: theme.spacing.xs,
-        paddingVertical: theme.spacing.micro,
-        borderRadius: theme.radius.sm,
-        backgroundColor: theme.colors.surfaceMuted
-    },
-    sheetBadgeText: {
-        color: theme.colors.textSecondary,
-        fontSize: 12,
-        lineHeight: 16,
-        includeFontPadding: false,
-        fontFamily: theme.fonts.contentSemibold
-    },
     sheetTitle: {
-        marginTop: theme.spacing.xs,
         color: theme.colors.textPrimary,
-        fontSize: 24,
-        lineHeight: 30,
+        fontSize: 18,
+        lineHeight: 24,
         fontFamily: theme.fonts.bold
-    },
-    sheetMeta: {
-        marginTop: theme.spacing.xs,
-        color: theme.colors.textSecondary,
-        fontFamily: theme.fonts.body
     },
     sheetSaveButton: {
         borderRadius: theme.radius.md,

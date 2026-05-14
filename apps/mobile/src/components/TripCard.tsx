@@ -5,6 +5,7 @@ import { AvatarImage } from '@/components/AvatarImage';
 import { EmojiText } from '@/components/EmojiText';
 import { type AppTheme, useAppTheme } from '@/theme';
 import type { MobileTripSummary } from '@/types/trip';
+import { buildCachedImageSource } from '@/utils/image-cache';
 
 function parseDateOnly(value: string) {
     const safeValue = String(value || '').trim();
@@ -146,7 +147,7 @@ export function TripCard({
                         {hasCoverImage ? (
                             <View style={styles.feedVisualImageFrame}>
                                 <Image
-                                    source={{ uri: trip.coverImage as string }}
+                                    source={buildCachedImageSource(trip.coverImage)}
                                     resizeMode="cover"
                                     style={styles.feedVisualImage}
                                 />
@@ -263,7 +264,7 @@ export function TripCard({
                 ]}>
                     {trip.coverImage ? (
                         <>
-                            <Image source={{ uri: trip.coverImage }} style={styles.headerImage} />
+                            <Image source={buildCachedImageSource(trip.coverImage)} style={styles.headerImage} />
                             <View style={styles.headerImageOverlay} />
                         </>
                     ) : (

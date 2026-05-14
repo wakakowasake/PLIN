@@ -33,11 +33,11 @@ import { type AppTheme, type FontPreset, useAppTheme, useThemePreference } from 
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
-const TERMS_URL = 'https://plin.ink/terms.html';
-const PRIVACY_URL = 'https://plin.ink/privacy.html';
-const LOCATION_TERMS_URL = 'https://plin.ink/location-terms.html';
-const OPERATION_POLICY_URL = 'https://plin.ink/operation-policy.html';
-const YOUTH_PROTECTION_POLICY_URL = 'https://plin.ink/youth-protection-policy.html';
+const TERMS_URL = 'https://plin.ink/terms';
+const PRIVACY_URL = 'https://plin.ink/privacy';
+const LOCATION_TERMS_URL = 'https://plin.ink/location-terms';
+const OPERATION_POLICY_URL = 'https://plin.ink/operation-policy';
+const YOUTH_PROTECTION_POLICY_URL = 'https://plin.ink/youth-protection-policy';
 const KAKAO_SUPPORT_CHAT_URL = 'http://pf.kakao.com/_duxdTX/chat';
 const PROFILE_NAME_MAX_LENGTH = 24;
 const FONT_PRESET_OPTIONS: Array<{ value: FontPreset; title: string; description: string }> = [

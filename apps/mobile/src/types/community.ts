@@ -7,6 +7,13 @@ export type RawCommunityPost = RawTrip & {
     likesCount?: number;
     clonesCount?: number;
     publishedAt?: unknown;
+    marketplace?: {
+        productId?: string | null;
+        priceLabel?: string | null;
+        currencyCode?: string | null;
+        salesStatus?: string | null;
+        purchaseState?: string | null;
+    };
     moderation?: {
         status?: string;
     };
@@ -51,6 +58,16 @@ export type MobileCommunityTripDuplicateInput = {
     endDate: string;
 };
 
+export type MobileCommunityMarketplacePurchaseState = 'free' | 'locked' | 'owned' | 'unavailable';
+
+export type MobileCommunityMarketplaceInfo = {
+    productId: string | null;
+    priceLabel: string;
+    currencyCode: string | null;
+    salesStatus: 'free' | 'paid' | 'unavailable';
+    purchaseState: MobileCommunityMarketplacePurchaseState;
+};
+
 export type MobileCommunityPostSummary = MobileTripSummary & {
     authorUid: string;
     authorName: string;
@@ -60,6 +77,7 @@ export type MobileCommunityPostSummary = MobileTripSummary & {
     publishedAt: string;
     publishedLabel: string;
     isLiked: boolean;
+    marketplace: MobileCommunityMarketplaceInfo;
 };
 
 export type MobileCommunityPostDetail = {
@@ -72,4 +90,5 @@ export type MobileCommunityPostDetail = {
     clonesCount: number;
     publishedLabel: string;
     isLiked: boolean;
+    marketplace: MobileCommunityMarketplaceInfo;
 };

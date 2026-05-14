@@ -23,7 +23,8 @@ import {
     StyleSheet,
     Text,
     TextInput,
-    View
+    View,
+    useWindowDimensions
 } from 'react-native';
 import { CommonActions, usePreventRemove } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -33,7 +34,8 @@ import { useAdapters } from '@/adapters/useAdapters';
 import {
     BudgetExpenseComposerModal,
     DEFAULT_EXPENSE_CURRENCY,
-    normalizeExpenseCurrency
+    normalizeExpenseCurrency,
+    resolveDefaultExpenseCurrencyForTrip
 } from '@/components/BudgetExpenseComposerModal';
 import { Alert } from '@/feedback';
 import { DurationPickerModal } from '@/components/DurationPickerModal';
@@ -243,6 +245,33 @@ function formatWon(amount: number) {
     return `₩${Math.round(amount || 0).toLocaleString()}`;
 }
 
+const EXPENSE_CURRENCY_SYMBOLS: Record<string, string> = {
+    KRW: '₩',
+    USD: '$',
+    EUR: '€',
+    JPY: '¥',
+    CNY: '¥',
+    HKD: 'HK$',
+    TWD: 'NT$',
+    GBP: '£',
+    CAD: 'CA$',
+    AUD: 'A$',
+    NZD: 'NZ$',
+    SGD: 'S$',
+    THB: '฿',
+    VND: '₫',
+    PHP: '₱',
+    IDR: 'Rp',
+    MYR: 'RM',
+    INR: '₹',
+    CHF: 'CHF',
+    AED: 'AED',
+    SAR: 'SAR',
+    TRY: '₺',
+    MXN: 'MX$',
+    BRL: 'R$'
+};
+
 function sanitizeAmountInput(value: string) {
     return String(value || '').replace(/[^\d]/g, '');
 }
@@ -257,13 +286,18 @@ function parseAmountInput(value: string) {
     return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function formatAmountInput(value: string) {
-    const normalized = sanitizeAmountInput(value);
-    if (!normalized) {
-        return '';
+function formatExpenseDraftAmountLabel(amountInput: string, currencyValue: string) {
+    const amount = parseAmountInput(amountInput);
+    const currency = normalizeExpenseCurrency(currencyValue);
+    if (currency === DEFAULT_EXPENSE_CURRENCY) {
+        return formatWon(amount);
     }
 
-    return normalized.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const symbol = EXPENSE_CURRENCY_SYMBOLS[currency] || currency;
+    const amountText = Math.round(amount || 0).toLocaleString();
+    return symbol === currency
+        ? `${currency} ${amountText}`
+        : `${currency} ${symbol}${amountText}`;
 }
 
 function buildExpenseDraftId() {
@@ -455,10 +489,13 @@ function serializeAttachmentEntries(attachments: RawAttachmentEntry[]) {
 
 function buildPendingMemoryDrafts(input: { assets: PickedTripMemoryAsset[] }) {
     const createdAt = new Date().toISOString();
-    const entries = createMemoryEntries(
+    const rawEntries = createMemoryEntries(
         input.assets.map((asset) => asset.uri),
         '',
         createdAt
+    );
+    const entries = rawEntries.filter(
+        (entry): entry is Exclude<(typeof rawEntries)[number], null> => Boolean(entry)
     );
 
     return entries.map((entry, index) => ({
@@ -538,6 +575,7 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
     const theme = useAppTheme();
     const insets = useSafeAreaInsets();
     const styles = React.useMemo(() => createStyles(theme), [theme]);
+    const { height: windowHeight } = useWindowDimensions();
     const { tripRepository } = useAdapters();
     const { user, refreshSession, isAuthActionLoading } = useAuthSession();
     const {
@@ -548,6 +586,13 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
     } = useKeyboardAwareInputScroll(120);
     const pendingNavigationActionRef = React.useRef<unknown>(null);
     const sheetDragTranslateY = React.useRef(new Animated.Value(0)).current;
+    const editSheetBackdropOpacity = React.useMemo(() => (
+        sheetDragTranslateY.interpolate({
+            inputRange: [0, windowHeight],
+            outputRange: [1, 0],
+            extrapolate: 'clamp'
+        })
+    ), [sheetDragTranslateY, windowHeight]);
     const editSheetInsetStyle = React.useMemo(() => ({
         paddingTop: insets.top
     }), [insets.top]);
@@ -608,7 +653,7 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
     const [expenseComposerDescription, setExpenseComposerDescription] = React.useState('');
     const [expenseComposerAmount, setExpenseComposerAmount] = React.useState('');
     const [expenseComposerCurrency, setExpenseComposerCurrency] = React.useState(DEFAULT_EXPENSE_CURRENCY);
-    const [recentExpenseDraftId, setRecentExpenseDraftId] = React.useState<string | null>(null);
+    const [editingExpenseDraftId, setEditingExpenseDraftId] = React.useState<string | null>(null);
     const [existingAttachmentDrafts, setExistingAttachmentDrafts] = React.useState<AttachmentDraft[]>(
         () => buildAttachmentDrafts(route.params.initialInput.attachments)
     );
@@ -617,6 +662,7 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
     const [pendingMemoryDrafts, setPendingMemoryDrafts] = React.useState<PendingMemoryDraft[]>([]);
     const [isMemoryComposerVisible, setMemoryComposerVisible] = React.useState(false);
     const hasRestoredDraftRef = React.useRef(false);
+    const hasOpenedInitialExpenseEditorRef = React.useRef(false);
     const hasRestoredReminderDraftRef = React.useRef(false);
     const draftStorageKey = React.useMemo(
         () => buildTimelineItemEditDraftStorageKey(route),
@@ -691,6 +737,12 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
             const photoUrl = typeof memory?.photoUrl === 'string' && memory.photoUrl.trim()
                 ? memory.photoUrl.trim()
                 : null;
+            const previewUrl = typeof memory?.previewUrl === 'string' && memory.previewUrl.trim()
+                ? memory.previewUrl.trim()
+                : null;
+            const thumbnailUrl = typeof memory?.thumbnailUrl === 'string' && memory.thumbnailUrl.trim()
+                ? memory.thumbnailUrl.trim()
+                : null;
             const createdAt = String(memory?.createdAt || '').trim();
 
             if (!photoUrl) {
@@ -699,6 +751,8 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
 
             entries.push({
                 photoUrl,
+                previewUrl,
+                thumbnailUrl,
                 createdAt
             });
 
@@ -816,15 +870,45 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
             itemId: route.params.itemId,
             itemIndex: route.params.itemIndex,
             title: normalizedTitle || route.params.itemTitle || route.params.dayLabel,
-            location: normalizedLocation
+            location: normalizedLocation,
+            countryCode: String(selectedPlace?.countryCode || initialPlace?.countryCode || '').trim()
         }
     ]), [
+        initialPlace?.countryCode,
         normalizedLocation,
         normalizedTitle,
         route.params.dayLabel,
         route.params.itemId,
         route.params.itemIndex,
-        route.params.itemTitle
+        route.params.itemTitle,
+        selectedPlace?.countryCode
+    ]);
+    const defaultExpenseComposerCurrency = React.useMemo(() => resolveDefaultExpenseCurrencyForTrip({
+        countryCodes: [
+            selectedPlace?.countryCode,
+            initialPlace?.countryCode,
+            expenseComposerOptions[0]?.countryCode
+        ],
+        destinationText: [
+            selectedPlace?.name,
+            selectedPlace?.address,
+            initialPlace?.name,
+            initialPlace?.address,
+            normalizedLocation,
+            route.params.itemTitle,
+            route.params.tripTitle
+        ].filter(Boolean).join(' ')
+    }), [
+        expenseComposerOptions,
+        initialPlace?.address,
+        initialPlace?.countryCode,
+        initialPlace?.name,
+        normalizedLocation,
+        route.params.itemTitle,
+        route.params.tripTitle,
+        selectedPlace?.address,
+        selectedPlace?.countryCode,
+        selectedPlace?.name
     ]);
 
     const effectivePlace = React.useMemo(() => {
@@ -907,10 +991,6 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
         () => serializeExpenseEntries(normalizedExpenseEntries),
         [normalizedExpenseEntries]
     );
-    const hasRecentExpenseDraft = React.useMemo(
-        () => Boolean(recentExpenseDraftId && expenseDrafts.some((draft) => draft.id === recentExpenseDraftId)),
-        [expenseDrafts, recentExpenseDraftId]
-    );
     const existingAttachmentEntries = React.useMemo(
         () => buildAttachmentEntries(existingAttachmentDrafts),
         [existingAttachmentDrafts]
@@ -956,9 +1036,13 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
         const existingEntries = initialMemories.map((memory, index) => ({
             id: `existing-memory-${index}`,
             createdAt: String(memory.createdAt || '').trim(),
-            previewUrl: typeof memory.photoUrl === 'string' && memory.photoUrl.trim()
-                ? memory.photoUrl.trim()
-                : null,
+            previewUrl: typeof memory.thumbnailUrl === 'string' && memory.thumbnailUrl.trim()
+                ? memory.thumbnailUrl.trim()
+                : typeof memory.previewUrl === 'string' && memory.previewUrl.trim()
+                    ? memory.previewUrl.trim()
+                    : typeof memory.photoUrl === 'string' && memory.photoUrl.trim()
+                        ? memory.photoUrl.trim()
+                        : null,
             isPending: false
         }));
         const pendingEntries = pendingMemoryDrafts.map((memory) => ({
@@ -970,7 +1054,6 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
 
         return [...existingEntries, ...pendingEntries];
     }, [initialMemories, pendingMemoryDrafts]);
-
     const isMemo = route.params.isMemo;
     const hasTitleChanges = canEditTitle && normalizedTitle !== initialTitle;
     const hasNoteChanges = normalizedNote !== initialNote;
@@ -1193,12 +1276,20 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
             || expenseValidationError
         );
     const screenTitle = isMemo ? '메모 수정' : route.params.isTransit ? '이동 수정' : '일정 수정';
+    const editItemKindLabel = isMemo ? '메모' : route.params.isTransit ? '이동' : '일정';
+    const editItemDayMeta = [route.params.dayLabel, route.params.dayDate]
+        .map((value) => String(value || '').trim())
+        .filter(Boolean)
+        .join(' · ');
     const noteLabel = isMemo ? '메모' : '메모 / 설명';
     const notePlaceholder = isMemo
         ? '메모를 입력해 주세요.'
         : '이 일정에 남길 메모나 설명을 적어 주세요.';
 
-    const handleDiscard = React.useCallback((onConfirm: () => void) => {
+    const handleDiscard = React.useCallback((
+        onConfirm: () => void,
+        options: { onCancel?: () => void } = {}
+    ) => {
         if (isSaving || isDeleting) {
             return;
         }
@@ -1215,7 +1306,8 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
             [
                 {
                     text: '계속 편집',
-                    style: 'cancel'
+                    style: 'cancel',
+                    onPress: options.onCancel
                 },
                 {
                     text: '버리기',
@@ -1229,12 +1321,14 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
         );
     }, [clearPersistedDraft, hasUnsavedChanges, isDeleting, isSaving]);
 
+    const navigateBackFromEdit = React.useCallback(() => {
+        pendingNavigationActionRef.current = CommonActions.goBack();
+        setAllowNextRemove(true);
+    }, []);
+
     const requestClose = React.useCallback(() => {
-        handleDiscard(() => {
-            pendingNavigationActionRef.current = CommonActions.goBack();
-            setAllowNextRemove(true);
-        });
-    }, [handleDiscard]);
+        handleDiscard(navigateBackFromEdit);
+    }, [handleDiscard, navigateBackFromEdit]);
 
     usePreventRemove(hasUnsavedChanges && !isSaving && !allowNextRemove, ({ data }) => {
         handleDiscard(() => {
@@ -1331,13 +1425,13 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
 
         setExpenseComposerDescription('');
         setExpenseComposerAmount('');
-        setExpenseComposerCurrency(DEFAULT_EXPENSE_CURRENCY);
-        setRecentExpenseDraftId(null);
+        setExpenseComposerCurrency(defaultExpenseComposerCurrency);
+        setEditingExpenseDraftId(null);
         setExpenseComposerVisible(true);
         if (saveError) {
             setSaveError(null);
         }
-    }, [isDeleting, isSaving, saveError]);
+    }, [defaultExpenseComposerCurrency, isDeleting, isSaving, saveError]);
 
     const handleCloseExpenseComposer = React.useCallback(() => {
         if (isSaving || isDeleting) {
@@ -1345,7 +1439,40 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
         }
 
         setExpenseComposerVisible(false);
+        setEditingExpenseDraftId(null);
     }, [isDeleting, isSaving]);
+
+    const handleOpenExpenseDraftEditor = React.useCallback((draft: ExpenseDraft) => {
+        if (isSaving || isDeleting) {
+            return;
+        }
+
+        setEditingExpenseDraftId(draft.id);
+        setExpenseComposerDescription(draft.description);
+        setExpenseComposerAmount(sanitizeAmountInput(draft.amountInput));
+        setExpenseComposerCurrency(normalizeExpenseCurrency(draft.currency));
+        setExpenseComposerVisible(true);
+        if (saveError) {
+            setSaveError(null);
+        }
+    }, [isDeleting, isSaving, saveError]);
+
+    React.useEffect(() => {
+        if (hasOpenedInitialExpenseEditorRef.current) {
+            return;
+        }
+
+        const initialExpenseIndex = route.params.initialExpenseIndex;
+        if (typeof initialExpenseIndex !== 'number') {
+            return;
+        }
+
+        hasOpenedInitialExpenseEditorRef.current = true;
+        const initialExpenseDraft = expenseDrafts[initialExpenseIndex] || null;
+        if (initialExpenseDraft) {
+            handleOpenExpenseDraftEditor(initialExpenseDraft);
+        }
+    }, [expenseDrafts, handleOpenExpenseDraftEditor, route.params.initialExpenseIndex]);
 
     const handleSubmitExpenseComposer = React.useCallback(() => {
         const description = normalizeText(expenseComposerDescription);
@@ -1356,47 +1483,47 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
             return;
         }
 
-        const nextDraftId = buildExpenseDraftId();
-        setExpenseDrafts((currentDrafts) => ([
-            ...currentDrafts,
-            {
-                id: nextDraftId,
-                description,
-                amountInput: String(amount),
-                currency: normalizeExpenseCurrency(expenseComposerCurrency)
-            }
-        ]));
-        setRecentExpenseDraftId(nextDraftId);
+        const nextExpenseDraft = {
+            description,
+            amountInput: String(amount),
+            currency: normalizeExpenseCurrency(expenseComposerCurrency)
+        };
+        if (editingExpenseDraftId) {
+            setExpenseDrafts((currentDrafts) => currentDrafts.map((draft) => (
+                draft.id === editingExpenseDraftId
+                    ? {
+                        ...draft,
+                        ...nextExpenseDraft
+                    }
+                    : draft
+            )));
+        } else {
+            const nextDraftId = buildExpenseDraftId();
+            setExpenseDrafts((currentDrafts) => ([
+                ...currentDrafts,
+                {
+                    id: nextDraftId,
+                    ...nextExpenseDraft
+                }
+            ]));
+        }
+
         setExpenseComposerVisible(false);
+        setEditingExpenseDraftId(null);
         setExpenseComposerDescription('');
         setExpenseComposerAmount('');
-        setExpenseComposerCurrency(DEFAULT_EXPENSE_CURRENCY);
+        setExpenseComposerCurrency(defaultExpenseComposerCurrency);
         if (saveError) {
             setSaveError(null);
         }
-    }, [expenseComposerAmount, expenseComposerCurrency, expenseComposerDescription, saveError]);
-
-    const handleChangeExpenseDraft = React.useCallback((
-        draftId: string,
-        field: 'description' | 'amountInput',
-        value: string
-    ) => {
-        setExpenseDrafts((currentDrafts) => currentDrafts.map((draft) => {
-            if (draft.id !== draftId) {
-                return draft;
-            }
-
-            return {
-                ...draft,
-                [field]: field === 'amountInput'
-                    ? sanitizeAmountInput(value)
-                    : value
-            };
-        }));
-        if (saveError) {
-            setSaveError(null);
-        }
-    }, [saveError]);
+    }, [
+        defaultExpenseComposerCurrency,
+        editingExpenseDraftId,
+        expenseComposerAmount,
+        expenseComposerCurrency,
+        expenseComposerDescription,
+        saveError
+    ]);
 
     const handleRemoveExpenseDraft = React.useCallback((draftId: string) => {
         setExpenseDrafts((currentDrafts) => currentDrafts.filter((draft) => draft.id !== draftId));
@@ -1519,7 +1646,7 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
                     const pendingAssets = pendingMemoryDrafts
                         .map((draft) => draft.asset || null)
                         .filter((asset): asset is PickedTripMemoryAsset => Boolean(asset));
-                    const uploadedPhotoUrls = pendingAssets.length > 0
+                    const uploadedMemoryEntries = pendingAssets.length > 0
                         ? await uploadTripMemoryAssets({
                             tripId: route.params.tripId,
                             dayIndex: parseDayIndexFromLabel(route.params.dayLabel),
@@ -1527,18 +1654,20 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
                             assets: pendingAssets
                         })
                         : [];
-                    let uploadedPhotoCursor = 0;
+                    let uploadedMemoryCursor = 0;
 
                     nextMemories = [
                         ...initialMemories,
                         ...pendingMemoryDrafts
                             .filter((draft) => Boolean(draft.asset))
                             .map((draft) => {
-                                const uploadedPhotoUrl = uploadedPhotoUrls[uploadedPhotoCursor] || null;
-                                uploadedPhotoCursor += 1;
+                                const uploadedMemoryEntry = uploadedMemoryEntries[uploadedMemoryCursor] || null;
+                                uploadedMemoryCursor += 1;
 
                                 return {
-                                    photoUrl: uploadedPhotoUrl,
+                                    photoUrl: uploadedMemoryEntry?.photoUrl || null,
+                                    previewUrl: uploadedMemoryEntry?.previewUrl || uploadedMemoryEntry?.thumbnailUrl || null,
+                                    thumbnailUrl: uploadedMemoryEntry?.thumbnailUrl || uploadedMemoryEntry?.previewUrl || null,
                                     createdAt: draft.createdAt
                                 };
                             })
@@ -1858,6 +1987,38 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
         }).start();
     }, [sheetDragTranslateY]);
 
+    const animateSheetDismissFromHandle = React.useCallback((onDismissed: () => void) => {
+        Animated.timing(sheetDragTranslateY, {
+            toValue: windowHeight,
+            duration: 220,
+            useNativeDriver: true
+        }).start(({ finished }) => {
+            if (finished) {
+                onDismissed();
+            }
+        });
+    }, [sheetDragTranslateY, windowHeight]);
+
+    const dismissSheetFromHandle = React.useCallback(() => {
+        if (hasUnsavedChanges) {
+            handleDiscard(
+                () => {
+                    animateSheetDismissFromHandle(navigateBackFromEdit);
+                },
+                { onCancel: resetSheetDrag }
+            );
+            return;
+        }
+
+        animateSheetDismissFromHandle(navigateBackFromEdit);
+    }, [
+        animateSheetDismissFromHandle,
+        handleDiscard,
+        hasUnsavedChanges,
+        navigateBackFromEdit,
+        resetSheetDrag,
+    ]);
+
     const editSheetHandlePanResponder = React.useMemo(() => PanResponder.create({
         onStartShouldSetPanResponder: () => !isSaving && !isDeleting,
         onStartShouldSetPanResponderCapture: () => !isSaving && !isDeleting,
@@ -1887,16 +2048,17 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
             );
 
             if (shouldDismiss) {
-                requestClose();
+                dismissSheetFromHandle();
+                return;
             }
 
             resetSheetDrag();
         },
         onPanResponderTerminate: resetSheetDrag
     }), [
+        dismissSheetFromHandle,
         isDeleting,
         isSaving,
-        requestClose,
         resetSheetDrag,
         sheetDragTranslateY
     ]);
@@ -1963,7 +2125,13 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
 
     return (
         <View style={styles.screenOverlay}>
-            <View pointerEvents="none" style={styles.modalBackdrop} />
+            <Animated.View
+                pointerEvents="none"
+                style={[
+                    styles.modalBackdrop,
+                    { opacity: editSheetBackdropOpacity }
+                ]}
+            />
             <KeyboardAvoidingView
                 style={styles.keyboardArea}
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -1986,10 +2154,31 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
                     </View>
                     <View style={styles.actionRow}>
                         <SheetBackButton disabled={isSaving || isDeleting} onPress={requestClose} />
+                        <View style={styles.actionRowCopy}>
+                            <Text numberOfLines={1} style={styles.actionRowTitle}>{screenTitle}</Text>
+                        </View>
                         <View style={styles.actionRowActions}>
                             <Pressable
                                 accessibilityRole="button"
+                                accessibilityLabel={`${editItemKindLabel} 삭제`}
+                                disabled={isSaving || isDeleting}
+                                hitSlop={8}
+                                onPress={handleDelete}
+                                style={({ pressed }) => [
+                                    styles.deleteAction,
+                                    pressed && !isSaving && !isDeleting ? styles.deleteActionPressed : null,
+                                    (isSaving || isDeleting) ? styles.deleteActionDisabled : null
+                                ]}
+                            >
+                                <Text numberOfLines={1} style={styles.deleteActionText}>
+                                    {isDeleting ? '삭제 중...' : '삭제'}
+                                </Text>
+                            </Pressable>
+                            <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel={`${editItemKindLabel} 저장`}
                                 disabled={saveDisabled}
+                                hitSlop={8}
                                 onPress={() => {
                                     void handleSave();
                                 }}
@@ -2003,20 +2192,6 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
                                     {isSaving ? '저장 중...' : '저장'}
                                 </Text>
                             </Pressable>
-                            <Pressable
-                                accessibilityRole="button"
-                                disabled={isSaving || isDeleting}
-                                onPress={handleDelete}
-                                style={({ pressed }) => [
-                                    styles.deleteAction,
-                                    pressed && !isSaving && !isDeleting ? styles.deleteActionPressed : null,
-                                    (isSaving || isDeleting) ? styles.deleteActionDisabled : null
-                                ]}
-                            >
-                                <Text numberOfLines={1} style={styles.deleteActionText}>
-                                    {isDeleting ? '삭제 중...' : '삭제'}
-                                </Text>
-                            </Pressable>
                         </View>
                     </View>
                     <ScrollView
@@ -2024,16 +2199,15 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
                         contentContainerStyle={[styles.content, keyboardAwareContentInsetStyle]}
                         {...scrollViewProps}
                     >
-                <View style={styles.heroCard}>
-                    <Text style={styles.heroLabel}>{screenTitle}</Text>
-                    <Text style={styles.heroTitle} numberOfLines={2}>
-                        {canEditTitle
-                            ? (normalizedTitle || route.params.itemTitle || route.params.dayLabel)
-                            : (route.params.itemTitle || route.params.dayLabel)}
-                    </Text>
-                    <Text style={styles.heroMeta}>
-                        {route.params.dayLabel} · {route.params.dayDate}
-                    </Text>
+                <View style={styles.editMetaRow}>
+                    <View style={styles.editMetaPill}>
+                        <Text style={styles.editMetaPillText}>{editItemKindLabel}</Text>
+                    </View>
+                    {editItemDayMeta ? (
+                        <View style={styles.editMetaPill}>
+                            <Text style={styles.editMetaPillText}>{editItemDayMeta}</Text>
+                        </View>
+                    ) : null}
                 </View>
 
                 <View style={styles.formCard}>
@@ -2683,9 +2857,7 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
                             <View style={styles.sectionHeaderCopy}>
                                 <Text style={styles.fieldLabel}>예산 / 지출</Text>
                                 <Text style={styles.sectionHelpText}>
-                                    {hasRecentExpenseDraft
-                                        ? '방금 추가한 지출이 아래 내역과 총액에 반영됐어요.'
-                                        : '항목별로 기록해 두면 총액이 함께 계산돼요.'}
+                                    항목별로 기록해 두면 이 일정의 총액이 함께 계산돼요.
                                 </Text>
                             </View>
                             <Pressable
@@ -2701,52 +2873,51 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
                             </Pressable>
                         </View>
 
+                        <View style={styles.expenseSummaryCard}>
+                            <View style={styles.expenseSummaryCopy}>
+                                <Text style={styles.expenseSummaryLabel}>총 지출</Text>
+                                <Text style={styles.expenseSummaryMeta}>
+                                    {expenseDrafts.length > 0 ? `${expenseDrafts.length}건 기록됨` : '아직 내역 없음'}
+                                </Text>
+                            </View>
+                            <Text style={styles.expenseSummaryValue}>{formatWon(expenseTotal)}</Text>
+                        </View>
+
                         {expenseDrafts.length > 0 ? (
                             <View style={styles.expenseDraftList}>
-                                {expenseDrafts.map((draft) => (
-                                    <View
-                                        key={draft.id}
-                                        style={[
-                                            styles.expenseDraftCard,
-                                            draft.id === recentExpenseDraftId ? styles.expenseDraftCardRecent : null
-                                        ]}
-                                    >
-                                        {draft.id === recentExpenseDraftId ? (
-                                            <View style={styles.expenseDraftRecentBadge}>
-                                                <Text style={styles.expenseDraftRecentBadgeText}>방금 추가됨</Text>
-                                            </View>
-                                        ) : null}
-                                        <TextInput
-                                            value={draft.description}
-                                            onChangeText={(value) => {
-                                                handleChangeExpenseDraft(draft.id, 'description', value);
-                                            }}
-                                            onFocus={createFocusHandler()}
-                                            editable={!isSaving}
-                                            placeholder="예: 입장권, 식사, 교통"
-                                            placeholderTextColor={theme.colors.textSecondary}
-                                            style={styles.textInput}
-                                        />
-                                        <View style={styles.expenseDraftFooter}>
-                                            <View style={styles.expenseAmountField}>
-                                                <Text style={styles.expenseAmountPrefix}>
-                                                    {normalizeExpenseCurrency(draft.currency)}
-                                                </Text>
-                                                <TextInput
-                                                    value={formatAmountInput(draft.amountInput)}
-                                                    onChangeText={(value) => {
-                                                        handleChangeExpenseDraft(draft.id, 'amountInput', value);
-                                                    }}
-                                                    onFocus={createFocusHandler()}
-                                                    editable={!isSaving}
-                                                    keyboardType="number-pad"
-                                                    placeholder="0"
-                                                    placeholderTextColor={theme.colors.textSecondary}
-                                                    style={styles.expenseAmountInput}
-                                                />
-                                            </View>
+                                {expenseDrafts.map((draft) => {
+                                    const draftDescription = normalizeText(draft.description) || '이름 없는 지출';
+                                    const draftAmountLabel = formatExpenseDraftAmountLabel(
+                                        draft.amountInput,
+                                        normalizeExpenseCurrency(draft.currency)
+                                    );
+
+                                    return (
+                                        <View key={draft.id} style={styles.expenseDraftCard}>
                                             <Pressable
                                                 accessibilityRole="button"
+                                                accessibilityLabel={`${draftDescription} 지출 수정`}
+                                                disabled={isSaving || isDeleting}
+                                                onPress={() => {
+                                                    handleOpenExpenseDraftEditor(draft);
+                                                }}
+                                                style={({ pressed }) => [
+                                                    styles.expenseDraftOpenArea,
+                                                    pressed && !isSaving && !isDeleting ? styles.buttonPressed : null
+                                                ]}
+                                            >
+                                                <View style={styles.expenseDraftCopy}>
+                                                    <Text numberOfLines={1} style={styles.expenseDraftTitle}>
+                                                        {draftDescription}
+                                                    </Text>
+                                                </View>
+                                                <Text numberOfLines={1} style={styles.expenseDraftAmount}>
+                                                    {draftAmountLabel}
+                                                </Text>
+                                            </Pressable>
+                                            <Pressable
+                                                accessibilityRole="button"
+                                                accessibilityLabel={`${draftDescription} 지출 삭제`}
                                                 disabled={isSaving}
                                                 onPress={() => {
                                                     handleRemoveExpenseDraft(draft.id);
@@ -2759,19 +2930,19 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
                                                 <Text style={styles.expenseRemoveButtonText}>삭제</Text>
                                             </Pressable>
                                         </View>
-                                    </View>
-                                ))}
+                                    );
+                                })}
                             </View>
-                        ) : null}
+                        ) : (
+                            <View style={styles.emptyStateCard}>
+                                <Text style={styles.emptyStateTitle}>아직 지출이 없어요.</Text>
+                                <Text style={styles.emptyStateSupport}>내역 추가를 누르면 이 일정에 바로 붙어요.</Text>
+                            </View>
+                        )}
 
                         {visibleExpenseError ? (
                             <Text style={styles.fieldError}>{visibleExpenseError}</Text>
                         ) : null}
-
-                        <View style={styles.expenseSummaryRow}>
-                            <Text style={styles.expenseSummaryLabel}>총 지출</Text>
-                            <Text style={styles.expenseSummaryValue}>{formatWon(expenseTotal)}</Text>
-                        </View>
                     </View>
                 ) : null}
 
@@ -2901,8 +3072,7 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
 
             <BudgetExpenseComposerModal
                 visible={isExpenseComposerVisible}
-                dayLabel={route.params.dayLabel}
-                dayDate={route.params.dayDate}
+                title={editingExpenseDraftId ? '지출 수정' : '지출 추가'}
                 itemOptions={expenseComposerOptions}
                 selectedItemId={route.params.itemId}
                 description={expenseComposerDescription}
@@ -2919,8 +3089,6 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
 
             <TimelineMemoryComposerModal
                 visible={isMemoryComposerVisible}
-                dayLabel={route.params.dayLabel}
-                dayDate={route.params.dayDate}
                 targetTitle={normalizedTitle || route.params.itemTitle || route.params.dayLabel}
                 isSaving={isSaving}
                 errorMessage={saveError}
@@ -2952,13 +3120,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         maxHeight: MOBILE_BOTTOM_SHEET_HEIGHTS.workflow,
         borderTopLeftRadius: 0,
         borderTopRightRadius: 0,
-        backgroundColor: theme.colors.background,
+        backgroundColor: theme.colors.surface,
         overflow: 'hidden'
     },
     editSheetHandleTouch: {
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: 34,
+        minHeight: theme.spacing.xl,
         paddingTop: theme.spacing.xs,
         paddingBottom: theme.spacing.xs
     },
@@ -2972,32 +3140,30 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         padding: theme.spacing.md,
         paddingBottom: theme.spacing.lg * 2
     },
-    heroCard: {
-        padding: theme.spacing.sm,
-        borderRadius: theme.radius.md,
-        backgroundColor: theme.colors.surface,
+    editMetaRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
         marginBottom: theme.spacing.sm
     },
-    heroLabel: {
-        fontSize: 12,
-        color: theme.colors.textSecondary,
-        fontFamily: theme.fonts.bold
+    editMetaPill: {
+        marginRight: theme.spacing.micro,
+        marginBottom: theme.spacing.micro,
+        paddingHorizontal: theme.spacing.xs,
+        paddingVertical: theme.spacing.micro,
+        borderRadius: theme.radius.sm,
+        backgroundColor: theme.colors.accentSoft
     },
-    heroTitle: {
-        marginTop: theme.spacing.xs,
-        fontSize: 22,
-        lineHeight: 30,
+    editMetaPillText: {
         color: theme.colors.textPrimary,
-        fontFamily: theme.fonts.bold
-    },
-    heroMeta: {
-        marginTop: theme.spacing.micro,
-        color: theme.colors.textSecondary
+        fontSize: 12,
+        fontFamily: theme.fonts.semibold
     },
     formCard: {
         padding: theme.spacing.sm,
         borderRadius: theme.radius.md,
-        backgroundColor: theme.colors.surface,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: theme.colors.border,
+        backgroundColor: theme.colors.background,
         marginBottom: theme.spacing.sm
     },
     fieldBlock: {
@@ -3038,7 +3204,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         borderRadius: theme.radius.md,
         borderWidth: 1,
         borderColor: theme.colors.border,
-        backgroundColor: theme.colors.surfaceMuted,
+        backgroundColor: theme.colors.background,
         color: theme.colors.textPrimary
     },
     locationSearchInput: {
@@ -3078,7 +3244,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         paddingHorizontal: theme.spacing.sm,
         paddingVertical: theme.spacing.xs,
         borderRadius: theme.radius.md,
-        backgroundColor: theme.colors.surfaceMuted
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        backgroundColor: theme.colors.background
     },
     timePickerButtonText: {
         color: theme.colors.textPrimary,
@@ -3091,7 +3259,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         borderRadius: theme.radius.md,
         borderWidth: 1,
         borderColor: theme.colors.border,
-        backgroundColor: theme.colors.surfaceMuted,
+        backgroundColor: theme.colors.background,
         color: theme.colors.textPrimary,
         lineHeight: 22
     },
@@ -3159,7 +3327,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         marginBottom: theme.spacing.sm,
         padding: theme.spacing.sm,
         borderRadius: theme.radius.md,
-        backgroundColor: theme.colors.surfaceMuted
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: theme.colors.border,
+        backgroundColor: theme.colors.background
     },
     summaryHeaderRow: {
         flexDirection: 'row',
@@ -3244,6 +3414,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         marginTop: theme.spacing.xs,
         padding: theme.spacing.sm,
         borderRadius: theme.radius.md,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: theme.colors.border,
         backgroundColor: theme.colors.background
     },
     placePreviewTitle: {
@@ -3298,7 +3470,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         gap: theme.spacing.xs,
         padding: theme.spacing.xs,
         borderRadius: theme.radius.md,
-        backgroundColor: theme.colors.surfaceMuted
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: theme.colors.border,
+        backgroundColor: theme.colors.background
     },
     attachmentDraftOpenArea: {
         flex: 1,
@@ -3357,7 +3531,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         width: 176,
         padding: theme.spacing.xs,
         borderRadius: theme.radius.md,
-        backgroundColor: theme.colors.surfaceMuted
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: theme.colors.border,
+        backgroundColor: theme.colors.background
     },
     memoryPreviewCardSpaced: {
         marginRight: theme.spacing.xs
@@ -3413,7 +3589,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     emptyStateCard: {
         padding: theme.spacing.sm,
         borderRadius: theme.radius.md,
-        backgroundColor: theme.colors.surfaceMuted
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: theme.colors.border,
+        backgroundColor: theme.colors.background
     },
     emptyStateTitle: {
         color: theme.colors.textPrimary,
@@ -3424,89 +3602,93 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         color: theme.colors.textSecondary,
         lineHeight: 20
     },
-    expenseDraftList: {
-        marginTop: theme.spacing.xs
-    },
-    expenseDraftCard: {
-        padding: theme.spacing.xs,
+    expenseSummaryCard: {
+        marginBottom: theme.spacing.xs,
+        padding: theme.spacing.sm,
         borderRadius: theme.radius.md,
-        backgroundColor: theme.colors.surfaceMuted,
-        marginBottom: theme.spacing.xs
-    },
-    expenseDraftCardRecent: {
-        borderWidth: 1,
-        borderColor: theme.colors.accent,
-        backgroundColor: theme.colors.accentSoft
-    },
-    expenseDraftRecentBadge: {
-        alignSelf: 'flex-start',
-        minHeight: 24,
-        justifyContent: 'center',
-        paddingHorizontal: theme.spacing.xs,
-        paddingVertical: theme.spacing.micro,
-        borderRadius: theme.radius.sm,
-        backgroundColor: theme.colors.accent
-    },
-    expenseDraftRecentBadgeText: {
-        color: '#ffffff',
-        fontSize: 12,
-        lineHeight: 16,
-        fontFamily: theme.fonts.bold
-    },
-    expenseDraftFooter: {
-        marginTop: theme.spacing.xs,
-        flexDirection: 'row',
-        alignItems: 'center'
-    },
-    expenseAmountField: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderRadius: theme.radius.md,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
         backgroundColor: theme.colors.surface,
-        paddingHorizontal: theme.spacing.sm
-    },
-    expenseAmountPrefix: {
-        color: theme.colors.textSecondary,
-        fontFamily: theme.fonts.semibold,
-        marginRight: theme.spacing.micro
-    },
-    expenseAmountInput: {
-        flex: 1,
-        paddingVertical: theme.spacing.xs,
-        color: theme.colors.textPrimary,
-        textAlign: 'right'
-    },
-    expenseRemoveButton: {
-        marginLeft: theme.spacing.xs,
-        paddingHorizontal: theme.spacing.sm,
-        paddingVertical: theme.spacing.xs,
-        borderRadius: theme.radius.md,
-        backgroundColor: theme.colors.warningSoft
-    },
-    expenseRemoveButtonText: {
-        color: theme.colors.warning,
-        fontFamily: theme.fonts.semibold
-    },
-    expenseSummaryRow: {
-        marginTop: theme.spacing.xs,
-        paddingTop: theme.spacing.sm,
-        borderTopWidth: 1,
-        borderTopColor: theme.colors.border,
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between'
+        justifyContent: 'space-between',
+        gap: theme.spacing.sm
+    },
+    expenseSummaryCopy: {
+        flex: 1,
+        minWidth: 0
     },
     expenseSummaryLabel: {
         color: theme.colors.textSecondary,
+        fontSize: 12,
+        lineHeight: 16,
         fontFamily: theme.fonts.semibold
+    },
+    expenseSummaryMeta: {
+        marginTop: theme.spacing.micro,
+        color: theme.colors.textSecondary,
+        fontSize: 12,
+        lineHeight: 16,
+        fontFamily: theme.fonts.body
     },
     expenseSummaryValue: {
         color: theme.colors.accent,
         fontFamily: theme.fonts.bold,
-        fontSize: 20
+        fontSize: 20,
+        lineHeight: 26
+    },
+    expenseDraftList: {
+        marginTop: theme.spacing.xs,
+        gap: theme.spacing.xs
+    },
+    expenseDraftCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderRadius: theme.radius.md,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: theme.colors.border,
+        backgroundColor: theme.colors.background,
+        overflow: 'hidden'
+    },
+    expenseDraftOpenArea: {
+        flex: 1,
+        minHeight: theme.spacing.xxl,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: theme.spacing.sm,
+        paddingVertical: theme.spacing.xs
+    },
+    expenseDraftCopy: {
+        flex: 1,
+        minWidth: 0,
+        paddingRight: theme.spacing.sm
+    },
+    expenseDraftTitle: {
+        minWidth: 0,
+        color: theme.colors.textPrimary,
+        fontFamily: theme.fonts.semibold,
+        fontSize: 15,
+        lineHeight: 22
+    },
+    expenseDraftAmount: {
+        color: theme.colors.accent,
+        fontFamily: theme.fonts.bold,
+        fontSize: 15,
+        lineHeight: 22,
+        textAlign: 'right'
+    },
+    expenseRemoveButton: {
+        alignSelf: 'center',
+        justifyContent: 'center',
+        minWidth: theme.spacing.xl,
+        minHeight: theme.spacing.xl,
+        marginRight: theme.spacing.xs,
+        paddingHorizontal: theme.spacing.xs,
+        borderRadius: theme.radius.sm,
+        backgroundColor: 'transparent'
+    },
+    expenseRemoveButtonText: {
+        color: theme.colors.warning,
+        fontFamily: theme.fonts.semibold
     },
     buttonPressed: {
         opacity: 0.88
@@ -3561,12 +3743,22 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         gap: theme.spacing.xs,
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: theme.spacing.md,
-        paddingTop: theme.spacing.micro,
+        paddingHorizontal: theme.spacing.sm,
+        paddingTop: theme.spacing.xs,
         paddingBottom: theme.spacing.xs,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: theme.colors.border,
-        backgroundColor: theme.colors.background
+        backgroundColor: theme.colors.surface
+    },
+    actionRowCopy: {
+        flex: 1,
+        justifyContent: 'center',
+        minHeight: theme.spacing.xl,
+        paddingRight: theme.spacing.sm
+    },
+    actionRowTitle: {
+        color: theme.colors.textPrimary,
+        fontSize: 18,
+        lineHeight: 24,
+        fontFamily: theme.fonts.bold
     },
     actionRowActions: {
         flexDirection: 'row',
@@ -3596,11 +3788,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     primaryAction: {
         alignItems: 'center',
         justifyContent: 'center',
-        minWidth: 88,
-        minHeight: 36,
+        borderRadius: theme.radius.md,
         paddingHorizontal: theme.spacing.sm,
         paddingVertical: theme.spacing.xs,
-        borderRadius: theme.radius.sm,
         backgroundColor: theme.colors.accent
     },
     primaryActionDisabled: {
@@ -3617,11 +3807,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     deleteAction: {
         alignItems: 'center',
         justifyContent: 'center',
-        minWidth: 88,
-        minHeight: 36,
+        borderRadius: theme.radius.md,
         paddingHorizontal: theme.spacing.sm,
         paddingVertical: theme.spacing.xs,
-        borderRadius: theme.radius.sm,
         backgroundColor: theme.colors.warningSoft
     },
     deleteActionPressed: {

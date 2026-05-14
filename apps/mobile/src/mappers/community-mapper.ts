@@ -3,6 +3,8 @@ import { normalizeTripDocument } from '@shared/features/trips/trip-canonical.js'
 import { mapTripDetail } from '@/mappers/trip-detail-mapper';
 import { mapTripSummary } from '@/mappers/trip-summary-mapper';
 import type {
+    MobileCommunityMarketplaceInfo,
+    MobileCommunityMarketplacePurchaseState,
     MobileCommunityComment,
     MobileCommunityPostDetail,
     MobileCommunityPostSummary,
@@ -12,6 +14,13 @@ import type {
 import type { CanonicalTripDocument, RawTrip, RawTripDay, RawTripMeta } from '@/types/trip';
 
 const DEFAULT_AUTHOR_NAME = '익명의 여행자';
+type NormalizedCommunityMarketplace = {
+    productId: string | null;
+    priceLabel: string | null;
+    currencyCode: string | null;
+    salesStatus?: MobileCommunityMarketplaceInfo['salesStatus'];
+    purchaseState?: MobileCommunityMarketplacePurchaseState;
+};
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -37,6 +46,70 @@ function normalizeRemoteImageUrl(value: unknown) {
 
 function readNumber(value: unknown) {
     return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+function readMarketplacePurchaseState(value: unknown): MobileCommunityMarketplacePurchaseState | null {
+    const state = readString(value).toLowerCase();
+    if (state === 'free' || state === 'locked' || state === 'owned' || state === 'unavailable') {
+        return state;
+    }
+
+    return null;
+}
+
+function readMarketplaceSalesStatus(value: unknown): MobileCommunityMarketplaceInfo['salesStatus'] | null {
+    const status = readString(value).toLowerCase();
+    if (status === 'free' || status === 'paid' || status === 'unavailable') {
+        return status;
+    }
+
+    return null;
+}
+
+function normalizeCommunityMarketplace(value: unknown): NormalizedCommunityMarketplace {
+    const data = isPlainObject(value) ? value : {};
+    const productId = readNullableString(data.productId)
+        || readNullableString(data.revenueCatProductId)
+        || readNullableString(data.storeProductId);
+    const priceLabel = readNullableString(data.priceLabel)
+        || readNullableString(data.displayPrice)
+        || readNullableString(data.price);
+    const currencyCode = readNullableString(data.currencyCode)
+        || readNullableString(data.currency);
+    const salesStatus = readMarketplaceSalesStatus(data.salesStatus)
+        || readMarketplaceSalesStatus(data.status);
+    const purchaseState = readMarketplacePurchaseState(data.purchaseState);
+
+    return {
+        productId,
+        priceLabel,
+        currencyCode,
+        salesStatus: salesStatus || undefined,
+        purchaseState: purchaseState || undefined
+    };
+}
+
+function buildMarketplaceInfo(post: RawCommunityPost): MobileCommunityMarketplaceInfo {
+    const marketplace = normalizeCommunityMarketplace(post.marketplace);
+    const productId = marketplace.productId || null;
+    const salesStatus = marketplace.salesStatus === 'unavailable'
+        ? 'unavailable'
+        : productId
+            ? 'paid'
+            : 'free';
+    const fallbackState: MobileCommunityMarketplacePurchaseState = salesStatus === 'unavailable'
+        ? 'unavailable'
+        : productId
+            ? 'locked'
+            : 'free';
+
+    return {
+        productId,
+        priceLabel: marketplace.priceLabel || (productId ? '유료 플랜' : '무료 플랜'),
+        currencyCode: marketplace.currencyCode || null,
+        salesStatus,
+        purchaseState: marketplace.purchaseState || fallbackState
+    };
 }
 
 function readDateValue(value: unknown): Date | null {
@@ -123,7 +196,8 @@ export function normalizeCommunityPost(postId: string, data: unknown): RawCommun
         authorPhoto: normalizeRemoteImageUrl(safeData.authorPhoto),
         likesCount: readNumber(safeData.likesCount),
         clonesCount: readNumber(safeData.clonesCount),
-        publishedAt: safeData.publishedAt
+        publishedAt: safeData.publishedAt,
+        marketplace: normalizeCommunityMarketplace(safeData.marketplace)
     };
 }
 
@@ -131,7 +205,8 @@ export function mapCommunityPostSummary(post: RawCommunityPost): MobileCommunity
     return {
         ...mapTripSummary(normalizeTripDocument(post.id, post) as CanonicalTripDocument),
         ...buildBaseCommunityFields(post),
-        isLiked: false
+        isLiked: false,
+        marketplace: buildMarketplaceInfo(post)
     };
 }
 
@@ -140,7 +215,8 @@ export function mapCommunityPostDetail(post: RawCommunityPost): MobileCommunityP
         id: post.id,
         trip: mapTripDetail(normalizeTripDocument(post.id, post) as CanonicalTripDocument),
         ...buildBaseCommunityFields(post),
-        isLiked: false
+        isLiked: false,
+        marketplace: buildMarketplaceInfo(post)
     };
 }
 

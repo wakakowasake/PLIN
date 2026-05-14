@@ -29,18 +29,49 @@ export function buildMemoryFileName({ dayIndex, itemIndex, timestamp, fileIndex 
     return `memory_${dayIndex}_${itemIndex}_${timestamp}_${fileIndex}.jpg`;
 }
 
-export function createMemoryEntries(uploadedUrls, comment, createdAt = new Date().toISOString()) {
-    if (!Array.isArray(uploadedUrls) || uploadedUrls.length === 0) {
+function readMemoryUrl(value) {
+    return String(value || '').trim();
+}
+
+function normalizeUploadedMemoryEntry(entry, createdAt) {
+    if (typeof entry === 'string') {
+        const photoUrl = readMemoryUrl(entry);
+        return photoUrl
+            ? {
+                photoUrl,
+                createdAt
+            }
+            : null;
+    }
+
+    if (!entry || typeof entry !== 'object') {
+        return null;
+    }
+
+    const photoUrl = readMemoryUrl(entry.photoUrl || entry.url || entry.image);
+    const thumbnailUrl = readMemoryUrl(entry.thumbnailUrl || entry.previewUrl || entry.thumbUrl);
+    const previewUrl = readMemoryUrl(entry.previewUrl || entry.thumbnailUrl || entry.thumbUrl);
+
+    if (!photoUrl) {
+        return null;
+    }
+
+    return {
+        photoUrl,
+        ...(previewUrl ? { previewUrl } : {}),
+        ...(thumbnailUrl ? { thumbnailUrl } : {}),
+        createdAt: readMemoryUrl(entry.createdAt) || createdAt
+    };
+}
+
+export function createMemoryEntries(uploadedEntries, comment, createdAt = new Date().toISOString()) {
+    if (!Array.isArray(uploadedEntries) || uploadedEntries.length === 0) {
         return [];
     }
 
-    return uploadedUrls
-        .map((url) => String(url || '').trim())
-        .filter(Boolean)
-        .map((url) => ({
-            photoUrl: url,
-            createdAt
-        }));
+    return uploadedEntries
+        .map((entry) => normalizeUploadedMemoryEntry(entry, createdAt))
+        .filter(Boolean);
 }
 
 export function appendMemoriesToItem(item, uploadedUrls, comment, createdAt) {

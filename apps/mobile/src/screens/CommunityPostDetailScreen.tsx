@@ -33,6 +33,11 @@ import { normalizeCommunityLoadError } from '@/hooks/community-load-error';
 import { useCommunityPostDetail } from '@/hooks/useCommunityPostDetail';
 import { useForegroundResumeRefresh } from '@/hooks/useForegroundResumeRefresh';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
+import {
+    isPurchaseCancelledError,
+    purchasePlanMarketplacePost,
+    restorePlanMarketplacePostPurchase
+} from '@/services/plan-marketplace-purchases';
 import { usePrimaryScrollActivityReporter } from '@/state/primary-scroll-activity';
 import { type AppTheme, useAppTheme } from '@/theme';
 import type { MobileCommunityComment } from '@/types/community';
@@ -72,6 +77,7 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
     const [interactionError, setInteractionError] = React.useState<string | null>(null);
     const [isSubmittingComment, setIsSubmittingComment] = React.useState(false);
     const [isLikeUpdating, setIsLikeUpdating] = React.useState(false);
+    const [isPurchaseUpdating, setIsPurchaseUpdating] = React.useState(false);
     const [isLiked, setIsLiked] = React.useState(false);
     const [likesCount, setLikesCount] = React.useState(0);
     const [isCommentsModalVisible, setIsCommentsModalVisible] = React.useState(false);
@@ -302,6 +308,12 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
     const isCommunityAdmin = isPlinAdminProfile(profileSummary, user);
     const isPostAuthor = Boolean(detail && user && detail.authorUid === user.uid);
     const canDeletePost = Boolean(detail && user && (isPostAuthor || isCommunityAdmin));
+    const isLockedPlan = detail?.marketplace.purchaseState === 'locked';
+    const marketplaceLabel = detail?.marketplace.purchaseState === 'owned'
+        ? '구매 완료'
+        : detail?.marketplace.productId
+            ? detail.marketplace.priceLabel || '유료 플랜'
+            : '무료 플랜';
 
     const handleRefresh = React.useCallback(async () => {
         if (loading || refreshing) {
@@ -402,8 +414,8 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
         }
 
         Alert.alert(
-            '공개 여행을 삭제할까요?',
-            `"${detail.trip.title}" 여행이 커뮤니티에서 내려가요.`,
+            '큐레이션 플랜을 삭제할까요?',
+            `"${detail.trip.title}" 플랜이 내려가요.`,
             [
                 { text: '취소', style: 'cancel' },
                 {
@@ -426,7 +438,7 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
                                 setInteractionError(
                                     error instanceof Error && error.message
                                         ? error.message
-                                        : '공개 일정을 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.'
+                                        : '큐레이션 플랜을 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.'
                                 );
                             }
                         })();
@@ -435,6 +447,64 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
             ]
         );
     }, [canDeletePost, communityRepository, detail, navigation, user]);
+
+    const handlePurchasePlan = React.useCallback(async () => {
+        if (!user?.uid || !detail?.marketplace.productId || isPurchaseUpdating) {
+            return;
+        }
+
+        setInteractionError(null);
+        setIsPurchaseUpdating(true);
+
+        try {
+            await purchasePlanMarketplacePost({
+                userId: user.uid,
+                postId: detail.id,
+                productId: detail.marketplace.productId
+            });
+            await refresh();
+            Alert.alert('구매 완료', '이제 내 여행으로 가져올 수 있어요.');
+        } catch (error) {
+            if (isPurchaseCancelledError(error)) {
+                return;
+            }
+
+            setInteractionError(
+                error instanceof Error
+                    ? error.message
+                    : '구매를 완료하지 못했어요.'
+            );
+        } finally {
+            setIsPurchaseUpdating(false);
+        }
+    }, [detail?.id, detail?.marketplace.productId, isPurchaseUpdating, refresh, user?.uid]);
+
+    const handleRestorePlanPurchase = React.useCallback(async () => {
+        if (!user?.uid || !detail?.marketplace.productId || isPurchaseUpdating) {
+            return;
+        }
+
+        setInteractionError(null);
+        setIsPurchaseUpdating(true);
+
+        try {
+            await restorePlanMarketplacePostPurchase({
+                userId: user.uid,
+                postId: detail.id,
+                productId: detail.marketplace.productId
+            });
+            await refresh();
+            Alert.alert('구매 복원 완료', '이제 내 여행으로 가져올 수 있어요.');
+        } catch (error) {
+            setInteractionError(
+                error instanceof Error
+                    ? error.message
+                    : '구매 내역을 복원하지 못했어요.'
+            );
+        } finally {
+            setIsPurchaseUpdating(false);
+        }
+    }, [detail?.id, detail?.marketplace.productId, isPurchaseUpdating, refresh, user?.uid]);
 
     const handleReportPost = React.useCallback(() => {
         if (!detail || !user || detail.authorUid === user.uid) {
@@ -480,8 +550,8 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
         Alert.alert(
             isBlocked ? '사용자 차단을 해제할까요?' : '이 사용자를 차단할까요?',
             isBlocked
-                ? `${detail.authorName}님의 커뮤니티 글을 다시 표시할게요.`
-                : `${detail.authorName}님의 글과 댓글을 내 커뮤니티에서 숨길게요.`,
+                ? `${detail.authorName}님의 플랜을 다시 표시할게요.`
+                : `${detail.authorName}님의 플랜과 댓글을 숨길게요.`,
             [
                 { text: '취소', style: 'cancel' },
                 {
@@ -563,7 +633,7 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
     });
 
     if (loading) {
-        return <LoadingView title="커뮤니티 상세 준비 중" />;
+        return <LoadingView title="플랜 상세 준비 중" />;
     }
 
     if (error) {
@@ -577,7 +647,7 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
                                     ? '세션을 다시 확인해 주세요.'
                                     : errorKind === 'network'
                                         ? '연결이 잠시 불안정해요.'
-                                        : '커뮤니티 상세를 불러오지 못했어요.'
+                                        : '플랜 상세를 불러오지 못했어요.'
                             }
                             description={error}
                             supportText={
@@ -615,8 +685,8 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
                 <View style={styles.screenBody}>
                     <View style={styles.stateContent}>
                         <EmptyState
-                            title="커뮤니티 글을 찾을 수 없어요."
-                            description="커뮤니티 목록에서 다시 선택해 주세요."
+                            title="큐레이션 플랜을 찾을 수 없어요."
+                            description="플랜 목록에서 다시 선택해 주세요."
                             actionLabel="목록으로 돌아가기"
                             onAction={() => {
                                 if (navigation.canGoBack()) {
@@ -762,6 +832,64 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
                         </View>
                     ) : null}
                 </View>
+
+                {detail.marketplace.productId ? (
+                    <View style={styles.purchaseCard}>
+                        <View style={styles.purchaseHeaderRow}>
+                            <View style={styles.purchaseCopy}>
+                                <Text style={styles.purchaseEyebrow}>PLIN 큐레이션 플랜</Text>
+                                <Text style={styles.purchaseTitle}>
+                                    {isLockedPlan ? '구매 후 내 여행으로 가져올 수 있어요.' : '내 여행으로 가져올 수 있어요.'}
+                                </Text>
+                            </View>
+                            <View style={[
+                                styles.purchaseBadge,
+                                detail.marketplace.purchaseState === 'owned' ? styles.purchaseBadgeOwned : null
+                            ]}>
+                                <Text style={[
+                                    styles.purchaseBadgeText,
+                                    detail.marketplace.purchaseState === 'owned' ? styles.purchaseBadgeOwnedText : null
+                                ]}>
+                                    {marketplaceLabel}
+                                </Text>
+                            </View>
+                        </View>
+                        {isLockedPlan ? (
+                            <View style={styles.purchaseActionRow}>
+                                <Pressable
+                                    accessibilityRole="button"
+                                    disabled={isPurchaseUpdating}
+                                    onPress={() => {
+                                        void handlePurchasePlan();
+                                    }}
+                                    style={({ pressed }) => [
+                                        styles.purchasePrimaryButton,
+                                        pressed && !isPurchaseUpdating ? styles.authorActionButtonPressed : null,
+                                        isPurchaseUpdating ? styles.purchaseButtonDisabled : null
+                                    ]}
+                                >
+                                    <Text style={styles.purchasePrimaryButtonText}>
+                                        {isPurchaseUpdating ? '처리 중...' : '구매하기'}
+                                    </Text>
+                                </Pressable>
+                                <Pressable
+                                    accessibilityRole="button"
+                                    disabled={isPurchaseUpdating}
+                                    onPress={() => {
+                                        void handleRestorePlanPurchase();
+                                    }}
+                                    style={({ pressed }) => [
+                                        styles.purchaseSecondaryButton,
+                                        pressed && !isPurchaseUpdating ? styles.authorActionButtonPressed : null,
+                                        isPurchaseUpdating ? styles.purchaseButtonDisabled : null
+                                    ]}
+                                >
+                                    <Text style={styles.purchaseSecondaryButtonText}>구매 복원</Text>
+                                </Pressable>
+                            </View>
+                        ) : null}
+                    </View>
+                ) : null}
 
                 <Pressable
                     accessibilityRole="button"
@@ -1149,6 +1277,89 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         color: theme.colors.textSecondary,
         fontSize: 12,
         fontFamily: theme.fonts.body
+    },
+    purchaseCard: {
+        marginBottom: theme.spacing.md,
+        padding: theme.spacing.sm,
+        borderRadius: theme.radius.lg,
+        backgroundColor: theme.colors.surface
+    },
+    purchaseHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        justifyContent: 'space-between',
+        gap: theme.spacing.sm
+    },
+    purchaseCopy: {
+        flex: 1
+    },
+    purchaseEyebrow: {
+        color: theme.colors.accent,
+        fontSize: 12,
+        fontFamily: theme.fonts.semibold
+    },
+    purchaseTitle: {
+        marginTop: theme.spacing.micro,
+        color: theme.colors.textPrimary,
+        fontSize: 16,
+        lineHeight: 22,
+        fontFamily: theme.fonts.bold
+    },
+    purchaseBadge: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 30,
+        paddingHorizontal: theme.spacing.xs,
+        borderRadius: theme.radius.sm,
+        backgroundColor: theme.colors.accentSoft
+    },
+    purchaseBadgeOwned: {
+        backgroundColor: theme.mode === 'dark' ? '#234139' : '#ddf4e8'
+    },
+    purchaseBadgeText: {
+        color: theme.colors.accent,
+        fontSize: 12,
+        lineHeight: 16,
+        includeFontPadding: false,
+        textAlignVertical: 'center',
+        fontFamily: theme.fonts.semibold
+    },
+    purchaseBadgeOwnedText: {
+        color: theme.mode === 'dark' ? '#9be0bf' : '#257a4e'
+    },
+    purchaseActionRow: {
+        flexDirection: 'row',
+        gap: theme.spacing.xs,
+        marginTop: theme.spacing.sm
+    },
+    purchasePrimaryButton: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 44,
+        borderRadius: theme.radius.md,
+        backgroundColor: theme.colors.accent
+    },
+    purchaseSecondaryButton: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 44,
+        paddingHorizontal: theme.spacing.sm,
+        borderRadius: theme.radius.md,
+        backgroundColor: theme.colors.surfaceMuted
+    },
+    purchaseButtonDisabled: {
+        opacity: 0.62
+    },
+    purchasePrimaryButtonText: {
+        color: '#ffffff',
+        fontSize: 14,
+        fontFamily: theme.fonts.bold
+    },
+    purchaseSecondaryButtonText: {
+        color: theme.colors.textSecondary,
+        fontSize: 14,
+        fontFamily: theme.fonts.semibold
     },
     metaRow: {
         flexDirection: 'row',

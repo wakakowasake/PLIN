@@ -1,13 +1,16 @@
 import React from 'react';
 import {
+    Animated,
     KeyboardAvoidingView,
     Modal,
+    PanResponder,
     Platform,
     Pressable,
     ScrollView,
     StyleSheet,
     Text,
     TextInput,
+    useWindowDimensions,
     View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,6 +32,8 @@ type Props = {
 
 const TITLE_MAX_LENGTH = 60;
 const BODY_MAX_LENGTH = 240;
+const SHEET_DISMISS_DRAG_DISTANCE = 96;
+const SHEET_DISMISS_VELOCITY = 0.85;
 
 export function TripAnnouncementSheet({
     visible,
@@ -42,6 +47,8 @@ export function TripAnnouncementSheet({
     const theme = useAppTheme();
     const styles = React.useMemo(() => createStyles(theme), [theme]);
     const insets = useSafeAreaInsets();
+    const { height: windowHeight } = useWindowDimensions();
+    const sheetTranslateY = React.useRef(new Animated.Value(0)).current;
     const [title, setTitle] = React.useState('');
     const [body, setBody] = React.useState('');
     const {
@@ -63,6 +70,75 @@ export function TripAnnouncementSheet({
     const isActionDisabled = busy || actionDisabled;
     const canSubmit = body.trim().length > 0 && !isActionDisabled;
 
+    const handleSubmit = React.useCallback(() => {
+        if (!canSubmit) {
+            return;
+        }
+
+        onSubmit({
+            title,
+            body
+        });
+    }, [body, canSubmit, onSubmit, title]);
+
+    const resetSheetPosition = React.useCallback(() => {
+        Animated.spring(sheetTranslateY, {
+            toValue: 0,
+            useNativeDriver: true,
+            damping: 18,
+            stiffness: 180
+        }).start();
+    }, [sheetTranslateY]);
+
+    const dismissSheetFromHandle = React.useCallback(() => {
+        Animated.timing(sheetTranslateY, {
+            toValue: windowHeight,
+            duration: 180,
+            useNativeDriver: true
+        }).start(({ finished }) => {
+            if (finished) {
+                onClose();
+            }
+        });
+    }, [onClose, sheetTranslateY, windowHeight]);
+
+    const sheetHandlePanResponder = React.useMemo(() => PanResponder.create({
+        onStartShouldSetPanResponder: () => !busy,
+        onStartShouldSetPanResponderCapture: () => !busy,
+        onMoveShouldSetPanResponder: (_event, gestureState) => (
+            !busy
+            && gestureState.dy > 2
+            && Math.abs(gestureState.dy) > Math.abs(gestureState.dx)
+        ),
+        onMoveShouldSetPanResponderCapture: (_event, gestureState) => (
+            !busy
+            && gestureState.dy > 2
+            && Math.abs(gestureState.dy) > Math.abs(gestureState.dx)
+        ),
+        onPanResponderTerminationRequest: () => false,
+        onPanResponderMove: (_event, gestureState) => {
+            sheetTranslateY.setValue(Math.max(0, gestureState.dy));
+        },
+        onPanResponderRelease: (_event, gestureState) => {
+            if (
+                gestureState.dy > SHEET_DISMISS_DRAG_DISTANCE
+                || gestureState.vy > SHEET_DISMISS_VELOCITY
+            ) {
+                dismissSheetFromHandle();
+                return;
+            }
+
+            resetSheetPosition();
+        },
+        onPanResponderTerminate: resetSheetPosition
+    }), [busy, dismissSheetFromHandle, resetSheetPosition, sheetTranslateY]);
+
+    React.useEffect(() => {
+        if (visible) {
+            sheetTranslateY.setValue(0);
+        }
+    }, [sheetTranslateY, visible]);
+
     return (
         <Modal
             animationType="slide"
@@ -78,30 +154,44 @@ export function TripAnnouncementSheet({
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={styles.backdrop}
             >
-                <Pressable
-                    accessibilityRole="button"
-                    disabled={busy}
-                    onPress={onClose}
-                    style={StyleSheet.absoluteFill}
-                />
-                <View
+                <Pressable style={StyleSheet.absoluteFill} />
+                <Animated.View
                     style={[
                         styles.sheet,
                         {
                             paddingTop: insets.top + theme.spacing.sm,
-                            paddingBottom: insets.bottom + theme.spacing.md
+                            paddingBottom: insets.bottom + theme.spacing.md,
+                            transform: [{ translateY: sheetTranslateY }]
                         }
                     ]}
                 >
-                    <View style={styles.handle} />
+                    <View
+                        {...sheetHandlePanResponder.panHandlers}
+                        collapsable={false}
+                        style={styles.handleTouch}
+                    >
+                        <View style={styles.handle} />
+                    </View>
                     <View style={styles.headerRow}>
                         <SheetBackButton disabled={busy} onPress={onClose} />
                         <View style={styles.headerCopy}>
-                            <Text style={styles.eyebrow}>참가자 공지</Text>
-                            <Text style={styles.title}>참가자에게 공지 보내기</Text>
-                            <Text style={styles.description}>
-                                {tripTitle || '이 여행'} 참가자에게 바로 알림을 보낼 수 있어요.
-                            </Text>
+                            <Text numberOfLines={1} style={styles.title}>참가자 공지</Text>
+                        </View>
+                        <View style={styles.headerActions}>
+                            <Pressable
+                                accessibilityRole="button"
+                                disabled={!canSubmit}
+                                onPress={handleSubmit}
+                                style={({ pressed }) => [
+                                    styles.sendButton,
+                                    !canSubmit ? styles.sendButtonDisabled : null,
+                                    pressed && canSubmit ? styles.buttonPressed : null
+                                ]}
+                            >
+                                <Text style={styles.sendButtonText}>
+                                    {busy ? '전송 중' : '보내기'}
+                                </Text>
+                            </Pressable>
                         </View>
                     </View>
 
@@ -156,44 +246,7 @@ export function TripAnnouncementSheet({
                             </View>
                         ) : null}
                     </ScrollView>
-
-                    <View style={styles.footer}>
-                        <Pressable
-                            accessibilityRole="button"
-                            disabled={busy}
-                            onPress={onClose}
-                            style={({ pressed }) => [
-                                styles.secondaryButton,
-                                pressed && !busy ? styles.buttonPressed : null
-                            ]}
-                        >
-                            <Text style={styles.secondaryButtonText}>닫기</Text>
-                        </Pressable>
-                        <Pressable
-                            accessibilityRole="button"
-                            disabled={!canSubmit}
-                            onPress={() => {
-                                if (!canSubmit) {
-                                    return;
-                                }
-
-                                onSubmit({
-                                    title,
-                                    body
-                                });
-                            }}
-                            style={({ pressed }) => [
-                                styles.primaryButton,
-                                !canSubmit ? styles.primaryButtonDisabled : null,
-                                pressed && canSubmit ? styles.buttonPressed : null
-                            ]}
-                            >
-                            <Text style={styles.primaryButtonText}>
-                                {busy ? '공지 보내는 중...' : '공지 보내기'}
-                            </Text>
-                        </Pressable>
-                    </View>
-                </View>
+                </Animated.View>
             </KeyboardAvoidingView>
         </Modal>
     );
@@ -214,40 +267,38 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         paddingHorizontal: theme.spacing.md,
         paddingTop: theme.spacing.sm
     },
-    handle: {
+    handleTouch: {
         alignSelf: 'center',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: theme.spacing.xl,
+        paddingTop: theme.spacing.xs,
+        paddingBottom: theme.spacing.xs
+    },
+    handle: {
         width: 44,
         height: 5,
         borderRadius: theme.radius.full,
-        backgroundColor: theme.colors.border,
-        marginBottom: theme.spacing.sm
+        backgroundColor: theme.colors.border
     },
     headerRow: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         gap: theme.spacing.xs
     },
     headerCopy: {
-        flex: 1
+        flex: 1,
+        justifyContent: 'center',
+        minHeight: theme.spacing.xl
     },
-    eyebrow: {
-        color: theme.colors.accent,
-        fontFamily: theme.fonts.semibold,
-        fontSize: 12,
-        textTransform: 'uppercase'
+    headerActions: {
+        alignItems: 'flex-end'
     },
     title: {
-        marginTop: theme.spacing.xs,
         color: theme.colors.textPrimary,
-        fontFamily: theme.fonts.display,
-        fontSize: 26
-    },
-    description: {
-        marginTop: theme.spacing.xs,
-        color: theme.colors.textSecondary,
-        fontFamily: theme.fonts.body,
-        fontSize: 14,
-        lineHeight: 21
+        fontFamily: theme.fonts.bold,
+        fontSize: 18,
+        lineHeight: 24
     },
     content: {
         paddingTop: theme.spacing.md,
@@ -305,39 +356,21 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         fontSize: 13,
         lineHeight: 19
     },
-    footer: {
-        flexDirection: 'row',
-        gap: theme.spacing.xs,
-        paddingTop: theme.spacing.md
-    },
-    secondaryButton: {
-        flex: 1,
+    sendButton: {
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: 52,
+        minHeight: 40,
         borderRadius: theme.radius.md,
-        backgroundColor: theme.colors.background
+        backgroundColor: theme.colors.accent,
+        paddingHorizontal: theme.spacing.sm
     },
-    secondaryButtonText: {
-        color: theme.colors.textPrimary,
-        fontFamily: theme.fonts.semibold,
-        fontSize: 15
-    },
-    primaryButton: {
-        flex: 1.4,
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: 52,
-        borderRadius: theme.radius.md,
-        backgroundColor: theme.colors.accent
-    },
-    primaryButtonDisabled: {
+    sendButtonDisabled: {
         opacity: 0.45
     },
-    primaryButtonText: {
+    sendButtonText: {
         color: '#ffffff',
         fontFamily: theme.fonts.semibold,
-        fontSize: 15
+        fontSize: 14
     },
     buttonPressed: {
         opacity: 0.8

@@ -30,11 +30,11 @@ import {
 import { type AppTheme, useAppTheme } from '@/theme';
 import { type AuthProvider } from '@/types/auth';
 
-const TERMS_URL = 'https://plin.ink/terms.html';
-const PRIVACY_URL = 'https://plin.ink/privacy.html';
-const LOCATION_TERMS_URL = 'https://plin.ink/location-terms.html';
-const OPERATION_POLICY_URL = 'https://plin.ink/operation-policy.html';
-const YOUTH_PROTECTION_POLICY_URL = 'https://plin.ink/youth-protection-policy.html';
+const TERMS_URL = 'https://plin.ink/terms';
+const PRIVACY_URL = 'https://plin.ink/privacy';
+const LOCATION_TERMS_URL = 'https://plin.ink/location-terms';
+const OPERATION_POLICY_URL = 'https://plin.ink/operation-policy';
+const YOUTH_PROTECTION_POLICY_URL = 'https://plin.ink/youth-protection-policy';
 const KAKAO_SUPPORT_CHAT_URL = 'http://pf.kakao.com/_duxdTX/chat';
 const GOOGLE_CI_TRANSPARENT = require('../../assets/images/auth/google-ci-transparent.png');
 const KAKAO_CI_TRANSPARENT = require('../../assets/images/auth/kakao-ci-transparent.png');

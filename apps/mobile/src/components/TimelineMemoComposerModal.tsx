@@ -24,8 +24,6 @@ import { SheetBackButton } from './SheetBackButton';
 
 type Props = {
     visible: boolean;
-    dayLabel: string;
-    dayDate: string;
     targetTitle: string;
     defaultTime: string;
     isSaving: boolean;
@@ -52,8 +50,6 @@ const SHEET_DISMISS_VELOCITY = 0.85;
 
 export function TimelineMemoComposerModal({
     visible,
-    dayLabel,
-    dayDate,
     targetTitle,
     defaultTime,
     isSaving,
@@ -193,11 +189,7 @@ export function TimelineMemoComposerModal({
                         <View style={styles.header}>
                             <SheetBackButton disabled={isSaving} onPress={onClose} />
                             <View style={styles.headerCopy}>
-                                <Text style={styles.headerLabel}>여행 일정 수정</Text>
-                                <Text style={styles.headerTitle}>위 일정에 메모 붙이기</Text>
-                                <Text style={styles.headerMeta}>
-                                    {dayLabel} · {dayDate}
-                                </Text>
+                                <Text numberOfLines={1} style={styles.headerTitle}>메모 추가</Text>
                             </View>
                             <Pressable
                                 accessibilityRole="button"
@@ -293,36 +285,27 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     },
     header: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         justifyContent: 'space-between',
         gap: theme.spacing.xs,
         paddingHorizontal: theme.spacing.sm,
-        paddingTop: theme.spacing.sm,
+        paddingTop: theme.spacing.xs,
         paddingBottom: theme.spacing.xs
     },
     headerCopy: {
         flex: 1,
+        justifyContent: 'center',
+        minHeight: theme.spacing.xl,
         paddingRight: theme.spacing.sm
     },
-    headerLabel: {
-        color: theme.colors.textSecondary,
-        fontSize: 12,
+    headerTitle: {
+        color: theme.colors.textPrimary,
+        fontSize: 18,
+        lineHeight: 24,
         fontFamily: theme.fonts.bold
     },
-    headerTitle: {
-        marginTop: theme.spacing.xs,
-        color: theme.colors.textPrimary,
-        fontSize: 24,
-        lineHeight: 30,
-        fontFamily: theme.fonts.display
-    },
-    headerMeta: {
-        marginTop: theme.spacing.micro,
-        color: theme.colors.textSecondary,
-        fontFamily: theme.fonts.body
-    },
     saveButton: {
-        borderRadius: theme.radius.sm,
+        borderRadius: theme.radius.md,
         paddingHorizontal: theme.spacing.sm,
         paddingVertical: theme.spacing.xs,
         backgroundColor: theme.colors.accent

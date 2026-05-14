@@ -233,7 +233,7 @@ export class MockCommunityRepository implements CommunityRepository {
         }
 
         if (!trip?.id) {
-            throw new Error('게시할 여행을 찾을 수 없어요.');
+            throw new Error('업로드할 여행을 찾을 수 없어요.');
         }
 
         MOCK_COMMUNITY_POSTS.unshift(buildMockCommunityPostFromTrip(userId, trip));
@@ -279,7 +279,7 @@ export class MockCommunityRepository implements CommunityRepository {
         const post = MOCK_COMMUNITY_POSTS.find((item) => item.id === postId);
 
         if (!post) {
-            throw new Error('커뮤니티 글을 찾을 수 없어요.');
+            throw new Error('큐레이션 플랜을 찾을 수 없어요.');
         }
 
         const likedSet = mockLikedPostsByUser.get(userId) || new Set<string>();
@@ -303,7 +303,7 @@ export class MockCommunityRepository implements CommunityRepository {
         await delay(80);
 
         if (!postId || !reason) {
-            throw new Error('신고할 공개 일정을 찾을 수 없어요.');
+            throw new Error('신고할 큐레이션 플랜을 찾을 수 없어요.');
         }
     }
 
@@ -343,17 +343,17 @@ export class MockCommunityRepository implements CommunityRepository {
         await delay(140);
 
         if (!userId || !postId) {
-            throw new Error('삭제할 공개 일정을 찾을 수 없어요.');
+            throw new Error('삭제할 큐레이션 플랜을 찾을 수 없어요.');
         }
 
         const postIndex = MOCK_COMMUNITY_POSTS.findIndex((item) => item.id === postId);
         if (postIndex < 0) {
-            throw new Error('삭제할 공개 일정을 찾을 수 없어요.');
+            throw new Error('삭제할 큐레이션 플랜을 찾을 수 없어요.');
         }
 
         const post = MOCK_COMMUNITY_POSTS[postIndex];
         if ((post.authorUid || '') !== userId) {
-            throw new Error('작성자 본인만 공개 일정을 삭제할 수 있어요.');
+            throw new Error('작성자 본인만 큐레이션 플랜을 삭제할 수 있어요.');
         }
 
         MOCK_COMMUNITY_POSTS.splice(postIndex, 1);
@@ -379,7 +379,7 @@ export class MockCommunityRepository implements CommunityRepository {
 
         const post = MOCK_COMMUNITY_POSTS.find((item) => item.id === postId);
         if (!post) {
-            throw new Error('가져올 공개 일정을 찾을 수 없어요.');
+            throw new Error('가져올 큐레이션 플랜을 찾을 수 없어요.');
         }
 
         const canonicalTrip = normalizeTripDocument(post.id, post) as CanonicalTripDocument;

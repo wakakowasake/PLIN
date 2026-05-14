@@ -20,10 +20,6 @@ import { SheetBackButton } from './SheetBackButton';
 
 type Props = {
     visible: boolean;
-    dayLabel: string;
-    dayDate: string;
-    originLabel: string;
-    destinationLabel: string;
     loading: boolean;
     isSaving: boolean;
     routeOptions: MobileQuickRouteOption[];
@@ -122,10 +118,6 @@ function formatRouteChipIconLabel(icon: string) {
 
 export function TimelineQuickRoutePickerModal({
     visible,
-    dayLabel,
-    dayDate,
-    originLabel,
-    destinationLabel,
     loading,
     isSaving,
     routeOptions,
@@ -228,14 +220,7 @@ export function TimelineQuickRoutePickerModal({
                     <View style={styles.header}>
                         <SheetBackButton disabled={isSaving} onPress={onClose} />
                         <View style={styles.headerCopy}>
-                            <Text style={styles.headerLabel}>자동 추천 경로 추가</Text>
-                            <Text style={styles.headerTitle}>이동 카드를 골라서 넣을까요?</Text>
-                            <Text style={styles.headerMeta}>
-                                {dayLabel} · {dayDate}
-                            </Text>
-                            <Text style={styles.headerRoute}>
-                                {originLabel || '출발지'} → {destinationLabel || '도착지'}
-                            </Text>
+                            <Text numberOfLines={1} style={styles.headerTitle}>추천 경로 선택</Text>
                         </View>
                     </View>
 
@@ -352,38 +337,24 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     },
     header: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         justifyContent: 'space-between',
         gap: theme.spacing.xs,
         paddingHorizontal: theme.spacing.sm,
-        paddingTop: theme.spacing.sm,
+        paddingTop: theme.spacing.xs,
         paddingBottom: theme.spacing.xs
     },
     headerCopy: {
         flex: 1,
+        justifyContent: 'center',
+        minHeight: theme.spacing.xl,
         paddingRight: theme.spacing.sm
     },
-    headerLabel: {
-        color: theme.colors.textSecondary,
-        fontSize: 12,
-        fontFamily: theme.fonts.bold
-    },
     headerTitle: {
-        marginTop: theme.spacing.xs,
         color: theme.colors.textPrimary,
-        fontSize: 24,
-        lineHeight: 30,
-        fontFamily: theme.fonts.display
-    },
-    headerMeta: {
-        marginTop: theme.spacing.micro,
-        color: theme.colors.textSecondary,
-        fontFamily: theme.fonts.body
-    },
-    headerRoute: {
-        marginTop: theme.spacing.micro,
-        color: theme.colors.textPrimary,
-        fontFamily: theme.fonts.semibold
+        fontSize: 18,
+        lineHeight: 24,
+        fontFamily: theme.fonts.bold
     },
     loadingCard: {
         marginHorizontal: theme.spacing.sm,

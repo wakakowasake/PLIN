@@ -5,6 +5,7 @@
   },
   "hosting": {
     "public": "dist",
+    "cleanUrls": true,
     "ignore": [
       "firebase.json",
       "**/.*",
@@ -12,13 +13,7 @@
       "!**/.well-known/**",
       "node_modules/**"
     ],
-    "redirects": [
-      {
-        "source": "/account-delete",
-        "destination": "/account-delete.html",
-        "type": 301
-      }
-    ],
+    "redirects": [],
     "rewrites": [
       {
         "source": "/m",

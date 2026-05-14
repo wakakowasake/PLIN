@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 import type { MobileBudgetSummary, MobileTripDetail } from '@/types/trip';
+import { buildCachedImageSource } from '@/utils/image-cache';
 
 type TripDetailSummarySectionStyles = {
     listEmptyText: StyleProp<TextStyle>;
@@ -50,7 +51,7 @@ type BudgetSummarySectionProps = {
 type PhotoSummarySectionProps = {
     canEditContent: boolean;
     canQuickAddMemory: boolean;
-    detail: Pick<MobileTripDetail, 'id' | 'photoCount' | 'photoGalleryUrls'>;
+    detail: Pick<MobileTripDetail, 'id' | 'photoCount' | 'photoGalleryUrls' | 'photoPreviewUrls'>;
     firstMemoryQuickAddTargetExists: boolean;
     onOpenPhotoGallery(): void;
     onOpenQuickMemoryComposer(): void;
@@ -142,6 +143,10 @@ export function TripDetailPhotoSummarySection({
     styles
 }: PhotoSummarySectionProps) {
     if (detail.photoCount > 0) {
+        const previewUrls = detail.photoPreviewUrls.length > 0
+            ? detail.photoPreviewUrls
+            : detail.photoGalleryUrls.slice(0, 3);
+
         return (
             <View style={styles.summaryCard}>
                 <View style={styles.summaryHeaderRow}>
@@ -165,22 +170,23 @@ export function TripDetailPhotoSummarySection({
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.photoStrip}
                 >
-                    {detail.photoGalleryUrls.map((url, index) => (
+                    {previewUrls.map((url, index) => (
                         <Pressable
                             key={`${detail.id}-trip-photo-${index}`}
                             accessibilityRole="button"
                             accessibilityLabel={`추억 사진 ${index + 1}번 보기`}
                             onPress={() => {
-                                onOpenSummaryPhotoViewer(index);
+                                const galleryIndex = detail.photoGalleryUrls.indexOf(url);
+                                onOpenSummaryPhotoViewer(galleryIndex >= 0 ? galleryIndex : index);
                             }}
                             style={({ pressed }) => [
                                 styles.tripPhotoPreview,
-                                index < detail.photoGalleryUrls.length - 1 ? styles.tripPhotoPreviewSpaced : null,
+                                index < previewUrls.length - 1 ? styles.tripPhotoPreviewSpaced : null,
                                 pressed ? styles.tripPhotoPreviewPressed : null
                             ]}
                         >
                             <Image
-                                source={{ uri: url }}
+                                source={buildCachedImageSource(url)}
                                 style={styles.tripPhotoPreviewImage}
                             />
                         </Pressable>

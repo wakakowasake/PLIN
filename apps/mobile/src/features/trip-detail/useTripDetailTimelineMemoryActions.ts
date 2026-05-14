@@ -53,12 +53,13 @@ export function useTripDetailTimelineMemoryActions({
             setSaving(true);
             setError(null);
 
-            const uploadedPhotoUrls = await uploadTripMemoryAssets({
+            const uploadedMemoryEntries = await uploadTripMemoryAssets({
                 tripId,
                 dayIndex: target.dayIndex,
                 itemIndex: target.itemIndex,
                 assets: input.assets
             });
+            const createdAt = new Date().toISOString();
             const updatedTrip = await tripRepository.appendTimelineItemMemories(
                 userId,
                 tripId,
@@ -66,8 +67,9 @@ export function useTripDetailTimelineMemoryActions({
                 target.itemId,
                 target.itemIndex,
                 {
-                    uploadedPhotoUrls,
-                    createdAt: new Date().toISOString()
+                    uploadedPhotoUrls: uploadedMemoryEntries.map((entry) => entry.photoUrl),
+                    uploadedMemoryEntries,
+                    createdAt
                 }
             );
 

@@ -232,24 +232,28 @@ export function ensureItemDetailModal() {
                 <div class="timeline-detail-handle"></div>
             </div>
             <div class="timeline-detail-header shrink-0">
+                <button type="button" data-action="close-detail" class="timeline-detail-back-button" title="목록으로">
+                    <span class="material-symbols-outlined">arrow_back</span>
+                </button>
                 <div class="timeline-detail-header-copy">
-                    <span id="detail-tag" class="timeline-detail-badge">태그</span>
-                    <h2 id="detail-title" class="timeline-detail-title">제목</h2>
-                    <p id="detail-day-meta" class="timeline-detail-meta">일정 정보</p>
+                    <h2 id="detail-header-title" class="timeline-detail-header-title">일정 상세</h2>
                 </div>
                 <div id="detail-action-buttons" class="timeline-detail-actions">
                     <button type="button" data-action="delete-current-item" class="timeline-detail-delete-button hidden" title="삭제">삭제</button>
                     <button type="button" data-action="edit-current-item" class="timeline-detail-edit-button hidden" title="수정">수정</button>
-                    <button type="button" data-action="close-detail" class="timeline-detail-close-button" title="닫기">
-                        <span class="material-symbols-outlined">close</span>
-                    </button>
                 </div>
             </div>
 
             <div id="detail-content" class="timeline-detail-content flex-1 overflow-y-auto">
                 <div class="timeline-detail-body">
-                    <div class="timeline-detail-stats-row">
-                        <span id="detail-time" class="timeline-detail-stat-pill">시간</span>
+                    <div class="timeline-detail-summary-card">
+                        <h3 id="detail-title" class="timeline-detail-summary-title">제목</h3>
+                        <div class="timeline-detail-meta-row">
+                            <span id="detail-tag" class="timeline-detail-stat-pill">태그</span>
+                            <span id="detail-day-meta" class="timeline-detail-stat-pill">일정 정보</span>
+                            <span id="detail-time" class="timeline-detail-stat-pill">시간</span>
+                            <span id="detail-expense-pill" class="timeline-detail-stat-pill hidden">지출</span>
+                        </div>
                     </div>
 
                     <div id="detail-map-section" class="timeline-detail-section timeline-detail-map-section hidden">
@@ -264,7 +268,7 @@ export function ensureItemDetailModal() {
                     </div>
 
                     <div class="timeline-detail-section" ondblclick="enablePlaceNoteEdit()">
-                        <h4 class="timeline-detail-section-label">메모</h4>
+                        <h4 class="timeline-detail-section-label">메모 / 설명</h4>
                         <textarea id="detail-note" class="timeline-detail-note" rows="4" placeholder="등록된 메모가 아직 없어요." onchange="updateItemNote(this.value)" readonly></textarea>
                     </div>
 
@@ -273,9 +277,12 @@ export function ensureItemDetailModal() {
                         <div id="detail-memories-list" class="timeline-detail-memory-list"></div>
                     </div>
 
-                    <div class="timeline-detail-section">
+                    <div id="detail-expense-section" class="timeline-detail-section">
                         <div class="timeline-detail-section-header">
-                            <h4 class="timeline-detail-section-label">지출</h4>
+                            <div>
+                                <h4 class="timeline-detail-section-label">지출 내역</h4>
+                                <p id="detail-expense-support" class="timeline-detail-section-support">지출 내역이 없습니다.</p>
+                            </div>
                             <button type="button" id="detail-add-expense-btn" class="timeline-detail-secondary-action">추가</button>
                         </div>
                         <div id="detail-expense-list" class="timeline-detail-expense-list"></div>
@@ -285,10 +292,10 @@ export function ensureItemDetailModal() {
                         </div>
                     </div>
 
-                    <div class="timeline-detail-section">
+                    <div id="detail-attachment-section" class="timeline-detail-section">
                         <div class="timeline-detail-section-header">
-                            <h4 class="timeline-detail-section-label">첨부</h4>
-                            <button type="button" onclick="document.getElementById('attachment-upload-item').click()" class="timeline-detail-muted-action">추가</button>
+                            <h4 class="timeline-detail-section-label">첨부 파일</h4>
+                            <button type="button" id="detail-add-attachment-btn" onclick="document.getElementById('attachment-upload-item').click()" class="timeline-detail-muted-action">추가</button>
                             <input type="file" id="attachment-upload-item" class="hidden" accept="image/*,application/pdf" onchange="handleAttachmentUpload(this, 'item')">
                         </div>
                         <div id="detail-attachment-list" class="timeline-detail-attachment-list"></div>

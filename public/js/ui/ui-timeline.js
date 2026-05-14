@@ -580,12 +580,13 @@ export function viewTimelineItem(index, dayIndex = getCurrentDayIndex()) {
     injectedHandlers.pushModalState?.();
     injectedHandlers.lockBodyScroll?.();
 
+    const isGlobalEditMode = typeof injectedHandlers.getIsGlobalEditMode === 'function'
+        ? Boolean(injectedHandlers.getIsGlobalEditMode())
+        : Boolean(window.isGlobalEditMode);
+
     // 수정/삭제 버튼 hidden 클래스 토글 (event delegation으로 처리)
     const actionButtons = document.getElementById('detail-action-buttons');
     if (actionButtons) {
-        const isGlobalEditMode = typeof injectedHandlers.getIsGlobalEditMode === 'function'
-            ? Boolean(injectedHandlers.getIsGlobalEditMode())
-            : Boolean(window.isGlobalEditMode);
         const editBtn = actionButtons.querySelector('button[data-action="edit-current-item"]');
         const deleteBtn = actionButtons.querySelector('button[data-action="delete-current-item"]');
 
@@ -601,14 +602,49 @@ export function viewTimelineItem(index, dayIndex = getCurrentDayIndex()) {
     }
 
     // 콘텐츠 채우기
-    document.getElementById('detail-tag').innerText = item.tag || '기타';
+    const day = travelData.days[dayIndex];
+    const dayMeta = `${dayIndex + 1}일차${day?.date ? ` · ${day.date}` : ''}`;
     const durationText = item.duration !== undefined ? ` (${item.duration}분 체류)` : '';
-    document.getElementById('detail-time').innerText = item.time + durationText;
-    document.getElementById('detail-title').innerText = item.title;
+    const timeLabel = item.time ? item.time + durationText : '시간 미정';
+    const itemTitle = String(item.title || '').trim() || String(item.tag || '').trim() || '일정 상세';
+    const expenseItems = Array.isArray(item.expenses) ? item.expenses : [];
+    const calculatedExpenseTotal = expenseItems.reduce((sum, expense) => (
+        sum + (Number(expense?.amount) || 0)
+    ), 0);
+    const expenseTotal = calculatedExpenseTotal || Number(item.budget || 0);
+    const hasExpenseValue = expenseItems.length > 0 || expenseTotal > 0;
+    const expenseSummary = expenseItems.length > 0
+        ? `총 ${expenseItems.length}건 · 비용 ₩${Math.round(expenseTotal).toLocaleString()}`
+        : (
+            expenseTotal > 0
+                ? `비용 ₩${Math.round(expenseTotal).toLocaleString()}`
+                : '지출 내역이 없습니다.'
+        );
+    const hasAttachments = Array.isArray(item.attachments) && item.attachments.length > 0;
+    const hasMemories = Array.isArray(item.memories) && item.memories.length > 0;
+
+    const headerTitleEl = document.getElementById('detail-header-title');
+    if (headerTitleEl) headerTitleEl.innerText = '일정 상세';
+
+    document.getElementById('detail-tag').innerText = item.tag || '기타';
+    document.getElementById('detail-time').innerText = timeLabel;
+    document.getElementById('detail-title').innerText = itemTitle;
     const dayMetaEl = document.getElementById('detail-day-meta');
     if (dayMetaEl) {
-        const day = travelData.days[dayIndex];
-        dayMetaEl.innerText = `${dayIndex + 1}일차${day?.date ? ` · ${day.date}` : ''}`;
+        dayMetaEl.innerText = dayMeta;
+    }
+    const expensePillEl = document.getElementById('detail-expense-pill');
+    if (expensePillEl) {
+        if (hasExpenseValue) {
+            expensePillEl.innerText = `지출 ₩${Math.round(expenseTotal).toLocaleString()}`;
+            expensePillEl.classList.remove('hidden');
+        } else {
+            expensePillEl.classList.add('hidden');
+        }
+    }
+    const expenseSupportEl = document.getElementById('detail-expense-support');
+    if (expenseSupportEl) {
+        expenseSupportEl.innerText = expenseSummary;
     }
     document.getElementById('detail-location-text').innerText = item.location || '위치 정보 없음';
     document.getElementById('detail-note').value = item.note || '';
@@ -616,18 +652,38 @@ export function viewTimelineItem(index, dayIndex = getCurrentDayIndex()) {
 
     document.getElementById('detail-total-budget').value = (item.budget || 0).toLocaleString();
     injectedHandlers.renderExpenseList?.(item);
+    document.getElementById('detail-expense-list')?.classList.toggle('is-readonly', !isGlobalEditMode);
 
     // 추억(Memories) 렌더링
     const memSection = document.getElementById('detail-memories-section');
     if (memSection) {
-        memSection.classList.remove('hidden');
-        if (Memories.renderMemoriesList) {
+        if (hasMemories || isGlobalEditMode) {
+            memSection.classList.remove('hidden');
+        } else {
+            memSection.classList.add('hidden');
+        }
+        if (!memSection.classList.contains('hidden') && Memories.renderMemoriesList) {
             Memories.renderMemoriesList('detail-memories-list', item, index, dayIndex);
         }
+        const memoryAddButton = memSection.querySelector('#detail-memories-list-header-wrapper button');
+        memoryAddButton?.classList.toggle('hidden', !isGlobalEditMode);
+    }
+
+    const addExpenseButton = document.getElementById('detail-add-expense-btn');
+    addExpenseButton?.classList.toggle('hidden', !isGlobalEditMode);
+    const expenseSection = document.getElementById('detail-expense-section');
+    if (expenseSection) {
+        expenseSection.classList.toggle('hidden', !hasExpenseValue && !isGlobalEditMode);
     }
 
     // 첨부파일 렌더링
     injectedHandlers.renderAttachments?.(item, 'detail-attachment-list');
+    const addAttachmentButton = document.getElementById('detail-add-attachment-btn');
+    addAttachmentButton?.classList.toggle('hidden', !isGlobalEditMode);
+    const attachmentSection = document.getElementById('detail-attachment-section');
+    if (attachmentSection) {
+        attachmentSection.classList.toggle('hidden', !hasAttachments && !isGlobalEditMode);
+    }
 
     // 지도 표시 (위치 정보가 있을 때만)
     const mapSection = document.getElementById('detail-map-section');

@@ -191,6 +191,7 @@ export function DaySection({
                                             hideDivider={canAddItem}
                                             hasReminderIndicator={!isTimelineEditMode && itemHasReminder}
                                             onPress={onSelectItem ? () => onSelectItem(day, item, index) : undefined}
+                                            photoPreviewLoadIndex={index}
                                             moveControls={canMoveItem ? {
                                                 canMoveUp: index > 0,
                                                 canMoveDown: index < day.items.length - 1,

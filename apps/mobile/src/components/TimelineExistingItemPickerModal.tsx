@@ -145,11 +145,7 @@ export function TimelineExistingItemPickerModal({
                     <View style={styles.header}>
                         <SheetBackButton disabled={isSaving} onPress={onClose} />
                         <View style={styles.headerCopy}>
-                            <Text style={styles.headerLabel}>기존 일정 추가</Text>
-                            <Text style={styles.headerTitle}>어떤 일정을 가져올까요?</Text>
-                            <Text style={styles.headerMeta}>
-                                가져온 카드는 현재 위치에 새 일정으로 추가돼요.
-                            </Text>
+                            <Text numberOfLines={1} style={styles.headerTitle}>기존 일정 가져오기</Text>
                         </View>
                     </View>
 
@@ -234,33 +230,24 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     },
     header: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         justifyContent: 'space-between',
         gap: theme.spacing.xs,
         paddingHorizontal: theme.spacing.sm,
-        paddingTop: theme.spacing.sm,
+        paddingTop: theme.spacing.xs,
         paddingBottom: theme.spacing.xs
     },
     headerCopy: {
         flex: 1,
+        justifyContent: 'center',
+        minHeight: theme.spacing.xl,
         paddingRight: theme.spacing.sm
     },
-    headerLabel: {
-        color: theme.colors.textSecondary,
-        fontSize: 12,
-        fontFamily: theme.fonts.bold
-    },
     headerTitle: {
-        marginTop: theme.spacing.xs,
         color: theme.colors.textPrimary,
-        fontSize: 24,
-        lineHeight: 30,
-        fontFamily: theme.fonts.display
-    },
-    headerMeta: {
-        marginTop: theme.spacing.micro,
-        color: theme.colors.textSecondary,
-        fontFamily: theme.fonts.body
+        fontSize: 18,
+        lineHeight: 24,
+        fontFamily: theme.fonts.bold
     },
     noticeCard: {
         marginHorizontal: theme.spacing.sm,

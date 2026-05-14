@@ -31,19 +31,19 @@ export function renderExpenseList(item, state = {}) {
 
         total += Number(amount);
         html += `
-        <div class="flex justify-between items-center bg-gray-50 dark:bg-gray-800 p-2 rounded-lg group">
-            <div class="flex items-center gap-2">
-                <span class="text-sm text-gray-700 dark:text-gray-300">${escapeHtml(description)}</span>
+        <div class="timeline-detail-expense-row group">
+            <div class="timeline-detail-expense-copy">
+                <span class="timeline-detail-expense-title">${escapeHtml(description)}</span>
             </div>
-            <div class="flex items-center gap-3">
-                <span class="text-sm font-bold text-text-main dark:text-white">₩${Number(amount).toLocaleString()}</span>
-                <button type="button" onclick="window.deleteExpenseItem(${idx})" class="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><span class="material-symbols-outlined text-sm">delete</span></button>
+            <div class="timeline-detail-expense-trailing">
+                <span class="timeline-detail-expense-amount">₩${Number(amount).toLocaleString()}</span>
+                <button type="button" onclick="window.deleteExpenseItem(${idx})" class="timeline-detail-expense-delete"><span class="material-symbols-outlined text-sm">delete</span></button>
             </div>
         </div>`;
     });
 
     if (expenses.length === 0) {
-        html = '<p class="text-xs text-gray-400 text-center py-2">지출 내역이 없습니다.</p>';
+        html = '<p class="timeline-detail-empty-text">지출 내역이 없습니다.</p>';
     }
 
     listEl.innerHTML = html;

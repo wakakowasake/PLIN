@@ -95,42 +95,42 @@ function buildSettingsModal() {
                         <p class="text-xs text-gray-500 dark:text-gray-400">정책 문서와 계정 삭제 요청 페이지로 이동할 수 있어요</p>
                     </div>
                     <div class="grid gap-2">
-                        <a href="/account-delete.html" class="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 dark:border-gray-700 bg-white/80 dark:bg-gray-900/40 px-4 py-3 text-sm font-bold text-text-main dark:text-white hover:bg-orange-50 dark:hover:bg-primary/10 transition-colors">
+                        <a href="/account-delete" class="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 dark:border-gray-700 bg-white/80 dark:bg-gray-900/40 px-4 py-3 text-sm font-bold text-text-main dark:text-white hover:bg-orange-50 dark:hover:bg-primary/10 transition-colors">
                             <span class="flex min-w-0 items-center gap-3">
                                 <span class="material-symbols-outlined text-primary text-[20px]">manage_accounts</span>
                                 <span class="truncate">계정 삭제 요청</span>
                             </span>
                             <span class="material-symbols-outlined text-gray-400 text-[18px]">chevron_right</span>
                         </a>
-                        <a href="/terms.html" class="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 dark:border-gray-700 bg-white/80 dark:bg-gray-900/40 px-4 py-3 text-sm font-bold text-text-main dark:text-white hover:bg-orange-50 dark:hover:bg-primary/10 transition-colors">
+                        <a href="/terms" class="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 dark:border-gray-700 bg-white/80 dark:bg-gray-900/40 px-4 py-3 text-sm font-bold text-text-main dark:text-white hover:bg-orange-50 dark:hover:bg-primary/10 transition-colors">
                             <span class="flex min-w-0 items-center gap-3">
                                 <span class="material-symbols-outlined text-primary text-[20px]">description</span>
                                 <span class="truncate">서비스 이용약관</span>
                             </span>
                             <span class="material-symbols-outlined text-gray-400 text-[18px]">chevron_right</span>
                         </a>
-                        <a href="/privacy.html" class="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 dark:border-gray-700 bg-white/80 dark:bg-gray-900/40 px-4 py-3 text-sm font-bold text-text-main dark:text-white hover:bg-orange-50 dark:hover:bg-primary/10 transition-colors">
+                        <a href="/privacy" class="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 dark:border-gray-700 bg-white/80 dark:bg-gray-900/40 px-4 py-3 text-sm font-bold text-text-main dark:text-white hover:bg-orange-50 dark:hover:bg-primary/10 transition-colors">
                             <span class="flex min-w-0 items-center gap-3">
                                 <span class="material-symbols-outlined text-primary text-[20px]">privacy_tip</span>
                                 <span class="truncate">개인정보처리방침</span>
                             </span>
                             <span class="material-symbols-outlined text-gray-400 text-[18px]">chevron_right</span>
                         </a>
-                        <a href="/location-terms.html" class="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 dark:border-gray-700 bg-white/80 dark:bg-gray-900/40 px-4 py-3 text-sm font-bold text-text-main dark:text-white hover:bg-orange-50 dark:hover:bg-primary/10 transition-colors">
+                        <a href="/location-terms" class="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 dark:border-gray-700 bg-white/80 dark:bg-gray-900/40 px-4 py-3 text-sm font-bold text-text-main dark:text-white hover:bg-orange-50 dark:hover:bg-primary/10 transition-colors">
                             <span class="flex min-w-0 items-center gap-3">
                                 <span class="material-symbols-outlined text-primary text-[20px]">location_on</span>
                                 <span class="truncate">위치기반서비스 약관</span>
                             </span>
                             <span class="material-symbols-outlined text-gray-400 text-[18px]">chevron_right</span>
                         </a>
-                        <a href="/operation-policy.html" class="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 dark:border-gray-700 bg-white/80 dark:bg-gray-900/40 px-4 py-3 text-sm font-bold text-text-main dark:text-white hover:bg-orange-50 dark:hover:bg-primary/10 transition-colors">
+                        <a href="/operation-policy" class="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 dark:border-gray-700 bg-white/80 dark:bg-gray-900/40 px-4 py-3 text-sm font-bold text-text-main dark:text-white hover:bg-orange-50 dark:hover:bg-primary/10 transition-colors">
                             <span class="flex min-w-0 items-center gap-3">
                                 <span class="material-symbols-outlined text-primary text-[20px]">rule</span>
                                 <span class="truncate">운영정책</span>
                             </span>
                             <span class="material-symbols-outlined text-gray-400 text-[18px]">chevron_right</span>
                         </a>
-                        <a href="/youth-protection-policy.html" class="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 dark:border-gray-700 bg-white/80 dark:bg-gray-900/40 px-4 py-3 text-sm font-bold text-text-main dark:text-white hover:bg-orange-50 dark:hover:bg-primary/10 transition-colors">
+                        <a href="/youth-protection-policy" class="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 dark:border-gray-700 bg-white/80 dark:bg-gray-900/40 px-4 py-3 text-sm font-bold text-text-main dark:text-white hover:bg-orange-50 dark:hover:bg-primary/10 transition-colors">
                             <span class="flex min-w-0 items-center gap-3">
                                 <span class="material-symbols-outlined text-primary text-[20px]">family_restroom</span>
                                 <span class="truncate">청소년보호정책</span>

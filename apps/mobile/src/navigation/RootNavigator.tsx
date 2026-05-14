@@ -91,6 +91,7 @@ export type RootStackParamList = {
         isMemo: boolean;
         isTransit: boolean;
         initialInput: MobileTimelineItemEditInput;
+        initialExpenseIndex?: number;
         existingTripAttachmentCount?: number;
     };
 };
@@ -565,7 +566,7 @@ export function RootNavigator() {
                             name="Community"
                             component={isTablet ? TabletRootShell : CommunityScreen}
                             options={{
-                                ...buildRootTabScreenOptions('커뮤니티'),
+                                ...buildRootTabScreenOptions('플랜'),
                                 headerShown: false
                             }}
                         />
@@ -610,7 +611,7 @@ export function RootNavigator() {
                         <Stack.Screen
                             name="CommunityPostDetail"
                             component={CommunityPostDetailScreen}
-                            options={{ title: '커뮤니티 상세' }}
+                            options={{ title: '플랜 상세' }}
                         />
                         <Stack.Screen
                             name="TripInfoEdit"

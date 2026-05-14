@@ -1452,13 +1452,20 @@ export function buildTimelineMemoryAppendPatch(input, currentTrip, target) {
         '추억을 추가할 일정을 찾을 수 없어요.'
     );
 
+    const uploadedMemoryEntries = Array.isArray(input?.uploadedMemoryEntries)
+        ? input.uploadedMemoryEntries
+        : [];
     const uploadedPhotoUrls = Array.isArray(input?.uploadedPhotoUrls)
         ? input.uploadedPhotoUrls
             .map((entry) => readString(entry))
             .filter(Boolean)
         : [];
     const createdAt = readString(input?.createdAt) || new Date().toISOString();
-    const memoryEntries = createMemoryEntries(uploadedPhotoUrls, '', createdAt);
+    const memoryEntries = createMemoryEntries(
+        uploadedMemoryEntries.length > 0 ? uploadedMemoryEntries : uploadedPhotoUrls,
+        '',
+        createdAt
+    );
 
     if (memoryEntries.length === 0) {
         throw new Error('사진을 한 장 이상 선택해 주세요.');

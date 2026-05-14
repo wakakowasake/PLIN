@@ -5,12 +5,29 @@ import {
     sanitizeCommunityTripData
 } from '../features/community/community-item-helpers.js';
 
+const PLIN_ADMIN_EMAILS = new Set([
+    'contact@plin.ink'
+]);
+
+function isPlinAdminUser(user) {
+    return user?.role === 'admin'
+        || (
+            user?.emailVerified === true
+            && PLIN_ADMIN_EMAILS.has(String(user?.email || '').trim().toLowerCase())
+        );
+}
+
 /**
  * Open the Community Publishing Wizard Modal
  */
 export function openCommunityPublishModal() {
     if (!currentUser) {
-        showToast("로그인 후 커뮤니티에 게시할 수 있습니다. 🔑", "warning");
+        showToast("로그인 후 큐레이션 업로드를 진행할 수 있습니다.", "warning");
+        return;
+    }
+
+    if (!isPlinAdminUser(currentUser)) {
+        showToast("PLIN 큐레이션 업로드는 관리자만 가능해요.", "warning");
         return;
     }
 
@@ -23,13 +40,13 @@ export function openCommunityPublishModal() {
     modal.innerHTML = `
             <div class="bg-white dark:bg-card-dark rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up">
                 <div class="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
-                    <h3 class="text-xl font-black text-text-main dark:text-white font-hand">커뮤니티에 자랑하기 🚀</h3>
+                    <h3 class="text-xl font-black text-text-main dark:text-white font-hand">큐레이션에 올리기</h3>
                     <button type="button" onclick="window.closeCommunityPublishModal()" class="text-gray-400 hover:text-gray-600"><span class="material-symbols-outlined">close</span></button>
                 </div>
                 
                 <div class="p-8 space-y-6">
                     <div class="bg-primary/5 dark:bg-primary/10 p-4 rounded-2xl border border-primary/10">
-                        <p class="text-sm text-primary font-bold italic">"당신의 소중한 여행 계획이 다른 사람에게 영감이 됩니다."</p>
+                        <p class="text-sm text-primary font-bold italic">"PLIN이 직접 고른 여행 플랜을 공개 공간에 등록합니다."</p>
                     </div>
 
                         <!-- [LEGACY: Privacy Option UI] 사용자 요청으로 주석 처리 (2026-01-29) 
@@ -62,14 +79,14 @@ export function openCommunityPublishModal() {
                         -->
 
                     <p class="text-[10px] text-gray-400 text-center leading-relaxed">
-                        공개되는 포스트는 개인의 계획과는 별개의 '발행본'으로 저장됩니다.<br>
+                        공개되는 플랜은 개인의 계획과는 별개의 '발행본'으로 저장됩니다.<br>
                         민감한 정보가 포함되지 않았는지 한 번 더 확인해주세요!
                     </p>
                 </div>
 
                 <div class="p-6 border-t border-gray-100 dark:border-gray-800 flex gap-3">
                     <button type="button" onclick="window.closeCommunityPublishModal()" class="flex-1 py-4 text-gray-500 font-bold hover:bg-gray-50 dark:hover:bg-gray-800 rounded-2xl transition-all">취소</button>
-                    <button type="button" onclick="window.confirmCommunityPublish()" class="flex-1 py-4 bg-primary text-white font-bold rounded-2xl hover:bg-orange-500 shadow-lg active:scale-95 transition-all">발행하기</button>
+                    <button type="button" onclick="window.confirmCommunityPublish()" class="flex-1 py-4 bg-primary text-white font-bold rounded-2xl hover:bg-orange-500 shadow-lg active:scale-95 transition-all">등록하기</button>
                 </div>
             </div>
         `;
@@ -97,8 +114,13 @@ export function closeCommunityPublishModal() {
  */
 export async function confirmCommunityPublish() {
     if (!currentUser) return;
+    if (!isPlinAdminUser(currentUser)) {
+        showToast("PLIN 큐레이션 업로드는 관리자만 가능해요.", "warning");
+        return;
+    }
+
     if (window.currentTripPermissions && window.currentTripPermissions.canPublishCommunity === false) {
-        showToast("이 여행은 게시 권한이 없어요.", "warning");
+        showToast("이 여행은 업로드 권한이 없어요.", "warning");
         return;
     }
 
@@ -125,7 +147,7 @@ export async function confirmCommunityPublish() {
         });
 
         // 3. 성공 알림 및 탭 전환
-        showToast("커뮤니티에 성공적으로 게시되었습니다! ✨", "success");
+        showToast("PLIN 큐레이션에 등록했어요.", "success");
 
         // 확실히 모달이 닫혔는지 한 번 더 확인 (상태 보완)
         closeCommunityPublishModal();
@@ -134,7 +156,7 @@ export async function confirmCommunityPublish() {
 
     } catch (e) {
         console.error("Error publishing to community:", e);
-        showToast("게시 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.", "error");
+        showToast("등록 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.", "error");
     } finally {
         hideLoading();
     }

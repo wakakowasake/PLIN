@@ -27,8 +27,16 @@ import { showToast } from '../../ui/modals.js';
 import { clearTripListForAuthChange, loadTripList } from '../../ui/trips.js';
 
 const PENDING_DELETION_MESSAGE = '계정 삭제가 요청되어 다시 로그인할 수 없어요. 데이터 삭제 처리 중입니다.';
+const PLIN_ADMIN_EMAILS = new Set([
+    'contact@plin.ink'
+]);
 let initialTabApplied = false;
 let observedAuthUid = null;
+
+function isVerifiedPlinAdminEmail(user) {
+    return user?.emailVerified === true
+        && PLIN_ADMIN_EMAILS.has(String(user.email || '').trim().toLowerCase());
+}
 
 function applyInitialTabFromUrl() {
     if (initialTabApplied || typeof window.switchTab !== 'function') return;
@@ -154,6 +162,7 @@ async function handleAuthenticatedUser(user, { saveAllDayData, renderItinerary }
 
     const userData = buildUserProfileSeed(user);
     let isTokenAdmin = false;
+    const isEmailAdmin = isVerifiedPlinAdminEmail(user);
 
     try {
         const tokenResult = await user.getIdTokenResult();
@@ -203,7 +212,7 @@ async function handleAuthenticatedUser(user, { saveAllDayData, renderItinerary }
                 allergies: data.allergies || '',
                 customPhotoURL,
                 agreedToTerms: data.agreedToTerms || false,
-                role: isTokenAdmin ? 'admin' : (data.role || 'user')
+                role: isTokenAdmin || isEmailAdmin ? 'admin' : (data.role || 'user')
             });
         } else {
             loginView?.classList.add('hidden');
@@ -215,7 +224,7 @@ async function handleAuthenticatedUser(user, { saveAllDayData, renderItinerary }
                 ...user,
                 customPhotoURL,
                 agreedToTerms: false,
-                role: isTokenAdmin ? 'admin' : 'user'
+                role: isTokenAdmin || isEmailAdmin ? 'admin' : 'user'
             });
             mergeUserProfile(user.uid, userData).catch((error) => {
                 console.error("Error saving initial user data:", error);

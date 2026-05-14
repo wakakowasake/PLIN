@@ -92,33 +92,6 @@ function buildMemberInitial(member: TripShareMember) {
     return base.slice(0, 1).toUpperCase() || 'M';
 }
 
-function buildBusyLabel(
-    loading: boolean,
-    mode: TripShareMode,
-    busyAction?: string | null,
-    actionDisabled = false
-) {
-    if (loading) {
-        return '공유 설정을 불러오고 있어요.';
-    }
-
-    if (actionDisabled) {
-        return '오프라인에서는 공유와 멤버 관리를 잠시 사용할 수 없어요.';
-    }
-
-    if (busyAction === 'community-publish') {
-        return '공개 가능한 버전으로 정리해 커뮤니티에 올리고 있어요.';
-    }
-
-    if (busyAction === 'owner-transfer') {
-        return '소유권을 넘기고 있어요.';
-    }
-
-    return mode === 'link'
-        ? '링크 권한과 초대 상태를 한 번에 관리할 수 있어요.'
-        : '지금은 비공개로 설정되어 있어요.';
-}
-
 function MemberRow({
     member,
     busy,
@@ -460,13 +433,7 @@ export function TripShareSheet({
                         <View style={styles.headerRow}>
                             <SheetBackButton disabled={isBusy} onPress={onClose} />
                             <View style={styles.headerCopy}>
-                                <Text style={styles.eyebrow}>여행 공유</Text>
-                                <Text numberOfLines={2} style={styles.title}>
-                                    {tripTitle || '여행'}
-                                </Text>
-                                <Text style={styles.subtitle}>
-                                    {buildBusyLabel(loading, displayShareMode, busyAction, actionDisabled)}
-                                </Text>
+                                <Text numberOfLines={1} style={styles.title}>여행 공유</Text>
                             </View>
                         </View>
 
@@ -591,7 +558,7 @@ export function TripShareSheet({
                                 <Text style={styles.sectionEyebrow}>커뮤니티 공개</Text>
                                 <Text style={styles.sectionTitle}>커뮤니티 업로드</Text>
                                 <Text style={styles.sectionHint}>
-                                    일정을 공유해서 다른 여행자들에게 영감을 줄 수 있어요.
+                                    PLIN이 큐레이션한 여행 플랜만 공개 공간에 올릴 수 있어요.
                                 </Text>
 
                                 <View style={styles.communityNoticeCard}>
@@ -628,7 +595,7 @@ export function TripShareSheet({
                                             color="#ffffff"
                                         />
                                         <Text style={styles.primaryActionButtonText}>
-                                            {busyAction === 'community-publish' ? '업로드 중...' : '커뮤니티에 자랑하기'}
+                                            {busyAction === 'community-publish' ? '업로드 중...' : '큐레이션에 올리기'}
                                         </Text>
                                     </View>
                                 </Pressable>
@@ -677,28 +644,20 @@ const createStyles = (theme: AppTheme) => {
         },
         headerRow: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         justifyContent: 'space-between',
-        gap: theme.spacing.sm
+        gap: theme.spacing.xs
         },
         headerCopy: {
         flex: 1,
-        gap: 4
-        },
-        eyebrow: {
-        fontSize: 12,
-        fontWeight: '700',
-        color: theme.colors.accent
+        justifyContent: 'center',
+        minHeight: theme.spacing.xl
         },
         title: {
-        fontSize: 22,
+        fontSize: 18,
+        lineHeight: 24,
         fontWeight: '800',
         color: theme.colors.textPrimary
-        },
-        subtitle: {
-        fontSize: 13,
-        lineHeight: 18,
-        color: theme.colors.textSecondary
         },
         scrollArea: {
         marginTop: theme.spacing.md

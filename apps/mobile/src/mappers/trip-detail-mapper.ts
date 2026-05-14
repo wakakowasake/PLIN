@@ -198,39 +198,76 @@ function findCoverImage(trip: CanonicalTripDocument) {
     return null;
 }
 
+function getMemoryPhotoUrl(memory: { photoUrl?: unknown; url?: unknown; image?: unknown }) {
+    return String(memory.photoUrl || memory.url || memory.image || '').trim();
+}
+
+function getMemoryPreviewUrl(memory: { thumbnailUrl?: unknown; previewUrl?: unknown; thumbUrl?: unknown; photoUrl?: unknown; url?: unknown; image?: unknown }) {
+    return String(
+        memory.thumbnailUrl
+        || memory.previewUrl
+        || memory.thumbUrl
+        || memory.photoUrl
+        || memory.url
+        || memory.image
+        || ''
+    ).trim();
+}
+
 function getTimelinePhotoPreviewUrls(item: CanonicalTripItem) {
     const uniqueUrls = new Set<string>();
 
-    if (typeof item.image === 'string' && item.image.trim()) {
-        uniqueUrls.add(item.image.trim());
-    }
-
     for (const memory of item.memories || []) {
-        if (typeof memory.photoUrl === 'string' && memory.photoUrl.trim()) {
-            uniqueUrls.add(memory.photoUrl.trim());
+        const previewUrl = getMemoryPreviewUrl(memory);
+        if (previewUrl) {
+            uniqueUrls.add(previewUrl);
         }
     }
 
-    return Array.from(uniqueUrls).slice(0, 12);
+    if (uniqueUrls.size === 0 && typeof item.image === 'string' && item.image.trim()) {
+        uniqueUrls.add(item.image.trim());
+    }
+
+    return Array.from(uniqueUrls).slice(0, 3);
+}
+
+function getTimelinePhotoGalleryUrls(item: CanonicalTripItem) {
+    const uniqueUrls = new Set<string>();
+
+    for (const memory of item.memories || []) {
+        const photoUrl = getMemoryPhotoUrl(memory);
+        if (photoUrl) {
+            uniqueUrls.add(photoUrl);
+        }
+    }
+
+    if (uniqueUrls.size === 0 && typeof item.image === 'string' && item.image.trim()) {
+        uniqueUrls.add(item.image.trim());
+    }
+
+    return Array.from(uniqueUrls);
 }
 
 function getTripPhotoPreviewData(trip: CanonicalTripDocument) {
-    const uniqueUrls = new Set<string>();
+    const previewUrls = new Set<string>();
+    const galleryUrls = new Set<string>();
 
     for (const day of trip.days || []) {
         for (const item of day.items || []) {
             for (const url of getTimelinePhotoPreviewUrls(item)) {
-                uniqueUrls.add(url);
+                previewUrls.add(url);
+            }
+
+            for (const url of getTimelinePhotoGalleryUrls(item)) {
+                galleryUrls.add(url);
             }
         }
     }
 
-    const urls = Array.from(uniqueUrls);
-
     return {
-        photoPreviewUrls: urls.slice(0, 3),
-        photoGalleryUrls: urls,
-        photoCount: urls.length
+        photoPreviewUrls: Array.from(previewUrls).slice(0, 3),
+        photoGalleryUrls: Array.from(galleryUrls),
+        photoCount: galleryUrls.size
     };
 }
 
@@ -279,9 +316,8 @@ function resolveItemExpenseSummaryLabel(item: CanonicalTripItem) {
 
 function mapMemoryEntries(item: CanonicalTripItem, itemIndex: number): MobileMemoryDisplayEntry[] {
     return (item.memories || []).reduce<MobileMemoryDisplayEntry[]>((entries, memory, memoryIndex) => {
-            const photoUrl = typeof memory.photoUrl === 'string' && memory.photoUrl.trim()
-                ? memory.photoUrl.trim()
-                : null;
+            const photoUrl = getMemoryPhotoUrl(memory) || getMemoryPreviewUrl(memory) || null;
+            const previewUrl = getMemoryPreviewUrl(memory) || photoUrl;
             const createdAt = String(memory.createdAt || '').trim();
 
             if (!photoUrl) {
@@ -291,6 +327,7 @@ function mapMemoryEntries(item: CanonicalTripItem, itemIndex: number): MobileMem
             entries.push({
                 id: `memory-${itemIndex}-${memoryIndex}`,
                 photoUrl,
+                previewUrl,
                 comment: '',
                 createdAt
             });
@@ -315,6 +352,7 @@ function mapExpenseItems(
 
             return {
                 id: `expense-${itemIndex}-${expenseIndex}`,
+                expenseIndex,
                 title: String(getExpenseDisplayTitle(item, timeline, itemIndex, expense) || item.title || '').trim(),
                 description: String(getExpenseDescription(expense) || '내역 없음').trim(),
                 amount,
@@ -331,6 +369,7 @@ function mapExpenseItems(
     if (typeof item.budget === 'number' && Number.isFinite(item.budget) && item.budget > 0) {
         return [{
             id: `expense-${itemIndex}-budget`,
+            expenseIndex: 0,
             title: String(item.title || '').trim(),
             description: '예산',
             amount: item.budget,
@@ -666,7 +705,7 @@ function mapTimelineItem(
         address_components?: unknown;
     };
     const memoriesCount = Array.isArray(item.memories) ? item.memories.length : 0;
-    const photoPreviewUrls = getTimelinePhotoPreviewUrls(item);
+    const photoPreviewUrls = getTimelinePhotoPreviewUrls(item).slice(0, 3);
     const memoryEntries = mapMemoryEntries(item, itemIndex);
     const attachments = mapAttachmentEntries(item, itemIndex);
     const expenseSummaryLabel = resolveItemExpenseSummaryLabel(item);

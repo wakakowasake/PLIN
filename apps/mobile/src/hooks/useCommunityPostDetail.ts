@@ -71,7 +71,7 @@ export function useCommunityPostDetail(userId: string | null, postId: string) {
 
             if (isRefresh && hasExistingDetail && nextError.kind === 'network') {
                 setRefreshError(
-                    '연결이 잠시 불안정해 최신 커뮤니티 상세를 다시 확인하지 못했어요. 현재는 마지막으로 불러온 내용을 계속 보여주고 있어요.'
+                    '연결이 잠시 불안정해 최신 플랜 상세를 다시 확인하지 못했어요. 현재는 마지막으로 불러온 내용을 계속 보여주고 있어요.'
                 );
             } else {
                 detailRef.current = null;

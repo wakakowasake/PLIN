@@ -174,7 +174,7 @@ export function SettingsAccountScreen({ navigation }: Props) {
     }, [navigation]);
 
     const handleOpenDeletionGuide = React.useCallback(async () => {
-        handleOpenExternalLink('https://plin.ink/account-delete.html', '계정 삭제 안내');
+        handleOpenExternalLink('https://plin.ink/account-delete', '계정 삭제 안내');
     }, [handleOpenExternalLink]);
 
     const handleRequestAccountDeletion = React.useCallback(() => {

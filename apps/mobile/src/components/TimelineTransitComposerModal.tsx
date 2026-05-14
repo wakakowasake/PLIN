@@ -11,14 +11,17 @@ import {
 import { getTransitTypeMeta } from '@shared/features/transit/transit-item-helpers.js';
 import React from 'react';
 import {
+    Animated,
     KeyboardAvoidingView,
     Modal,
+    PanResponder,
     Platform,
     Pressable,
     ScrollView,
     StyleSheet,
     Text,
     TextInput,
+    useWindowDimensions,
     View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -36,7 +39,6 @@ import { TimePickerModal } from './TimePickerModal';
 
 type Props = {
     visible: boolean;
-    dayLabel: string;
     dayDate: string;
     transitType: MobileTimelineManualTransitType;
     defaultStartTime: string;
@@ -48,6 +50,8 @@ type Props = {
 };
 
 const AIRPORT_SUGGESTION_LIMIT = 6;
+const SHEET_DISMISS_DRAG_DISTANCE = 96;
+const SHEET_DISMISS_VELOCITY = 0.85;
 
 type AirportFieldKey = 'departure' | 'arrival';
 
@@ -135,7 +139,6 @@ function formatAirportMatchMeta(airport: { city?: string; timeZone?: string } | 
 
 export function TimelineTransitComposerModal({
     visible,
-    dayLabel,
     dayDate,
     transitType,
     defaultStartTime,
@@ -147,7 +150,9 @@ export function TimelineTransitComposerModal({
 }: Props) {
     const theme = useAppTheme();
     const insets = useSafeAreaInsets();
+    const { height: windowHeight } = useWindowDimensions();
     const styles = React.useMemo(() => createStyles(theme), [theme]);
+    const sheetTranslateY = React.useRef(new Animated.Value(0)).current;
     const sheetInsetStyle = React.useMemo(() => ({
         paddingTop: insets.top
     }), [insets.top]);
@@ -277,6 +282,64 @@ export function TimelineTransitComposerModal({
     const arrivalError = isAirplane && !normalizedArrival ? '도착 공항을 입력해 주세요.' : null;
     const canSubmit = !isSaving;
 
+    const resetSheetPosition = React.useCallback(() => {
+        Animated.spring(sheetTranslateY, {
+            toValue: 0,
+            useNativeDriver: true,
+            damping: 18,
+            stiffness: 180
+        }).start();
+    }, [sheetTranslateY]);
+
+    const dismissSheetFromHandle = React.useCallback(() => {
+        Animated.timing(sheetTranslateY, {
+            toValue: windowHeight,
+            duration: 180,
+            useNativeDriver: true
+        }).start(({ finished }) => {
+            if (finished) {
+                onClose();
+            }
+        });
+    }, [onClose, sheetTranslateY, windowHeight]);
+
+    const sheetHandlePanResponder = React.useMemo(() => PanResponder.create({
+        onStartShouldSetPanResponder: () => !isSaving,
+        onStartShouldSetPanResponderCapture: () => !isSaving,
+        onMoveShouldSetPanResponder: (_event, gestureState) => (
+            !isSaving
+            && gestureState.dy > 2
+            && Math.abs(gestureState.dy) > Math.abs(gestureState.dx)
+        ),
+        onMoveShouldSetPanResponderCapture: (_event, gestureState) => (
+            !isSaving
+            && gestureState.dy > 2
+            && Math.abs(gestureState.dy) > Math.abs(gestureState.dx)
+        ),
+        onPanResponderTerminationRequest: () => false,
+        onPanResponderMove: (_event, gestureState) => {
+            sheetTranslateY.setValue(Math.max(0, gestureState.dy));
+        },
+        onPanResponderRelease: (_event, gestureState) => {
+            if (
+                gestureState.dy > SHEET_DISMISS_DRAG_DISTANCE
+                || gestureState.vy > SHEET_DISMISS_VELOCITY
+            ) {
+                dismissSheetFromHandle();
+                return;
+            }
+
+            resetSheetPosition();
+        },
+        onPanResponderTerminate: resetSheetPosition
+    }), [dismissSheetFromHandle, isSaving, resetSheetPosition, sheetTranslateY]);
+
+    React.useEffect(() => {
+        if (visible) {
+            sheetTranslateY.setValue(0);
+        }
+    }, [sheetTranslateY, visible]);
+
     const handleSubmit = React.useCallback(() => {
         setDidAttemptSubmit(true);
 
@@ -375,26 +438,31 @@ export function TimelineTransitComposerModal({
             onRequestClose={onClose}
         >
             <View style={styles.overlay}>
-                <Pressable
-                    accessibilityRole="button"
-                    disabled={isSaving}
-                    onPress={onClose}
-                    style={StyleSheet.absoluteFill}
-                />
+                <Pressable style={StyleSheet.absoluteFill} />
                 <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                     style={styles.keyboardArea}
                 >
-                    <View style={[styles.sheet, sheetInsetStyle]}>
-                        <View style={styles.handle} />
+                    <Animated.View
+                        style={[
+                            styles.sheet,
+                            sheetInsetStyle,
+                            {
+                                transform: [{ translateY: sheetTranslateY }]
+                            }
+                        ]}
+                    >
+                        <View
+                            {...sheetHandlePanResponder.panHandlers}
+                            collapsable={false}
+                            style={styles.handleTouch}
+                        >
+                            <View style={styles.handle} />
+                        </View>
                         <View style={styles.header}>
                             <SheetBackButton disabled={isSaving} onPress={onClose} />
                             <View style={styles.headerCopy}>
-                                <Text style={styles.headerLabel}>이동 카드 추가</Text>
-                                <Text style={styles.headerTitle}>{isAirplane ? '비행기 추가' : `${meta.tag} 추가`}</Text>
-                                <Text style={styles.headerMeta}>
-                                    {dayLabel} · {dayDate}
-                                </Text>
+                                <Text numberOfLines={1} style={styles.headerTitle}>{isAirplane ? '비행기 추가' : `${meta.tag} 추가`}</Text>
                             </View>
                             <Pressable
                                 accessibilityRole="button"
@@ -807,7 +875,7 @@ export function TimelineTransitComposerModal({
                                 </View>
                             ) : null}
                         </ScrollView>
-                    </View>
+                    </Animated.View>
                 </KeyboardAvoidingView>
             </View>
             <TimePickerModal
@@ -872,46 +940,43 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         borderTopRightRadius: 0,
         backgroundColor: theme.colors.surface
     },
-    handle: {
+    handleTouch: {
         alignSelf: 'center',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: theme.spacing.xl,
+        paddingTop: theme.spacing.xs,
+        paddingBottom: theme.spacing.xs
+    },
+    handle: {
         width: 48,
         height: 5,
         borderRadius: theme.radius.full,
-        marginTop: theme.spacing.xs,
         backgroundColor: theme.colors.border
     },
     header: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         justifyContent: 'space-between',
         gap: theme.spacing.xs,
         paddingHorizontal: theme.spacing.sm,
-        paddingTop: theme.spacing.sm,
+        paddingTop: theme.spacing.xs,
         paddingBottom: theme.spacing.xs
     },
     headerCopy: {
         flex: 1,
+        justifyContent: 'center',
+        minHeight: theme.spacing.xl,
         paddingRight: theme.spacing.sm
     },
-    headerLabel: {
-        color: theme.colors.textSecondary,
-        fontSize: 12,
+    headerTitle: {
+        color: theme.colors.textPrimary,
+        fontSize: 18,
+        lineHeight: 24,
         fontFamily: theme.fonts.bold
     },
-    headerTitle: {
-        marginTop: theme.spacing.xs,
-        color: theme.colors.textPrimary,
-        fontSize: 22,
-        lineHeight: 28,
-        fontFamily: theme.fonts.display
-    },
-    headerMeta: {
-        marginTop: theme.spacing.micro,
-        color: theme.colors.textSecondary,
-        fontFamily: theme.fonts.body
-    },
     saveButton: {
-        borderRadius: theme.radius.sm,
+        borderRadius: theme.radius.md,
         paddingHorizontal: theme.spacing.sm,
         paddingVertical: theme.spacing.xs,
         backgroundColor: theme.colors.accent

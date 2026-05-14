@@ -388,7 +388,9 @@ function normalizeMemoryEntry(value: unknown): MemoryEntry | null {
         return null;
     }
 
-    const photoUrl = readNullableString(value.photoUrl ?? value.url ?? value.image);
+    const thumbnailUrl = readNullableString(value.thumbnailUrl ?? value.previewUrl ?? value.thumbUrl);
+    const previewUrl = readNullableString(value.previewUrl ?? value.thumbnailUrl ?? value.thumbUrl);
+    const photoUrl = readNullableString(value.photoUrl ?? value.url ?? value.image) || thumbnailUrl;
     const comment = readDisplayString(value.comment ?? value.note ?? value.memo);
     const createdAt = normalizeDateTimeString(value.createdAt);
 
@@ -399,6 +401,8 @@ function normalizeMemoryEntry(value: unknown): MemoryEntry | null {
     return {
         ...value,
         photoUrl,
+        previewUrl,
+        thumbnailUrl,
         comment,
         createdAt
     };
@@ -2050,11 +2054,15 @@ export class FirebaseTripRepository implements TripRepository {
                 itemId,
                 itemIndex
             });
+            const rawMemoryEntries = writePatch.memoryEntries;
+            const memoryEntries = rawMemoryEntries.filter(
+                (entry): entry is Exclude<(typeof rawMemoryEntries)[number], null> => Boolean(entry)
+            );
             const didAppend = appendTimelineItemMemoriesWritePatch(
                 nextDays,
                 writePatch.dayIndex,
                 writePatch.itemIndex,
-                writePatch.memoryEntries
+                memoryEntries
             );
 
             if (!didAppend) {
