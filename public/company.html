@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko" class="dark">
+<html lang="ko">
 
 <head>
     <meta charset="UTF-8">
@@ -34,17 +34,12 @@
                         sans: ['Pretendard', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
                     },
                     animation: {
-                        'fade-in-up': 'fadeInUp 1s ease-out forwards',
-                        'scroll': 'scroll 30s linear infinite',
+                        'fade-in-up': 'fadeInUp 0.6s ease-out forwards',
                     },
                     keyframes: {
                         fadeInUp: {
-                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
                             '100%': { opacity: '1', transform: 'translateY(0)' },
-                        },
-                        scroll: {
-                            '0%': { transform: 'translateX(0)' },
-                            '100%': { transform: 'translateX(-50%)' },
                         }
                     }
                 }
@@ -54,58 +49,47 @@
     <style>
         body {
             font-family: 'Pretendard', sans-serif;
-            background-color: #050505;
-            color: #fff;
+            background-color: #fafaf8;
+            color: #1a1a18;
             overflow-x: hidden;
         }
-        ::selection {
-            background: rgba(255, 102, 0, 0.3);
+        body.dark {
+            background-color: #050505;
             color: #fff;
         }
-        .glass-nav {
-            background: rgba(5, 5, 5, 0.6);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        ::selection {
+            background: rgba(255, 102, 0, 0.2);
         }
-        .glass-card {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            transition: transform 0.3s ease, border-color 0.3s ease, background 0.3s ease;
+        body.dark ::selection {
+            background: rgba(255, 102, 0, 0.3);
         }
-        .glass-card:hover {
-            transform: translateY(-5px);
+        
+        .card {
+            background: #fff;
+            border: 1px solid #e8e5e0;
+            transition: all 0.3s ease;
+        }
+        body.dark .card {
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(255, 255, 255, 0.05);
+        }
+        .card:hover {
+            border-color: rgba(255, 102, 0, 0.5);
+            box-shadow: 0 2px 12px rgba(255, 102, 0, 0.08);
+        }
+        body.dark .card:hover {
             border-color: rgba(255, 102, 0, 0.3);
-            background: rgba(255, 255, 255, 0.05);
+            box-shadow: 0 2px 12px rgba(255, 102, 0, 0.1);
         }
-        .text-gradient {
-            background: linear-gradient(135deg, #ffffff 0%, #999999 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+        
+        .nav-bar {
+            background: rgba(250, 250, 248, 0.95);
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid #e8e5e0;
         }
-        .blob {
-            position: absolute;
-            filter: blur(90px);
-            z-index: -1;
-            opacity: 0.3;
-            border-radius: 50%;
-        }
-        .blob-1 {
-            top: -10%;
-            left: -10%;
-            width: 50vw;
-            height: 50vw;
-            background: radial-gradient(circle, rgba(255,102,0,0.4) 0%, rgba(0,0,0,0) 70%);
-        }
-        .blob-2 {
-            bottom: 10%;
-            right: -10%;
-            width: 40vw;
-            height: 40vw;
-            background: radial-gradient(circle, rgba(255,153,51,0.2) 0%, rgba(0,0,0,0) 70%);
+        body.dark .nav-bar {
+            background: rgba(5, 5, 5, 0.7);
+            border-color: rgba(255, 255, 255, 0.05);
         }
         
         .delay-100 { animation-delay: 100ms; }
@@ -114,140 +98,114 @@
     </style>
 </head>
 
-<body class="antialiased selection:bg-primary/30">
-
-    <!-- Background Effects -->
-    <div class="fixed inset-0 overflow-hidden pointer-events-none z-[-1]">
-        <div class="blob blob-1"></div>
-        <div class="blob blob-2"></div>
-    </div>
+<body class="dark antialiased selection:bg-primary/30">
 
     <!-- Header -->
-    <header class="fixed top-0 left-0 right-0 z-50 glass-nav transition-all duration-300">
-        <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-            <a href="/" class="text-2xl font-black tracking-tighter text-white hover:text-primary transition-colors">
+    <header class="fixed top-0 left-0 right-0 z-50 nav-bar transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+            <a href="/" class="text-xl font-black tracking-tighter text-black dark:text-white hover:text-primary transition-colors">
                 PLIN
             </a>
-            <nav class="hidden md:flex gap-8 text-sm font-medium text-gray-400">
-                <a href="#mission" class="hover:text-white transition-colors">Mission</a>
-                <a href="#product" class="hover:text-white transition-colors">Product</a>
-                <a href="#principles" class="hover:text-white transition-colors">Principles</a>
+            <nav class="hidden md:flex gap-8 text-sm font-medium text-gray-600 dark:text-gray-400">
+                <a href="#mission" class="hover:text-black dark:hover:text-white transition-colors">미션</a>
+                <a href="#product" class="hover:text-black dark:hover:text-white transition-colors">제품</a>
+                <a href="#principles" class="hover:text-black dark:hover:text-white transition-colors">원칙</a>
             </nav>
-            <a href="/" class="px-5 py-2.5 bg-white text-black text-sm font-bold rounded-full hover:bg-primary hover:text-white transition-all duration-300 shadow-[0_0_15px_rgba(255,102,0,0.2)]">
+            <a href="/" class="px-6 py-2 bg-primary text-white text-sm font-bold rounded-full hover:bg-primary-dark transition-all duration-300">
                 시작하기
             </a>
         </div>
     </header>
 
     <!-- Hero Section -->
-    <section class="relative min-h-screen flex items-center justify-center pt-20 px-6 overflow-hidden">
-        <div class="max-w-5xl mx-auto text-center z-10">
-            <p class="text-primary font-bold tracking-widest uppercase mb-6 animate-fade-in-up text-sm">
-                About PLIN
+    <section class="relative min-h-[85vh] flex items-center justify-center pt-32 px-6">
+        <div class="max-w-4xl mx-auto text-center z-10">
+            <p class="text-primary font-bold tracking-widest uppercase mb-4 animate-fade-in-up text-xs md:text-sm">
+                여행을 다시 정의하다
             </p>
-            <h1 class="text-5xl md:text-7xl lg:text-8xl font-black tracking-tight leading-[1.1] mb-8 animate-fade-in-up delay-100 text-gradient">
-                계획이 기록이 되는<br />여행 노트
+            <h1 class="text-4xl md:text-6xl lg:text-7xl font-black tracking-tight leading-[1.15] mb-6 animate-fade-in-up delay-100 text-black dark:text-white">
+                계획이 기록이 되는<br class="hidden sm:block" />여행 노트
             </h1>
-            <p class="text-lg md:text-2xl text-gray-400 font-medium max-w-3xl mx-auto leading-relaxed mb-12 animate-fade-in-up delay-200">
-                PLIN은 여행을 준비하고, 함께 다녀오고, 오래 기억하는 과정을<br class="hidden md:block"/>
-                하나의 흐름으로 연결합니다.
+            <p class="text-lg md:text-xl text-gray-600 dark:text-gray-300 font-medium max-w-2xl mx-auto leading-relaxed mb-10 animate-fade-in-up delay-200">
+                흩어져 있던 여행의 파편들을 하나의 노트에 담아냅니다.<br class="hidden md:block" />준비부터 기억까지, 완벽한 흐름으로.
             </p>
-            <div class="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in-up delay-300">
-                <a href="/" class="w-full sm:w-auto px-8 py-4 bg-primary text-white font-bold rounded-full hover:bg-primary-dark transition-all duration-300 text-lg flex items-center justify-center gap-2">
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-3 animate-fade-in-up delay-300">
+                <a href="/" class="w-full sm:w-auto px-8 py-3.5 bg-primary text-white font-bold rounded-full hover:bg-primary-dark transition-all duration-300 text-base">
                     PLIN 시작하기
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                 </a>
-                <a href="mailto:contact@plin.ink" class="w-full sm:w-auto px-8 py-4 glass-card text-white font-bold rounded-full hover:bg-white/10 transition-all duration-300 text-lg flex items-center justify-center border-white/10">
+                <a href="mailto:contact@plin.ink" class="w-full sm:w-auto px-8 py-3.5 card rounded-full text-black dark:text-white font-bold hover:bg-primary/5 dark:hover:bg-white/5 transition-all duration-300 text-base">
                     문의하기
                 </a>
             </div>
         </div>
-
-        <!-- Scroll Indicator -->
-        <div class="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 animate-fade-in-up delay-300 opacity-50">
-            <span class="text-xs uppercase tracking-widest text-gray-400 font-semibold">Scroll</span>
-            <div class="w-[1px] h-12 bg-gradient-to-b from-gray-400 to-transparent"></div>
-        </div>
     </section>
 
-    <!-- Marquee Divider -->
-    <div class="w-full overflow-hidden bg-primary/5 border-y border-primary/10 py-5 flex whitespace-nowrap">
-        <div class="animate-scroll flex gap-8 items-center text-primary font-black text-2xl uppercase tracking-widest opacity-80">
-            <span>PLAN BECOMES A MEMORY</span>
-            <span class="w-2 h-2 rounded-full bg-primary"></span>
-            <span>MAKE HAPPINESS PLAYABLE</span>
-            <span class="w-2 h-2 rounded-full bg-primary"></span>
-            <span>YOUR TRAVEL NOTE</span>
-            <span class="w-2 h-2 rounded-full bg-primary"></span>
-            <span>PLAN BECOMES A MEMORY</span>
-            <span class="w-2 h-2 rounded-full bg-primary"></span>
-            <span>MAKE HAPPINESS PLAYABLE</span>
-            <span class="w-2 h-2 rounded-full bg-primary"></span>
-            <span>YOUR TRAVEL NOTE</span>
-            <span class="w-2 h-2 rounded-full bg-primary"></span>
-        </div>
-    </div>
-
     <!-- Mission Section -->
-    <section id="mission" class="py-32 px-6">
+    <section id="mission" class="py-24 md:py-32 px-6 bg-gradient-to-b from-white to-orange-50/20 dark:from-white/2 dark:to-transparent">
         <div class="max-w-7xl mx-auto">
-            <div class="mb-20 md:w-1/2">
-                <h2 class="text-4xl md:text-5xl font-black mb-6 tracking-tight">우리가 해결하려는 일</h2>
-                <p class="text-gray-400 text-lg leading-relaxed">
-                    여행 계획은 더 가볍게, 기록은 더 오래 남도록.<br/>
-                    흩어져 있던 여행의 파편들을 하나의 노트에 담아냅니다.
+            <div class="mb-16 md:mb-24">
+                <h2 class="text-3xl md:text-5xl font-black mb-4 tracking-tight text-black dark:text-white">우리가 해결하려는 일</h2>
+                <p class="text-gray-600 dark:text-gray-400 text-lg leading-relaxed max-w-2xl">
+                    여행은 하나의 완벽한 이야기가 되어야 합니다.<br />
+                    준비, 경험, 기억—모든 단계를 함께 담아냅니다.
                 </p>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Card 1 -->
-                <div class="glass-card rounded-[2rem] p-10 flex flex-col justify-between group">
-                    <div class="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center mb-8 text-primary group-hover:scale-110 transition-transform duration-300 border border-white/5">
-                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-                    </div>
+                <div class="card rounded-xl p-8 md:p-10 flex flex-col justify-between group">
                     <div>
-                        <h3 class="text-2xl font-bold mb-4 text-white">여행 준비의 분산을 줄입니다</h3>
-                        <p class="text-gray-400 leading-relaxed text-lg">
+                        <div class="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-6 text-primary group-hover:scale-110 transition-transform duration-300">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        </div>
+                        <h3 class="text-xl md:text-2xl font-bold mb-3 text-black dark:text-white">여행 준비의 분산을 줄입니다</h3>
+                        <p class="text-gray-600 dark:text-gray-400 leading-relaxed text-base md:text-lg">
                             지도, 메모, 항공·숙소 정보, 이동 계획, 예산을 하나의 일정 흐름 안에서 확인할 수 있게 합니다.
                         </p>
                     </div>
                 </div>
 
                 <!-- Card 2 -->
-                <div class="glass-card rounded-[2rem] p-10 flex flex-col justify-between group">
-                    <div class="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center mb-8 text-primary group-hover:scale-110 transition-transform duration-300 border border-white/5">
-                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-                    </div>
+                <div class="card rounded-xl p-8 md:p-10 flex flex-col justify-between group">
                     <div>
-                        <h3 class="text-2xl font-bold mb-4 text-white">동행자와 같은 맥락을 공유합니다</h3>
-                        <p class="text-gray-400 leading-relaxed text-lg">
+                        <div class="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-6 text-primary group-hover:scale-110 transition-transform duration-300">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path></svg>
+                        </div>
+                        <h3 class="text-xl md:text-2xl font-bold mb-3 text-black dark:text-white">동행자와 같은 맥락을 공유합니다</h3>
+                        <p class="text-gray-600 dark:text-gray-400 leading-relaxed text-base md:text-lg">
                             공유 링크와 공동 편집 흐름을 통해 여행 전후의 결정과 기록을 더 쉽게 맞춰갑니다.
                         </p>
                     </div>
                 </div>
 
                 <!-- Card 3 -->
-                <div class="glass-card rounded-[2rem] p-10 flex flex-col justify-between group">
-                    <div class="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center mb-8 text-primary group-hover:scale-110 transition-transform duration-300 border border-white/5">
-                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
-                    </div>
+                <div class="card rounded-xl p-8 md:p-10 flex flex-col justify-between group">
                     <div>
-                        <h3 class="text-2xl font-bold mb-4 text-white">기록이 자연스럽게 남게 합니다</h3>
-                        <p class="text-gray-400 leading-relaxed text-lg">
+                        <div class="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-6 text-primary group-hover:scale-110 transition-transform duration-300">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4a1 1 0 011-1h16a1 1 0 011 1v2.757a1 1 0 01-.808 1.974l-2.192-.343a6 6 0 00-2.4 0l-2.192.343A1 1 0 0113 7.757V4z"></path></svg>
+                        </div>
+                        <h3 class="text-xl md:text-2xl font-bold mb-3 text-black dark:text-white">기록이 자연스럽게 남게 합니다</h3>
+                        <p class="text-gray-600 dark:text-gray-400 leading-relaxed text-base md:text-lg">
                             여행 중 남긴 장소, 메모, 사진, 비용이 여행 후에도 다시 읽기 좋은 기억의 구조가 되도록 다듬습니다.
                         </p>
                     </div>
                 </div>
 
                 <!-- Card 4 -->
-                <div class="glass-card rounded-[2rem] p-10 flex flex-col justify-between group">
-                    <div class="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center mb-8 text-primary group-hover:scale-110 transition-transform duration-300 border border-white/5">
-                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                    </div>
+                <div class="card rounded-xl p-8 md:p-10 flex flex-col justify-between group">
                     <div>
-                        <h3 class="text-2xl font-bold mb-4 text-white">작은 팀답게 빠르게 개선합니다</h3>
-                        <p class="text-gray-400 leading-relaxed text-lg">
+                        <div class="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-6 text-primary group-hover:scale-110 transition-transform duration-300">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        </div>
+                        <h3 class="text-xl md:text-2xl font-bold mb-3 text-black dark:text-white">작은 팀답게 빠르게 개선합니다</h3>
+                        <p class="text-gray-600 dark:text-gray-400 leading-relaxed text-base md:text-lg">
                             현재 PLIN은 베타 서비스로, 사용자 피드백과 실제 여행 사용성을 기준으로 제품을 계속 조정하고 있습니다.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
                         </p>
                     </div>
                 </div>
@@ -256,61 +214,55 @@
     </section>
 
     <!-- Product Experience -->
-    <section id="product" class="py-32 px-6 bg-white/[0.02] border-y border-white/5">
+    <section id="product" class="py-24 md:py-32 px-6 bg-orange-50/30 dark:bg-white/[0.02] border-y border-orange-100/50 dark:border-white/5">
         <div class="max-w-7xl mx-auto">
-            <div class="text-center mb-20">
-                <h2 class="text-4xl md:text-5xl font-black mb-6 tracking-tight">PLIN이 만드는 경험</h2>
-                <p class="text-gray-400 text-lg">기능을 넘어선, 여행의 완벽한 동반자</p>
+            <div class="mb-16 md:mb-24">
+                <h2 class="text-3xl md:text-5xl font-black mb-4 tracking-tight text-black dark:text-white">PLIN이 만드는 경험</h2>
+                <p class="text-gray-600 dark:text-gray-400 text-lg">하나의 흐름으로 완성되는 여행</p>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
-                <!-- Large Card 1 -->
-                <div class="md:col-span-8 glass-card rounded-[2rem] p-10 overflow-hidden relative group">
-                    <div class="relative z-10 md:w-3/4">
-                        <div class="text-primary font-bold tracking-widest text-sm mb-4">01</div>
-                        <h3 class="text-3xl font-bold mb-4">일정과 장소 정리</h3>
-                        <p class="text-gray-400 text-lg leading-relaxed">
-                            날짜별 일정, 장소, 이동, 메모를 여행 흐름에 맞게 정리합니다. 복잡한 엑셀은 이제 안녕, 직관적인 UI로 손쉽게 계획하세요.
+            <div class="space-y-6">
+                <!-- Product Feature 1 -->
+                <div class="card rounded-xl p-8 md:p-10 overflow-hidden">
+                    <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-8">
+                        <div class="flex-1">
+                            <div class="text-primary font-bold tracking-widest text-xs mb-3">01</div>
+                            <h3 class="text-2xl md:text-3xl font-bold mb-4 text-black dark:text-white">일정과 장소 정리</h3>
+                            <p class="text-gray-600 dark:text-gray-400 text-base md:text-lg leading-relaxed">
+                                날짜별 일정, 장소, 이동, 메모를 여행 흐름에 맞게 정리합니다. 복잡한 엑셀은 이제 안녕, 직관적인 UI로 손쉽게 계획하세요.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Product Feature 2 & 3 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="card rounded-xl p-8 md:p-10">
+                        <div class="text-primary font-bold tracking-widest text-xs mb-3">02</div>
+                        <h3 class="text-xl md:text-2xl font-bold mb-3 text-black dark:text-white">지도, 경로, 날씨</h3>
+                        <p class="text-gray-600 dark:text-gray-400 text-base leading-relaxed">
+                            여행 중 필요한 위치 기반 정보와 날씨, 이동 힌트를 같은 화면에서 확인할 수 있게 합니다.
                         </p>
                     </div>
-                    <div class="absolute right-0 bottom-0 opacity-5 group-hover:opacity-10 transition-opacity duration-500 transform translate-x-1/4 translate-y-1/4">
-                        <svg class="w-80 h-80 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 9h-2V7h-2v5H6v2h2v5h2v-5h2v-2z"></path></svg>
-                    </div>
-                </div>
-
-                <!-- Small Card 1 -->
-                <div class="md:col-span-4 glass-card rounded-[2rem] p-10 flex flex-col justify-between group">
-                    <div class="relative z-10">
-                        <div class="text-primary font-bold tracking-widest text-sm mb-4">02</div>
-                        <h3 class="text-2xl font-bold mb-4">지도, 경로, 날씨</h3>
-                    </div>
-                    <p class="text-gray-400 leading-relaxed mt-10 relative z-10">
-                        여행 중 필요한 위치 기반 정보와 날씨, 이동 힌트를 같은 화면에서 확인할 수 있게 합니다.
-                    </p>
-                </div>
-
-                <!-- Small Card 2 -->
-                <div class="md:col-span-4 glass-card rounded-[2rem] p-10 flex flex-col justify-between group">
-                    <div class="relative z-10">
-                        <div class="text-primary font-bold tracking-widest text-sm mb-4">03</div>
-                        <h3 class="text-2xl font-bold mb-4">예산과 지출 기록</h3>
-                    </div>
-                    <p class="text-gray-400 leading-relaxed mt-10 relative z-10">
-                        여행 예산과 실제 지출을 함께 기록해 동행자와 비용 맥락을 더 쉽게 맞춥니다.
-                    </p>
-                </div>
-
-                <!-- Large Card 2 -->
-                <div class="md:col-span-8 glass-card rounded-[2rem] p-10 relative overflow-hidden group">
-                    <div class="relative z-10 md:w-3/4">
-                        <div class="text-primary font-bold tracking-widest text-sm mb-4">04</div>
-                        <h3 class="text-3xl font-bold mb-4">공유와 커뮤니티</h3>
-                        <p class="text-gray-400 text-lg leading-relaxed">
-                            내 여행을 링크로 공유하고, 공개 가능한 여행 기록은 다른 사용자에게 영감이 될 수 있도록 연결합니다.
+                    <div class="card rounded-xl p-8 md:p-10">
+                        <div class="text-primary font-bold tracking-widest text-xs mb-3">03</div>
+                        <h3 class="text-xl md:text-2xl font-bold mb-3 text-black dark:text-white">예산과 지출 기록</h3>
+                        <p class="text-gray-600 dark:text-gray-400 text-base leading-relaxed">
+                            여행 예산과 실제 지출을 함께 기록해 동행자와 비용 맥락을 더 쉽게 맞춥니다.
                         </p>
                     </div>
-                    <div class="absolute right-0 top-1/2 -translate-y-1/2 opacity-5 group-hover:opacity-10 transition-opacity duration-500 transform translate-x-1/4">
-                        <svg class="w-80 h-80 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"></path></svg>
+                </div>
+
+                <!-- Product Feature 4 -->
+                <div class="card rounded-xl p-8 md:p-10 overflow-hidden">
+                    <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-8">
+                        <div class="flex-1">
+                            <div class="text-primary font-bold tracking-widest text-xs mb-3">04</div>
+                            <h3 class="text-2xl md:text-3xl font-bold mb-4 text-black dark:text-white">공유와 커뮤니티</h3>
+                            <p class="text-gray-600 dark:text-gray-400 text-base md:text-lg leading-relaxed">
+                                내 여행을 링크로 공유하고, 공개 가능한 여행 기록은 다른 사용자에게 영감이 될 수 있도록 연결합니다.
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -318,51 +270,79 @@
     </section>
 
     <!-- Principles -->
-    <section id="principles" class="py-32 px-6">
-        <div class="max-w-4xl mx-auto text-center">
-            <h2 class="text-4xl md:text-5xl font-black mb-6 tracking-tight">제품 원칙</h2>
-            <p class="text-gray-400 text-lg mb-16">PLIN은 다음 기준을 지키며 서비스를 개선합니다.</p>
+    <section id="principles" class="py-24 md:py-32 px-6">
+        <div class="max-w-5xl mx-auto">
+            <div class="mb-16 md:mb-24">
+                <h2 class="text-3xl md:text-5xl font-black mb-4 tracking-tight text-black dark:text-white">제품 원칙</h2>
+                <p class="text-gray-600 dark:text-gray-400 text-lg">PLIN은 다음 기준을 지키며 서비스를 개선합니다.</p>
+            </div>
             
-            <div class="flex flex-wrap justify-center gap-4">
-                <div class="px-7 py-4 glass-card rounded-full font-semibold text-lg flex items-center">
-                    <div class="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center mr-3 text-sm">✓</div>
-                    사용자가 입력한 기록을 존중합니다
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="card rounded-lg p-6 md:p-8 flex items-start gap-4">
+                    <div class="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center flex-shrink-0 mt-1 text-xs font-bold">✓</div>
+                    <p class="text-gray-700 dark:text-gray-300 text-base md:text-lg font-medium leading-relaxed">
+                        사용자가 입력한 기록을 존중합니다
+                    </p>
                 </div>
-                <div class="px-7 py-4 glass-card rounded-full font-semibold text-lg flex items-center">
-                    <div class="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center mr-3 text-sm">✓</div>
-                    여행 맥락을 잃지 않는 공유를 지향합니다
+                <div class="card rounded-lg p-6 md:p-8 flex items-start gap-4">
+                    <div class="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center flex-shrink-0 mt-1 text-xs font-bold">✓</div>
+                    <p class="text-gray-700 dark:text-gray-300 text-base md:text-lg font-medium leading-relaxed">
+                        여행 맥락을 잃지 않는 공유를 지향합니다
+                    </p>
                 </div>
-                <div class="px-7 py-4 glass-card rounded-full font-semibold text-lg flex items-center">
-                    <div class="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center mr-3 text-sm">✓</div>
-                    복잡한 기능보다 반복해서 쓰기 쉬운 흐름을 우선합니다
+                <div class="card rounded-lg p-6 md:p-8 flex items-start gap-4">
+                    <div class="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center flex-shrink-0 mt-1 text-xs font-bold">✓</div>
+                    <p class="text-gray-700 dark:text-gray-300 text-base md:text-lg font-medium leading-relaxed">
+                        복잡한 기능보다 반복해서 쓰기 쉬운 흐름을 우선합니다
+                    </p>
                 </div>
-                <div class="px-7 py-4 glass-card rounded-full font-semibold text-lg flex items-center">
-                    <div class="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center mr-3 text-sm">✓</div>
-                    개인정보와 공개 범위를 신중하게 다룹니다
+                <div class="card rounded-lg p-6 md:p-8 flex items-start gap-4">
+                    <div class="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center flex-shrink-0 mt-1 text-xs font-bold">✓</div>
+                    <p class="text-gray-700 dark:text-gray-300 text-base md:text-lg font-medium leading-relaxed">
+                        개인정보와 공개 범위를 신중하게 다룹니다
+                    </p>
                 </div>
             </div>
         </div>
     </section>
 
     <!-- Footer -->
-    <footer class="border-t border-white/10 bg-black pt-20 pb-10 px-6">
+    <footer class="border-t border-orange-100/50 dark:border-white/10 bg-white dark:bg-black pt-16 md:pt-20 pb-8 px-6">
         <div class="max-w-7xl mx-auto">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-10 mb-16">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-16 mb-12">
                 <div>
-                    <a href="/" class="text-3xl font-black tracking-tighter text-white inline-block mb-6 hover:text-primary transition-colors">PLIN</a>
-                    <p class="text-gray-400 mb-2">운영 문의 : <a href="mailto:contact@plin.ink" class="text-white hover:text-primary transition-colors">contact@plin.ink</a></p>
-                    <p class="text-gray-500 text-sm mt-8">© 2026 플린(PLIN). PLIN은 여행 계획과 기록을 위한 베타 서비스입니다.</p>
+                    <a href="/" class="text-2xl md:text-3xl font-black tracking-tighter text-black dark:text-white inline-block mb-6 hover:text-primary transition-colors">PLIN</a>
+                    <p class="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+                        여행을 계획하고, 함께 다니고, 기억하는 모든 순간을 하나의 흐름으로 담아냅니다.
+                    </p>
                 </div>
-                <div class="md:text-right">
-                    <h4 class="text-white font-bold mb-6 tracking-wider text-sm uppercase">정책 문서</h4>
-                    <div class="flex flex-col md:items-end gap-3 text-sm text-gray-400 font-medium">
-                        <a href="/terms" class="hover:text-white transition-colors">서비스 이용약관</a>
-                        <a href="/privacy" class="hover:text-white transition-colors">개인정보처리방침</a>
-                        <a href="/location-terms" class="hover:text-white transition-colors">위치기반서비스 약관</a>
-                        <a href="/operation-policy" class="hover:text-white transition-colors">운영정책</a>
-                        <a href="/youth-protection-policy" class="hover:text-white transition-colors">청소년보호정책</a>
+                <div>
+                    <h4 class="text-black dark:text-white font-bold mb-4 text-sm uppercase tracking-wider">바로가기</h4>
+                    <div class="flex flex-col gap-3 text-sm text-gray-600 dark:text-gray-400 font-medium">
+                        <a href="/" class="hover:text-black dark:hover:text-white transition-colors">앱 시작</a>
+                        <a href="#mission" class="hover:text-black dark:hover:text-white transition-colors">미션</a>
+                        <a href="#product" class="hover:text-black dark:hover:text-white transition-colors">제품</a>
+                        <a href="#principles" class="hover:text-black dark:hover:text-white transition-colors">원칙</a>
                     </div>
                 </div>
+                <div>
+                    <h4 class="text-black dark:text-white font-bold mb-4 text-sm uppercase tracking-wider">연락처</h4>
+                    <div class="flex flex-col gap-3 text-sm text-gray-600 dark:text-gray-400 font-medium">
+                        <a href="mailto:contact@plin.ink" class="hover:text-black dark:hover:text-white transition-colors">contact@plin.ink</a>
+                        <p>운영 문의사항이 있으신가요?</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border-t border-orange-100/50 dark:border-white/5 pt-8">
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8 text-xs text-gray-600 dark:text-gray-500 font-medium">
+                    <a href="/terms" class="hover:text-black dark:hover:text-white transition-colors">서비스 이용약관</a>
+                    <a href="/privacy" class="hover:text-black dark:hover:text-white transition-colors">개인정보처리방침</a>
+                    <a href="/location-terms" class="hover:text-black dark:hover:text-white transition-colors">위치기반서비스</a>
+                    <a href="/operation-policy" class="hover:text-black dark:hover:text-white transition-colors">운영정책</a>
+                    <a href="/youth-protection-policy" class="hover:text-black dark:hover:text-white transition-colors">청소년보호정책</a>
+                </div>
+                <p class="text-gray-500 dark:text-gray-600 text-xs">© 2026 플린(PLIN). PLIN은 여행 계획과 기록을 위한 베타 서비스입니다.</p>
             </div>
         </div>
     </footer>
