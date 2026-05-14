@@ -1,6 +1,7 @@
 import React from 'react';
 import {
     KeyboardAvoidingView,
+    Linking,
     Modal,
     Platform,
     Pressable,
@@ -22,12 +23,19 @@ import { EmptyState } from '@/components/EmptyState';
 import { Alert } from '@/feedback';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { useKeyboardAwareInputScroll } from '@/hooks/useKeyboardAwareInputScroll';
+import { useSubscription, useSubscriptionInit } from '@/hooks/useSubscription';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
 import {
     type PickedProfilePhotoAsset,
     pickProfilePhotoAsset,
     uploadProfilePhotoAsset
 } from '@/services/profile-photo-upload';
+import {
+    isSubscriptionConfigured,
+    isSubscriptionCancelledError,
+    purchaseSubscription,
+    restoreSubscriptionPurchases
+} from '@/services/subscription-purchases';
 import { usePrimaryScrollActivityReporter } from '@/state/primary-scroll-activity';
 import { type AppTheme, type FontPreset, useAppTheme, useThemePreference } from '@/theme';
 
@@ -161,6 +169,15 @@ export function SettingsScreen({ navigation }: Props) {
         setDarkModeEnabled,
         setFontPreset
     } = useThemePreference();
+    const {
+        isPremium,
+        currentPlan,
+        expiryDate,
+        isLoading: isSubscriptionLoading,
+        error: subscriptionError
+    } = useSubscription();
+    useSubscriptionInit({ enabled: Boolean(user) });
+
     const [isRefreshing, setIsRefreshing] = React.useState(false);
     const [isProfileEditorVisible, setIsProfileEditorVisible] = React.useState(false);
     const [draftDisplayName, setDraftDisplayName] = React.useState('');
@@ -169,6 +186,9 @@ export function SettingsScreen({ navigation }: Props) {
     const [isProfileEditorSaving, setIsProfileEditorSaving] = React.useState(false);
     const [isFontPresetModalVisible, setIsFontPresetModalVisible] = React.useState(false);
     const [isSupportPolicyOpen, setIsSupportPolicyOpen] = React.useState(false);
+    const [isSubscriptionSheetVisible, setIsSubscriptionSheetVisible] = React.useState(false);
+    const [isSubscriptionActionLoading, setIsSubscriptionActionLoading] = React.useState(false);
+    const [subscriptionActionError, setSubscriptionActionError] = React.useState<string | null>(null);
     const { notifyPrimaryScrollActivity, scrollEventThrottle } = usePrimaryScrollActivityReporter();
 
     const summary = profileSummary || buildFallbackSummary(user);
@@ -214,6 +234,75 @@ export function SettingsScreen({ navigation }: Props) {
     const handleOpenExternalLink = React.useCallback((url: string, title?: string) => {
         navigation.navigate('InAppBrowser', { url, title });
     }, [navigation]);
+
+    const openSubscriptionSheet = React.useCallback(() => {
+        setSubscriptionActionError(null);
+        setIsSubscriptionSheetVisible(true);
+    }, []);
+
+    const closeSubscriptionSheet = React.useCallback(() => {
+        if (isSubscriptionActionLoading) {
+            return;
+        }
+        setIsSubscriptionSheetVisible(false);
+    }, [isSubscriptionActionLoading]);
+
+    const handlePurchaseSubscription = React.useCallback(async (planType: 'monthly' | 'annual') => {
+        if (!user || !isSubscriptionConfigured()) {
+            Alert.alert('구독 오류', '앱에서만 구독할 수 있어요.');
+            return;
+        }
+
+        setIsSubscriptionActionLoading(true);
+        setSubscriptionActionError(null);
+
+        try {
+            await purchaseSubscription(user.uid, {
+                productId: 'premium',
+                planType
+            });
+            closeSubscriptionSheet();
+        } catch (error) {
+            if (isSubscriptionCancelledError(error)) {
+                return;
+            }
+            const message = error instanceof Error && error.message
+                ? error.message
+                : '구독 처리 중 오류가 발생했어요.';
+            setSubscriptionActionError(message);
+        } finally {
+            setIsSubscriptionActionLoading(false);
+        }
+    }, [user, closeSubscriptionSheet]);
+
+    const handleRestoreSubscription = React.useCallback(async () => {
+        if (!user) {
+            return;
+        }
+
+        setIsSubscriptionActionLoading(true);
+        setSubscriptionActionError(null);
+
+        try {
+            await restoreSubscriptionPurchases(user.uid);
+            Alert.alert('복원 완료', '이전 구독 내역을 복원했어요.');
+        } catch (error) {
+            const message = error instanceof Error && error.message
+                ? error.message
+                : '구독 복원 중 오류가 발생했어요.';
+            Alert.alert('복원 실패', message);
+        } finally {
+            setIsSubscriptionActionLoading(false);
+        }
+    }, [user]);
+
+    const handleOpenSubscriptionSettings = React.useCallback(() => {
+        if (Platform.OS === 'ios') {
+            Linking.openURL('https://apps.apple.com/account/subscriptions');
+        } else if (Platform.OS === 'android') {
+            Linking.openURL('https://play.google.com/store/account/subscriptions');
+        }
+    }, []);
 
     const openProfileEditor = React.useCallback(() => {
         setDraftDisplayName(editableProfileName);
@@ -391,6 +480,105 @@ export function SettingsScreen({ navigation }: Props) {
                         </View>
                     ) : null}
 
+                    {isSubscriptionConfigured() ? (
+                        <View style={styles.sectionBlock}>
+                            <Text style={styles.sectionLabel}>프리미엄</Text>
+                            <View style={styles.groupCard}>
+                                {isPremium && expiryDate ? (
+                                    <>
+                                        <View style={styles.subscriptionStatusRow}>
+                                            <View style={styles.rowCopy}>
+                                                <View style={styles.subscriptionStatusBadge}>
+                                                    <Ionicons name="checkmark-circle" size={16} color={theme.colors.accent} />
+                                                    <Text style={styles.subscriptionStatusBadgeText}>구독 중</Text>
+                                                </View>
+                                                <Text style={styles.rowTitle}>
+                                                    {currentPlan === 'monthly' ? '월 4,900원' : '연 49,000원'}
+                                                </Text>
+                                                <Text style={styles.rowDescription}>
+                                                    만료: {expiryDate.toLocaleDateString('ko-KR')}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                        <Pressable
+                                            accessibilityRole="button"
+                                            disabled={isSubscriptionActionLoading}
+                                            onPress={handleOpenSubscriptionSettings}
+                                            style={({ pressed }) => [
+                                                styles.menuRow,
+                                                styles.menuRowDivider,
+                                                isSubscriptionActionLoading ? styles.actionDisabled : null,
+                                                pressed && !isSubscriptionActionLoading ? styles.actionPressed : null
+                                            ]}
+                                        >
+                                            <View style={styles.rowCopy}>
+                                                <Text style={styles.rowTitle}>구독 관리</Text>
+                                                <Text style={styles.rowDescription}>
+                                                    {Platform.OS === 'ios' ? 'App Store' : 'Google Play'}에서 구독을 관리해요.
+                                                </Text>
+                                            </View>
+                                            <Ionicons
+                                                name="chevron-forward"
+                                                size={20}
+                                                color={theme.colors.textSecondary}
+                                            />
+                                        </Pressable>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Pressable
+                                            accessibilityRole="button"
+                                            disabled={isSubscriptionLoading || isSubscriptionActionLoading}
+                                            onPress={openSubscriptionSheet}
+                                            style={({ pressed }) => [
+                                                styles.menuRow,
+                                                isSubscriptionLoading || isSubscriptionActionLoading ? styles.actionDisabled : null,
+                                                pressed && !isSubscriptionLoading && !isSubscriptionActionLoading ? styles.actionPressed : null
+                                            ]}
+                                        >
+                                            <View style={styles.rowCopy}>
+                                                <Text style={styles.rowTitle}>프리미엄 구독</Text>
+                                                <Text style={styles.rowDescription}>
+                                                    프리미엄 기능을 이용해 더 많은 여행을 기록해요.
+                                                </Text>
+                                            </View>
+                                            <Ionicons
+                                                name={isSubscriptionLoading ? 'hourglass' : 'chevron-forward'}
+                                                size={20}
+                                                color={theme.colors.textSecondary}
+                                            />
+                                        </Pressable>
+                                        <Pressable
+                                            accessibilityRole="button"
+                                            disabled={isSubscriptionActionLoading}
+                                            onPress={() => {
+                                                void handleRestoreSubscription();
+                                            }}
+                                            style={({ pressed }) => [
+                                                styles.menuRow,
+                                                styles.menuRowDivider,
+                                                isSubscriptionActionLoading ? styles.actionDisabled : null,
+                                                pressed && !isSubscriptionActionLoading ? styles.actionPressed : null
+                                            ]}
+                                        >
+                                            <View style={styles.rowCopy}>
+                                                <Text style={styles.rowTitle}>구독 복원</Text>
+                                                <Text style={styles.rowDescription}>
+                                                    이전 구독 내역을 복원해요.
+                                                </Text>
+                                            </View>
+                                            <Ionicons
+                                                name="chevron-forward"
+                                                size={20}
+                                                color={theme.colors.textSecondary}
+                                            />
+                                        </Pressable>
+                                    </>
+                                )}
+                            </View>
+                        </View>
+                    ) : null}
+
                     <View style={styles.sectionBlock}>
                         <Text style={styles.sectionLabel}>설정</Text>
                         <View style={styles.groupCard}>
@@ -542,7 +730,7 @@ export function SettingsScreen({ navigation }: Props) {
                 onRequestClose={closeProfileEditor}
             >
                 <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                     style={styles.profileSheetBackdrop}
                 >
                     <Pressable
@@ -718,6 +906,115 @@ export function SettingsScreen({ navigation }: Props) {
                         </View>
                     </View>
                 </View>
+            </Modal>
+            <Modal
+                animationType="slide"
+                transparent
+                visible={isSubscriptionSheetVisible}
+                onRequestClose={closeSubscriptionSheet}
+            >
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                    style={styles.subscriptionSheetBackdrop}
+                >
+                    <Pressable
+                        accessibilityRole="button"
+                        disabled={isSubscriptionActionLoading}
+                        onPress={closeSubscriptionSheet}
+                        style={StyleSheet.absoluteFill}
+                    />
+                    <View style={[styles.subscriptionSheet, { paddingBottom: insets.bottom + theme.spacing.md }]}>
+                        <View style={styles.subscriptionSheetHandle} />
+                        <Text style={styles.subscriptionSheetEyebrow}>프리미엄</Text>
+                        <Text style={styles.subscriptionSheetTitle}>프리미엄 구독하기</Text>
+                        <Text style={styles.subscriptionSheetDescription}>
+                            더 많은 여행을 기록하고 공유해요.
+                        </Text>
+
+                        {subscriptionActionError ? (
+                            <View style={[styles.noticeCard, styles.noticeCardWarning, styles.subscriptionSheetNotice]}>
+                                <Text style={[styles.noticeText, styles.noticeTextWarning]}>
+                                    {subscriptionActionError}
+                                </Text>
+                            </View>
+                        ) : null}
+
+                        <View style={styles.subscriptionPlanList}>
+                            <Pressable
+                                accessibilityRole="button"
+                                disabled={isSubscriptionActionLoading}
+                                onPress={() => {
+                                    void handlePurchaseSubscription('monthly');
+                                }}
+                                style={({ pressed }) => [
+                                    styles.subscriptionPlanOption,
+                                    isSubscriptionActionLoading ? styles.actionDisabled : null,
+                                    pressed && !isSubscriptionActionLoading ? styles.actionPressed : null
+                                ]}
+                            >
+                                <View style={styles.rowCopy}>
+                                    <Text style={styles.subscriptionPlanTitle}>월간 구독</Text>
+                                    <Text style={styles.subscriptionPlanPrice}>월 4,900원</Text>
+                                    <Text style={styles.rowDescription}>
+                                        언제든지 취소할 수 있어요.
+                                    </Text>
+                                </View>
+                                <Ionicons
+                                    name={isSubscriptionActionLoading ? 'hourglass' : 'arrow-forward'}
+                                    size={20}
+                                    color={theme.colors.accent}
+                                />
+                            </Pressable>
+
+                            <Pressable
+                                accessibilityRole="button"
+                                disabled={isSubscriptionActionLoading}
+                                onPress={() => {
+                                    void handlePurchaseSubscription('annual');
+                                }}
+                                style={({ pressed }) => [
+                                    styles.subscriptionPlanOption,
+                                    styles.subscriptionPlanOptionFeatured,
+                                    isSubscriptionActionLoading ? styles.actionDisabled : null,
+                                    pressed && !isSubscriptionActionLoading ? styles.actionPressed : null
+                                ]}
+                            >
+                                <View style={styles.subscriptionPlanBadgeContainer}>
+                                    <View style={styles.subscriptionPlanBadge}>
+                                        <Text style={styles.subscriptionPlanBadgeText}>추천</Text>
+                                    </View>
+                                </View>
+                                <View style={styles.rowCopy}>
+                                    <Text style={styles.subscriptionPlanTitle}>연간 구독</Text>
+                                    <Text style={styles.subscriptionPlanPrice}>연 49,000원</Text>
+                                    <Text style={styles.subscriptionPlanSavings}>
+                                        월 4,083원 (연 8%+ 절약)
+                                    </Text>
+                                </View>
+                                <Ionicons
+                                    name={isSubscriptionActionLoading ? 'hourglass' : 'arrow-forward'}
+                                    size={20}
+                                    color={theme.colors.accent}
+                                />
+                            </Pressable>
+                        </View>
+
+                        <View style={styles.subscriptionSheetFooter}>
+                            <Pressable
+                                accessibilityRole="button"
+                                disabled={isSubscriptionActionLoading}
+                                onPress={closeSubscriptionSheet}
+                                style={({ pressed }) => [
+                                    styles.subscriptionSecondaryButton,
+                                    isSubscriptionActionLoading ? styles.actionDisabled : null,
+                                    pressed && !isSubscriptionActionLoading ? styles.actionPressed : null
+                                ]}
+                            >
+                                <Text style={styles.subscriptionSecondaryButtonText}>닫기</Text>
+                            </Pressable>
+                        </View>
+                    </View>
+                </KeyboardAvoidingView>
             </Modal>
             <BottomNavBar activeTab="Settings" />
         </View>
@@ -1057,6 +1354,142 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     },
     profilePrimaryButtonText: {
         color: theme.mode === 'dark' ? '#16120f' : '#fffaf2',
+        fontSize: 15,
+        fontFamily: theme.fonts.semibold
+    },
+    subscriptionStatusRow: {
+        minHeight: 72,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: theme.spacing.sm,
+        paddingHorizontal: theme.spacing.sm,
+        paddingVertical: theme.spacing.sm
+    },
+    subscriptionStatusBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: theme.spacing.micro,
+        marginBottom: theme.spacing.xs
+    },
+    subscriptionStatusBadgeText: {
+        color: theme.colors.accent,
+        fontSize: 12,
+        fontFamily: theme.fonts.semibold
+    },
+    subscriptionSheetBackdrop: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'flex-end'
+    },
+    subscriptionSheet: {
+        backgroundColor: theme.colors.surface,
+        borderTopLeftRadius: theme.radius.xl,
+        borderTopRightRadius: theme.radius.xl,
+        paddingHorizontal: theme.spacing.sm,
+        paddingTop: theme.spacing.md
+    },
+    subscriptionSheetHandle: {
+        alignSelf: 'center',
+        width: 40,
+        height: 4,
+        borderRadius: theme.radius.xs,
+        backgroundColor: theme.colors.border,
+        marginBottom: theme.spacing.sm
+    },
+    subscriptionSheetEyebrow: {
+        color: theme.colors.textSecondary,
+        fontSize: 12,
+        fontFamily: theme.fonts.semibold,
+        textTransform: 'uppercase'
+    },
+    subscriptionSheetTitle: {
+        marginTop: theme.spacing.micro,
+        color: theme.colors.textPrimary,
+        fontSize: 24,
+        lineHeight: 30,
+        fontFamily: theme.fonts.bold
+    },
+    subscriptionSheetDescription: {
+        marginTop: theme.spacing.xs,
+        marginBottom: theme.spacing.md,
+        color: theme.colors.textSecondary,
+        lineHeight: 20,
+        fontFamily: theme.fonts.body
+    },
+    subscriptionSheetNotice: {
+        marginBottom: theme.spacing.md
+    },
+    subscriptionPlanList: {
+        gap: theme.spacing.sm,
+        marginBottom: theme.spacing.md
+    },
+    subscriptionPlanOption: {
+        minHeight: 80,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: theme.spacing.sm,
+        paddingHorizontal: theme.spacing.sm,
+        paddingVertical: theme.spacing.sm,
+        borderRadius: theme.radius.md,
+        backgroundColor: theme.colors.surfaceMuted,
+        borderWidth: 1,
+        borderColor: theme.colors.border
+    },
+    subscriptionPlanOptionFeatured: {
+        backgroundColor: theme.mode === 'dark' ? '#2f241a' : '#fef5ed',
+        borderColor: theme.colors.accent
+    },
+    subscriptionPlanBadgeContainer: {
+        position: 'absolute',
+        top: -8,
+        right: theme.spacing.sm
+    },
+    subscriptionPlanBadge: {
+        paddingHorizontal: theme.spacing.xs,
+        paddingVertical: theme.spacing.micro,
+        borderRadius: theme.radius.md,
+        backgroundColor: theme.colors.accent
+    },
+    subscriptionPlanBadgeText: {
+        color: theme.mode === 'dark' ? '#16120f' : '#fffaf2',
+        fontSize: 10,
+        fontFamily: theme.fonts.semibold
+    },
+    subscriptionPlanTitle: {
+        color: theme.colors.textPrimary,
+        fontSize: 16,
+        lineHeight: 20,
+        fontFamily: theme.fonts.semibold
+    },
+    subscriptionPlanPrice: {
+        marginTop: theme.spacing.micro,
+        color: theme.colors.accent,
+        fontSize: 18,
+        lineHeight: 22,
+        fontFamily: theme.fonts.bold
+    },
+    subscriptionPlanSavings: {
+        marginTop: theme.spacing.micro,
+        color: theme.colors.accent,
+        fontSize: 12,
+        fontFamily: theme.fonts.semibold
+    },
+    subscriptionSheetFooter: {
+        flexDirection: 'row',
+        gap: theme.spacing.sm
+    },
+    subscriptionSecondaryButton: {
+        flex: 1,
+        minHeight: 48,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: theme.radius.md,
+        backgroundColor: theme.colors.surfaceMuted
+    },
+    subscriptionSecondaryButtonText: {
+        color: theme.colors.textPrimary,
         fontSize: 15,
         fontFamily: theme.fonts.semibold
     },

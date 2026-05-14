@@ -2134,7 +2134,7 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
             />
             <KeyboardAvoidingView
                 style={styles.keyboardArea}
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             >
                 <Animated.View
                     style={[

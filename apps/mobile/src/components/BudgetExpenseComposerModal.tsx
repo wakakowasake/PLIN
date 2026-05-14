@@ -398,7 +398,7 @@ export function BudgetExpenseComposerModal({
                 <View style={styles.modalOverlay}>
                     <Pressable style={StyleSheet.absoluteFill} />
                     <KeyboardAvoidingView
-                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                         style={styles.keyboardArea}
                     >
                         <Animated.View

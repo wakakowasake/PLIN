@@ -2136,7 +2136,7 @@ export function TripListScreen({ navigation, route }: Props) {
                 onRequestClose={closeProfileEditor}
             >
                 <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                     style={styles.profileSheetBackdrop}
                 >
                     <Pressable

@@ -5361,7 +5361,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
                 <View style={styles.modalOverlay}>
                     <Pressable style={styles.modalBackdrop} />
                     <KeyboardAvoidingView
-                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                         style={styles.modalKeyboardArea}
                     >
                         {tripListComposerTarget ? (
