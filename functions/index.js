@@ -3209,6 +3209,126 @@ async function revokeMarketplacePurchase({ uid, postId, productId, source = "web
   };
 }
 
+async function grantSubscription({ uid, productId, planType, originalTransactionId, expiryDate, event = null }) {
+  const safeUid = readString(uid);
+  const safeProductId = readString(productId);
+  const safePlanType = readString(planType);
+  const safeTransactionId = readString(originalTransactionId);
+
+  if (!safeUid || !safeProductId || !safePlanType) {
+    throw new Error("INVALID_SUBSCRIPTION");
+  }
+
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  const expiryTimestamp = expiryDate ? admin.firestore.Timestamp.fromDate(new Date(expiryDate)) : null;
+
+  const payload = {
+    userId: safeUid,
+    isPremium: true,
+    planType: safePlanType,
+    autoRenew: true,
+    productId: safeProductId,
+    ...(safeTransactionId ? { originalTransactionId: safeTransactionId } : {}),
+    ...(expiryTimestamp ? { expiryDate: expiryTimestamp } : {}),
+    syncedAt: now,
+    updatedAt: now,
+    ...(event ? { lastRevenueCatEvent: serializeForJson(event) } : {})
+  };
+
+  const subscriptionRef = admin.firestore()
+    .collection("user_subscriptions")
+    .doc(safeUid);
+
+  await subscriptionRef.set(payload, { merge: true });
+
+  console.log(`[Subscription] Granted subscription for user ${safeUid}: ${safePlanType}`);
+
+  return {
+    userId: safeUid,
+    isPremium: true,
+    planType: safePlanType
+  };
+}
+
+async function renewSubscription({ uid, productId, planType, expiryDate, event = null }) {
+  const safeUid = readString(uid);
+  const safeProductId = readString(productId);
+  const safePlanType = readString(planType);
+
+  if (!safeUid || !safeProductId) {
+    throw new Error("INVALID_SUBSCRIPTION");
+  }
+
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  const expiryTimestamp = expiryDate ? admin.firestore.Timestamp.fromDate(new Date(expiryDate)) : null;
+
+  const payload = {
+    isPremium: true,
+    autoRenew: true,
+    ...(safePlanType ? { planType: safePlanType } : {}),
+    ...(expiryTimestamp ? { expiryDate: expiryTimestamp } : {}),
+    syncedAt: now,
+    updatedAt: now,
+    ...(event ? { lastRevenueCatEvent: serializeForJson(event) } : {})
+  };
+
+  const subscriptionRef = admin.firestore()
+    .collection("user_subscriptions")
+    .doc(safeUid);
+
+  await subscriptionRef.set(payload, { merge: true });
+
+  console.log(`[Subscription] Renewed subscription for user ${safeUid}: ${safePlanType || 'existing plan'}`);
+
+  return {
+    userId: safeUid,
+    isPremium: true
+  };
+}
+
+async function revokeSubscription({ uid, reason = "unknown", event = null }) {
+  const safeUid = readString(uid);
+
+  if (!safeUid) {
+    throw new Error("INVALID_SUBSCRIPTION");
+  }
+
+  const now = admin.firestore.FieldValue.serverTimestamp();
+
+  const payload = {
+    isPremium: false,
+    autoRenew: false,
+    revokedReason: reason,
+    revokedAt: now,
+    updatedAt: now,
+    ...(event ? { lastRevenueCatEvent: serializeForJson(event) } : {})
+  };
+
+  const subscriptionRef = admin.firestore()
+    .collection("user_subscriptions")
+    .doc(safeUid);
+
+  await subscriptionRef.set(payload, { merge: true });
+
+  console.log(`[Subscription] Revoked subscription for user ${safeUid}: ${reason}`);
+
+  return {
+    userId: safeUid,
+    isPremium: false
+  };
+}
+
+function extractPlanTypeFromProductId(productId) {
+  const safeProductId = readString(productId).toLowerCase();
+  if (safeProductId.includes("annual") || safeProductId.includes("yearly") || safeProductId.includes("year")) {
+    return "annual";
+  }
+  if (safeProductId.includes("monthly") || safeProductId.includes("month")) {
+    return "monthly";
+  }
+  return null;
+}
+
 function buildCommunityCommentResponse(commentId, data) {
   return {
     id: commentId,
@@ -4957,6 +5077,100 @@ app.get("/marketplace/posts/:postId/paid-content", validateFirebaseIdToken, asyn
     return res.status(500).json({
       error: "Marketplace Paid Content Error",
       message: "전체 일정을 불러오지 못했어요."
+    });
+  }
+});
+
+app.post("/marketplace/subscription/webhook", async (req, res) => {
+  if (!isAuthorizedRevenueCatWebhook(req)) {
+    return res.status(401).json({
+      error: "Unauthorized",
+      message: "웹훅 인증 정보가 올바르지 않습니다."
+    });
+  }
+
+  const event = isPlainObject(req.body?.event) ? req.body.event : req.body;
+  const eventType = readString(event?.type).toUpperCase();
+  const uid = readString(event?.app_user_id || event?.appUserId);
+  const productId = readString(event?.product_id || event?.productId);
+
+  if (!uid || !eventType) {
+    return res.status(400).json({
+      error: "Invalid Subscription Event",
+      message: "웹훅 이벤트 정보가 부족합니다."
+    });
+  }
+
+  if (uid.startsWith("$RCAnonymousID:")) {
+    console.warn("[Subscription] RevenueCat webhook skipped for anonymous user:", uid, eventType);
+    return res.json({ ok: true, ignored: true });
+  }
+
+  try {
+    await admin.auth().getUser(uid);
+  } catch (authError) {
+    console.warn("[Subscription] RevenueCat webhook skipped — uid not found in Firebase Auth:", uid, eventType);
+    return res.json({ ok: true, ignored: true });
+  }
+
+  try {
+    console.log(`[Subscription] Processing webhook event: ${eventType} for user ${uid}`);
+
+    if (eventType === "INITIAL_PURCHASE") {
+      const planType = extractPlanTypeFromProductId(productId) || readString(event?.subscription?.period_type || event?.periodType) || "monthly";
+      const expiryDate = readString(event?.expiration_at_ms || event?.expirationAtMs || event?.expires_date || event?.expiresDate);
+      const originalTransactionId = readString(event?.original_transaction_id || event?.originalTransactionId);
+
+      const subscription = await grantSubscription({
+        uid,
+        productId,
+        planType,
+        originalTransactionId,
+        expiryDate: expiryDate ? new Date(Number(expiryDate) || expiryDate) : null,
+        event
+      });
+      return res.json({ ok: true, subscription });
+    }
+
+    if (eventType === "RENEWAL") {
+      const planType = extractPlanTypeFromProductId(productId) || readString(event?.subscription?.period_type || event?.periodType) || null;
+      const expiryDate = readString(event?.expiration_at_ms || event?.expirationAtMs || event?.expires_date || event?.expiresDate);
+
+      const subscription = await renewSubscription({
+        uid,
+        productId,
+        planType,
+        expiryDate: expiryDate ? new Date(Number(expiryDate) || expiryDate) : null,
+        event
+      });
+      return res.json({ ok: true, subscription });
+    }
+
+    if (eventType === "EXPIRATION") {
+      const subscription = await revokeSubscription({
+        uid,
+        reason: "expiration",
+        event
+      });
+      return res.json({ ok: true, subscription });
+    }
+
+    if (eventType === "CANCELLATION") {
+      const subscription = await revokeSubscription({
+        uid,
+        reason: "cancellation",
+        event
+      });
+      return res.json({ ok: true, subscription });
+    }
+
+    console.log(`[Subscription] Webhook event ${eventType} ignored (no action required)`);
+    return res.json({ ok: true, ignored: true });
+  } catch (error) {
+    console.error("[Subscription] RevenueCat webhook error:", error);
+    return res.status(500).json({
+      error: "Subscription Webhook Error",
+      message: "웹훅 처리 중 오류가 발생했습니다."
     });
   }
 });
