@@ -173,6 +173,8 @@ a {
   line-height: 1.35;
   letter-spacing: -0.03em;
   color: #111827;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 
 .policy-main h2.border-b-2 {
@@ -187,12 +189,14 @@ a {
   line-height: 1.45;
   letter-spacing: -0.02em;
   color: #111827;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 
 .policy-main h2.flex,
 .policy-main h3.flex {
   display: grid !important;
-  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr);
   column-gap: 8px;
   align-items: baseline;
 }
@@ -1038,6 +1042,11 @@ a {
 
   .policy-main h3 {
     font-size: 17px;
+  }
+
+  .policy-main h2.flex,
+  .policy-main h3.flex {
+    column-gap: 6px;
   }
 
   .policy-chip-list,

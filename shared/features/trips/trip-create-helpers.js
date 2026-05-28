@@ -12,7 +12,7 @@ export function buildTripCreatePayload({
 }) {
     const titleValidation = validateTripTitle(title);
     if (titleValidation.code === 'missing') {
-        throw new Error('여행 제목을 입력해 주세요.');
+        throw new Error('일정 제목을 입력해 주세요.');
     }
 
     if (titleValidation.code === 'too_long') {

@@ -47,6 +47,10 @@ test('reads public trip token from web and mobile deep links', () => {
         'public-token-456'
     );
     assert.equal(
+        readPublicTripTokenFromUrl('https://plin.ink/m?publicTrip=public-token-web'),
+        'public-token-web'
+    );
+    assert.equal(
         readPublicTripTokenFromUrl('plinmobile://p/public-token-789'),
         'public-token-789'
     );

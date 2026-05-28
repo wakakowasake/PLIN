@@ -148,8 +148,8 @@ export async function configureTripReminderNotifications() {
 
     if (Platform.OS === 'android') {
         await Notifications.setNotificationChannelAsync(TRIP_REMINDER_CHANNEL_ID, {
-            name: '여행 일정 알림',
-            description: '여행 일정 시작 전에 알려드리는 알림',
+            name: '일정 알림',
+            description: '일정 시작 전에 알려드리는 알림',
             importance: Notifications.AndroidImportance.HIGH,
             vibrationPattern: [0, 250, 250, 250],
             lightColor: '#FF6600'

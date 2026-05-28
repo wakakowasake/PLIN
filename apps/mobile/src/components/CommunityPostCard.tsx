@@ -1,4 +1,5 @@
 import React from 'react';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AvatarImage } from '@/components/AvatarImage';
@@ -36,22 +37,6 @@ function formatCompactDateRange(startDate: string, endDate: string) {
     const endLabel = `${end.getFullYear()}.${end.getMonth() + 1}.${end.getDate()}`;
 
     return `${startLabel}-${endLabel}`;
-}
-
-function buildMarketplaceLabel(post: MobileCommunityPostSummary) {
-    if (post.marketplace.purchaseState === 'owned') {
-        return '구매 완료';
-    }
-
-    if (post.marketplace.purchaseState === 'unavailable') {
-        return '판매 중지';
-    }
-
-    if (post.marketplace.productId) {
-        return post.marketplace.priceLabel || '유료 플랜';
-    }
-
-    return '무료 플랜';
 }
 
 export function CommunityPostCard({
@@ -111,9 +96,46 @@ export function CommunityPostCard({
 
         return [];
     }, [feedLocationLabel, feedScheduleLabel, post.subInfo]);
-    const marketplaceLabel = React.useMemo(() => buildMarketplaceLabel(post), [post]);
     const isPaidMarketplace = Boolean(post.marketplace.productId);
-    const isOwnedMarketplace = post.marketplace.purchaseState === 'owned';
+    const isUnavailableMarketplace = post.marketplace.purchaseState === 'unavailable';
+
+    const renderMarketplaceIndicator = React.useCallback((isOnImage = false) => {
+        if (isUnavailableMarketplace) {
+            return (
+                <View style={[
+                    styles.unavailableMarketplaceChip,
+                    isOnImage ? styles.metaChipOnImage : null
+                ]}>
+                    <Text style={[
+                        styles.unavailableMarketplaceChipText,
+                        isOnImage ? styles.metaChipTextOnImage : null
+                    ]}>
+                        판매 중지
+                    </Text>
+                </View>
+            );
+        }
+
+        if (!isPaidMarketplace) {
+            return null;
+        }
+
+        return (
+            <View
+                accessibilityLabel="PLIN Plus 플랜"
+                style={[
+                    styles.paidPlanIconBadge,
+                    isOnImage ? styles.paidPlanIconBadgeOnImage : null
+                ]}
+            >
+                <MaterialCommunityIcons
+                    name="crown-outline"
+                    size={14}
+                    color={isOnImage ? '#ffffff' : theme.colors.accent}
+                />
+            </View>
+        );
+    }, [isPaidMarketplace, isUnavailableMarketplace, styles, theme.colors.accent]);
 
     const renderMenuButton = React.useCallback((isOnImage = false) => {
         if (!onOpenActions) {
@@ -206,19 +228,7 @@ export function CommunityPostCard({
                         </View>
 
                         <View style={styles.feedBottomRow}>
-                            <View style={[
-                                styles.feedMetaChip,
-                                isPaidMarketplace ? styles.marketplaceChip : null,
-                                isOwnedMarketplace ? styles.marketplaceChipOwned : null
-                            ]}>
-                                <Text style={[
-                                    styles.feedMetaChipText,
-                                    isPaidMarketplace ? styles.marketplaceChipText : null,
-                                    isOwnedMarketplace ? styles.marketplaceChipOwnedText : null
-                                ]}>
-                                    {marketplaceLabel}
-                                </Text>
-                            </View>
+                            {renderMarketplaceIndicator(false)}
                             <View style={styles.feedMetaChip}>
                                 <Text style={styles.feedMetaChipText}>{post.dayCount}</Text>
                             </View>
@@ -286,23 +296,7 @@ export function CommunityPostCard({
 
                         <View style={styles.headerBottom}>
                             <View style={styles.cardMetaRow}>
-                                <View style={[
-                                    styles.metaChip,
-                                    isPaidMarketplace ? styles.marketplaceChip : null,
-                                    isOwnedMarketplace ? styles.marketplaceChipOwned : null,
-                                    hasCoverImage ? styles.marketplaceChipOnImage : null
-                                ]}>
-                                    <Text
-                                        style={[
-                                            styles.metaChipText,
-                                            isPaidMarketplace ? styles.marketplaceChipText : null,
-                                            isOwnedMarketplace ? styles.marketplaceChipOwnedText : null,
-                                            hasCoverImage ? styles.marketplaceChipTextOnImage : null
-                                        ]}
-                                    >
-                                        {marketplaceLabel}
-                                    </Text>
-                                </View>
+                                {renderMarketplaceIndicator(hasCoverImage)}
                                 <View style={[styles.metaChip, hasCoverImage ? styles.metaChipOnImage : null]}>
                                     <Text
                                         style={[
@@ -513,17 +507,33 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         textAlignVertical: 'center',
         fontFamily: theme.fonts.semibold
     },
-    marketplaceChip: {
+    paidPlanIconBadge: {
+        width: 28,
+        height: 28,
+        borderRadius: theme.radius.sm,
+        alignItems: 'center',
+        justifyContent: 'center',
         backgroundColor: theme.colors.accentSoft
     },
-    marketplaceChipOwned: {
-        backgroundColor: theme.mode === 'dark' ? '#234139' : '#ddf4e8'
+    paidPlanIconBadgeOnImage: {
+        backgroundColor: 'rgba(255, 102, 0, 0.76)'
     },
-    marketplaceChipText: {
-        color: theme.colors.accent
+    unavailableMarketplaceChip: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 28,
+        paddingHorizontal: theme.spacing.xs,
+        paddingVertical: 0,
+        borderRadius: theme.radius.sm,
+        backgroundColor: theme.colors.surfaceMuted
     },
-    marketplaceChipOwnedText: {
-        color: theme.mode === 'dark' ? '#9be0bf' : '#257a4e'
+    unavailableMarketplaceChipText: {
+        fontSize: 12,
+        lineHeight: 16,
+        includeFontPadding: false,
+        textAlignVertical: 'center',
+        color: theme.colors.textSecondary,
+        fontFamily: theme.fonts.semibold
     },
     headerShell: {
         minHeight: 192,
@@ -620,12 +630,6 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         backgroundColor: 'rgba(18, 24, 32, 0.34)'
     },
     metaChipTextOnImage: {
-        color: '#ffffff'
-    },
-    marketplaceChipOnImage: {
-        backgroundColor: 'rgba(255, 102, 0, 0.76)'
-    },
-    marketplaceChipTextOnImage: {
         color: '#ffffff'
     },
     dateChip: {

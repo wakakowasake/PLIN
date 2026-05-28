@@ -14,7 +14,12 @@
 </url>
 <url>
   <loc>https://plin.ink/terms.html</loc>
-  <lastmod>2026-05-03T00:00:00+09:00</lastmod>
+  <lastmod>2026-05-25T00:00:00+09:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://plin.ink/subscription-terms.html</loc>
+  <lastmod>2026-05-25T00:00:00+09:00</lastmod>
   <priority>0.80</priority>
 </url>
 <url>
@@ -24,22 +29,22 @@
 </url>
 <url>
   <loc>https://plin.ink/privacy.html</loc>
-  <lastmod>2026-05-03T00:00:00+09:00</lastmod>
+  <lastmod>2026-05-25T00:00:00+09:00</lastmod>
   <priority>0.80</priority>
 </url>
 <url>
   <loc>https://plin.ink/location-terms.html</loc>
-  <lastmod>2026-05-03T00:00:00+09:00</lastmod>
+  <lastmod>2026-05-25T00:00:00+09:00</lastmod>
   <priority>0.80</priority>
 </url>
 <url>
   <loc>https://plin.ink/operation-policy.html</loc>
-  <lastmod>2026-05-03T00:00:00+09:00</lastmod>
+  <lastmod>2026-05-25T00:00:00+09:00</lastmod>
   <priority>0.80</priority>
 </url>
 <url>
   <loc>https://plin.ink/youth-protection-policy.html</loc>
-  <lastmod>2026-05-03T00:00:00+09:00</lastmod>
+  <lastmod>2026-05-25T00:00:00+09:00</lastmod>
   <priority>0.80</priority>
 </url>
 

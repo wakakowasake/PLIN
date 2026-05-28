@@ -14,7 +14,7 @@ export function readAcceptedInviteTripId(response: AcceptedInviteResponse) {
     const tripId = readString(response?.trip?.id);
 
     if (!tripId) {
-        throw new Error('초대받은 여행 정보를 확인하지 못했어요.');
+        throw new Error('초대받은 일정 정보를 확인하지 못했어요.');
     }
 
     return tripId;

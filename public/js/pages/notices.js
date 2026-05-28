@@ -35,7 +35,8 @@ import { fetchUserProfile } from '../services/firebase/profile-repository.js';
 const NOTICE_LIMIT = 50;
 const NOTICE_BODY_HTML_LIMIT = 20000;
 const NOTICE_ADMIN_EMAILS = new Set([
-    'contact@plin.ink'
+    'contact@plin.ink',
+    'plin.ink@gmail.com'
 ]);
 const noticesRef = collection(db, 'notices');
 
@@ -71,6 +72,7 @@ let authObserverStarted = false;
 let initPromise = null;
 let noticeEditor = null;
 let noticeEditorInitPromise = null;
+let openWriterFromUrl = new URLSearchParams(window.location.search).get('write') === '1';
 
 function setNoticeEditorVisible(isVisible) {
     els.adminPanel?.classList.toggle('hidden', !isVisible);
@@ -633,7 +635,7 @@ function buildNoticeAdminActions(noticeId) {
 
 function buildNoticeListRow(notice) {
     const dateLabel = formatNoticeDate(notice.updatedAt || notice.createdAt);
-    const authorLabel = notice.authorName ? ` · ${escapeHtml(notice.authorName)}` : '';
+    const authorLabel = ' · 관리자';
     const pinnedBadge = notice.pinned ? '<span class="notice-pin-badge">상단 고정</span>' : '';
     const adminActions = buildNoticeAdminActions(notice.id);
 
@@ -657,7 +659,7 @@ function buildNoticeListRow(notice) {
 
 function buildNoticeDetail(notice) {
     const dateLabel = formatNoticeDate(notice.updatedAt || notice.createdAt);
-    const authorLabel = notice.authorName ? ` · ${escapeHtml(notice.authorName)}` : '';
+    const authorLabel = ' · 관리자';
     const pinnedBadge = notice.pinned ? '<span class="notice-pin-badge">상단 고정</span>' : '';
     const bodyHtml = notice.bodyHtml ? sanitizeRichTextHtml(notice.bodyHtml) : renderMarkdown(notice.body);
     const adminActions = buildNoticeAdminActions(notice.id);
@@ -796,12 +798,17 @@ async function readAdminState(user) {
         const role = String(profile.data()?.role || '').trim().toLowerCase();
         state.isAdmin = isTokenAdmin || isEmailAdmin || role === 'admin';
     } catch (error) {
-        console.warn('관리자 권한 확인 실패:', error);
+        console.warn('공지 작성 권한 확인 실패:', error);
         state.isAdmin = isTokenAdmin || isEmailAdmin;
     }
 
     setNoticeEditorVisible(state.isAdmin && editorWasOpen);
     renderNoticeList();
+
+    if (state.isAdmin && openWriterFromUrl) {
+        openWriterFromUrl = false;
+        openNoticeEditor();
+    }
 }
 
 function readFormValues() {
@@ -819,7 +826,7 @@ function readFormValues() {
 async function handleNoticeSubmit(event) {
     event.preventDefault();
     if (!state.isAdmin || !state.currentUser) {
-        setAdminStatus('관리자 계정으로 로그인해야 공지를 작성할 수 있습니다.', 'error');
+        setAdminStatus('이 계정에서는 공지를 작성할 수 없습니다.', 'error');
         return;
     }
 
@@ -844,7 +851,7 @@ async function handleNoticeSubmit(event) {
             ...values,
             bodyFormat: 'html',
             authorUid: state.currentUser.uid,
-            authorName: state.currentUser.displayName || state.currentUser.email || 'PLIN',
+            authorName: '관리자',
             updatedAt: serverTimestamp()
         };
 
@@ -863,7 +870,7 @@ async function handleNoticeSubmit(event) {
         await loadNotices();
     } catch (error) {
         console.error('공지 저장 실패:', error);
-        setAdminStatus('공지 저장에 실패했습니다. 권한 또는 네트워크를 확인해 주세요.', 'error');
+        setAdminStatus('공지 저장에 실패했습니다. 로그인 상태 또는 네트워크를 확인해 주세요.', 'error');
     } finally {
         setFormBusy(false);
     }
@@ -942,7 +949,7 @@ async function runNoticesInit() {
         assertAuthServicesReady();
         observeAuthState(readAdminState);
     } catch (error) {
-        console.warn('공지사항 관리자 상태 초기화 실패:', error);
+        console.warn('공지사항 작성 권한 초기화 실패:', error);
     }
 }
 

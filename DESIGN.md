@@ -28,6 +28,7 @@ Implementation source of truth:
 - Shared design direction: `DESIGN.md`
 - Mobile token implementation: `apps/mobile/src/theme/index.tsx`
 - Mobile bottom sheet height hierarchy: `apps/mobile/src/theme/bottomSheet.ts`
+- Mobile app copy benchmark and rewrite rules: `docs/MOBILE_COPY_STYLE_GUIDE.md`
 - Mobile spacing enforcement: `apps/mobile/scripts/spacing-audit.mjs`
 - Mobile `radius.full` usage report: `apps/mobile/scripts/radius-full-report.mjs`
 
@@ -470,6 +471,7 @@ The radius report treats these as review targets:
 - Copy should feel warm, encouraging, and quietly emotional
 - Prefer language that supports anticipation, memory, and companionship
 - Avoid overly technical phrasing on user-facing surfaces unless the user is in a settings or diagnostic context
+- For payment, marketplace, settings, and error copy, follow `docs/MOBILE_COPY_STYLE_GUIDE.md`, which is based on third-party mobile app references rather than PLIN web copy.
 - Good tone examples:
   - "여행을 한 권의 책처럼 남겨보세요."
   - "설레는 계획부터 소중한 추억까지."
@@ -508,8 +510,8 @@ Examples:
 
 ### Example Pairs
 
-- "복제" -> "내 여행으로 가져오기"
-- "복제 완료" -> "내 여행에 담기"
+- "복제" -> "내 일정으로 가져오기"
+- "복제 완료" -> "내 일정에 담기"
 - "빠른 경로" -> "자동 추천 경로"
 - "공유 창 닫힘" -> "공유 창을 닫았어요"
 - "여행 상세 준비 중" -> "여행 정보를 불러오는 중"

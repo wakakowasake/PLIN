@@ -13,7 +13,7 @@ import type {
 } from '@/types/community';
 import type { CanonicalTripDocument, RawTrip, RawTripDay, RawTripMeta } from '@/types/trip';
 
-const DEFAULT_AUTHOR_NAME = '익명의 여행자';
+const DEFAULT_AUTHOR_NAME = '익명 사용자';
 type NormalizedCommunityMarketplace = {
     productId: string | null;
     priceLabel: string | null;
@@ -69,7 +69,6 @@ function readMarketplaceSalesStatus(value: unknown): MobileCommunityMarketplaceI
 function normalizeCommunityMarketplace(value: unknown): NormalizedCommunityMarketplace {
     const data = isPlainObject(value) ? value : {};
     const productId = readNullableString(data.productId)
-        || readNullableString(data.revenueCatProductId)
         || readNullableString(data.storeProductId);
     const priceLabel = readNullableString(data.priceLabel)
         || readNullableString(data.displayPrice)
@@ -105,7 +104,7 @@ function buildMarketplaceInfo(post: RawCommunityPost): MobileCommunityMarketplac
 
     return {
         productId,
-        priceLabel: marketplace.priceLabel || (productId ? '유료 플랜' : '무료 플랜'),
+        priceLabel: marketplace.priceLabel || (productId ? 'PLIN Plus' : ''),
         currencyCode: marketplace.currencyCode || null,
         salesStatus,
         purchaseState: marketplace.purchaseState || fallbackState

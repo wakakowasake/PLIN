@@ -44,6 +44,10 @@ export interface TripRepository {
     createTrip(userId: string, input: MobileTripCreateInput): Promise<MobileTripDetail | null>;
     duplicateTrip(userId: string, tripId: string): Promise<MobileTripDetail | null>;
     deleteTrip(userId: string, tripId: string, options?: { transferOwnerUid?: string | null }): Promise<void>;
+    leaveTrip(userId: string, tripId: string): Promise<void>;
+    listDeletedTrips(userId: string): Promise<MobileTripSummary[]>;
+    restoreDeletedTrip(userId: string, tripId: string): Promise<MobileTripDetail | null>;
+    permanentlyDeleteTrip(userId: string, tripId: string): Promise<void>;
     updateTripInfo(userId: string, tripId: string, input: MobileTripInfoInput): Promise<MobileTripDetail | null>;
     appendExpenseToTimelineItem(
         userId: string,

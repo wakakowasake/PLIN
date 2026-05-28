@@ -21,6 +21,7 @@ service cloud.firestore {
             request.auth.token.email_verified == true &&
             (
               request.auth.token.email == 'contact@plin.ink'
+              || request.auth.token.email == 'plin.ink@gmail.com'
             )
           ) ||
           (
@@ -217,6 +218,12 @@ service cloud.firestore {
       allow read: if true;
 
       // 작성/수정/삭제: 관리자 계정만 가능
+      allow create, update, delete: if isAdmin();
+    }
+
+    // 블로그 게시판
+    match /blogPosts/{postId} {
+      allow read: if true;
       allow create, update, delete: if isAdmin();
     }
 

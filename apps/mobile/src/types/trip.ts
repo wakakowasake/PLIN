@@ -1,4 +1,5 @@
 export type TripStatus = 'planning' | 'completed';
+export type PlanPurpose = 'trip' | 'date';
 
 export type MemoryEntry = {
     photoUrl?: string | null;
@@ -121,6 +122,7 @@ export type RawTripMeta = {
     subInfo?: string;
     dayCount?: string;
     location?: string;
+    purpose?: PlanPurpose;
     coverImage?: string | null;
     mapImage?: string | null;
     budget?: number | null;
@@ -198,6 +200,7 @@ export type CanonicalTripMeta = {
     subInfo: string;
     dayCount: string;
     location: string;
+    purpose: PlanPurpose;
     startDate: string;
     endDate: string;
     budget: number | null;
@@ -238,6 +241,7 @@ export type MobileTripSummary = {
     title: string;
     subInfo: string;
     dayCount: string;
+    purpose: PlanPurpose;
     startDate: string;
     endDate: string;
     createdAt?: string;
@@ -245,6 +249,10 @@ export type MobileTripSummary = {
     contentVersion: number;
     coverImage?: string | null;
     status: TripStatus;
+    deletedAt?: string | null;
+    deletedBy?: string | null;
+    deletionReason?: string | null;
+    purgeAfter?: string | null;
     permissions: MobileTripPermissions;
     collaborators?: MobileTripCollaboratorSummary[];
 };
@@ -297,6 +305,7 @@ export type TripRestoreResponse = {
 export type MobileTripInfoInput = {
     title: string;
     location: string;
+    purpose?: PlanPurpose;
     startDate: string;
     endDate: string;
     coverImage?: string | null;
@@ -506,6 +515,13 @@ export type MobileTimelineDisplayItem = {
     transitDetailedSteps: MobileTransitDetailedStep[];
 };
 
+export type MobileTimelineFocusTarget = {
+    dayId: string;
+    itemId: string;
+    itemIndex?: number;
+    requestId?: number;
+};
+
 export type MobileTripDaySection = {
     id: string;
     label: string;
@@ -529,6 +545,7 @@ export type MobileTripDetail = {
     subInfo: string;
     locationLabel: string;
     dayCount: string;
+    purpose: PlanPurpose;
     createdAt?: string;
     updatedAt?: string;
     contentVersion: number;

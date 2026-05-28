@@ -108,7 +108,7 @@ function buildRootTabScreenOptions(title: string) {
 function getInviteErrorMessage(error: unknown) {
     if (error instanceof Error && error.message) {
         if (/Cannot read propert|Cannot read properties|startDate|editInfo/i.test(error.message)) {
-            return '초대받은 여행 데이터를 불러오는 중 문제가 생겼어요. 앱을 다시 열고 다시 시도해 주세요.';
+            return '초대받은 일정 데이터를 불러오는 중 문제가 생겼어요. 앱을 다시 열고 다시 시도해 주세요.';
         }
 
         return error.message;
@@ -558,7 +558,7 @@ export function RootNavigator() {
                             name="TripList"
                             component={isTablet ? TabletRootShell : TripListScreen}
                             options={{
-                                ...buildRootTabScreenOptions('여행'),
+                                ...buildRootTabScreenOptions('일정'),
                                 headerShown: false
                             }}
                         />
@@ -586,12 +586,12 @@ export function RootNavigator() {
                         <Stack.Screen
                             name="TripDetail"
                             component={TripDetailScreen}
-                            options={{ title: '여행 상세' }}
+                            options={{ title: '일정 상세' }}
                         />
                         <Stack.Screen
                             name="TripCreate"
                             component={TripCreateScreen}
-                            options={{ title: '새 여행 만들기' }}
+                            options={{ title: '새 일정 만들기' }}
                         />
                         <Stack.Screen
                             name="FlightBooking"
@@ -617,7 +617,7 @@ export function RootNavigator() {
                             name="TripInfoEdit"
                             component={TripInfoEditScreen}
                             options={{
-                                title: '여행 정보',
+                                title: '일정 정보',
                                 headerBackButtonMenuEnabled: false
                             }}
                         />
@@ -652,7 +652,7 @@ export function RootNavigator() {
                 <Stack.Screen
                     name="PublicTripView"
                     component={PublicTripViewScreen}
-                    options={{ title: '공유 여행' }}
+                    options={{ title: '공유 일정' }}
                 />
             </Stack.Navigator>
         </NavigationContainer>

@@ -307,7 +307,7 @@ export function TripPartnerBookingScreen({ route }: Props) {
     const handleSaveManualFlightCard = React.useCallback(async () => {
         const safeFlightNumber = normalizeFlightNumberInput(flightNumber);
         if (!safeFlightNumber) {
-            Alert.alert('항공편 번호를 입력해 주세요.', '조회 결과가 없어도 번호가 있으면 임시 카드로 담아둘 수 있어요.');
+            Alert.alert('항공편 번호를 입력해 주세요.', '조회 결과가 없어도 항공편을 직접 추가할 수 있어요.');
             return;
         }
 

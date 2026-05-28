@@ -17,7 +17,7 @@ function ensureAndroidGoogleConfigured() {
     const webClientId = getAndroidGoogleWebClientId();
 
     if (!webClientId) {
-        throw new Error('Google 로그인 설정이 완료되지 않았습니다.');
+        throw new Error('Google 로그인을 시작하지 못했어요. 고객센터로 문의해 주세요.');
     }
 
     const googleModule = loadGoogleSignInModule();
@@ -46,7 +46,7 @@ function mapAndroidGoogleSignInError(
         }
 
         if (error.code === googleModule.statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-            return new Error('Google Play 서비스를 사용할 수 없어 로그인할 수 없어요. 기기 설정을 확인해 주세요.');
+            return new Error('Google Play 서비스를 사용할 수 없어 로그인할 수 없어요. 휴대폰 설정을 확인해 주세요.');
         }
     }
 
@@ -72,7 +72,7 @@ export async function signInWithNativeGoogleOnAndroid() {
         const idToken = response.data.idToken || tokenResponse?.idToken || '';
 
         if (!idToken) {
-            throw new Error('Google ID 토큰을 가져오지 못했습니다.');
+            throw new Error('Google 로그인을 완료하지 못했어요.');
         }
 
         return {

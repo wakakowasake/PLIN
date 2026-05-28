@@ -134,7 +134,7 @@ export class MockAuthSessionAdapter implements AuthSessionAdapter {
         await delay(120);
 
         if (!this.#user) {
-            throw new Error('로그인이 필요합니다.');
+            throw new Error('로그인이 필요해요.');
         }
 
         const linkedProviders = this.#providers.providers
@@ -152,7 +152,7 @@ export class MockAuthSessionAdapter implements AuthSessionAdapter {
         await delay(120);
 
         if (!this.#user) {
-            throw new Error('로그인이 필요합니다.');
+            throw new Error('로그인이 필요해요.');
         }
 
         if (this.#providers.currentSignInMethod === provider) {

@@ -21,7 +21,9 @@ import { CommunityScreen } from '@/screens/CommunityScreen';
 import { SettingsScreen } from '@/screens/SettingsScreen';
 import { TripDetailScreen } from '@/screens/TripDetailScreen';
 import { TripListScreen } from '@/screens/TripListScreen';
+import { TripWorkspaceMapPanel } from '@/components/TripWorkspaceMapPanel';
 import { type AppTheme, useAppTheme } from '@/theme';
+import type { MobileTimelineFocusTarget } from '@/types/trip';
 
 type Props = NativeStackScreenProps<RootStackParamList, RootTabKey>;
 type TabletSection = 'home' | 'trips' | 'tripDetail' | 'create' | 'community' | 'settings';
@@ -36,7 +38,7 @@ const SETTINGS_ITEMS: Array<{
     description: string;
     icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 }> = [
-    { key: 'profile', label: '프로필', description: '이름과 사진, 여행자 정보를 확인해요.', icon: 'account-circle-outline' },
+    { key: 'profile', label: '프로필', description: '이름과 사진, 프로필 정보를 확인해요.', icon: 'account-circle-outline' },
     { key: 'account', label: '계정 관리', description: '로그인 방식과 계정 상태를 관리해요.', icon: 'shield-account-outline' },
     { key: 'appearance', label: '화면 설정', description: '다크 모드와 글꼴 설정을 이어서 사용해요.', icon: 'palette-outline' },
     { key: 'policies', label: '약관 및 정책', description: '서비스 정책과 개인정보 안내를 열어봐요.', icon: 'file-document-outline' }
@@ -53,8 +55,8 @@ function getProfileLabel(displayName?: string | null, email?: string | null) {
     const name = String(displayName || '').trim();
     if (name) return name;
     const safeEmail = String(email || '').trim();
-    if (safeEmail.includes('@')) return safeEmail.split('@')[0] || 'PLIN 여행자';
-    return safeEmail || 'PLIN 여행자';
+    if (safeEmail.includes('@')) return safeEmail.split('@')[0] || 'PLIN 사용자';
+    return safeEmail || 'PLIN 사용자';
 }
 
 export function TabletRootShell({ navigation, route }: Props) {
@@ -66,6 +68,7 @@ export function TabletRootShell({ navigation, route }: Props) {
     const [selectedTripId, setSelectedTripId] = React.useState('');
     const [selectedPostId, setSelectedPostId] = React.useState('');
     const [selectedSettingsPane, setSelectedSettingsPane] = React.useState<SettingsPane>('profile');
+    const [workspaceTimelineTarget, setWorkspaceTimelineTarget] = React.useState<MobileTimelineFocusTarget | null>(null);
 
     React.useEffect(() => {
         setActiveSection(getInitialSection(route.name));
@@ -105,6 +108,7 @@ export function TabletRootShell({ navigation, route }: Props) {
             const tripId = String((screenParams as { tripId?: string } | undefined)?.tripId || '');
             if (tripId) {
                 setSelectedTripId(tripId);
+                setWorkspaceTimelineTarget(null);
                 setActiveSection('trips');
                 return;
             }
@@ -207,6 +211,8 @@ export function TabletRootShell({ navigation, route }: Props) {
             <TripListScreen
                 navigation={leftPaneNavigation as NativeStackScreenProps<RootStackParamList, 'Home' | 'TripList'>['navigation']}
                 route={createLeftRoute(tripRouteName)}
+                embeddedInWorkspace
+                selectedTripId={selectedTripId}
             />
         );
     };
@@ -250,10 +256,18 @@ export function TabletRootShell({ navigation, route }: Props) {
                 >
                     <TabletRightStack.Screen
                         name="TripDetail"
-                        component={TripDetailScreen}
                         initialParams={{ tripId: selectedTripId }}
-                        options={{ title: '여행 상세' }}
-                    />
+                        options={{ title: '일정 상세' }}
+                    >
+                        {(screenProps) => (
+                            <TripDetailScreen
+                                {...screenProps}
+                                embeddedInWorkspace
+                                workspaceFocusedTimelineTarget={workspaceTimelineTarget}
+                                onWorkspaceTimelineTargetChange={setWorkspaceTimelineTarget}
+                            />
+                        )}
+                    </TabletRightStack.Screen>
                 </TabletRightStack.Navigator>
             </View>
         );
@@ -263,14 +277,14 @@ export function TabletRootShell({ navigation, route }: Props) {
         <ScrollView contentContainerStyle={styles.detailContent} showsVerticalScrollIndicator={false}>
             <View style={styles.summaryCard}>
                 <Text style={styles.eyebrow}>Create</Text>
-                <Text style={styles.detailTitle}>패드에서도 같은 새 여행 플로우를 사용해요</Text>
-                <Text style={styles.detailDescription}>1차 전환에서는 기존 새 여행 화면의 검증과 저장 로직을 그대로 사용하고, 이후 단계별 편집을 오른쪽 pane으로 옮겨갈 수 있게入口를 분리해 둡니다.</Text>
+                <Text style={styles.detailTitle}>iPad에서도 새 일정을 만들 수 있어요</Text>
+                <Text style={styles.detailDescription}>목적에 맞는 장소와 날짜를 고르고 바로 일정을 시작해 보세요.</Text>
             </View>
             <View style={styles.actionRow}>
-                {renderActionButton('새 여행 만들기', () => {
+                {renderActionButton('새 일정 만들기', () => {
                     navigation.navigate('TripCreate');
                 }, 'primary', 'plus')}
-                {renderActionButton('내 여행으로', () => setRootSection('trips', 'TripList'), 'secondary', 'bag-suitcase-outline')}
+                {renderActionButton('내 일정으로', () => setRootSection('trips', 'TripList'), 'secondary', 'bag-suitcase-outline')}
             </View>
         </ScrollView>
     );
@@ -316,7 +330,7 @@ export function TabletRootShell({ navigation, route }: Props) {
                         name="CommunityPostDetail"
                         component={CommunityPostDetailScreen}
                         initialParams={{ postId: selectedPostId }}
-                        options={{ title: '커뮤니티 상세' }}
+                        options={{ title: '플랜 상세' }}
                     />
                 </TabletRightStack.Navigator>
             </View>
@@ -333,7 +347,7 @@ export function TabletRootShell({ navigation, route }: Props) {
         }> = {
             profile: {
                 title: `${profileLabel}님의 프로필`,
-                description: '현재 앱의 프로필 편집, 여행자 정보, 홈 카드 설정을 같은 화면에서 이어서 관리합니다.',
+                description: '현재 앱의 프로필 편집, 홈 카드 설정을 같은 화면에서 이어서 관리합니다.',
                 actionLabel: '설정 전체 열기',
                 action: () => navigation.navigate('Settings'),
                 icon: 'account-circle-outline'
@@ -399,6 +413,87 @@ export function TabletRootShell({ navigation, route }: Props) {
         return renderTripOverview();
     };
 
+    const renderDesktopRailButton = (
+        key: TabletSection,
+        label: string,
+        icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'],
+        onPress: () => void,
+        active = activeSection === key
+    ) => (
+        <Pressable
+            key={key}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+            onPress={onPress}
+            style={({ pressed }) => [
+                styles.desktopRailButton,
+                active ? styles.desktopRailButtonActive : null,
+                pressed ? styles.pressed : null
+            ]}
+        >
+            <MaterialCommunityIcons
+                name={icon}
+                size={22}
+                color={active ? theme.colors.accent : theme.colors.textSecondary}
+            />
+            <Text style={[
+                styles.desktopRailLabel,
+                active ? styles.desktopRailLabelActive : null
+            ]}>
+                {label}
+            </Text>
+        </Pressable>
+    );
+
+    if (layout.isDesktop) {
+        return (
+            <View style={styles.safeArea}>
+                <View style={styles.desktopShell}>
+                    <View style={styles.desktopRail}>
+                        <View style={styles.desktopBrandMark}>
+                            <Image
+                                source={PLIN_PLACEHOLDER_ICON}
+                                style={styles.desktopBrandImage}
+                                resizeMode="contain"
+                                accessibilityIgnoresInvertColors
+                            />
+                        </View>
+                        <View style={styles.desktopRailNav}>
+                            {renderDesktopRailButton('home', '홈', 'home-outline', () => setRootSection('home', 'Home'))}
+                            {renderDesktopRailButton(
+                                'trips',
+                                '일정',
+                                'bag-suitcase-outline',
+                                () => setRootSection('trips', 'TripList'),
+                                activeSection === 'trips' || activeSection === 'tripDetail'
+                            )}
+                            {renderDesktopRailButton('create', '새 일정', 'plus-circle-outline', () => setActiveSection('create'))}
+                            {renderDesktopRailButton('community', '플랜', 'compass-outline', () => setRootSection('community', 'Community'))}
+                            {renderDesktopRailButton('settings', '설정', 'cog-outline', () => setRootSection('settings', 'Settings'))}
+                        </View>
+                        <Text numberOfLines={2} style={styles.desktopProfileLabel}>{profileLabel}</Text>
+                    </View>
+                    <View style={[styles.desktopListPane, { width: layout.desktopLeftPaneWidth }]}>
+                        {renderLeftPane()}
+                    </View>
+                    <View style={styles.splitDivider} />
+                    <View style={styles.desktopMainPane}>
+                        {renderRightPane()}
+                    </View>
+                    <View style={styles.splitDivider} />
+                    <View style={[styles.desktopMapPane, { width: layout.desktopRightPaneWidth }]}>
+                        <TripWorkspaceMapPanel
+                            tripId={selectedTripId}
+                            userId={user?.uid ?? null}
+                            selectedTarget={workspaceTimelineTarget}
+                            onSelectTarget={setWorkspaceTimelineTarget}
+                        />
+                    </View>
+                </View>
+            </View>
+        );
+    }
+
     return (
         <View style={styles.safeArea}>
             <View style={styles.shell}>
@@ -423,6 +518,81 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         flex: 1,
         flexDirection: 'row',
         backgroundColor: theme.colors.background
+    },
+    desktopShell: {
+        flex: 1,
+        flexDirection: 'row',
+        backgroundColor: theme.colors.background
+    },
+    desktopRail: {
+        width: 86,
+        alignItems: 'center',
+        paddingHorizontal: theme.spacing.xs,
+        paddingTop: theme.spacing.md,
+        paddingBottom: theme.spacing.md,
+        borderRightWidth: 1,
+        borderRightColor: theme.colors.border,
+        backgroundColor: theme.colors.background
+    },
+    desktopBrandMark: {
+        width: 48,
+        height: 48,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: theme.radius.lg,
+        backgroundColor: theme.colors.accentSoft
+    },
+    desktopBrandImage: {
+        width: 30,
+        height: 30
+    },
+    desktopRailNav: {
+        flex: 1,
+        width: '100%',
+        gap: theme.spacing.micro,
+        marginTop: theme.spacing.lg
+    },
+    desktopRailButton: {
+        minHeight: 62,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 4,
+        borderRadius: theme.radius.md
+    },
+    desktopRailButtonActive: {
+        backgroundColor: theme.colors.accentSoft
+    },
+    desktopRailLabel: {
+        color: theme.colors.textSecondary,
+        fontFamily: theme.fonts.semibold,
+        fontSize: 11,
+        lineHeight: 15
+    },
+    desktopRailLabelActive: {
+        color: theme.colors.accent
+    },
+    desktopProfileLabel: {
+        width: '100%',
+        color: theme.colors.textSecondary,
+        fontFamily: theme.fonts.medium,
+        fontSize: 11,
+        lineHeight: 15,
+        textAlign: 'center'
+    },
+    desktopListPane: {
+        minWidth: 360,
+        maxWidth: 460,
+        backgroundColor: theme.colors.background
+    },
+    desktopMainPane: {
+        flex: 1,
+        minWidth: 420,
+        backgroundColor: theme.colors.background
+    },
+    desktopMapPane: {
+        minWidth: 320,
+        maxWidth: 420,
+        backgroundColor: theme.colors.surface
     },
     leftPane: {
         flex: 1,

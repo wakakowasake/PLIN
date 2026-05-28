@@ -207,16 +207,16 @@ export function buildTripShareMessage(
     shareLink: string,
     role: TripShareLinkRole
 ) {
-    const safeTitle = String(tripTitle || '').trim() || '여행';
+    const safeTitle = String(tripTitle || '').trim() || '일정';
     const safeLink = String(shareLink || '').trim();
 
     if (role === 'viewer') {
-        return `PLIN에서 "${safeTitle}" 여행 보기 링크를 확인해 보세요.\n${safeLink}`;
+        return `PLIN에서 "${safeTitle}" 일정 링크를 확인해 보세요.\n${safeLink}`;
     }
 
     if (role === 'member') {
-        return `PLIN에서 "${safeTitle}" 여행에 읽기 전용 멤버로 참여해 보세요.\n${safeLink}`;
+        return `PLIN에서 "${safeTitle}" 일정에 읽기 전용 멤버로 참여해 보세요.\n${safeLink}`;
     }
 
-    return `PLIN에서 "${safeTitle}" 여행에 편집 멤버로 함께 참여해 보세요.\n${safeLink}`;
+    return `PLIN에서 "${safeTitle}" 일정에 편집 멤버로 함께 참여해 보세요.\n${safeLink}`;
 }

@@ -1,4 +1,4 @@
-const DEFAULT_COMMUNITY_AUTHOR_NAME = '익명의 여행자';
+const DEFAULT_COMMUNITY_AUTHOR_NAME = 'PLIN 사용자';
 const DEFAULT_COMMUNITY_AUTHOR_PHOTO = '/images/basic-profile.png';
 
 export function extractGooglePhotoReference(url) {

@@ -29,6 +29,10 @@ function buildFallbackDayCount(daysLength: number) {
     return `${daysLength - 1}박 ${daysLength}일`;
 }
 
+function normalizePlanPurpose(value: unknown) {
+    return value === 'date' ? 'date' : 'trip';
+}
+
 function findCoverImage(trip: CanonicalTripDocument) {
     if (typeof trip?.meta?.coverImage === 'string' && trip.meta.coverImage.trim()) {
         return trip.meta.coverImage;
@@ -100,7 +104,7 @@ function buildDisplaySubInfo(trip: CanonicalTripDocument, startDate: string, end
         return `${location} • ${formattedStartDate}`;
     }
 
-    return rawSubInfo || '준비 중인 여행 정보';
+    return rawSubInfo || '일정 정보 준비 중';
 }
 
 function resolveDisplayTripStatus(endDate: string, currentStatus?: string | null) {
@@ -185,7 +189,7 @@ export function mapTripSummary(
     userId?: string | null,
     sourceData?: Record<string, unknown> | null
 ): MobileTripSummary {
-    const title = String(trip?.meta?.title || '제목 없는 여행');
+    const title = String(trip?.meta?.title || '제목 없는 일정');
     const dayCount = String(trip?.meta?.dayCount || buildFallbackDayCount(trip?.days?.length || 0));
     const startDate = String(trip?.meta?.startDate || trip?.days?.[0]?.date || '');
     const endDate = String(trip?.meta?.endDate || trip?.days?.[trip.days.length - 1]?.date || '');
@@ -196,6 +200,7 @@ export function mapTripSummary(
         title,
         subInfo,
         dayCount,
+        purpose: normalizePlanPurpose(trip?.meta?.purpose),
         startDate,
         endDate,
         createdAt: normalizeDateTimeString(sourceData?.createdAt) || undefined,
@@ -203,6 +208,10 @@ export function mapTripSummary(
         contentVersion: readTripContentVersion(sourceData),
         coverImage: findCoverImage(trip),
         status: resolveDisplayTripStatus(endDate, trip?.meta?.status),
+        deletedAt: normalizeDateTimeString(sourceData?.deletedAt) || null,
+        deletedBy: typeof sourceData?.deletedBy === 'string' ? sourceData.deletedBy : null,
+        deletionReason: typeof sourceData?.deletionReason === 'string' ? sourceData.deletionReason : null,
+        purgeAfter: normalizeDateTimeString(sourceData?.purgeAfter) || null,
         permissions: buildTripPermissions(trip, userId),
         collaborators: buildTripCollaborators(sourceData, userId)
     };

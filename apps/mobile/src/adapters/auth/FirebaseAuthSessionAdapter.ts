@@ -295,11 +295,11 @@ function getFirebaseAuthConfigError(provider: AuthProvider = 'google') {
     }
 
     if (provider === 'apple' && isAppleSignInTemporarilyDisabled()) {
-        return '이 개발용 우회 빌드에서는 Apple 로그인을 잠시 비활성화했어요.';
+        return 'Apple 로그인을 사용할 수 없어요. 고객센터로 문의해 주세요.';
     }
 
     if ((provider === 'kakao' || provider === 'naver') && !hasServerDrivenSocialAuthCapability()) {
-        return `${getProviderLabel(provider)} 로그인 흐름을 시작할 수 없어요. 앱 redirect 설정을 다시 확인해 주세요.`;
+        return `${getProviderLabel(provider)} 로그인을 시작하지 못했어요. 앱을 다시 열고 시도해 주세요.`;
     }
 
     return null;
@@ -346,7 +346,7 @@ function mapFirebaseAuthAdapterError(
     }
 
     if (errorCode === 'auth/account-exists-with-different-credential') {
-        return new Error('기존 계정이 있어요. 기존 방식으로 로그인한 뒤 이 소셜 계정을 연결하세요.');
+        return new Error('이미 가입된 계정이에요. 가입 때 사용한 로그인 방식으로 먼저 들어가 주세요.');
     }
 
     if (errorCode === 'auth/credential-already-in-use') {
@@ -431,7 +431,7 @@ function mapFirebaseAuthAdapterError(
     const message = readErrorMessage(error);
     if (message && isRealDeviceConfigMismatchMessage(message)) {
         return new Error(
-            'Google 로그인 설정이 현재 기기와 맞지 않아요. OAuth client ID와 redirect 설정을 확인해 주세요.'
+            'Google 로그인을 시작하지 못했어요. 고객센터로 문의해 주세요.'
         );
     }
 
@@ -480,7 +480,7 @@ function mapEmailPasswordSignInError(error: unknown) {
     }
 
     if (errorCode === 'auth/operation-not-allowed') {
-        return new Error('이메일 로그인 설정이 꺼져 있어요. Firebase Auth의 Email/Password 제공자를 켜 주세요.');
+        return new Error('이메일 로그인을 사용할 수 없어요. 고객센터로 문의해 주세요.');
     }
 
     if (isNetworkLikeError(error)) {
@@ -513,7 +513,7 @@ function mapEmailPasswordSignUpError(error: unknown) {
     }
 
     if (errorCode === 'auth/operation-not-allowed') {
-        return new Error('이메일 가입 설정이 꺼져 있어요. Firebase Auth의 Email/Password 제공자를 켜 주세요.');
+        return new Error('이메일 가입을 사용할 수 없어요. 고객센터로 문의해 주세요.');
     }
 
     if (isNetworkLikeError(error)) {
@@ -542,11 +542,11 @@ function mapSendEmailVerificationError(error: unknown) {
     }
 
     if (errorCode === 'auth/unauthorized-continue-uri') {
-        return new Error('인증 메일 연결 주소가 Firebase 승인 도메인에 등록되어 있지 않아요. Firebase Auth 승인 도메인에 plin.ink를 추가해 주세요.');
+        return new Error('인증 메일을 보낼 수 없어요. 고객센터로 문의해 주세요.');
     }
 
     if (errorCode === 'auth/invalid-continue-uri') {
-        return new Error('인증 메일 연결 주소 설정을 확인해 주세요.');
+        return new Error('인증 메일을 보낼 수 없어요. 고객센터로 문의해 주세요.');
     }
 
     if (isNetworkLikeError(error)) {
@@ -578,7 +578,7 @@ async function ensureAuthReady() {
     await withTimeout(
         auth.authStateReady(),
         AUTH_READY_TIMEOUT_MS,
-        '기기에서 로그인 상태 확인이 오래 걸리고 있어요. 앱을 다시 열거나 세션을 다시 확인해 주세요.'
+        '로그인 상태 확인이 오래 걸리고 있어요. 앱을 다시 열고 시도해 주세요.'
     );
 
     return auth;
@@ -635,17 +635,17 @@ async function runAppleAuthSession(intent: 'signin' | 'link', hashedNonce: strin
     }
 
     if (result.type !== 'success' || !result.url) {
-        throw new Error('Apple 인증을 완료하지 못했어요.');
+        throw new Error('Apple 로그인을 완료하지 못했어요.');
     }
 
     const redirectError = readSocialAuthErrorFromRedirect(result.url);
     if (redirectError) {
-        throw new Error('Apple 인증을 완료하지 못했어요. 잠시 후 다시 시도해 주세요.');
+        throw new Error('Apple 로그인을 완료하지 못했어요. 잠시 후 다시 시도해 주세요.');
     }
 
     const ticket = readTicketFromRedirectUrl(result.url);
     if (!ticket) {
-        throw new Error('Apple 인증 결과를 확인하지 못했어요.');
+        throw new Error('Apple 로그인을 확인하지 못했어요.');
     }
 
     const payload = await exchangeAppleAuthSession({
@@ -653,7 +653,7 @@ async function runAppleAuthSession(intent: 'signin' | 'link', hashedNonce: strin
         ticket
     });
     if (!payload.idToken) {
-        throw new Error('Apple 로그인 토큰을 가져오지 못했어요.');
+        throw new Error('Apple 로그인을 완료하지 못했어요.');
     }
 
     return payload.idToken;
@@ -678,7 +678,7 @@ async function buildAppleFirebaseCredential(intent: 'signin' | 'link' = 'signin'
         ? await AppleAuthentication.isAvailableAsync()
         : false;
     if (!isAppleAuthAvailable) {
-        throw new Error('Apple 로그인 기능을 쓰려면 iOS 앱을 다시 빌드해 주세요.');
+        throw new Error('Apple 로그인을 사용할 수 없어요. 앱을 업데이트한 뒤 다시 시도해 주세요.');
     }
 
     const result = await AppleAuthentication.signInAsync({
@@ -690,7 +690,7 @@ async function buildAppleFirebaseCredential(intent: 'signin' | 'link' = 'signin'
     });
 
     if (!result.identityToken) {
-        throw new Error('Apple 로그인 토큰을 가져오지 못했어요.');
+        throw new Error('Apple 로그인을 완료하지 못했어요.');
     }
 
     return new OAuthProvider('apple.com').credential({
@@ -730,7 +730,7 @@ async function buildGoogleFirebaseCredential() {
 
     if (Platform.OS === 'ios' && redirectUri.startsWith('plinmobile://')) {
         throw new Error(
-            'iOS Google OAuth redirect 설정을 만들지 못했어요. iOS client ID 형식을 다시 확인해 주세요.'
+            'Google 로그인을 시작하지 못했어요. 고객센터로 문의해 주세요.'
         );
     }
 
@@ -804,7 +804,7 @@ async function buildGoogleFirebaseCredential() {
             },
             resultHasIdTokenParam: Boolean(result.params.id_token)
         });
-        throw new Error('Google ID 토큰을 가져오지 못했습니다.');
+        throw new Error('Google 로그인을 완료하지 못했어요.');
     }
 
     return GoogleAuthProvider.credential(idToken, tokenResponse.accessToken);
@@ -1126,7 +1126,7 @@ export class FirebaseAuthSessionAdapter implements AuthSessionAdapter {
 
             const auth = await ensureAuthReady();
             if (!auth.currentUser) {
-                throw new Error('로그인이 필요합니다.');
+                throw new Error('로그인이 필요해요.');
             }
 
             if (provider === 'kakao' || provider === 'naver') {

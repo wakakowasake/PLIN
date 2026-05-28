@@ -63,7 +63,7 @@ async function readIdToken(requireAuth = true) {
 
     if (!user) {
         if (requireAuth) {
-            throw new Error('로그인이 필요합니다.');
+            throw new Error('로그인이 필요해요.');
         }
 
         return '';
@@ -89,7 +89,7 @@ async function parseBackendResponse<T>(response: Response): Promise<T> {
             ? String((payload as { error?: string }).error || '')
             : '';
         throw new BackendRequestError(
-            message || fallback || `요청에 실패했습니다. (${response.status})`,
+            message || fallback || '요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.',
             response.status,
             payload
         );

@@ -56,12 +56,17 @@ import { useConnectivityStatus } from '@/state/connectivity-store';
 import { usePrimaryScrollActivityReporter } from '@/state/primary-scroll-activity';
 import { publishTripCreated, publishTripDeleted } from '@/state/trip-write-sync';
 import { type AppTheme, useAppTheme } from '@/theme';
-import type { MobileTripSummary } from '@/types/trip';
+import type { MobileTripSummary, PlanPurpose } from '@/types/trip';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home' | 'TripList'>;
+type TripListScreenProps = Props & {
+    embeddedInWorkspace?: boolean;
+    selectedTripId?: string;
+};
 type TripSortKey = 'updatedAt' | 'createdAt' | 'startDate' | 'title';
 type TripSortDirection = 'asc' | 'desc';
 type TripViewMode = 'card' | 'feed';
+type PlanPurposeFilter = 'all' | PlanPurpose;
 type LoadingTripRow = {
     kind: 'loading';
     id: string;
@@ -186,6 +191,15 @@ const VIEW_MODE_ICONS: Record<TripViewMode, keyof typeof Ionicons.glyphMap> = {
     card: 'grid-outline',
     feed: 'newspaper-outline'
 };
+
+const PLAN_PURPOSE_FILTER_OPTIONS: ReadonlyArray<{
+    key: PlanPurposeFilter;
+    label: string;
+}> = [
+    { key: 'all', label: '전체' },
+    { key: 'trip', label: '여행' },
+    { key: 'date', label: '데이트' }
+];
 
 const TRIP_LOADING_PLACEHOLDERS = [0, 1, 2];
 
@@ -361,7 +375,7 @@ function getProfilePrimaryLabel(summary: { displayName: string | null; email: st
         return email.split('@')[0];
     }
 
-    return email || 'PLIN 여행자';
+    return email || 'PLIN 사용자';
 }
 
 function getEditableProfileName(summary: { displayName: string | null; email: string | null }) {
@@ -373,7 +387,12 @@ function getEditableProfileName(summary: { displayName: string | null; email: st
     return getProfilePrimaryLabel(summary);
 }
 
-export function TripListScreen({ navigation, route }: Props) {
+export function TripListScreen({
+    navigation,
+    route,
+    embeddedInWorkspace = false,
+    selectedTripId = ''
+}: TripListScreenProps) {
     const theme = useAppTheme();
     const styles = React.useMemo(() => createStyles(theme), [theme]);
     const insets = useSafeAreaInsets();
@@ -413,9 +432,11 @@ export function TripListScreen({ navigation, route }: Props) {
     const [sortKey, setSortKey] = React.useState<TripSortKey>('updatedAt');
     const [sortDirection, setSortDirection] = React.useState<TripSortDirection>('desc');
     const [viewMode, setViewMode] = React.useState<TripViewMode>('feed');
+    const [purposeFilter, setPurposeFilter] = React.useState<PlanPurposeFilter>('all');
     const [isViewModeTransitioning, setIsViewModeTransitioning] = React.useState(false);
     const [isViewModeHydrated, setIsViewModeHydrated] = React.useState(false);
     const [isSortModalVisible, setIsSortModalVisible] = React.useState(false);
+    const [isPurposeFilterModalVisible, setIsPurposeFilterModalVisible] = React.useState(false);
     const [isProfileEditorVisible, setIsProfileEditorVisible] = React.useState(false);
     const [searchQuery, setSearchQuery] = React.useState('');
     const [actionError, setActionError] = React.useState<string | null>(null);
@@ -444,22 +465,25 @@ export function TripListScreen({ navigation, route }: Props) {
         ]
             .map((value) => String(value || '').trim())
             .filter(Boolean)
-            .join('\n') || '지금 진행 중인 여행이에요.';
+            .join('\n') || '지금 진행 중인 일정이에요.';
     }, [currentHomeTrip]);
     const currentHomeTripCoverImage = React.useMemo(() => (
         String(currentHomeTrip?.coverImage || '').trim()
     ), [currentHomeTrip?.coverImage]);
     const emptyHomeHeroImageUrl = currentHomeTripCoverImage || EMPTY_HOME_HERO_IMAGE_URL;
     const emptyHomeHeroTitle = currentHomeTrip
-        ? '지금 여행 중이시네요!'
-        : '여행은 계획하는\n순간부터 설레요';
+        ? '진행 중인 일정이 있어요!'
+        : '일정은 계획하는\n순간부터 설레요';
     const emptyHomeHeroDescription = currentHomeTrip
         ? '오늘의 일정과 남기고 싶은 순간을\n바로 이어가세요.'
-        : '나만의 여행을 계획하고,\n특별한 추억을 만들어보세요.';
+        : '나만의 일정을 계획하고,\n특별한 순간을 만들어보세요.';
     const trimmedSearchQuery = React.useMemo(() => searchQuery.trim(), [searchQuery]);
     const filteredItems = React.useMemo(() => (
-        sortedItems.filter((trip) => matchesTripSearch(trip, trimmedSearchQuery))
-    ), [sortedItems, trimmedSearchQuery]);
+        sortedItems.filter((trip) => (
+            (purposeFilter === 'all' || trip.purpose === purposeFilter)
+            && matchesTripSearch(trip, trimmedSearchQuery)
+        ))
+    ), [purposeFilter, sortedItems, trimmedSearchQuery]);
     const isInitialLoading = loading && sortedItems.length === 0;
     const profilePrimaryLabel = React.useMemo(() => (
         getProfilePrimaryLabel(summary ?? { displayName: null, email: null })
@@ -476,6 +500,10 @@ export function TripListScreen({ navigation, route }: Props) {
     const activeSortOption = React.useMemo(() => (
         SORT_OPTIONS.find((option) => option.key === sortKey) || SORT_OPTIONS[0]
     ), [sortKey]);
+    const activePurposeFilterOption = React.useMemo(() => (
+        PLAN_PURPOSE_FILTER_OPTIONS.find((option) => option.key === purposeFilter)
+        || PLAN_PURPOSE_FILTER_OPTIONS[0]
+    ), [purposeFilter]);
     const activeViewOption = React.useMemo(() => (
         VIEW_OPTIONS.find((option) => option.key === viewMode) || VIEW_OPTIONS[0]
     ), [viewMode]);
@@ -509,6 +537,7 @@ export function TripListScreen({ navigation, route }: Props) {
     const hasPendingTripAction = Boolean(processingTripId);
     const isHomeRoute = route.name === 'Home';
     const activeRootTab: RootTabKey = isHomeRoute ? 'Home' : 'TripList';
+    const bottomNav = embeddedInWorkspace ? null : <BottomNavBar activeTab={activeRootTab} />;
     const activeHomePlanIcon = EMPTY_HOME_TRANSPORT_ICONS[activeHomePlanIconIndex];
     const emptyHomePlanIconTranslateX = React.useMemo(() => (
         emptyHomePlanIconSlide.interpolate({
@@ -809,12 +838,21 @@ export function TripListScreen({ navigation, route }: Props) {
         setIsSortModalVisible(false);
     }, [hasPendingTripAction]);
 
+    const closePurposeFilterModal = React.useCallback(() => {
+        if (hasPendingTripAction) {
+            return;
+        }
+
+        setIsPurposeFilterModalVisible(false);
+    }, [hasPendingTripAction]);
+
     const openActionMenu = React.useCallback((trip: MobileTripSummary) => {
         if (hasPendingTripAction) {
             return;
         }
 
         setIsSortModalVisible(false);
+        setIsPurposeFilterModalVisible(false);
         setActiveMenuTrip(trip);
     }, [hasPendingTripAction]);
 
@@ -825,6 +863,23 @@ export function TripListScreen({ navigation, route }: Props) {
 
         setIsSortModalVisible(true);
     }, [hasPendingTripAction, isInitialLoading]);
+
+    const handleOpenPurposeFilterModal = React.useCallback(() => {
+        if (hasPendingTripAction || isInitialLoading) {
+            return;
+        }
+
+        setIsPurposeFilterModalVisible(true);
+    }, [hasPendingTripAction, isInitialLoading]);
+
+    const handleSelectPurposeFilter = React.useCallback((nextPurposeFilter: PlanPurposeFilter) => {
+        if (hasPendingTripAction) {
+            return;
+        }
+
+        setPurposeFilter(nextPurposeFilter);
+        setIsPurposeFilterModalVisible(false);
+    }, [hasPendingTripAction]);
 
     const handleSelectSortOption = React.useCallback((nextSortKey: TripSortKey) => {
         if (hasPendingTripAction) {
@@ -907,12 +962,12 @@ export function TripListScreen({ navigation, route }: Props) {
             publishTripDeleted(trip.id);
             setOwnerTransferDeleteState(null);
             if (transferOwnerUid) {
-                Alert.alert('소유권을 넘겼어요', '이 여행은 선택한 멤버가 이어서 관리하고, 내 여행 목록에서는 제거돼요.');
+                Alert.alert('소유권을 넘겼어요', '이 일정은 선택한 멤버가 이어서 관리하고, 내 일정 목록에서는 제거돼요.');
             }
         } catch (deleteError) {
             const message = deleteError instanceof Error
                 ? deleteError.message
-                : '여행을 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.';
+                : '일정을 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.';
             setActionError(message);
             setOwnerTransferDeleteState((current) => (
                 current?.trip.id === trip.id
@@ -924,6 +979,60 @@ export function TripListScreen({ navigation, route }: Props) {
             setProcessingActionLabel(null);
         }
     }, [hasPendingTripAction, tripRepository, user?.uid]);
+
+    const executeTripLeave = React.useCallback(async (trip: MobileTripSummary) => {
+        if (!user?.uid || hasPendingTripAction) {
+            return;
+        }
+
+        setActionError(null);
+        setProcessingTripId(trip.id);
+        setProcessingActionLabel('나가는 중...');
+
+        try {
+            await tripRepository.leaveTrip(user.uid, trip.id);
+            try {
+                await cancelTripReminders(trip.id);
+            } catch (reminderError) {
+                console.warn('Failed to cancel trip reminders after leaving trip', reminderError);
+            }
+            publishTripDeleted(trip.id);
+        } catch (leaveError) {
+            const message = leaveError instanceof Error
+                ? leaveError.message
+                : '일정에서 나가지 못했어요. 잠시 후 다시 시도해 주세요.';
+            setActionError(message);
+            Alert.alert('나가기 실패', message);
+        } finally {
+            setProcessingTripId(null);
+            setProcessingActionLabel(null);
+        }
+    }, [hasPendingTripAction, tripRepository, user?.uid]);
+
+    const handleLeaveTrip = React.useCallback((trip: MobileTripSummary) => {
+        if (!user?.uid || hasPendingTripAction) {
+            return;
+        }
+
+        setActiveMenuTrip(null);
+        Alert.alert(
+            '일정에서 나갈까요?',
+            `"${trip.title}" 일정이 내 목록에서 사라져요. 다시 보려면 초대를 받아야 해요.`,
+            [
+                {
+                    text: '취소',
+                    style: 'cancel'
+                },
+                {
+                    text: '나가기',
+                    style: 'destructive',
+                    onPress: () => {
+                        void executeTripLeave(trip);
+                    }
+                }
+            ]
+        );
+    }, [executeTripLeave, hasPendingTripAction, user?.uid]);
 
     const handleDeleteTrip = React.useCallback((trip: MobileTripSummary) => {
         if (!user?.uid || hasPendingTripAction) {
@@ -952,8 +1061,8 @@ export function TripListScreen({ navigation, route }: Props) {
                 }
 
                 Alert.alert(
-                    '여행을 삭제할까요?',
-                    `"${trip.title}" 여행을 삭제하면 되돌릴 수 없어요.`,
+                    '일정을 삭제할까요?',
+                    `"${trip.title}" 일정이 삭제한 일정으로 이동해요. 30일 안에는 설정에서 복구할 수 있어요.`,
                     [
                         {
                             text: '취소',
@@ -1008,7 +1117,7 @@ export function TripListScreen({ navigation, route }: Props) {
             try {
                 const duplicatedTrip = await tripRepository.duplicateTrip(user.uid, trip.id);
                 if (!duplicatedTrip) {
-                    throw new Error('여행 사본을 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
+                    throw new Error('일정 사본을 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
                 }
 
                 publishTripCreated(duplicatedTrip);
@@ -1016,7 +1125,7 @@ export function TripListScreen({ navigation, route }: Props) {
                 setActionError(
                     duplicateError instanceof Error
                         ? duplicateError.message
-                        : '여행 사본을 만들지 못했어요. 잠시 후 다시 시도해 주세요.'
+                        : '일정 사본을 만들지 못했어요. 잠시 후 다시 시도해 주세요.'
                 );
             } finally {
                 setProcessingTripId(null);
@@ -1062,7 +1171,7 @@ export function TripListScreen({ navigation, route }: Props) {
             if (result.action === Share.dismissedAction) {
                 Alert.alert(
                     '공유 창을 닫았어요',
-                    '일부 공유 옵션은 기기나 환경에 따라 다르게 보일 수 있어요.'
+                    '일부 공유 옵션은 휴대폰 환경에 따라 다르게 보일 수 있어요.'
                 );
             }
         } catch (shareError) {
@@ -1278,15 +1387,15 @@ export function TripListScreen({ navigation, route }: Props) {
         const memberLabel = member?.displayName || member?.email || '이 멤버';
 
         Alert.alert(
-            '멤버를 제거할까요?',
-            `${memberLabel} 님의 여행 접근 권한을 제거할까요?`,
+            '멤버를 내보낼까요?',
+            `${memberLabel} 님을 이 일정에서 내보낼까요?`,
             [
                 {
                     text: '취소',
                     style: 'cancel'
                 },
                 {
-                    text: '제거',
+                    text: '내보내기',
                     style: 'destructive',
                     onPress: () => {
                         void runShareSheetMutation('member-remove', () => (
@@ -1308,7 +1417,7 @@ export function TripListScreen({ navigation, route }: Props) {
 
         Alert.alert(
             '소유권을 넘길까요?',
-            `${memberLabel} 님에게 이 여행의 소유권을 넘겨요. 넘긴 뒤에도 편집 멤버로 계속 참여할 수 있어요.`,
+            `${memberLabel} 님에게 이 일정의 소유권을 넘겨요. 넘긴 뒤에도 편집 멤버로 계속 참여할 수 있어요.`,
             [
                 {
                     text: '취소',
@@ -1428,12 +1537,12 @@ export function TripListScreen({ navigation, route }: Props) {
                     style={styles.searchFieldIcon}
                 />
                 <TextInput
-                    accessibilityLabel="여행 검색"
+                    accessibilityLabel="일정 검색"
                     autoCapitalize="none"
                     autoCorrect={false}
                     clearButtonMode="while-editing"
                     onChangeText={setSearchQuery}
-                    placeholder="여행 검색"
+                    placeholder="일정 검색"
                     placeholderTextColor={theme.colors.textSecondary}
                     returnKeyType="search"
                     style={styles.searchInput}
@@ -1442,7 +1551,7 @@ export function TripListScreen({ navigation, route }: Props) {
             </View>
             <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="새 여행 만들기"
+                    accessibilityLabel="새 일정 만들기"
                 disabled={hasPendingTripAction || isInitialLoading}
                 hitSlop={8}
                 onPress={() => {
@@ -1479,7 +1588,7 @@ export function TripListScreen({ navigation, route }: Props) {
                                     ? '세션을 다시 확인해 주세요.'
                                     : errorKind === 'network'
                                         ? '연결이 잠시 불안정해요.'
-                                        : '여행 목록을 불러오지 못했어요.'
+                                        : '일정 목록을 불러오지 못했어요.'
                             }
                             description={error}
                             supportText={
@@ -1506,7 +1615,7 @@ export function TripListScreen({ navigation, route }: Props) {
                         />
                     </View>
                 </SafeAreaView>
-                <BottomNavBar activeTab={activeRootTab} />
+                {bottomNav}
             </View>
         );
     }
@@ -1572,7 +1681,7 @@ export function TripListScreen({ navigation, route }: Props) {
                         </View>
                     </ScrollView>
                 </View>
-                <BottomNavBar activeTab={activeRootTab} />
+                {bottomNav}
             </View>
         );
     }
@@ -1586,19 +1695,19 @@ export function TripListScreen({ navigation, route }: Props) {
                             {tripListTopBar}
                             {noticeStack}
                             <EmptyState
-                                title="아직 만든 여행이 없어요."
-                                description="홈에서 새 여행을 시작하면 이곳에 내 여행 목록이 쌓여요."
-                                actionLabel={isTripCreationEnabled ? '새 여행 만들기' : undefined}
+                                title="아직 만든 일정이 없어요."
+                                description="홈에서 새 일정을 시작하면 이곳에 내 일정 목록이 쌓여요."
+                                actionLabel={isTripCreationEnabled ? '새 일정 만들기' : undefined}
                                 onAction={isTripCreationEnabled ? handleCreateTrip : undefined}
                             />
                             {!isTripCreationEnabled ? (
                                 <Text style={styles.tripCreationDisabledNotice}>
-                                    새 여행 만들기는 잠시 닫아둘게요.
+                                    새 일정 만들기는 잠시 닫아둘게요.
                                 </Text>
                             ) : null}
                         </View>
                     </SafeAreaView>
-                    <BottomNavBar activeTab={activeRootTab} />
+                    {bottomNav}
                 </View>
             );
         }
@@ -1654,7 +1763,7 @@ export function TripListScreen({ navigation, route }: Props) {
                                     <View style={[styles.emptyHomePlanIconWrap, styles.emptyHomeCurrentTripIconWrap]}>
                                         <Ionicons name="navigate" size={32} color="#FFFFFF" />
                                     </View>
-                                    <Text style={styles.emptyHomePlanEyebrow}>여행 중</Text>
+                                    <Text style={styles.emptyHomePlanEyebrow}>진행 중</Text>
                                     <Text numberOfLines={2} style={styles.emptyHomePlanTitle}>
                                         {currentHomeTrip.title}
                                     </Text>
@@ -1670,7 +1779,7 @@ export function TripListScreen({ navigation, route }: Props) {
                                             pressed ? styles.emptyTripPrimaryButtonPressed : null
                                         ]}
                                     >
-                                        <Text style={styles.emptyHomePlanButtonText}>여행 바로 가기</Text>
+                                        <Text style={styles.emptyHomePlanButtonText}>일정 바로 가기</Text>
                                         <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
                                     </Pressable>
                                 </>
@@ -1691,9 +1800,9 @@ export function TripListScreen({ navigation, route }: Props) {
                                             </Animated.View>
                                         </View>
                                     </View>
-                                    <Text style={styles.emptyHomePlanTitle}>새 여행 계획 짜기</Text>
+                                    <Text style={styles.emptyHomePlanTitle}>새 일정 계획 짜기</Text>
                                     <Text style={styles.emptyHomePlanDescription}>
-                                        어디로 떠날지 고민 중이신가요?{'\n'}새로운 여행을 계획해보세요.
+                                        어디서 무엇을 할지 고민 중이신가요?{'\n'}새로운 일정을 계획해보세요.
                                     </Text>
                                     {isTripCreationEnabled ? (
                                         <Pressable
@@ -1704,12 +1813,12 @@ export function TripListScreen({ navigation, route }: Props) {
                                                 pressed ? styles.emptyTripPrimaryButtonPressed : null
                                             ]}
                                         >
-                                            <Text style={styles.emptyHomePlanButtonText}>여행 계획 시작하기</Text>
+                                            <Text style={styles.emptyHomePlanButtonText}>일정 계획 시작하기</Text>
                                             <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
                                         </Pressable>
                                     ) : (
                                         <Text style={styles.tripCreationDisabledNotice}>
-                                            새 여행 만들기는 잠시 닫아둘게요.
+                                            새 일정 만들기는 잠시 닫아둘게요.
                                         </Text>
                                     )}
                                 </>
@@ -1719,7 +1828,7 @@ export function TripListScreen({ navigation, route }: Props) {
                         {SHOW_EMPTY_HOME_QUICK_ACTIONS ? (
                             <>
                                 <View style={styles.emptyHomeSectionHeader}>
-                                    <Text style={styles.emptyHomeSectionTitle}>여행 계획, 더 쉽게</Text>
+                                    <Text style={styles.emptyHomeSectionTitle}>일정 계획, 더 쉽게</Text>
                                     <Pressable
                                         accessibilityRole="button"
                                         onPress={() => {
@@ -1783,7 +1892,7 @@ export function TripListScreen({ navigation, route }: Props) {
                                     어디로 갈지 고민된다면?
                                 </Text>
                                 <Text style={styles.emptyHomeRecommendDescription}>
-                                    추천 여행지를 확인하고{'\n'}영감을 얻어보세요.
+                                    추천 장소를 확인하고{'\n'}영감을 얻어보세요.
                                 </Text>
                                 <Pressable
                                     accessibilityRole="button"
@@ -1793,7 +1902,7 @@ export function TripListScreen({ navigation, route }: Props) {
                                         pressed ? styles.emptyTripPrimaryButtonPressed : null
                                     ]}
                                 >
-                                    <Text style={styles.emptyHomeRecommendButtonText}>추천 여행지 보기</Text>
+                                    <Text style={styles.emptyHomeRecommendButtonText}>추천 장소 보기</Text>
                                     <Ionicons name="chevron-forward" size={18} color={theme.colors.accent} />
                                 </Pressable>
                             </View>
@@ -1836,7 +1945,7 @@ export function TripListScreen({ navigation, route }: Props) {
                         </Pressable>
                     </ScrollView>
                 </View>
-                <BottomNavBar activeTab={activeRootTab} />
+                {bottomNav}
             </View>
         );
     }
@@ -1853,7 +1962,8 @@ export function TripListScreen({ navigation, route }: Props) {
                         processingTripId,
                         processingActionLabel,
                         hasPendingTripAction,
-                        isViewModeTransitioning
+                        isViewModeTransitioning,
+                        selectedTripId
                     }}
                     keyExtractor={(item) => item.id}
                     onScroll={notifyPrimaryScrollActivity}
@@ -1905,32 +2015,60 @@ export function TripListScreen({ navigation, route }: Props) {
                             ) : null}
                             {noticeStack}
                             <View style={styles.sectionHeader}>
-                                <Pressable
-                                    accessibilityRole="button"
-                                    accessibilityLabel={`정렬 기준. 현재 ${activeSortOption.label}, ${
-                                        sortDirection === 'asc' ? '오름차순' : '내림차순'
-                                    }`}
-                                    disabled={hasPendingTripAction || isInitialLoading}
-                                    onPress={handleOpenSortModal}
-                                    style={({ pressed }) => [
-                                        styles.sortTriggerButton,
-                                        hasPendingTripAction || isInitialLoading
-                                            ? styles.actionButtonDisabled
-                                            : null,
-                                        pressed && !hasPendingTripAction && !isInitialLoading
-                                            ? styles.sortTriggerButtonPressed
-                                            : null
-                                    ]}
-                                >
-                                    <Text style={styles.sortTriggerText}>
-                                        {activeSortOption.label}
-                                    </Text>
-                                    <Ionicons
-                                        name={activeSortDirectionIcon}
-                                        size={18}
-                                        color={theme.colors.textPrimary}
-                                    />
-                                </Pressable>
+                                <View style={styles.sectionFilterControls}>
+                                    <Pressable
+                                        accessibilityRole="button"
+                                        accessibilityLabel={`정렬 기준. 현재 ${activeSortOption.label}, ${
+                                            sortDirection === 'asc' ? '오름차순' : '내림차순'
+                                        }`}
+                                        disabled={hasPendingTripAction || isInitialLoading}
+                                        onPress={handleOpenSortModal}
+                                        style={({ pressed }) => [
+                                            styles.sortTriggerButton,
+                                            hasPendingTripAction || isInitialLoading
+                                                ? styles.actionButtonDisabled
+                                                : null,
+                                            pressed && !hasPendingTripAction && !isInitialLoading
+                                                ? styles.sortTriggerButtonPressed
+                                                : null
+                                        ]}
+                                    >
+                                        <Text style={styles.sortTriggerText}>
+                                            {activeSortOption.label}
+                                        </Text>
+                                        <Ionicons
+                                            name={activeSortDirectionIcon}
+                                            size={18}
+                                            color={theme.colors.textPrimary}
+                                        />
+                                    </Pressable>
+                                    <Pressable
+                                        accessibilityRole="button"
+                                        accessibilityLabel={`일정 유형. 현재 ${activePurposeFilterOption.label}`}
+                                        disabled={hasPendingTripAction || isInitialLoading}
+                                        onPress={handleOpenPurposeFilterModal}
+                                        style={({ pressed }) => [
+                                            styles.purposeFilterTriggerButton,
+                                            purposeFilter !== 'all' ? styles.purposeFilterTriggerButtonActive : null,
+                                            hasPendingTripAction || isInitialLoading ? styles.actionButtonDisabled : null,
+                                            pressed && !hasPendingTripAction && !isInitialLoading ? styles.sortTriggerButtonPressed : null
+                                        ]}
+                                    >
+                                        <Text
+                                            style={[
+                                                styles.purposeFilterTriggerText,
+                                                purposeFilter !== 'all' ? styles.purposeFilterTriggerTextActive : null
+                                            ]}
+                                        >
+                                            {activePurposeFilterOption.label}
+                                        </Text>
+                                        <Ionicons
+                                            name="chevron-down"
+                                            size={15}
+                                            color={purposeFilter !== 'all' ? theme.colors.accent : theme.colors.textSecondary}
+                                        />
+                                    </Pressable>
+                                </View>
                                 <View style={styles.sectionActions}>
                                     <Pressable
                                         accessibilityRole="button"
@@ -1962,7 +2100,14 @@ export function TripListScreen({ navigation, route }: Props) {
                             <View style={styles.searchEmptyState}>
                                 <EmptyState
                                     title="검색 결과가 없어요."
-                                    description={`"${trimmedSearchQuery}"와 일치하는 여행을 찾지 못했어요.`}
+                                    description={`"${trimmedSearchQuery}"와 일치하는 일정을 찾지 못했어요.`}
+                                />
+                            </View>
+                        ) : purposeFilter !== 'all' ? (
+                            <View style={styles.searchEmptyState}>
+                                <EmptyState
+                                    title={`${purposeFilter === 'date' ? '데이트' : '여행'} 일정이 없어요.`}
+                                    description="필터를 바꾸거나 새 일정을 만들어 보세요."
                                 />
                             </View>
                         ) : undefined
@@ -1972,7 +2117,7 @@ export function TripListScreen({ navigation, route }: Props) {
                             {isInitialLoading || loadingMore ? (
                                 <View style={styles.loadingSpinnerWrap}>
                                     <LoadingView
-                                        title={loadingMore ? '여행 더 불러오는 중' : '여행 목록 불러오는 중'}
+                                        title={loadingMore ? '일정 더 불러오는 중' : '일정 목록 불러오는 중'}
                                         fullscreen={false}
                                     />
                                 </View>
@@ -1992,7 +2137,7 @@ export function TripListScreen({ navigation, route }: Props) {
                                             : null
                                     ]}
                                 >
-                                    <Text style={styles.loadMoreButtonText}>여행 더 보기</Text>
+                                    <Text style={styles.loadMoreButtonText}>일정 더 보기</Text>
                                 </Pressable>
                             ) : null}
                         </View>
@@ -2027,16 +2172,22 @@ export function TripListScreen({ navigation, route }: Props) {
                                 )}
                             </View>
                         ) : (
-                            <TripCard
-                                trip={item}
-                                actionStatusLabel={processingTripId === item.id ? processingActionLabel : null}
-                                disabled={hasPendingTripAction}
-                                onOpenActions={() => {
-                                    openActionMenu(item);
-                                }}
-                                variant={viewMode}
-                                onPress={() => navigation.navigate('TripDetail', { tripId: item.id })}
-                            />
+                            <View style={[
+                                embeddedInWorkspace && selectedTripId === item.id
+                                    ? styles.workspaceSelectedTrip
+                                    : null
+                            ]}>
+                                <TripCard
+                                    trip={item}
+                                    actionStatusLabel={processingTripId === item.id ? processingActionLabel : null}
+                                    disabled={hasPendingTripAction}
+                                    onOpenActions={() => {
+                                        openActionMenu(item);
+                                    }}
+                                    variant={viewMode}
+                                    onPress={() => navigation.navigate('TripDetail', { tripId: item.id })}
+                                />
+                            </View>
                         )
                     )}
                     showsVerticalScrollIndicator={false}
@@ -2053,6 +2204,80 @@ export function TripListScreen({ navigation, route }: Props) {
                     }
                 />
             </SafeAreaView>
+            <Modal
+                animationType="fade"
+                transparent
+                visible={isPurposeFilterModalVisible}
+                onRequestClose={closePurposeFilterModal}
+            >
+                <View style={styles.sortSheetBackdrop}>
+                    <Pressable
+                        accessibilityRole="button"
+                        onPress={closePurposeFilterModal}
+                        style={StyleSheet.absoluteFill}
+                    />
+                    <View style={styles.sortSheetCard}>
+                        <View style={styles.sortSheetHandle} />
+                        <View style={styles.sortSheetHeader}>
+                            <Text style={styles.sortSheetTitle}>일정 유형</Text>
+                            <Text style={styles.sortSheetSubtitle}>
+                                보고 싶은 일정만 가볍게 골라볼 수 있어요.
+                            </Text>
+                        </View>
+                        {PLAN_PURPOSE_FILTER_OPTIONS.map((option) => {
+                            const isActive = option.key === purposeFilter;
+
+                            return (
+                                <Pressable
+                                    key={option.key}
+                                    accessibilityRole="button"
+                                    accessibilityState={{ selected: isActive }}
+                                    onPress={() => {
+                                        handleSelectPurposeFilter(option.key);
+                                    }}
+                                    style={({ pressed }) => [
+                                        styles.sortSheetOptionButton,
+                                        isActive ? styles.sortSheetOptionButtonActive : null,
+                                        pressed ? styles.actionMenuButtonPressed : null
+                                    ]}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.sortSheetOptionLabel,
+                                            isActive ? styles.sortSheetOptionLabelActive : null
+                                        ]}
+                                    >
+                                        {option.label}
+                                    </Text>
+                                    {isActive ? (
+                                        <View style={styles.sortSheetOptionState}>
+                                            <Ionicons
+                                                name="checkmark"
+                                                size={16}
+                                                color={theme.colors.accent}
+                                            />
+                                            <Text style={styles.sortSheetOptionStateText}>
+                                                선택됨
+                                            </Text>
+                                        </View>
+                                    ) : null}
+                                </Pressable>
+                            );
+                        })}
+
+                        <Pressable
+                            accessibilityRole="button"
+                            onPress={closePurposeFilterModal}
+                            style={({ pressed }) => [
+                                styles.sortSheetCloseButton,
+                                pressed ? styles.actionMenuButtonPressed : null
+                            ]}
+                        >
+                            <Text style={styles.sortSheetCloseText}>닫기</Text>
+                        </Pressable>
+                    </View>
+                </View>
+            </Modal>
             <Modal
                 animationType="fade"
                 transparent
@@ -2136,7 +2361,7 @@ export function TripListScreen({ navigation, route }: Props) {
                 onRequestClose={closeProfileEditor}
             >
                 <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                     style={styles.profileSheetBackdrop}
                 >
                     <Pressable
@@ -2204,7 +2429,7 @@ export function TripListScreen({ navigation, route }: Props) {
                                     value={draftDisplayName}
                                 />
                                 <Text style={styles.profileFieldHint}>
-                                    여행 공유와 기록에 보일 이름이에요.
+                                    일정 공유와 기록에 보일 이름이에요.
                                 </Text>
                             </View>
                         </ScrollView>
@@ -2259,12 +2484,12 @@ export function TripListScreen({ navigation, route }: Props) {
                     />
                     <View style={styles.actionModalCard}>
                         <View style={styles.actionModalHeader}>
-                            <Text style={styles.actionModalEyebrow}>여행 메뉴</Text>
+                            <Text style={styles.actionModalEyebrow}>일정 메뉴</Text>
                             <Text style={styles.actionModalTitle} numberOfLines={2}>
-                                {activeMenuTrip?.title || '여행'}
+                                {activeMenuTrip?.title || '일정'}
                             </Text>
                             <Text style={styles.actionModalSubtitle} numberOfLines={2}>
-                                {activeMenuTrip?.subInfo || '이 여행에서 할 작업을 선택해 주세요.'}
+                                {activeMenuTrip?.subInfo || '이 일정에서 할 작업을 선택해 주세요.'}
                             </Text>
                         </View>
 
@@ -2287,7 +2512,7 @@ export function TripListScreen({ navigation, route }: Props) {
                             >
                                 <View style={styles.actionMenuCopy}>
                                     <Text style={styles.actionMenuLabel}>공유</Text>
-                                    <Text style={styles.actionMenuHint}>초대 링크와 권한을 바로 관리할 수 있어요.</Text>
+                                    <Text style={styles.actionMenuHint}>초대 링크와 멤버 역할을 바로 관리할 수 있어요.</Text>
                                 </View>
                                 <Text style={styles.actionMenuArrow}>›</Text>
                             </Pressable>
@@ -2334,7 +2559,7 @@ export function TripListScreen({ navigation, route }: Props) {
                             >
                                 <View style={styles.actionMenuCopy}>
                                     <Text style={styles.actionMenuLabel}>사본 만들기</Text>
-                                    <Text style={styles.actionMenuHint}>현재 여행을 그대로 복사해 새 여행을 만들어요.</Text>
+                                    <Text style={styles.actionMenuHint}>현재 일정을 그대로 복사해 새 일정을 만들어요.</Text>
                                 </View>
                                 <Text style={styles.actionMenuArrow}>›</Text>
                             </Pressable>
@@ -2358,7 +2583,32 @@ export function TripListScreen({ navigation, route }: Props) {
                                 <View style={styles.actionMenuCopy}>
                                     <Text style={[styles.actionMenuLabel, styles.actionMenuLabelDanger]}>삭제</Text>
                                     <Text style={[styles.actionMenuHint, styles.actionMenuHintDanger]}>
-                                        삭제된 여행은 복구할 수 없어요.
+                                        삭제한 일정은 30일 동안 복구할 수 있어요.
+                                    </Text>
+                                </View>
+                                <Text style={[styles.actionMenuArrow, styles.actionMenuArrowDanger]}>›</Text>
+                            </Pressable>
+                        ) : null}
+
+                        {activeMenuTrip && !activeMenuTrip.permissions.canDeleteTrip ? (
+                            <Pressable
+                                accessibilityRole="button"
+                                disabled={hasPendingTripAction}
+                                onPress={() => {
+                                    if (activeMenuTrip) {
+                                        handleLeaveTrip(activeMenuTrip);
+                                    }
+                                }}
+                                style={({ pressed }) => [
+                                    styles.actionMenuButton,
+                                    styles.actionMenuButtonDanger,
+                                    pressed && !hasPendingTripAction ? styles.actionMenuButtonPressed : null
+                                ]}
+                            >
+                                <View style={styles.actionMenuCopy}>
+                                    <Text style={[styles.actionMenuLabel, styles.actionMenuLabelDanger]}>나가기</Text>
+                                    <Text style={[styles.actionMenuHint, styles.actionMenuHintDanger]}>
+                                        이 일정을 내 목록에서 제거해요.
                                     </Text>
                                 </View>
                                 <Text style={[styles.actionMenuArrow, styles.actionMenuArrowDanger]}>›</Text>
@@ -2396,10 +2646,10 @@ export function TripListScreen({ navigation, route }: Props) {
                         <View style={styles.actionModalHeader}>
                             <Text style={styles.actionModalEyebrow}>소유권 이전</Text>
                             <Text style={styles.actionModalTitle} numberOfLines={2}>
-                                {ownerTransferDeleteState?.trip.title || '여행'}
+                                {ownerTransferDeleteState?.trip.title || '일정'}
                             </Text>
                             <Text style={styles.actionModalSubtitle}>
-                                함께하는 멤버가 있어요. 삭제 대신 소유권을 넘기고 내 여행 목록에서 제거할 멤버를 선택해 주세요.
+                                함께하는 멤버가 있어요. 삭제 대신 소유권을 넘기고 내 일정 목록에서 제거할 멤버를 선택해 주세요.
                             </Text>
                         </View>
 
@@ -2498,7 +2748,7 @@ export function TripListScreen({ navigation, route }: Props) {
             {TripShareSheetComponent ? (
                 <TripShareSheetComponent
                     visible={Boolean(shareSheetTrip)}
-                    tripTitle={shareSheetTrip?.title || '여행'}
+                    tripTitle={shareSheetTrip?.title || '일정'}
                     shareInfo={resolvedShareSheetInfo}
                     loading={isShareSheetLoading}
                     error={isOfflineMode ? OFFLINE_SHARE_DISABLED_MESSAGE : shareSheetError}
@@ -2516,7 +2766,7 @@ export function TripListScreen({ navigation, route }: Props) {
             {TripAnnouncementSheetComponent ? (
                 <TripAnnouncementSheetComponent
                     visible={Boolean(announcementSheetTrip)}
-                    tripTitle={announcementSheetTrip?.title || '여행'}
+                    tripTitle={announcementSheetTrip?.title || '일정'}
                     error={isOfflineMode ? OFFLINE_ANNOUNCEMENT_DISABLED_MESSAGE : announcementSheetError}
                     busy={isAnnouncementSheetSending}
                     actionDisabled={isOfflineMode}
@@ -2524,7 +2774,7 @@ export function TripListScreen({ navigation, route }: Props) {
                     onSubmit={handleSubmitTripAnnouncement}
                 />
             ) : null}
-            <BottomNavBar activeTab={activeRootTab} />
+            {bottomNav}
         </View>
     );
 }
@@ -2595,6 +2845,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         paddingHorizontal: theme.spacing.sm,
         paddingBottom: theme.spacing.lg
     },
+    workspaceSelectedTrip: {
+        borderWidth: 2,
+        borderColor: theme.colors.accent,
+        borderRadius: theme.radius.lg,
+        backgroundColor: theme.colors.accentSoft
+    },
     bannerCard: {
         marginBottom: theme.spacing.sm,
         paddingHorizontal: theme.spacing.sm,
@@ -2619,26 +2875,64 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        gap: theme.spacing.xs,
         marginTop: 0,
         marginBottom: theme.spacing.sm
     },
+    sectionFilterControls: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+        gap: theme.spacing.xs
+    },
     sortTriggerButton: {
+        minHeight: 36,
         flexDirection: 'row',
         alignItems: 'center',
         gap: theme.spacing.xs,
-        paddingVertical: theme.spacing.xs
+        paddingHorizontal: theme.spacing.sm,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        borderRadius: theme.radius.full,
+        backgroundColor: theme.colors.surface
     },
     sortTriggerButtonPressed: {
         opacity: 0.82
     },
     sortTriggerText: {
-        color: theme.colors.textPrimary,
-        fontSize: 18,
-        fontFamily: theme.fonts.bold
+        color: theme.colors.textSecondary,
+        fontSize: 13,
+        lineHeight: 18,
+        fontFamily: theme.fonts.semibold
     },
     sectionActions: {
         flexDirection: 'row',
         alignItems: 'center'
+    },
+    purposeFilterTriggerButton: {
+        minHeight: 36,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: theme.spacing.micro,
+        paddingHorizontal: theme.spacing.sm,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        borderRadius: theme.radius.full,
+        backgroundColor: theme.colors.surface
+    },
+    purposeFilterTriggerButtonActive: {
+        borderColor: theme.colors.accent,
+        backgroundColor: theme.colors.accentSoft
+    },
+    purposeFilterTriggerText: {
+        color: theme.colors.textSecondary,
+        fontSize: 13,
+        lineHeight: 18,
+        fontFamily: theme.fonts.semibold
+    },
+    purposeFilterTriggerTextActive: {
+        color: theme.colors.accent
     },
     searchEmptyState: {
         paddingTop: theme.spacing.xl
@@ -2647,11 +2941,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         opacity: 0.55
     },
     viewModeToggleButton: {
-        width: 40,
-        height: 40,
+        width: 36,
+        height: 36,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'transparent'
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        borderRadius: theme.radius.full,
+        backgroundColor: theme.colors.surface
     },
     viewModeToggleButtonPressed: {
         opacity: 0.88

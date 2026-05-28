@@ -34,8 +34,8 @@ export function resolveRuntimeGateState(input: RuntimeGateInput): RuntimeGateSta
 
     return {
         isBlocked: true,
-        title: '앱 설정을 확인해 주세요.',
-        description: messages.join('\n') || '앱 설정을 확인하지 못했어요. 관리자에게 문의해 주세요.',
-        supportText: '운영 설정이 복구되면 앱을 다시 실행해 주세요. 문제가 계속되면 관리자에게 문의해 주세요.'
+        title: '앱을 열 수 없어요.',
+        description: messages.join('\n') || '앱 설정을 확인하지 못했어요. 고객센터로 문의해 주세요.',
+        supportText: '설정이 복구되면 앱을 다시 실행해 주세요. 문제가 계속되면 고객센터로 문의해 주세요.'
     };
 }

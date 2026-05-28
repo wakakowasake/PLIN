@@ -75,7 +75,8 @@ import type {
     RawTripDay,
     RawTripListItem,
     RawTimelineItem,
-    RawTrip
+    RawTrip,
+    PlanPurpose
 } from '@/types/trip';
 import type {
     OffsetPageRequest,
@@ -97,7 +98,7 @@ type TripRevisionListBackendResponse = {
     hasMore?: unknown;
 };
 
-const TRIP_WRITE_CONFLICT_MESSAGE = '다른 기기에서 먼저 수정했어요. 최신 내용을 다시 불러온 뒤 변경사항을 다시 적용해 주세요.';
+const TRIP_WRITE_CONFLICT_MESSAGE = '다른 곳에서 먼저 수정됐어요. 최신 내용을 다시 불러온 뒤 변경사항을 다시 적용해 주세요.';
 const TRIP_TITLE_TOO_LONG_MESSAGE = getTripTitleTooLongMessage();
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -579,6 +580,7 @@ function normalizeTimelineItem(value: unknown): RawTimelineItem {
 
 function normalizeTripMeta(data: Record<string, unknown>) {
     const meta = isPlainObject(data.meta) ? data.meta : {};
+    const purpose: PlanPurpose = meta.purpose === 'date' || data.purpose === 'date' ? 'date' : 'trip';
 
     return {
         ...meta,
@@ -586,6 +588,7 @@ function normalizeTripMeta(data: Record<string, unknown>) {
         subInfo: readDisplayString(meta.subInfo ?? data.dates),
         dayCount: readDisplayString(meta.dayCount),
         location: readDisplayString(meta.location ?? data.location),
+        purpose,
         budget: readNullableNumber(meta.budget ?? data.budget),
         coverImage: readNullableString(
             meta.coverImage ?? meta.mapImage ?? data.coverImage ?? data.mapImage
@@ -984,8 +987,15 @@ function mapTripInfoWriteError(error: unknown) {
     }
 
     if (error instanceof Error) {
+        if (error.message === '여행 제목을 입력해 주세요.') {
+            return new Error('일정 제목을 입력해 주세요.');
+        }
+        if (/^여행 제목은 \d+자 이내로 입력해 주세요\.$/.test(error.message)) {
+            return new Error(error.message.replace('여행 제목은', '일정 제목은'));
+        }
+
         if (
-            error.message === '여행 제목을 입력해 주세요.'
+            error.message === '일정 제목을 입력해 주세요.'
             || error.message === TRIP_TITLE_TOO_LONG_MESSAGE
             || error.message === '시작일과 종료일을 모두 입력해 주세요.'
             || error.message === '날짜는 YYYY-MM-DD 형식으로 입력해 주세요.'
@@ -1000,7 +1010,7 @@ function mapTripInfoWriteError(error: unknown) {
 
     if (isSessionLikeError(error)) {
         return new Error(
-            '세션이 만료됐거나 권한이 바뀌어 저장할 수 없어요. 다시 로그인한 뒤 시도해 주세요.'
+            '로그인 상태나 볼 수 있는 범위가 바뀌어 저장할 수 없어요. 다시 로그인한 뒤 시도해 주세요.'
         );
     }
 
@@ -1010,7 +1020,7 @@ function mapTripInfoWriteError(error: unknown) {
         );
     }
 
-    return new Error('여행 정보를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
+    return new Error('일정 정보를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
 }
 
 function mapTimelineItemWriteError(error: unknown) {
@@ -1022,7 +1032,7 @@ function mapTimelineItemWriteError(error: unknown) {
         if (
             error.message === '메모를 입력해 주세요.'
             || error.message === '수정할 일정을 찾을 수 없어요.'
-            || error.message === '저장할 여행을 찾지 못했어요.'
+            || error.message === '저장할 일정을 찾지 못했어요.'
             || error.message === '일정을 추가할 날짜를 찾을 수 없어요.'
             || error.message === '가져올 기존 일정을 찾을 수 없어요.'
             || error.message === '일정 이름을 입력해 주세요.'
@@ -1039,7 +1049,7 @@ function mapTimelineItemWriteError(error: unknown) {
 
     if (isSessionLikeError(error)) {
         return new Error(
-            '세션이 만료됐거나 권한이 바뀌어 일정을 저장할 수 없어요. 다시 로그인한 뒤 시도해 주세요.'
+            '로그인 상태나 볼 수 있는 범위가 바뀌어 일정을 저장할 수 없어요. 다시 로그인한 뒤 시도해 주세요.'
         );
     }
 
@@ -1054,8 +1064,15 @@ function mapTimelineItemWriteError(error: unknown) {
 
 function mapTripCreateError(error: unknown) {
     if (error instanceof Error) {
+        if (error.message === '여행 제목을 입력해 주세요.') {
+            return new Error('일정 제목을 입력해 주세요.');
+        }
+        if (/^여행 제목은 \d+자 이내로 입력해 주세요\.$/.test(error.message)) {
+            return new Error(error.message.replace('여행 제목은', '일정 제목은'));
+        }
+
         if (
-            error.message === '여행 제목을 입력해 주세요.'
+            error.message === '일정 제목을 입력해 주세요.'
             || error.message === TRIP_TITLE_TOO_LONG_MESSAGE
             || error.message === '시작일과 종료일을 모두 입력해 주세요.'
             || error.message === '날짜는 YYYY-MM-DD 형식으로 입력해 주세요.'
@@ -1068,24 +1085,24 @@ function mapTripCreateError(error: unknown) {
 
     if (isSessionLikeError(error)) {
         return new Error(
-            '세션이 만료됐거나 권한이 바뀌어 새 여행을 만들 수 없어요. 다시 로그인한 뒤 시도해 주세요.'
+            '로그인 상태나 볼 수 있는 범위가 바뀌어 새 일정을 만들 수 없어요. 다시 로그인한 뒤 시도해 주세요.'
         );
     }
 
     if (isNetworkLikeError(error)) {
         return new Error(
-            '인터넷 연결이 불안정해 새 여행을 만들지 못했어요. 연결이 돌아오면 다시 시도해 주세요.'
+            '인터넷 연결이 불안정해 새 일정을 만들지 못했어요. 연결이 돌아오면 다시 시도해 주세요.'
         );
     }
 
-    return new Error('새 여행을 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
+    return new Error('새 일정을 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
 }
 
 function mapTripDeleteError(error: unknown) {
     if (error instanceof Error) {
         if (
-            error.message === '여행을 삭제할 권한이 없어요.'
-            || error.message === '삭제할 여행에 접근할 수 없어요.'
+            error.message === '일정을 삭제할 수 없어요.'
+            || error.message === '삭제할 일정을 찾을 수 없어요.'
             || error.message.includes('모바일 Firebase 환경 변수')
         ) {
             return error;
@@ -1094,23 +1111,49 @@ function mapTripDeleteError(error: unknown) {
 
     if (isSessionLikeError(error)) {
         return new Error(
-            '세션이 만료됐거나 권한이 바뀌어 여행을 삭제할 수 없어요. 다시 로그인한 뒤 시도해 주세요.'
+            '로그인 상태나 볼 수 있는 범위가 바뀌어 일정을 삭제할 수 없어요. 다시 로그인한 뒤 시도해 주세요.'
         );
     }
 
     if (isNetworkLikeError(error)) {
         return new Error(
-            '인터넷 연결이 불안정해 여행을 삭제하지 못했어요. 연결이 돌아오면 다시 시도해 주세요.'
+            '인터넷 연결이 불안정해 일정을 삭제하지 못했어요. 연결이 돌아오면 다시 시도해 주세요.'
         );
     }
 
-    return new Error('여행을 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.');
+    return new Error('일정을 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.');
+}
+
+function mapTripLeaveError(error: unknown) {
+    if (error instanceof Error) {
+        if (
+            error.message === '소유자는 일정에서 나갈 수 없어요. 소유권을 넘기거나 일정을 삭제해 주세요.'
+            || error.message === '나갈 일정을 찾지 못했어요.'
+            || error.message.includes('모바일 Firebase 환경 변수')
+        ) {
+            return error;
+        }
+    }
+
+    if (isSessionLikeError(error)) {
+        return new Error(
+            '로그인 상태나 볼 수 있는 범위가 바뀌어 일정에서 나갈 수 없어요. 다시 로그인한 뒤 시도해 주세요.'
+        );
+    }
+
+    if (isNetworkLikeError(error)) {
+        return new Error(
+            '인터넷 연결이 불안정해 일정에서 나가지 못했어요. 연결이 돌아오면 다시 시도해 주세요.'
+        );
+    }
+
+    return new Error('일정에서 나가지 못했어요. 잠시 후 다시 시도해 주세요.');
 }
 
 function mapTripDuplicateError(error: unknown) {
     if (error instanceof Error) {
         if (
-            error.message === '사본을 만들 여행에 접근할 수 없어요.'
+            error.message === '사본을 만들 일정을 찾을 수 없어요.'
             || error.message.includes('모바일 Firebase 환경 변수')
         ) {
             return error;
@@ -1119,17 +1162,17 @@ function mapTripDuplicateError(error: unknown) {
 
     if (isSessionLikeError(error)) {
         return new Error(
-            '세션이 만료됐거나 권한이 바뀌어 여행 사본을 만들 수 없어요. 다시 로그인한 뒤 시도해 주세요.'
+            '로그인 상태나 볼 수 있는 범위가 바뀌어 일정 사본을 만들 수 없어요. 다시 로그인한 뒤 시도해 주세요.'
         );
     }
 
     if (isNetworkLikeError(error)) {
         return new Error(
-            '인터넷 연결이 불안정해 여행 사본을 만들지 못했어요. 연결이 돌아오면 다시 시도해 주세요.'
+            '인터넷 연결이 불안정해 일정 사본을 만들지 못했어요. 연결이 돌아오면 다시 시도해 주세요.'
         );
     }
 
-    return new Error('여행 사본을 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
+    return new Error('일정 사본을 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
 }
 
 export function hasFirebaseTripRepositoryConfig() {
@@ -1287,7 +1330,7 @@ function normalizeTripRevisionEntry(value: unknown): TripRevisionEntry | null {
         contentVersionBefore: normalizeTripContentVersion(value.contentVersionBefore),
         contentVersionAfter: normalizeTripContentVersion(value.contentVersionAfter),
         summary: {
-            text: readDisplayString(summaryValue.text) || '여행 내용 수정'
+            text: readDisplayString(summaryValue.text) || '일정 내용 수정'
         },
         snapshot: normalizeTripRevisionSnapshot(value.snapshot),
         restoredFromRevisionId: readString(value.restoredFromRevisionId)
@@ -1311,8 +1354,8 @@ function normalizeTripRevisionListResponse(
 }
 
 function isTripDetailMissingMessage(message: string) {
-    return message === '여행을 찾을 수 없어요.'
-        || message === '이 여행을 볼 권한이 없어요.';
+    return /^(여행|일정)을 찾을 수 없어요\.$/.test(message)
+        || /^이 (여행|일정)을 볼 (권한이 없어요|수 없어요)\.$/.test(message);
 }
 
 export class FirebaseTripRepository implements TripRepository {
@@ -1371,7 +1414,7 @@ export class FirebaseTripRepository implements TripRepository {
             const tripDetail = readTripDetailFromResponse(userId, response);
             return tripDetail ? this.persistDetailCache(userId, tripDetail) : null;
         } catch (error) {
-            if (error instanceof Error && error.message === '저장할 여행을 찾지 못했어요.') {
+            if (error instanceof Error && error.message === '저장할 일정을 찾지 못했어요.') {
                 await removeCachedTrip(userId, tripId);
             }
             throw error;
@@ -1593,6 +1636,66 @@ export class FirebaseTripRepository implements TripRepository {
         }
     }
 
+    async leaveTrip(userId: string, tripId: string): Promise<void> {
+        if (!userId || !tripId) {
+            return;
+        }
+
+        try {
+            assertMobileFirebaseConfigReady();
+            await fetchBackendJson<void>(`/plans/${encodeURIComponent(tripId)}/leave`, {
+                method: 'DELETE'
+            });
+            await removeCachedTrip(userId, tripId);
+        } catch (error) {
+            throw mapTripLeaveError(error);
+        }
+    }
+
+    async listDeletedTrips(userId: string): Promise<MobileTripSummary[]> {
+        if (!userId) {
+            return [];
+        }
+
+        assertMobileFirebaseConfigReady();
+        const response = await fetchBackendJson<TripListResponse>('/plans/trash?limit=200');
+        return readTripSummariesFromResponse(userId, response);
+    }
+
+    async restoreDeletedTrip(userId: string, tripId: string): Promise<MobileTripDetail | null> {
+        if (!userId || !tripId) {
+            return null;
+        }
+
+        try {
+            assertMobileFirebaseConfigReady();
+            const response = await fetchBackendJson<TripDetailResponse>(
+                `/plans/${encodeURIComponent(tripId)}/restore`,
+                { method: 'POST' }
+            );
+            const tripDetail = readTripDetailFromResponse(userId, response);
+            return tripDetail ? this.persistDetailCache(userId, tripDetail) : null;
+        } catch (error) {
+            throw mapTripDeleteError(error);
+        }
+    }
+
+    async permanentlyDeleteTrip(userId: string, tripId: string): Promise<void> {
+        if (!userId || !tripId) {
+            return;
+        }
+
+        try {
+            assertMobileFirebaseConfigReady();
+            await fetchBackendJson<void>(`/plans/${encodeURIComponent(tripId)}/permanent`, {
+                method: 'DELETE'
+            });
+            await removeCachedTrip(userId, tripId);
+        } catch (error) {
+            throw mapTripDeleteError(error);
+        }
+    }
+
     async updateTripInfo(
         userId: string,
         tripId: string,
@@ -1655,7 +1758,7 @@ export class FirebaseTripRepository implements TripRepository {
             reportLegacyFallbacks('write', canonicalTrip);
             const dayIndex = canonicalTrip.days.findIndex((day) => day.id === dayId);
             if (dayIndex < 0) {
-                throw new Error('저장할 여행을 찾지 못했어요.');
+                throw new Error('저장할 일정을 찾지 못했어요.');
             }
 
             const targetItems = Array.isArray(canonicalTrip.days[dayIndex]?.items)
@@ -1666,7 +1769,7 @@ export class FirebaseTripRepository implements TripRepository {
                 : targetItems.findIndex((item) => String(item.id || '') === itemId);
 
             if (resolvedItemIndex < 0) {
-                throw new Error('저장할 여행을 찾지 못했어요.');
+                throw new Error('저장할 일정을 찾지 못했어요.');
             }
 
             const safeData = isPlainObject(rawData) ? rawData : {};
@@ -1681,7 +1784,7 @@ export class FirebaseTripRepository implements TripRepository {
             );
 
             if (!didAppendExpense) {
-                throw new Error('저장할 여행을 찾지 못했어요.');
+                throw new Error('저장할 일정을 찾지 못했어요.');
             }
 
             const nextTrip: Record<string, unknown> = {

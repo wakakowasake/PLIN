@@ -807,7 +807,7 @@ export function TimelineItemComposerModal({
         try {
             const permission = await Location.requestForegroundPermissionsAsync();
             if (permission.status !== 'granted') {
-                setMapUiError('현재 위치 권한이 필요해요. 권한을 허용한 뒤 다시 눌러 주세요.');
+                setMapUiError('현재 위치를 보려면 위치 접근을 허용해 주세요.');
                 return;
             }
 

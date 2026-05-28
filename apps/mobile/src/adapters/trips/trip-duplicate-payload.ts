@@ -54,7 +54,7 @@ function coerceList(value: unknown) {
 function buildDuplicatedTripTitle(value: unknown) {
     const baseTitle = typeof value === 'string' && value.trim()
         ? value.trim()
-        : '제목 없는 여행';
+        : '제목 없는 일정';
 
     if (baseTitle.endsWith(' 사본')) {
         return baseTitle;

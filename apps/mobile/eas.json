@@ -17,6 +17,10 @@
   },
   "submit": {
     "production": {
+      "android": {
+        "serviceAccountKeyPath": "./plin-db93d-firebase-adminsdk-fbsvc-5963a953c1.json",
+        "track": "internal"
+      },
       "ios": {
         "ascAppId": "6764430412"
       }

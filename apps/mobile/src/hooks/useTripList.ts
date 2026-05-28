@@ -212,12 +212,12 @@ export function useTripList(userId: string | null) {
                 if (isAppending) {
                     setRefreshError(
                         nextError.kind === 'network'
-                            ? '연결이 잠시 불안정해 여행을 더 불러오지 못했어요. 연결이 돌아오면 다시 시도해 주세요.'
+                            ? '연결이 잠시 불안정해 일정을 더 불러오지 못했어요. 연결이 돌아오면 다시 시도해 주세요.'
                             : nextError.message
                     );
                 } else if (nextError.kind === 'network') {
                     setRefreshError(
-                        '연결이 잠시 불안정해 최신 여행 목록을 다시 확인하지 못했어요. 현재는 마지막으로 불러온 목록을 보여주고 있어요.'
+                        '연결이 잠시 불안정해 최신 일정 목록을 다시 확인하지 못했어요. 마지막으로 불러온 목록을 보여드릴게요.'
                     );
                 } else {
                     setRefreshError(nextError.message);

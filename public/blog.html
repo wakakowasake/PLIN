@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>블로그 | PLIN</title>
+    <meta name="description" content="PLIN이 여행 계획, 공유, 기록을 바라보는 방식과 제품 이야기를 전하는 블로그입니다.">
+    <link rel="canonical" href="https://plin.ink/blog">
+    <link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png">
+    <link href="https://firebasestorage.googleapis.com" rel="preconnect" crossorigin>
+    <meta name="theme-color" content="#fff8f3">
+    <link rel="stylesheet" href="/css/site-pages.css">
+</head>
+
+<body>
+    <header class="site-header">
+        <div class="header-inner">
+            <a href="/" class="brand-mark" aria-label="PLIN 홈">
+                <img class="brand-icon" src="/icon-only.png" alt="" aria-hidden="true">
+                <span>PLIN</span>
+            </a>
+            <nav class="nav-links" aria-label="PLIN 사이트 메뉴">
+                <a href="/company">회사소개</a>
+                <a href="/notices">공지사항</a>
+                <a href="/blog" aria-current="page">블로그</a>
+                <a href="mailto:contact@plin.ink">문의</a>
+            </nav>
+            <a href="#login" class="button button-primary" data-site-auth-open>시작하기</a>
+        </div>
+    </header>
+
+    <main class="site-page blog-page">
+        <section class="page-hero blog-hero" aria-labelledby="blog-page-title">
+            <div>
+                <p class="page-kicker">PLIN Blog</p>
+                <h1 id="blog-page-title">여행을 기록하는 방법을 씁니다.</h1>
+                <p class="page-lead">제품 업데이트 뒤에 있는 생각, 함께 쓰는 여행 노트의 기준, 기록을 오래 남기는 방식을 전합니다.</p>
+            </div>
+        </section>
+
+        <div class="site-content">
+            <section class="notice-admin-panel blog-editor-page hidden" id="blog-admin-panel"
+                aria-labelledby="blog-admin-title">
+                <div class="notice-section-header">
+                    <div>
+                        <p class="notice-eyebrow">관리자</p>
+                        <h2 id="blog-admin-title">블로그 작성</h2>
+                    </div>
+                    <button type="button" class="notice-ghost-button" id="blog-cancel-edit-btn">목록으로</button>
+                </div>
+
+                <form class="notice-form" id="blog-form">
+                    <input type="hidden" id="blog-edit-id">
+                    <label>
+                        <span>분류</span>
+                        <select id="blog-category" required>
+                            <option value="Product Note">Product Note</option>
+                            <option value="Travel Flow">Travel Flow</option>
+                            <option value="Memory">Memory</option>
+                            <option value="Design">Design</option>
+                            <option value="News">News</option>
+                        </select>
+                    </label>
+                    <label>
+                        <span>제목</span>
+                        <input type="text" id="blog-title-input" maxlength="100" placeholder="블로그 제목을 입력하세요" required>
+                    </label>
+                    <label>
+                        <span>대표 이미지</span>
+                        <input type="file" id="blog-cover-file-input" accept="image/png,image/jpeg,image/webp,image/gif">
+                        <input type="hidden" id="blog-cover-input">
+                    </label>
+                    <div class="blog-cover-preview hidden" id="blog-cover-preview">
+                        <img id="blog-cover-preview-image" src="" alt="">
+                        <button type="button" class="notice-ghost-button" id="blog-cover-clear-btn">이미지 제거</button>
+                    </div>
+                    <label>
+                        <span>요약</span>
+                        <textarea id="blog-summary-input" maxlength="260" rows="3" placeholder="목록에 표시할 짧은 소개 문구"></textarea>
+                    </label>
+                    <label class="notice-rich-editor-field">
+                        <span>본문</span>
+                        <textarea id="blog-body-input" maxlength="30000" rows="14" placeholder="블로그 본문을 입력하세요."></textarea>
+                    </label>
+                    <p class="notice-richtext-help">상단 편집 도구로 제목, 굵게, 목록, 링크, 이미지, 표를 넣을 수 있습니다.</p>
+                    <label class="notice-checkbox-row">
+                        <input type="checkbox" id="blog-featured-input">
+                        <span>대표 글로 표시</span>
+                    </label>
+                    <div class="notice-form-footer">
+                        <p id="blog-admin-status" class="notice-admin-status" role="status"></p>
+                        <button type="submit" class="notice-primary-button" id="blog-submit-btn">글 발행</button>
+                    </div>
+                </form>
+            </section>
+
+            <section id="blog-list-section" class="content-panel" aria-labelledby="blog-list-title">
+                <div class="notice-section-header">
+                    <div>
+                        <p class="blog-kicker">Stories</p>
+                        <h2 id="blog-list-title">최근 글</h2>
+                    </div>
+                    <div class="notice-section-actions">
+                        <button type="button" class="notice-primary-button hidden" id="blog-write-btn">글쓰기</button>
+                        <button type="button" class="notice-secondary-button" id="blog-refresh-btn">새로고침</button>
+                    </div>
+                </div>
+
+                <div class="blog-grid" id="blog-list" aria-live="polite">
+                    <article class="notice-loading-card">
+                        <strong>블로그 글을 불러오는 중입니다.</strong>
+                        <p>잠시만 기다려 주세요.</p>
+                    </article>
+                </div>
+            </section>
+
+            <section id="blog-detail-section" class="content-panel notice-detail-section hidden"
+                aria-labelledby="blog-detail-title">
+                <div class="notice-section-header">
+                    <div>
+                        <p class="notice-eyebrow">Blog Detail</p>
+                        <h2 id="blog-detail-title">블로그 전문</h2>
+                    </div>
+                    <button type="button" class="notice-secondary-button" id="blog-detail-back-btn">목록으로</button>
+                </div>
+                <div id="blog-detail-content" class="notice-detail-content"></div>
+            </section>
+        </div>
+    </main>
+
+    <footer class="site-footer">
+        <div class="footer-inner">
+            <div>
+                <a href="/" class="footer-brand">PLIN</a>
+                <p class="footer-copy">
+                    문의 : <a href="mailto:contact@plin.ink">contact@plin.ink</a><br>
+                    대표자 : 우지형<br>
+                    주소 : 서울특별시 동작구 상도로 55길 8 2층<br>
+                    사업자등록번호 : 663-02-03874<br>
+                    통신판매업 신고 : 2026-서울동작-0669<br>
+                    © 2026 플린(PLIN). PLIN은 여행 계획과 기록을 위한 베타 서비스입니다.
+                </p>
+            </div>
+            <nav class="footer-links" aria-label="정책 문서">
+                <a href="/company">회사 소개</a>
+                <a href="/notices">공지사항</a>
+                <a href="/blog">블로그</a>
+                <a href="/terms">서비스 이용약관</a>
+                <a href="/subscription-terms">유료서비스 약관</a>
+                <a href="/privacy">개인정보처리방침</a>
+                <a href="/location-terms">위치기반서비스 약관</a>
+                <a href="/operation-policy">운영정책</a>
+                <a href="/youth-protection-policy">청소년보호정책</a>
+            </nav>
+        </div>
+    </footer>
+    <script type="module" src="/js/pages/blog.js"></script>
+    <script type="module" src="/js/pages/site-auth.js"></script>
+</body>
+
+</html>

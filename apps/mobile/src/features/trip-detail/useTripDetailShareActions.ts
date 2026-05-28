@@ -2,6 +2,7 @@ import React from 'react';
 import { Alert, Share } from 'react-native';
 
 import { useAdapters } from '@/adapters/useAdapters';
+import { getMobileEnv } from '@/config/mobile-runtime-config';
 import type {
     TripShareLinkRole,
     TripShareMode,
@@ -18,6 +19,7 @@ type Options = {
     userId: string | null;
     canManageShare: boolean;
     canPublishCommunity: boolean;
+    canPublishPaidCommunity?: boolean;
     isOfflineMode: boolean;
     startInCommunityPublishFlow?: boolean;
     onRequestOpenShareSheet(): void;
@@ -31,6 +33,7 @@ export function useTripDetailShareActions({
     userId,
     canManageShare,
     canPublishCommunity,
+    canPublishPaidCommunity = false,
     isOfflineMode,
     startInCommunityPublishFlow = false,
     onRequestOpenShareSheet,
@@ -115,7 +118,7 @@ export function useTripDetailShareActions({
             if (result.action === Share.dismissedAction) {
                 Alert.alert(
                     '공유 창을 닫았어요',
-                    '일부 공유 옵션은 기기나 환경에 따라 다르게 보일 수 있어요.'
+                    '일부 공유 옵션은 휴대폰 환경에 따라 다르게 보일 수 있어요.'
                 );
             }
         } catch (error) {
@@ -234,7 +237,7 @@ export function useTripDetailShareActions({
         void performTripLinkShare(role, shareLink);
     }, [detail, performTripLinkShare, resolvedTripShareInfo]);
 
-    const executeCommunityPublish = React.useCallback(async () => {
+    const executeCommunityPublish = React.useCallback(async (publishAsPaid = false) => {
         if (!detail || !userId || !canPublishCommunity || tripShareBusyAction) {
             return;
         }
@@ -244,15 +247,21 @@ export function useTripDetailShareActions({
         setTripShareError(null);
 
         try {
-            await communityRepository.publishTrip(userId, detail);
+            await communityRepository.publishTrip(userId, detail, publishAsPaid ? {
+                marketplace: {
+                    productId: getMobileEnv('iapMonthlyProductId', 'monthly'),
+                    priceLabel: 'PLIN Plus',
+                    currencyCode: 'KRW'
+                }
+            } : undefined);
             onRequestCloseShareSheet();
             resetTripShareSheetState();
             Alert.alert(
-                '업로드 완료',
-                'PLIN 큐레이션에 등록했어요.',
+                '공개했어요',
+                '플랜에 등록했어요.',
                 [
                     {
-                        text: '큐레이션 보기',
+                        text: '플랜 보기',
                         onPress: onNavigateCommunity
                     }
                 ]
@@ -260,10 +269,10 @@ export function useTripDetailShareActions({
         } catch (error) {
             const message = error instanceof Error
                 ? error.message
-                : '커뮤니티에 게시하지 못했어요. 잠시 후 다시 시도해 주세요.';
+                : '플랜을 공개하지 못했어요. 잠시 후 다시 시도해 주세요.';
             setTripShareError(message);
             setTripShareBusyAction(null);
-            Alert.alert('업로드 실패', message);
+            Alert.alert('공개하지 못했어요', message);
         }
     }, [
         canPublishCommunity,
@@ -282,29 +291,55 @@ export function useTripDetailShareActions({
         }
 
         if (!canPublishCommunity) {
-            const message = 'PLIN 큐레이션 업로드는 관리자만 가능해요.';
+            const message = '지금은 이 일정을 공개할 수 없어요.';
             setTripShareError(message);
-            Alert.alert('업로드 불가', message);
+            Alert.alert('공개할 수 없어요', message);
+            return;
+        }
+
+        if (canPublishPaidCommunity) {
+            Alert.alert(
+                '공개 범위 선택',
+                '공개 범위를 선택해 주세요.\n상세 메모, 지출, 사진 같은 개인 정보는 제외됩니다.',
+                [
+                    {
+                        text: '취소',
+                        style: 'cancel'
+                    },
+                    {
+                        text: '일반 공개',
+                        onPress: () => {
+                            void executeCommunityPublish(false);
+                        }
+                    },
+                    {
+                        text: 'PLIN Plus 공개',
+                        onPress: () => {
+                            void executeCommunityPublish(true);
+                        }
+                    }
+                ]
+            );
             return;
         }
 
         Alert.alert(
-            'PLIN 큐레이션에 올리기',
-            '장소와 경로 정보 위주로 공개 플랜을 만들어요.\n상세 메모, 지출, 사진 같은 개인 정보는 제외됩니다.\n\n민감한 정보가 없는지 한 번 더 확인해 주세요.',
+            '일정 공개하기',
+            '장소와 경로 중심으로 공개돼요.\n상세 메모, 지출, 사진 같은 개인 정보는 제외됩니다.',
             [
                 {
                     text: '취소',
                     style: 'cancel'
                 },
                 {
-                    text: '업로드',
+                    text: '공개하기',
                     onPress: () => {
-                        void executeCommunityPublish();
+                        void executeCommunityPublish(false);
                     }
                 }
             ]
         );
-    }, [canPublishCommunity, detail, executeCommunityPublish, tripShareBusyAction, userId]);
+    }, [canPublishCommunity, canPublishPaidCommunity, detail, executeCommunityPublish, tripShareBusyAction, userId]);
 
     const handleSetShareRole = React.useCallback((role: TripShareLinkRole) => {
         if (!detail || tripShareBusyAction) {
@@ -403,15 +438,15 @@ export function useTripDetailShareActions({
         const memberLabel = member?.displayName || member?.email || '이 멤버';
 
         Alert.alert(
-            '멤버를 제거할까요?',
-            `${memberLabel} 님의 여행 접근 권한을 제거할까요?`,
+            '멤버를 내보낼까요?',
+            `${memberLabel} 님을 이 일정에서 내보낼까요?`,
             [
                 {
                     text: '취소',
                     style: 'cancel'
                 },
                 {
-                    text: '제거',
+                    text: '내보내기',
                     style: 'destructive',
                     onPress: () => {
                         void runTripShareMutation('member-remove', () => (
@@ -433,7 +468,7 @@ export function useTripDetailShareActions({
 
         Alert.alert(
             '소유권을 넘길까요?',
-            `${memberLabel} 님에게 이 여행의 소유권을 넘겨요. 넘긴 뒤에도 편집 멤버로 계속 참여할 수 있어요.`,
+            `${memberLabel} 님에게 이 일정의 소유권을 넘겨요. 넘긴 뒤에도 편집 멤버로 계속 참여할 수 있어요.`,
             [
                 {
                     text: '취소',

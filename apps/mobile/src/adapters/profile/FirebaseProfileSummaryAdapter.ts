@@ -127,7 +127,7 @@ export class FirebaseProfileSummaryAdapter implements ProfileSummaryAdapter {
     async updateProfilePhoto(user: AuthSessionUser, photoURL: string): Promise<void> {
         const nextPhotoURL = readString(photoURL);
         if (!nextPhotoURL) {
-            throw new Error('프로필 사진 URL을 저장하지 못했어요.');
+            throw new Error('프로필 사진을 저장하지 못했어요.');
         }
 
         assertMobileFirebaseConfigReady();

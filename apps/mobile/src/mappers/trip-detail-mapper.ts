@@ -46,6 +46,10 @@ const CATEGORY_LABELS: Record<string, string> = {
     custom: '기타'
 };
 
+function normalizePlanPurpose(value: unknown) {
+    return value === 'date' ? 'date' : 'trip';
+}
+
 const EXPENSE_CURRENCY_SYMBOLS: Record<string, string> = {
     KRW: '₩',
     USD: '$',
@@ -110,7 +114,7 @@ function buildFallbackSubInfo(trip: CanonicalTripDocument) {
         .filter(Boolean);
 
     if (dayDates.length === 0) {
-        return '여행 정보 준비 중';
+        return '일정 정보 준비 중';
     }
 
     if (dayDates.length === 1) {
@@ -170,6 +174,7 @@ function buildTripEditInfo(trip: CanonicalTripDocument, subInfo: string): Mobile
     return {
         title: String(trip?.meta?.title || '').trim(),
         location,
+        purpose: normalizePlanPurpose(trip?.meta?.purpose),
         startDate: range.startDate,
         endDate: range.endDate,
         coverImage: typeof trip?.meta?.coverImage === 'string' && trip.meta.coverImage.trim()
@@ -468,7 +473,7 @@ function buildBudgetSummary(trip: CanonicalTripDocument, expenseState: SharedExp
         return {
             totalAmount: trip.meta.budget,
             totalLabel: formatWon(trip.meta.budget),
-            caption: '여행 예산 정보 기준',
+            caption: '일정 예산 정보 기준',
             entryCount,
             daysWithExpenseCount
         };
@@ -875,10 +880,11 @@ export function mapTripDetail(
 
     const detail: MobileTripDetail = {
         id: trip.id,
-        title: String(trip?.meta?.title || '제목 없는 여행'),
+        title: String(trip?.meta?.title || '제목 없는 일정'),
         subInfo,
         locationLabel,
         dayCount: String(trip?.meta?.dayCount || buildFallbackDayCount(days.length)),
+        purpose: normalizePlanPurpose(trip?.meta?.purpose),
         createdAt: normalizeDateTimeString(sourceData?.createdAt) || undefined,
         updatedAt: normalizeDateTimeString(sourceData?.updatedAt) || undefined,
         contentVersion: readTripContentVersion(sourceData),

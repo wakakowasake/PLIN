@@ -60,17 +60,15 @@
 ## 6. 프로젝트 고정 주의사항
 
 - 메인 웹 앱 엔트리는 `public/index.html`이다.
-- 공개 뷰어 엔트리는 `public/openview.html`이다.
+- 공개 링크 안내 엔트리는 `public/openview.html`이다.
 - `functions/openview.html`은 배포용 복사본 성격이 강하므로, 보통은 `public/openview.html`을 먼저 수정한다.
 - 루트 `npm run build`는 웹 앱과 모바일 웹(`/m`)을 함께 빌드한다.
 - `public/index.html`에서 `/js/error-guard.js`, `/sw.js` 경로는 실제 정적 파일과 항상 맞아야 한다.
 - `error-guard.js` 소스 위치는 `public/static/js/error-guard.js` 기준으로 유지한다.
-- 메인 앱은 `/static/css/input.css`를 직접 읽고, 공개 뷰어는 `/css/style.css`를 직접 읽는다.
-- 공개 뷰어는 `/css/style.css`를 직접 사용하므로 CSS 경로를 바꾸면 뷰어를 반드시 확인한다.
-- `ui-transit.js`의 공항 자동완성은 키보드 입력을 직접 처리한다.
-  - `ArrowUp`, `ArrowDown`: 후보 이동
-  - `Enter`: 후보 선택
-  - `Escape`: 목록 닫기
+- 웹 루트는 회사 소개/공지사항/블로그/약관 중심의 정적 사이트이며 `/css/site-pages.css`를 사용한다.
+- 실제 앱 화면은 모바일 앱과 `/m` 모바일 웹을 기준으로 관리한다.
+- 기존 바닐라 웹 여행 앱과 공개 일정 렌더러는 제거되었으므로 `public/app.html`, `public/js/ui*.js`, `public/js/viewer.js` 계열을 되살리지 않는다.
+- `public/openview.html`은 일정 렌더러가 아니라 공유 링크 호환을 위한 앱 안내 화면이다.
 
 ## 7. 검증 원칙
 
@@ -81,7 +79,6 @@
   - 모바일 UI 변경이면 `cd apps/mobile && npm run typecheck`
   - 모바일 UI 변경이면 `cd apps/mobile && npm run audit:spacing`
   - 모바일 UI 변경이면 `cd apps/mobile && npm run report:radius-full`
-  - 필요 시 `npm run build:css`
   - 모바일 변경이면 관련 `apps/mobile` 검증
   - 변경 기능에 대한 최소 수동 테스트 포인트 정리
 - 완료 보고에는 아래를 포함한다.

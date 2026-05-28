@@ -33,27 +33,27 @@ PLIN이 앱 안에서 “큐레이션된 여행 일정” 접근권을 판매한
 1. `community_posts`를 당장은 재사용하되 제품 언어는 `curated_plans`/`marketplace`로 전환합니다.
 2. 관리자만 플랜을 업로드합니다. 원본 여행은 개인 계획으로 두고, 공개 플랜은 민감 정보를 제거한 발행본으로 저장합니다.
 3. 상품 필드는 최소한 `price`, `currency`, `salesStatus`, `previewSummary`, `includedItems`, `refundPolicyVersion`을 둡니다.
-4. 구매권은 `users/{uid}/marketplace_purchases/{postId}`에 저장하고, 조회/감사용 미러는 `plan_purchases/{hash(uid, postId)}`에 둡니다.
+4. 구독권은 `users/{uid}/marketplace_subscription/access`에 저장하고, 조회/감사용 미러는 `marketplace_subscriptions/{uid}`에 둡니다. 기존 단건 구매권 `users/{uid}/marketplace_purchases/{postId}`는 이전 구매 데이터 호환용으로 유지합니다.
 5. 웹 POC 결제는 별도 유입 채널로만 분리하고, 앱 안의 디지털 플랜 구매는 IAP/Play Billing으로 처리합니다.
-6. iOS/Android 앱 판매는 RevenueCat SDK로 스토어 결제를 띄우고, Cloud Functions가 RevenueCat subscriber API 또는 웹훅으로 검증한 뒤 같은 구매권 저장소에 반영합니다.
+6. iOS/Android 앱 판매는 Expo IAP로 스토어 구독 결제를 띄우고, Cloud Functions가 App Store Server API / Google Play Developer API로 검증한 뒤 구독권 저장소에 반영합니다.
 
 ## 구현 기준
 
-- 앱 상품 ID는 커뮤니티 발행본의 `marketplace.productId`에 저장합니다.
-- 카드 표시용 가격은 `marketplace.priceLabel`에 저장합니다. 스토어 실제 가격은 구매 직전에 RevenueCat product 정보로 다시 확인합니다.
-- 모바일 공개 목록은 `/marketplace/purchases` 응답으로 구매 완료 상태를 반영합니다.
-- 유료 플랜을 구매하지 않고 `duplicate-to-trip`을 호출하면 Functions가 `402 Purchase Required`로 차단합니다.
-- 구매 동기화는 `/marketplace/purchases/sync`가 담당합니다. 서버에는 `REVENUECAT_SECRET_API_KEY`가 필요합니다.
-- RevenueCat 웹훅은 `/marketplace/revenuecat/webhook`으로 받고, `REVENUECAT_WEBHOOK_AUTH_TOKEN`으로 검증합니다.
-- Android는 RevenueCat 구매 흐름 중 액티비티가 끊기지 않도록 `MainActivity`의 `launchMode`를 `singleTop`으로 둡니다.
+- 앱 상품 ID는 커뮤니티 발행본의 `marketplace.productId`에 저장하되, 현재 운영 기준에서는 “유료 구독 대상 플랜” 표시용으로 사용합니다.
+- 카드 표시용 가격은 `marketplace.priceLabel`에 저장합니다. 스토어 실제 구독 가격은 구매 직전에 App Store / Play Store 상품 정보로 다시 확인합니다.
+- 모바일 공개 목록은 `/marketplace/purchases` 응답의 `subscription` 상태로 구독 완료 상태를 반영합니다.
+- 유료 플랜을 구독하지 않고 `duplicate-to-trip`을 호출하면 Functions가 `402 Purchase Required`로 차단합니다.
+- 구독 동기화는 `/marketplace/subscription/sync`가 담당합니다. 서버에는 Apple App Store Server API 키와 Google Play 서비스 계정이 필요합니다.
+- 1개월 무료 체험은 앱 코드가 아니라 App Store Connect / Play Console 구독 상품에서 설정합니다.
+- Android 구매는 Play Billing의 purchase token을 서버로 보내고, 서버가 `purchases.subscriptionsv2.get`으로 상태를 확인합니다.
 
 ## POC 우선순위
 
 1. 관리자 업로드 제한
 2. 마켓플레이스 카드 카피/정보 구조 전환
-3. 무료 미리보기와 구매 후 복제/내 여행으로 가져오기 경계 분리
-4. RevenueCat 프로젝트, App Store Connect IAP, Play Console in-app product를 같은 상품 ID로 연결
-5. 샌드박스 구매, 복원, 환불/취소 웹훅 검증
+3. 무료 미리보기와 구매 후 복제/내 일정으로 가져오기 경계 분리
+4. App Store Connect 구독, Play Console 구독 상품 ID를 앱 환경 변수와 서버 `IAP_SUBSCRIPTION_PRODUCT_IDS`에 맞춤
+5. 샌드박스 구독, 1개월 무료 체험, 복원, 환불/취소/만료 서버 알림 검증
 
 ## 참고 출처
 
@@ -61,9 +61,9 @@ PLIN이 앱 안에서 “큐레이션된 여행 일정” 접근권을 판매한
 - Apple StoreKit In-App Purchase: https://developer.apple.com/documentation/storekit/in-app-purchase
 - Google Play Payments policy: https://support.google.com/googleplay/android-developer/answer/9858738
 - Google Play Billing integration: https://developer.android.com/google/play/billing/integrate.html
-- RevenueCat React Native SDK: https://www.revenuecat.com/docs/getting-started/installation/reactnative
-- RevenueCat REST API: https://www.revenuecat.com/docs/api-v1
-- RevenueCat Webhooks: https://www.revenuecat.com/docs/integrations/webhooks
+- Expo IAP: https://github.com/hyodotdev/openiap/tree/main/libraries/expo-iap
+- App Store Server API: https://developer.apple.com/documentation/appstoreserverapi
+- Google Play Developer API subscriptionsv2: https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptionsv2/get
 - Toss Payments 결제위젯 v2: https://docs.tosspayments.com/guides/v2/payment-widget
 - Toss Payments React Native SDK: https://docs.tosspayments.com/sdk/widget-rn
 - PortOne 결제 연동: https://portone.gitbook.io/docs-en/console/guide/connect

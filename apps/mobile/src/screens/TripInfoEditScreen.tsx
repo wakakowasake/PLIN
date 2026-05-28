@@ -60,7 +60,7 @@ type TripInfoEditDraftSnapshot = {
     coverImage: string | null;
 };
 
-const TRIP_WRITE_CONFLICT_MESSAGE = '다른 기기에서 먼저 수정했어요. 최신 내용을 다시 불러온 뒤 변경사항을 다시 적용해 주세요.';
+const TRIP_WRITE_CONFLICT_MESSAGE = '다른 곳에서 먼저 수정됐어요. 최신 내용을 다시 불러온 뒤 변경사항을 다시 적용해 주세요.';
 
 function buildTripInfoEditDraftStorageKey(tripId: string) {
     return `plin.mobileWeb.tripInfoEditDraft:${tripId}`;
@@ -95,7 +95,7 @@ function getValidationState(input: MobileTripInfoInput): ValidationState {
     const fieldErrors: Partial<Record<TripInfoField, string>> = {};
 
     if (!input.title) {
-        fieldErrors.title = '여행 제목을 입력해 주세요.';
+        fieldErrors.title = '일정 제목을 입력해 주세요.';
     }
 
     if (!input.startDate) {
@@ -420,7 +420,7 @@ export function TripInfoEditScreen({ navigation, route }: Props) {
             || nextValidationState.fieldErrors.endDate
         ) {
             setSaveError(
-                nextValidationState.formError ?? '입력한 여행 정보를 다시 확인해 주세요.'
+                nextValidationState.formError ?? '입력한 일정 정보를 다시 확인해 주세요.'
             );
             return;
         }
@@ -436,7 +436,7 @@ export function TripInfoEditScreen({ navigation, route }: Props) {
             );
 
             if (!updatedTrip) {
-                setSaveError('이 여행 정보를 찾을 수 없어요. 목록에서 다시 확인해 주세요.');
+                setSaveError('이 일정 정보를 찾을 수 없어요. 목록에서 다시 확인해 주세요.');
                 return;
             }
 
@@ -453,7 +453,7 @@ export function TripInfoEditScreen({ navigation, route }: Props) {
             console.error('Failed to save trip info', error);
             const message = error instanceof Error && error.message
                 ? error.message
-                : '여행 정보를 저장하지 못했어요.';
+                : '일정 정보를 저장하지 못했어요.';
 
             if (message === TRIP_WRITE_CONFLICT_MESSAGE && user?.uid) {
                 try {
@@ -494,7 +494,7 @@ export function TripInfoEditScreen({ navigation, route }: Props) {
     const saveErrorLooksSessionLike = isSessionLikeMessage(saveError);
     const saveErrorLooksConfigLike = isConfigLikeMessage(saveError);
     const saveSupportText = saveErrorLooksConfigLike
-        ? '실기기에서 같은 메시지가 반복되면 Firebase/Google 로그인 설정과 앱 scheme(plinmobile)을 함께 확인해 주세요.'
+        ? '문제가 반복되면 고객센터로 문의해 주세요.'
         : saveErrorLooksSessionLike
             ? '세션을 다시 확인한 뒤 같은 내용으로 바로 다시 저장할 수 있어요.'
             : saveErrorLooksNetworkLike
@@ -596,7 +596,7 @@ export function TripInfoEditScreen({ navigation, route }: Props) {
 
     return (
         <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={styles.container}
         >
             <ScrollView
@@ -606,9 +606,9 @@ export function TripInfoEditScreen({ navigation, route }: Props) {
                 {...scrollViewProps}
             >
                 <View style={styles.hero}>
-                    <Text style={styles.title}>여행 정보 편집</Text>
+                    <Text style={styles.title}>일정 정보 편집</Text>
                     <Text style={styles.description}>
-                        여행 제목, 지역, 기간, 대표 사진을 한 번에 정리할 수 있어요.
+                        일정 제목, 지역, 기간, 대표 사진을 한 번에 정리할 수 있어요.
                     </Text>
                 </View>
 
@@ -667,7 +667,7 @@ export function TripInfoEditScreen({ navigation, route }: Props) {
                     </Pressable>
 
                     <View style={styles.labelRow}>
-                        <Text style={styles.label}>여행 제목</Text>
+                        <Text style={styles.label}>일정 제목</Text>
                         <Text style={styles.fieldCounter}>{titleLength}/{TRIP_TITLE_MAX_LENGTH}</Text>
                     </View>
                     <TextInput
@@ -681,7 +681,7 @@ export function TripInfoEditScreen({ navigation, route }: Props) {
                             setTitle(truncateTripTitle(value, TRIP_TITLE_MAX_LENGTH));
                             setSaveError(null);
                         }}
-                        placeholder="예: 도쿄 봄 여행"
+                        placeholder="예: 도쿄 봄 일정"
                         placeholderTextColor={theme.colors.textSecondary}
                         style={[
                             styles.input,
@@ -850,7 +850,7 @@ export function TripInfoEditScreen({ navigation, route }: Props) {
                         <Text style={styles.photoModalEyebrow}>대표 사진</Text>
                         <Text style={styles.photoModalTitle}>대표 사진 고르기</Text>
                         <Text style={styles.photoModalSubtitle}>
-                            직접 업로드하거나 여행 추억 사진 중에서 선택할 수 있어요.
+                            직접 업로드하거나 추억 사진 중에서 선택할 수 있어요.
                         </Text>
 
                         <Pressable
@@ -933,7 +933,7 @@ export function TripInfoEditScreen({ navigation, route }: Props) {
             </Modal>
             <DateCalendarModal
                 visible={isDatePickerVisible}
-                title="여행 날짜 선택"
+                title="일정 날짜 선택"
                 startDate={startDate}
                 endDate={endDate}
                 onClose={handleCloseDatePicker}

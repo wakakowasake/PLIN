@@ -64,6 +64,7 @@ function buildTripSummary(
         title: detail.title,
         subInfo: detail.subInfo,
         dayCount: detail.dayCount,
+        purpose: detail.purpose,
         startDate: safeEditInfo.startDate,
         endDate: safeEditInfo.endDate,
         createdAt,

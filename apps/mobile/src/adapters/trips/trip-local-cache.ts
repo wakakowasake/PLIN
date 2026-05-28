@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import type { MobileTripDetail, MobileTripPermissions, MobileTripSummary } from '@/types/trip';
+import type { MobileTripDetail, MobileTripPermissions, MobileTripSummary, PlanPurpose } from '@/types/trip';
 
 const TRIP_LIST_CACHE_PREFIX = 'plin:trip-cache:list';
 const TRIP_DETAIL_CACHE_PREFIX = 'plin:trip-cache:detail';
@@ -71,6 +71,10 @@ function normalizeDateTimeString(value: unknown) {
     return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString();
 }
 
+function normalizePlanPurpose(value: unknown): PlanPurpose {
+    return value === 'date' ? 'date' : 'trip';
+}
+
 function resolveTripRecencyTimestamp(summary: Pick<MobileTripSummary, 'updatedAt' | 'createdAt' | 'startDate'>) {
     const rawTimestamp = summary.updatedAt || summary.createdAt || summary.startDate;
     const parsed = Date.parse(String(rawTimestamp || '').trim());
@@ -92,6 +96,7 @@ function normalizeTripSummary(value: unknown): MobileTripSummary | null {
     const updatedAt = normalizeDateTimeString(value.updatedAt) || undefined;
     const coverImage = typeof value.coverImage === 'string' ? value.coverImage : null;
     const status = value.status === 'completed' ? 'completed' : 'planning';
+    const purpose = normalizePlanPurpose(value.purpose);
 
     if (!id) {
         return null;
@@ -102,6 +107,7 @@ function normalizeTripSummary(value: unknown): MobileTripSummary | null {
         title,
         subInfo,
         dayCount,
+        purpose,
         startDate,
         endDate,
         createdAt,
@@ -127,6 +133,7 @@ function normalizeTripDetail(value: unknown): MobileTripDetail | null {
     const updatedAt = normalizeDateTimeString(value.updatedAt) || undefined;
     const coverImage = typeof value.coverImage === 'string' ? value.coverImage : null;
     const status = value.status === 'completed' ? 'completed' : 'planning';
+    const purpose = normalizePlanPurpose(value.purpose);
     const photoPreviewUrls = Array.isArray(value.photoPreviewUrls) ? value.photoPreviewUrls.filter((entry): entry is string => typeof entry === 'string') : [];
     const photoGalleryUrls = Array.isArray(value.photoGalleryUrls) ? value.photoGalleryUrls.filter((entry): entry is string => typeof entry === 'string') : [];
     const photoCount = typeof value.photoCount === 'number' ? value.photoCount : 0;
@@ -145,6 +152,7 @@ function normalizeTripDetail(value: unknown): MobileTripDetail | null {
         : {
             title,
             location: '',
+            purpose,
             startDate: days[0]?.date || '',
             endDate: days[days.length - 1]?.date || ''
         };
@@ -159,6 +167,7 @@ function normalizeTripDetail(value: unknown): MobileTripDetail | null {
         subInfo,
         locationLabel,
         dayCount,
+        purpose,
         createdAt,
         updatedAt,
         contentVersion: normalizeTripContentVersion(value.contentVersion),
@@ -185,6 +194,7 @@ export function buildTripSummaryFromDetail(detail: MobileTripDetail): MobileTrip
         title: detail.title,
         subInfo: detail.subInfo,
         dayCount: detail.dayCount,
+        purpose: detail.purpose,
         startDate: firstDate,
         endDate: lastDate,
         createdAt: detail.createdAt,

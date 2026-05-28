@@ -17,6 +17,7 @@ import { useAuthSession } from '@/hooks/useAuthSession';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
 import { type AppTheme, useAppTheme } from '@/theme';
 import type { AuthCurrentSignInMethod, AuthProvider } from '@/types/auth';
+import { getNativeStoreLabel } from '@/utils/native-store-copy';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SettingsAccount'>;
 
@@ -57,7 +58,7 @@ function formatSessionEventLabel(event: SessionEvent) {
         case 'updateProfileDisplayName':
             return '프로필 이름을 저장했어요';
         case 'signIn':
-            return '이 기기에서 로그인했어요';
+            return '현재 앱에서 로그인했어요';
         case 'sendEmailVerification':
             return '인증 메일을 보냈어요';
         case 'linkProvider':
@@ -69,7 +70,7 @@ function formatSessionEventLabel(event: SessionEvent) {
         case 'requestDeletion':
             return '계정 삭제를 요청했어요';
         case 'signOut':
-            return '이 기기에서 로그아웃했어요';
+            return '현재 앱에서 로그아웃했어요';
         default:
             return '아직 확인 기록이 없어요';
     }
@@ -176,11 +177,12 @@ export function SettingsAccountScreen({ navigation }: Props) {
     const handleOpenDeletionGuide = React.useCallback(async () => {
         handleOpenExternalLink('https://plin.ink/account-delete', '계정 삭제 안내');
     }, [handleOpenExternalLink]);
+    const nativeStoreLabel = getNativeStoreLabel();
 
     const handleRequestAccountDeletion = React.useCallback(() => {
         Alert.alert(
             '계정 삭제를 요청할까요?',
-            '요청이 완료되면 계정, 프로필, 커뮤니티 활동, 업로드 파일과 개인 데이터가 삭제되고 복구하기 어려워요.\n\n내가 소유한 공유 여행은 남은 멤버에게 자동으로 소유권이 넘어가고, 멤버가 없는 여행은 함께 삭제돼요.',
+            `요청이 완료되면 계정, 프로필, 공개한 플랜, 올린 파일과 개인 데이터가 삭제되고 복구하기 어려워요.\n\n내가 소유한 공유 일정은 남은 멤버에게 자동으로 소유권이 넘어가고, 멤버가 없는 일정은 함께 삭제돼요.\n\nPLIN Plus 구독은 계정 삭제만으로 해지되지 않아요. ${nativeStoreLabel} 구독 관리에서 별도로 해지해 주세요.`,
             [
                 { text: '취소', style: 'cancel' },
                 {
@@ -192,7 +194,7 @@ export function SettingsAccountScreen({ navigation }: Props) {
                 }
             ]
         );
-    }, [requestAccountDeletion]);
+    }, [nativeStoreLabel, requestAccountDeletion]);
 
     const handleLinkProvider = React.useCallback((provider: AuthProvider) => {
         void linkProvider(provider).catch(() => {});
@@ -326,7 +328,7 @@ export function SettingsAccountScreen({ navigation }: Props) {
                         </View>
                     </View>
                     <Text style={styles.cardDescription}>
-                        현재 연결된 로그인 수단만 먼저 보여드려요. 필요한 경우 다른 소셜 로그인도 펼쳐서 연결할 수 있어요.
+                        연결된 로그인 수단을 관리해요.
                     </Text>
                     <View style={styles.providerList}>
                         {connectedProviderEntries.length > 0 ? connectedProviderEntries.map((entry) => {
@@ -345,7 +347,7 @@ export function SettingsAccountScreen({ navigation }: Props) {
                                         ? '계정에 연결되어 있어요.'
                                         : entry.available
                                             ? '로그인 후 현재 계정에 추가할 수 있어요.'
-                                            : '이 로그인 방식은 현재 빌드에서 시작할 수 없어요.');
+                                            : '지금은 이 로그인 방식을 사용할 수 없어요.');
                             const canAct = entry.canLink || entry.canUnlink;
 
                             return (
@@ -415,7 +417,7 @@ export function SettingsAccountScreen({ navigation }: Props) {
                                         {areOtherProvidersVisible ? '다른 로그인 수단 숨기기' : `다른 로그인 수단 ${hiddenProviderCount}개 보기`}
                                     </Text>
                                     <Text style={styles.providerToggleHint}>
-                                        연결되지 않은 로그인 수단은 여기 접어뒀어요.
+                                        연결하지 않은 로그인 수단을 볼 수 있어요.
                                     </Text>
                                 </View>
                                 <Ionicons
@@ -432,7 +434,7 @@ export function SettingsAccountScreen({ navigation }: Props) {
                                         const detailLabel = entry.emailHint
                                             || (entry.available
                                                 ? '로그인 후 현재 계정에 추가할 수 있어요.'
-                                                : '이 로그인 방식은 현재 빌드에서 시작할 수 없어요.');
+                                                : '지금은 이 로그인 방식을 사용할 수 없어요.');
                                         const canAct = entry.canLink || entry.canUnlink;
 
                                         return (
@@ -504,7 +506,7 @@ export function SettingsAccountScreen({ navigation }: Props) {
                         </View>
                     </View>
                     <Text style={styles.cardDescription}>
-                        요청이 완료되면 즉시 로그아웃되고, 계정과 커뮤니티 활동, 업로드 파일, 개인 데이터가 삭제돼요. 공유 여행은 남은 멤버에게 소유권이 넘어갈 수 있어요.
+                        요청이 완료되면 즉시 로그아웃되고, 계정과 공개한 플랜, 올린 파일, 개인 데이터가 삭제돼요. 공유 일정은 남은 멤버에게 이어질 수 있어요. PLIN Plus 구독은 {nativeStoreLabel}에서 별도로 해지해야 해요.
                     </Text>
                     <View style={styles.actionRow}>
                         <Pressable

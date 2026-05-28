@@ -98,6 +98,7 @@ import type {
     MobileQuickRouteOption,
     MobileTripDetail,
     MobileTransitDetailedStep,
+    MobileTimelineFocusTarget,
     MobileTimelineItemCategory,
     MobileTimelineDisplayItem,
     MobileTimelineItemCreateInput,
@@ -115,6 +116,11 @@ import {
 } from '@/utils/image-cache';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TripDetail'>;
+type TripDetailScreenProps = Props & {
+    embeddedInWorkspace?: boolean;
+    workspaceFocusedTimelineTarget?: MobileTimelineFocusTarget | null;
+    onWorkspaceTimelineTargetChange?: (target: MobileTimelineFocusTarget | null) => void;
+};
 type SelectedTimelineTarget = {
     dayId: string;
     itemId: string;
@@ -127,7 +133,7 @@ type PhotoGalleryState = {
 } | null;
 type PendingTimelineDayOrders = Record<string, string[]>;
 
-const TRIP_WRITE_CONFLICT_MESSAGE = '다른 기기에서 먼저 수정했어요. 최신 내용을 다시 불러온 뒤 변경사항을 다시 적용해 주세요.';
+const TRIP_WRITE_CONFLICT_MESSAGE = '다른 곳에서 먼저 수정됐어요. 최신 내용을 다시 불러온 뒤 변경사항을 다시 적용해 주세요.';
 const OFFLINE_SHARE_DISABLED_MESSAGE = '오프라인에서는 공유와 멤버 관리를 할 수 없어요.';
 const OFFLINE_ANNOUNCEMENT_DISABLED_MESSAGE = '오프라인에서는 참가자 공지를 보낼 수 없어요.';
 const TRIP_REVISION_HISTORY_ENABLED = false;
@@ -1099,13 +1105,20 @@ function syncSelectedTimelineTargetWithDetail(
     };
 }
 
-export function TripDetailScreen({ navigation, route }: Props) {
+export function TripDetailScreen({
+    navigation,
+    route,
+    embeddedInWorkspace = false,
+    workspaceFocusedTimelineTarget = null,
+    onWorkspaceTimelineTargetChange
+}: TripDetailScreenProps) {
     const theme = useAppTheme();
     const styles = React.useMemo(() => createStyles(theme), [theme]);
     const { tripRepository } = useAdapters();
     const insets = useSafeAreaInsets();
     const { isOfflineMode } = useConnectivityStatus();
     const isFocused = useIsFocused();
+    const bottomNav = embeddedInWorkspace ? null : <BottomNavBar activeTab="TripList" />;
     const { width: windowWidth, height: windowHeight } = useWindowDimensions();
     const galleryHeaderInsetStyle = React.useMemo(() => ({
         paddingTop: insets.top + theme.spacing.md
@@ -1279,7 +1292,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
         pendingTimelineDayOrders,
         optimisticTripLists
     });
-    const canPublishCommunityByAdmin = canPublishCommunity && isPlinAdminProfile(profileSummary, user);
+    const canPublishPaidCommunityByAdmin = canPublishCommunity && isPlinAdminProfile(profileSummary, user);
     const hasPendingTimelineDayOrders = React.useMemo(
         () => Object.keys(pendingTimelineDayOrders).length > 0,
         [pendingTimelineDayOrders]
@@ -1312,7 +1325,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
                 tone: 'saving',
                 iconName: 'save',
                 label: '저장 중',
-                message: '변경사항을 같은 여행 데이터에 반영하고 있어요.'
+                message: '변경사항을 같은 일정에 반영하고 있어요.'
             };
         }
 
@@ -1321,7 +1334,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
                 tone: 'saved',
                 iconName: 'circle-check',
                 label: '저장됨',
-                message: '변경사항이 여행에 반영됐어요.'
+                message: '변경사항이 일정에 반영됐어요.'
             };
         }
 
@@ -1332,7 +1345,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
                 label: '최신 확인 중',
                 message: isUsingCachedDetail
                     ? '마지막으로 본 내용을 먼저 보여주고 있어요. 최신 확인 후 수정할 수 있어요.'
-                    : '최신 여행 내용을 확인하고 있어요. 잠시 후 수정할 수 있어요.'
+                    : '최신 일정 내용을 확인하고 있어요. 잠시 후 수정할 수 있어요.'
             };
         }
 
@@ -1428,7 +1441,8 @@ export function TripDetailScreen({ navigation, route }: Props) {
         detail,
         userId: user?.uid ?? null,
         canManageShare,
-        canPublishCommunity: canPublishCommunityByAdmin,
+        canPublishCommunity,
+        canPublishPaidCommunity: canPublishPaidCommunityByAdmin,
         isOfflineMode,
         startInCommunityPublishFlow: route.params.startInCommunityPublishFlow === true,
         onRequestOpenShareSheet: () => {
@@ -1454,7 +1468,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
         }
     });
     const hasHeroCoverImage = Boolean(detail?.coverImage);
-    const resolvedHeaderTitle = String(detail?.title || '').trim() || '여행 상세';
+    const resolvedHeaderTitle = String(detail?.title || '').trim() || '일정 상세';
     const heroHeaderChromeColor = isHeroHeaderCollapsed ? theme.colors.textPrimary : '#ffffff';
     const stickyFilterHeaderInset = React.useMemo(() => (
         hasHeroCoverImage
@@ -2046,6 +2060,40 @@ export function TripDetailScreen({ navigation, route }: Props) {
         });
     }, [detailStickyHeaderOffset, theme.spacing.xs]);
 
+    const lastWorkspaceFocusKeyRef = React.useRef('');
+    React.useEffect(() => {
+        if (!workspaceFocusedTimelineTarget || !timelineDetail) {
+            return;
+        }
+
+        const focusKey = [
+            workspaceFocusedTimelineTarget.dayId,
+            workspaceFocusedTimelineTarget.itemId,
+            workspaceFocusedTimelineTarget.requestId || 0
+        ].join(':');
+        if (lastWorkspaceFocusKeyRef.current === focusKey) {
+            return;
+        }
+
+        const targetDay = timelineDetail.days.find((day) => day.id === workspaceFocusedTimelineTarget.dayId);
+        if (!targetDay) {
+            return;
+        }
+
+        const targetItemIndex = targetDay.items.findIndex((item) => item.id === workspaceFocusedTimelineTarget.itemId);
+        if (targetItemIndex < 0) {
+            return;
+        }
+
+        lastWorkspaceFocusKeyRef.current = focusKey;
+        scrollToDetailSection(targetDay.id);
+        setSelectedTimelineTarget({
+            dayId: targetDay.id,
+            itemId: workspaceFocusedTimelineTarget.itemId,
+            itemIndex: targetItemIndex
+        });
+    }, [scrollToDetailSection, timelineDetail, workspaceFocusedTimelineTarget]);
+
     const handleDetailScroll = React.useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
         const offsetY = event.nativeEvent.contentOffset.y;
         const nextHeaderFillProgress = hasHeroCoverImage
@@ -2325,7 +2373,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
         itemIndex: number
     ) => {
         if (isTimelineEditMode && !isRemoteReady) {
-            Alert.alert('최신 확인 중', '최신 여행 내용을 확인한 뒤 수정할 수 있어요.');
+            Alert.alert('최신 확인 중', '최신 일정 내용을 확인한 뒤 수정할 수 있어요.');
             return;
         }
 
@@ -2334,12 +2382,17 @@ export function TripDetailScreen({ navigation, route }: Props) {
             return;
         }
 
-        setSelectedTimelineTarget({
+        const nextTarget = {
             dayId: day.id,
             itemId: item.id,
             itemIndex
+        };
+        setSelectedTimelineTarget(nextTarget);
+        onWorkspaceTimelineTargetChange?.({
+            ...nextTarget,
+            requestId: Date.now()
         });
-    }, [isRemoteReady, isTimelineEditMode, openTimelineItemEditor]);
+    }, [isRemoteReady, isTimelineEditMode, onWorkspaceTimelineTargetChange, openTimelineItemEditor]);
 
     const flushPendingTimelineDayOrders = React.useCallback(async () => {
         if (!detail || !user?.uid) {
@@ -2558,16 +2611,16 @@ export function TripDetailScreen({ navigation, route }: Props) {
                                 );
 
                                 if (!updatedTrip) {
-                                    throw new Error('복구된 여행 내용을 다시 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
+                                    throw new Error('복구된 일정 내용을 다시 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
                                 }
 
                                 publishTripDetailUpdatedWithFeedback(updatedTrip);
                                 setTripRevisionSheetVisible(false);
-                                Alert.alert('복구 완료', '선택한 시점으로 여행 내용을 되돌렸어요.');
+                                Alert.alert('복구 완료', '선택한 시점으로 일정 내용을 되돌렸어요.');
                             } catch (error) {
                                 const message = error instanceof Error
                                     ? error.message
-                                    : '여행을 복구하지 못했어요. 잠시 후 다시 시도해 주세요.';
+                                    : '일정을 복구하지 못했어요. 잠시 후 다시 시도해 주세요.';
 
                                 if (await recoverTripWriteConflict(message, { alertTitle: '복구 실패' })) {
                                     return;
@@ -3374,7 +3427,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
         }
 
         if (!isRemoteReady) {
-            Alert.alert('최신 확인 중', '최신 여행 내용을 확인한 뒤 수정할 수 있어요.');
+            Alert.alert('최신 확인 중', '최신 일정 내용을 확인한 뒤 수정할 수 있어요.');
             return;
         }
 
@@ -3394,7 +3447,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
         }
 
         if (!isRemoteReady) {
-            Alert.alert('최신 확인 중', '최신 여행 내용을 확인한 뒤 수정할 수 있어요.');
+            Alert.alert('최신 확인 중', '최신 일정 내용을 확인한 뒤 수정할 수 있어요.');
             return;
         }
 
@@ -3415,7 +3468,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
     ) => {
         if (!user?.uid || isTimelineItemDeleting || isTripContentSyncing) {
             if (isTripContentSyncing) {
-                Alert.alert('동기화 중', '최신 여행 내용을 확인한 뒤 다시 시도해 주세요.');
+                Alert.alert('동기화 중', '최신 일정 내용을 확인한 뒤 다시 시도해 주세요.');
             }
             return;
         }
@@ -3712,7 +3765,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
         }
 
         if (!isRemoteReady) {
-            Alert.alert('최신 확인 중', '최신 여행 내용을 확인한 뒤 수정할 수 있어요.');
+            Alert.alert('최신 확인 중', '최신 일정 내용을 확인한 뒤 수정할 수 있어요.');
             return;
         }
 
@@ -4240,7 +4293,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
 
             if (!result.ok || !result.record) {
                 if (result.reason === 'permission-denied') {
-                    Alert.alert('알림 권한 필요', '여행 일정을 알려드리려면 알림 권한을 허용해 주세요.');
+                    Alert.alert('알림을 허용해 주세요', '일정 알림을 받으려면 알림을 허용해 주세요.');
                     return;
                 }
 
@@ -4293,7 +4346,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
 
             if (!result.ok) {
                 if (result.reason === 'permission-denied') {
-                    Alert.alert('알림 권한 필요', '여행 일정을 알려드리려면 알림 권한을 허용해 주세요.');
+                    Alert.alert('알림을 허용해 주세요', '일정 알림을 받으려면 알림을 허용해 주세요.');
                     return;
                 }
 
@@ -4492,7 +4545,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
     }, []);
 
     if (loading) {
-        return <LoadingView title="여행 정보를 불러오는 중" />;
+        return <LoadingView title="일정 정보를 불러오는 중" />;
     }
 
     if (error) {
@@ -4533,7 +4586,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
                         />
                     </View>
                 </View>
-                <BottomNavBar activeTab="TripList" />
+                {bottomNav}
             </View>
         );
     }
@@ -4544,8 +4597,8 @@ export function TripDetailScreen({ navigation, route }: Props) {
                 <View style={styles.screenBody}>
                     <View style={styles.stateContent}>
                         <EmptyState
-                            title="여행을 찾을 수 없어요."
-                            description="여행 목록에서 다시 선택해 주세요."
+                            title="일정을 찾을 수 없어요."
+                            description="일정 목록에서 다시 선택해 주세요."
                             actionLabel="목록으로 돌아가기"
                             onAction={() => {
                                 if (navigation.canGoBack()) {
@@ -4558,7 +4611,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
                         />
                     </View>
                 </View>
-                <BottomNavBar activeTab="TripList" />
+                {bottomNav}
             </View>
         );
     }
@@ -4603,7 +4656,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
                         <MaterialCommunityIcons color={theme.colors.accent} name="format-list-checks" size={20} />
                         <Text style={styles.listSectionTitle}>준비물</Text>
                     </View>
-                    <Text style={styles.listSectionCaption}>여행 전에 챙겨야 할 항목을 정리해 둬요.</Text>
+                    <Text style={styles.listSectionCaption}>일정 전에 챙겨야 할 항목을 정리해 둬요.</Text>
                 </View>
                 {canEditContent ? (
                     <Pressable
@@ -4769,7 +4822,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
                     {detail.coverImage ? (
                         <Pressable
                             accessibilityRole={canOpenTripInfoEdit ? 'button' : undefined}
-                            accessibilityLabel={canOpenTripInfoEdit ? '여행 정보 편집' : undefined}
+                            accessibilityLabel={canOpenTripInfoEdit ? '일정 정보 편집' : undefined}
                             disabled={!canOpenTripInfoEdit}
                             onPress={handleOpenTripInfoEdit}
                             style={({ pressed }) => [
@@ -4812,7 +4865,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
                     ) : (
                         <Pressable
                             accessibilityRole={canOpenTripInfoEdit ? 'button' : undefined}
-                            accessibilityLabel={canOpenTripInfoEdit ? '여행 정보 편집' : undefined}
+                            accessibilityLabel={canOpenTripInfoEdit ? '일정 정보 편집' : undefined}
                             disabled={!canOpenTripInfoEdit}
                             onPress={handleOpenTripInfoEdit}
                             style={({ pressed }) => [
@@ -4954,7 +5007,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
                     <Text style={styles.readOnlyNoticeText}>
                         {isOfflineMode || isUsingCachedDetail
                             ? '마지막으로 본 내용을 먼저 보여주고 있어요. 오프라인 상태에서는 데이터 유실을 막기 위해 수정을 잠시 제한해요.'
-                            : '최신 여행 내용을 확인한 뒤 수정할 수 있어요.'}
+                            : '최신 일정 내용을 확인한 뒤 수정할 수 있어요.'}
                     </Text>
                 </View>
             ) : null}
@@ -4970,7 +5023,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
                         <Text style={styles.readOnlyNoticeLabel}>열람 전용</Text>
                     </View>
                     <Text style={styles.readOnlyNoticeText}>
-                        현재 화면은 열람 전용이에요. 여행 소유자나 편집자에게 수정 권한을 요청해 주세요.
+                        현재 화면은 열람 전용이에요. 편집 멤버에게 수정을 요청해 주세요.
                     </Text>
                 </View>
             ) : null}
@@ -4982,7 +5035,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
                     <View style={styles.firstTimelineNudgeCopy}>
                         <Text style={styles.firstTimelineNudgeTitle}>첫 번째 목적지를 추가해보세요</Text>
                         <Text style={styles.firstTimelineNudgeText}>
-                            장소, 이동 수단, 메모를 한 날짜씩 쌓아가면 여행 노트가 자연스럽게 채워져요.
+                            장소, 이동 수단, 메모를 한 날짜씩 쌓아가면 일정 노트가 자연스럽게 채워져요.
                         </Text>
                     </View>
                     <Pressable
@@ -5361,7 +5414,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
                 <View style={styles.modalOverlay}>
                     <Pressable style={styles.modalBackdrop} />
                     <KeyboardAvoidingView
-                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                         style={styles.modalKeyboardArea}
                     >
                         {tripListComposerTarget ? (
@@ -6244,9 +6297,10 @@ export function TripDetailScreen({ navigation, route }: Props) {
             {TripShareSheetComponent ? (
                 <TripShareSheetComponent
                     visible={isTripShareSheetVisible}
-                    tripTitle={detail?.title || '여행'}
+                    tripTitle={detail?.title || '일정'}
                     shareInfo={shareActions.resolvedTripShareInfo}
-                    canPublishCommunity={canPublishCommunityByAdmin}
+                    canPublishCommunity={canPublishCommunity}
+                    canPublishPaidCommunity={canPublishPaidCommunityByAdmin}
                     loading={shareActions.isTripShareSheetLoading}
                     error={isOfflineMode ? OFFLINE_SHARE_DISABLED_MESSAGE : shareActions.tripShareError}
                     busyAction={shareActions.tripShareBusyAction}
@@ -6264,7 +6318,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
             {TripAnnouncementSheetComponent ? (
                 <TripAnnouncementSheetComponent
                     visible={isTripAnnouncementSheetVisible}
-                    tripTitle={detail?.title || '여행'}
+                    tripTitle={detail?.title || '일정'}
                     error={isOfflineMode ? OFFLINE_ANNOUNCEMENT_DISABLED_MESSAGE : announcementActions.tripAnnouncementError}
                     busy={announcementActions.isTripAnnouncementSending}
                     actionDisabled={isOfflineMode}
@@ -6275,7 +6329,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
             {TripRevisionHistorySheetComponent ? (
                 <TripRevisionHistorySheetComponent
                     visible={isTripRevisionSheetVisible}
-                    tripTitle={detail?.title || '여행'}
+                    tripTitle={detail?.title || '일정'}
                     items={tripRevisionItems}
                     loading={isTripRevisionLoading}
                     error={tripRevisionError}
@@ -6293,7 +6347,7 @@ export function TripDetailScreen({ navigation, route }: Props) {
                     hasMore={tripRevisionHasMore}
                 />
             ) : null}
-            <BottomNavBar activeTab="TripList" />
+            {bottomNav}
         </View>
     );
 }

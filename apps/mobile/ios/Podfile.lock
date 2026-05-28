@@ -54,10 +54,13 @@ PODS:
     - ExpoModulesCore
   - ExpoFileSystem (55.0.10):
     - ExpoModulesCore
-  - ExpoFont (55.0.4):
+  - ExpoFont (55.0.8):
     - ExpoModulesCore
   - ExpoHaptics (55.0.14):
     - ExpoModulesCore
+  - ExpoIap (4.3.1):
+    - ExpoModulesCore
+    - openiap (= 2.2.1)
   - ExpoImagePicker (55.0.14):
     - ExpoModulesCore
   - ExpoKeepAwake (55.0.4):
@@ -125,9 +128,8 @@ PODS:
   - hermes-engine (0.14.1):
     - hermes-engine/Pre-built (= 0.14.1)
   - hermes-engine/Pre-built (0.14.1)
+  - openiap (2.2.1)
   - PromisesObjC (2.4.0)
-  - PurchasesHybridCommon (18.4.0):
-    - RevenueCat (= 5.70.0)
   - RCTDeprecation (0.83.2)
   - RCTRequired (0.83.2)
   - RCTSwiftUI (0.83.2)
@@ -1996,7 +1998,6 @@ PODS:
     - React-utils (= 0.83.2)
     - ReactNativeDependencies
   - ReactNativeDependencies (0.83.2)
-  - RevenueCat (5.70.0)
   - RNCAsyncStorage (2.2.0):
     - hermes-engine
     - RCTRequired
@@ -2064,9 +2065,6 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - RNPurchases (10.1.0):
-    - PurchasesHybridCommon (= 18.4.0)
-    - React-Core
   - RNScreens (4.23.0):
     - hermes-engine
     - RCTRequired
@@ -2174,6 +2172,7 @@ DEPENDENCIES:
   - ExpoFileSystem (from `../node_modules/expo-file-system/ios`)
   - ExpoFont (from `../node_modules/expo-font/ios`)
   - ExpoHaptics (from `../node_modules/expo-haptics/ios`)
+  - ExpoIap (from `../node_modules/expo-iap/ios`)
   - ExpoImagePicker (from `../node_modules/expo-image-picker/ios`)
   - ExpoKeepAwake (from `../node_modules/expo-keep-awake/ios`)
   - ExpoLinking (from `../node_modules/expo-linking/ios`)
@@ -2262,7 +2261,6 @@ DEPENDENCIES:
   - "RNCAsyncStorage (from `../node_modules/@react-native-async-storage/async-storage`)"
   - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
   - "RNGoogleSignin (from `../node_modules/@react-native-google-signin/google-signin`)"
-  - RNPurchases (from `../node_modules/react-native-purchases`)
   - RNScreens (from `../node_modules/react-native-screens`)
   - RNSVG (from `../node_modules/react-native-svg`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
@@ -2275,9 +2273,8 @@ SPEC REPOS:
     - GoogleUtilities
     - GTMAppAuth
     - GTMSessionFetcher
+    - openiap
     - PromisesObjC
-    - PurchasesHybridCommon
-    - RevenueCat
 
 EXTERNAL SOURCES:
   EXApplication:
@@ -2304,6 +2301,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-font/ios"
   ExpoHaptics:
     :path: "../node_modules/expo-haptics/ios"
+  ExpoIap:
+    :path: "../node_modules/expo-iap/ios"
   ExpoImagePicker:
     :path: "../node_modules/expo-image-picker/ios"
   ExpoKeepAwake:
@@ -2479,8 +2478,6 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-gesture-handler"
   RNGoogleSignin:
     :path: "../node_modules/@react-native-google-signin/google-signin"
-  RNPurchases:
-    :path: "../node_modules/react-native-purchases"
   RNScreens:
     :path: "../node_modules/react-native-screens"
   RNSVG:
@@ -2501,8 +2498,9 @@ SPEC CHECKSUMS:
   ExpoDocumentPicker: be59b82799ae30811e3f37a7521d6622baa63a19
   ExpoDomWebView: f101fb3db4b6eec4163fca51f7507189b7e48661
   ExpoFileSystem: e1a42d7f69f7faae33f4d7d01708f7861f7bd757
-  ExpoFont: 1aa465cf9f8ac6b670405becba8b15473581b2dd
+  ExpoFont: a7e34a75bdfb703fa07a0e87807f836236608c76
   ExpoHaptics: 679f09dc37d5981e619bc197732007a3334e80b8
+  ExpoIap: 1fefb7f5e5037394d42244cd08bbae39831f98e4
   ExpoImagePicker: 879b324fdd18dbe2c5883b601b67e7961a13ca7a
   ExpoKeepAwake: 7f3b28c361c37389b18841bb52a58003b39fcb33
   ExpoLinking: 88ba36a28c83525e564b8229e02d451347accb70
@@ -2519,8 +2517,8 @@ SPEC CHECKSUMS:
   GTMAppAuth: 217a876b249c3c585a54fd6f73e6b58c4f5c4238
   GTMSessionFetcher: 5aea5ba6bd522a239e236100971f10cb71b96ab6
   hermes-engine: 528cf00736241634725f1acd0d785f3708f493a0
+  openiap: 4910f61869070601855431ba15cd4f3a116001f7
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
-  PurchasesHybridCommon: 2cd3e4b74c60f5a61603d78e4071274217cd9f6b
   RCTDeprecation: a522c536d2c7be8f518dd834883cf6dce1d4f545
   RCTRequired: 44337def23abb244c025e9e7ab58f9cd3d63ec7d
   RCTSwiftUI: b2f0c2f2761631b8cd605767536cbb1cbf8d020f
@@ -2593,11 +2591,9 @@ SPEC CHECKSUMS:
   ReactCodegen: e67cb698a2107da1da9efa55174861d724666a3e
   ReactCommon: 8868269b67561136a7970be188b40738135af077
   ReactNativeDependencies: 838a0987881026691681735d0dbf192a02cb25d8
-  RevenueCat: f30d8ee4fd36ce56afa40923d314239761eb58a2
   RNCAsyncStorage: 3a4f5e2777dae1688b781a487923a08569e27fe4
   RNGestureHandler: 5494787ce29288a8941fa825663f2b1fa0a5aaf1
   RNGoogleSignin: 104dd7238c56fe354e4b0a8fd267f866039ffdf3
-  RNPurchases: d62a8adb6ab45858042eaedfb8f4933cefcd4b1a
   RNScreens: 14243fa0d9842ffa7f8bb2d00b6c3cfd3ca817e8
   RNSVG: 0bd149b873018bc6e0e3321e2f6435bdba294460
   Yoga: dd994d8c85dca5cc9b10f5df8c01f9ef1d0da191

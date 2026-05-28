@@ -18,6 +18,7 @@ import { clearCachedTripsForUser } from '@/adapters/trips/trip-local-cache';
 import { useForegroundResumeRefresh } from '@/hooks/useForegroundResumeRefresh';
 import { clearTripListMemoryCache } from '@/hooks/useTripList';
 import { requestAccountDeletion as requestAccountDeletionRemote } from '@/services/account-lifecycle';
+import { refreshActivePlanMarketplaceSubscription } from '@/services/plan-marketplace-purchases';
 import { clearTripAnnouncementPushInstallation, syncTripAnnouncementPushInstallation } from '@/services/trip-announcements';
 import { resetTripWriteSync } from '@/state/trip-write-sync';
 import {
@@ -135,6 +136,7 @@ export function SessionStoreProvider({ children }: Props) {
     const profileRequestIdRef = useRef(0);
     const providerRequestIdRef = useRef(0);
     const activeSessionUidRef = useRef<string | null>(null);
+    const nativeSubscriptionRefreshUidRef = useRef<string | null>(null);
 
     const markSessionEvent = useCallback((
         nextEvent:
@@ -155,6 +157,34 @@ export function SessionStoreProvider({ children }: Props) {
         setLastSessionEvent(nextEvent);
         setLastSessionEventAt(Date.now());
     }, []);
+
+    const refreshNativeSubscriptionState = useCallback((sessionUser: AuthSessionUser | null) => {
+        if (Platform.OS === 'web' || !sessionUser?.uid) {
+            return;
+        }
+
+        if (nativeSubscriptionRefreshUidRef.current === sessionUser.uid) {
+            return;
+        }
+
+        nativeSubscriptionRefreshUidRef.current = sessionUser.uid;
+        refreshActivePlanMarketplaceSubscription({ userId: sessionUser.uid }).catch((error) => {
+            const status = typeof error === 'object' && error && 'status' in error
+                ? Number((error as { status?: unknown }).status)
+                : 0;
+            if (status === 402) {
+                return;
+            }
+
+            if (__DEV__) {
+                console.warn('[IAP] Failed to refresh native subscription state', error);
+            }
+        });
+    }, []);
+
+    useEffect(() => {
+        refreshNativeSubscriptionState(user);
+    }, [refreshNativeSubscriptionState, user]);
 
     const applySessionUser = useCallback((nextUser: AuthSessionUser | null) => {
         const nextUid = nextUser?.uid ?? null;

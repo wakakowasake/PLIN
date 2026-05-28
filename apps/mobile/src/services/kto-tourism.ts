@@ -279,7 +279,7 @@ export async function fetchKtoTourismDetails(
 ): Promise<KtoTourismDetailsResult> {
     const contentId = normalizeDigits(params.contentId);
     if (!contentId) {
-        throw new Error('contentId가 필요해요.');
+        throw new Error('관광지 정보를 불러오지 못했어요.');
     }
 
     const searchParams = new URLSearchParams({
@@ -308,7 +308,7 @@ export async function fetchKtoRelatedDestinationsByArea(
     const sigunguCode = normalizeDigits(params.sigunguCode);
 
     if (!baseYm || !areaCode || !sigunguCode) {
-        throw new Error('baseYm, areaCode, sigunguCode가 필요해요.');
+        throw new Error('지역 정보를 불러오지 못했어요.');
     }
 
     const pageNo = params.pageNo || 1;
@@ -348,7 +348,7 @@ export async function searchKtoRelatedDestinations(
     const sigunguCode = normalizeDigits(params.sigunguCode);
 
     if (!baseYm || !areaCode || !sigunguCode) {
-        throw new Error('baseYm, areaCode, sigunguCode가 필요해요.');
+        throw new Error('지역 정보를 불러오지 못했어요.');
     }
 
     const pageNo = params.pageNo || 1;

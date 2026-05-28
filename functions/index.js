@@ -7,6 +7,8 @@ const path = require("path");
 const crypto = require("crypto");
 const sharp = require("sharp");
 const admin = require("firebase-admin");
+const { GoogleAuth } = require("google-auth-library");
+const jwt = require("jsonwebtoken");
 const ALLOWED_ORIGINS = new Set([
   "https://plin.ink",
   "https://www.plin.ink",
@@ -87,7 +89,7 @@ function countTripTitleLength(value = "") {
 }
 
 function getTripTitleTooLongMessage(maxLength = 30) {
-  return `여행 제목은 ${maxLength}자 이내로 입력해 주세요.`;
+  return `일정 제목은 ${maxLength}자 이내로 입력해 주세요.`;
 }
 
 function validateTripTitleValue(value, { required = true, maxLength = 30 } = {}) {
@@ -97,7 +99,7 @@ function validateTripTitleValue(value, { required = true, maxLength = 30 } = {})
       valid: !required,
       code: required ? "missing" : "ok",
       normalizedValue,
-      message: required ? "여행 제목을 입력해 주세요." : ""
+      message: required ? "일정 제목을 입력해 주세요." : ""
     };
   }
 
@@ -141,19 +143,10 @@ const SAFE_STORAGE_ATTACHMENT_CONTENT_TYPES = new Set([
   "application/pdf"
 ]);
 const PLIN_ADMIN_EMAILS = new Set([
-  "contact@plin.ink"
+  "contact@plin.ink",
+  "plin.ink@gmail.com"
 ]);
-const REVENUECAT_API_BASE_URL = "https://api.revenuecat.com/v1";
-const REVENUECAT_PURCHASE_GRANT_EVENT_TYPES = new Set([
-  "INITIAL_PURCHASE",
-  "NON_RENEWING_PURCHASE",
-  "RENEWAL"
-]);
-const REVENUECAT_PURCHASE_REVOKE_EVENT_TYPES = new Set([
-  "CANCELLATION",
-  "EXPIRATION",
-  "REFUND"
-]);
+const DEFAULT_MARKETPLACE_SUBSCRIPTION_ENTITLEMENT_ID = "PLIN Plus";
 const MAX_STORAGE_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAX_STORAGE_ATTACHMENT_UPLOAD_BYTES = 10 * 1024 * 1024;
 const GOOGLE_PHOTO_REFERENCE_PATTERN = /^[A-Za-z0-9._~%+=:/-]{10,1024}$/;
@@ -163,6 +156,8 @@ const PUBLIC_PHOTO_CACHE_MAX_ENTRIES = 200;
 const publicPhotoResponseCache = new Map();
 const ACCOUNT_DELETION_GRACE_DAYS = 0;
 const ACCOUNT_DELETION_BATCH_LIMIT = 25;
+const TRIP_TRASH_RETENTION_DAYS = 30;
+const TRIP_TRASH_PURGE_BATCH_LIMIT = 25;
 const TRIP_REVISIONS_ENABLED = false;
 const TRIP_REVISION_RETENTION_COUNT = 20;
 const TRIP_REVISION_RETENTION_DAYS = 30;
@@ -193,7 +188,7 @@ if (!admin.apps.length) {
 // [Security] Firebase ID Token 검증 미들웨어
 const validateFirebaseIdToken = async (req, res, next) => {
   if (!req.headers.authorization || !req.headers.authorization.startsWith('Bearer ')) {
-    return res.status(403).json({ error: "Unauthorized", message: "로그인이 필요합니다." });
+    return res.status(403).json({ error: "Unauthorized", message: "로그인이 필요해요." });
   }
 
   const idToken = req.headers.authorization.split('Bearer ')[1];
@@ -761,6 +756,18 @@ function resolveTripRoleFromData(data, uid) {
   return membership.membersByUid[safeUid] || "";
 }
 
+function isTripSoftDeleted(data) {
+  return Boolean(readString(data?.deletedAt));
+}
+
+function buildTripTrashPurgeAfter(deletedAt) {
+  const deletedAtDate = new Date(readString(deletedAt) || Date.now());
+  const safeDeletedAtTime = Number.isNaN(deletedAtDate.getTime())
+    ? Date.now()
+    : deletedAtDate.getTime();
+  return new Date(safeDeletedAtTime + (TRIP_TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000)).toISOString();
+}
+
 function canEditTripRole(role) {
   return role === "owner" || role === "editor";
 }
@@ -844,7 +851,7 @@ function normalizeTripAnnouncementTitle(value, tripTitle = "") {
     return `${safeTripTitle.slice(0, 40)} 공지`;
   }
 
-  return "여행 공지";
+  return "일정 공지";
 }
 
 function normalizeTripAnnouncementBody(value) {
@@ -975,7 +982,7 @@ async function sendTripAnnouncementPushBatch(installations, payload) {
   };
 }
 
-async function getTripAccessContext(uid, tripId) {
+async function getTripAccessContext(uid, tripId, options = {}) {
   const safeTripId = readString(tripId);
   if (!safeTripId) {
     return null;
@@ -987,6 +994,10 @@ async function getTripAccessContext(uid, tripId) {
   }
 
   const data = snapshot.data() || {};
+  if (isTripSoftDeleted(data) && options?.includeDeleted !== true) {
+    return null;
+  }
+
   const role = resolveTripRoleFromData(data, uid);
 
   return {
@@ -1026,6 +1037,8 @@ async function listTripsForUser(uid, options = {}) {
   const safeUid = readString(uid);
   const requestedLimit = Number(options?.limit);
   const requestedOffset = Number(options?.offset);
+  const includeDeleted = options?.includeDeleted === true;
+  const deletedOnly = options?.deletedOnly === true;
   const safeLimit = Number.isFinite(requestedLimit)
     ? Math.max(1, Math.min(200, Math.floor(requestedLimit)))
     : 50;
@@ -1055,6 +1068,11 @@ async function listTripsForUser(uid, options = {}) {
   const sortedTrips = Array.from(byTripId.values())
     .map((docSnap) => {
       const data = docSnap.data() || {};
+      const isDeleted = isTripSoftDeleted(data);
+      if (deletedOnly ? !isDeleted : (isDeleted && !includeDeleted)) {
+        return null;
+      }
+
       const role = resolveTripRoleFromData(data, safeUid);
       if (!role) {
         return null;
@@ -1239,6 +1257,16 @@ function escapeHtml(value) {
     .replace(/'/g, "&#039;");
 }
 
+function escapeScriptString(value) {
+  if (value === null || value === undefined) return "";
+  return String(value)
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, "\\\"")
+    .replace(/</g, "\\x3C")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+
 function sanitizeImageUrl(value) {
   const fallback = "https://plin-db93d.web.app/images/og-image.png";
   if (!value || typeof value !== "string") return fallback;
@@ -1293,7 +1321,7 @@ function scorePlaceByRegionHints(place, regionHints) {
   return score;
 }
 
-function renderOpenViewHtml({ title, description, imageUrl }) {
+function renderOpenViewHtml({ title, description, imageUrl, token }) {
   let html = getOpenViewTemplate();
   if (!html) {
     throw new Error("Template not found");
@@ -1308,19 +1336,20 @@ function renderOpenViewHtml({ title, description, imageUrl }) {
   html = html.replace(/<meta\s+property=["']og:title["']\s+content=["'].*?["']\s*\/?>/i, `<meta property="og:title" content="${safeTitle}">`);
   html = html.replace(/<meta\s+property=["']og:description["']\s+content=["'].*?["']\s*\/?>/i, `<meta property="og:description" content="${safeDescription}">`);
   html = html.replace(/<meta\s+property=["']og:image["']\s+content=["'].*?["']\s*\/?>/i, `<meta property="og:image" content="${safeImageUrl}">`);
+  html = html.replace(/__PLIN_PUBLIC_TRIP_TOKEN__/g, escapeScriptString(token));
   return html;
 }
 
 function buildInviteRedirectDescription(roleOnAccept) {
   if (roleOnAccept === "editor") {
-    return "PLIN 앱에서 편집 가능한 멤버로 여행에 참여해 보세요.";
+    return "PLIN 앱에서 편집 가능한 멤버로 일정에 참여해 보세요.";
   }
 
   if (roleOnAccept === "member") {
-    return "PLIN 앱에서 읽기 전용 멤버로 여행에 참여해 보세요.";
+    return "PLIN 앱에서 읽기 전용 멤버로 일정에 참여해 보세요.";
   }
 
-  return "PLIN 앱에서 공유된 여행에 참여해 보세요.";
+  return "PLIN 앱에서 공유된 일정에 참여해 보세요.";
 }
 
 function renderInviteRedirectHtml({ title, description, appUrl, webUrl }) {
@@ -1534,8 +1563,8 @@ function renderInviteRedirectHtml({ title, description, appUrl, webUrl }) {
 }
 
 function buildOpenViewMeta(data) {
-  const title = `${data?.meta?.title || "여행 제목"} | PLIN`;
-  const description = `${data?.meta?.dayCount || ""} - ${data?.meta?.subInfo || ""} 여행 계획을 확인해 보세요.`;
+  const title = `${data?.meta?.title || "일정 제목"} | PLIN`;
+  const description = `${data?.meta?.dayCount || ""} - ${data?.meta?.subInfo || ""} 일정을 확인해 보세요.`;
   const imageUrl = data?.meta?.mapImage || data?.meta?.image || data?.meta?.coverImage || "https://plin-db93d.web.app/images/og-image.png";
 
   return {
@@ -1570,11 +1599,14 @@ app.get("/p/:token", legacyPublicViewLimiter, async (req, res) => {
     }
 
     const tripSnapshot = await admin.firestore().collection("plans").doc(tokenContext.tripId).get();
-    if (!tripSnapshot.exists) {
+    if (!tripSnapshot.exists || isTripSoftDeleted(tripSnapshot.data() || {})) {
       return res.redirect("/openview.html");
     }
 
-    const html = renderOpenViewHtml(buildOpenViewMeta(tripSnapshot.data() || {}));
+    const html = renderOpenViewHtml({
+      ...buildOpenViewMeta(tripSnapshot.data() || {}),
+      token
+    });
     res.set("Content-Type", "text/html");
     return res.status(200).send(html);
   } catch (error) {
@@ -1594,6 +1626,10 @@ app.get("/v/:tripId", legacyPublicViewLimiter, async (req, res) => {
     }
 
     const tripData = tripSnapshot.data() || {};
+    if (isTripSoftDeleted(tripData)) {
+      return res.redirect("/openview.html");
+    }
+
     const shareState = normalizeShareState(tripData);
     const tokenContext = shareState.mode === "link" && shareState.role === "viewer" && shareState.tokenId
       ? await readShareTokenContext(shareState.tokenId, "public")
@@ -1630,19 +1666,21 @@ app.get("/v/invite/:token", legacyPublicViewLimiter, async (req, res) => {
   const encodedToken = encodeURIComponent(token);
   const appUrl = `plinmobile://invite?token=${encodedToken}`;
   const webUrl = `${baseUrl}/?invite=${encodedToken}`;
-  let title = "PLIN 여행 초대";
-  let description = "PLIN 앱에서 공유된 여행에 참여해 보세요.";
+  let title = "PLIN 일정 초대";
+  let description = "PLIN 앱에서 공유된 일정에 참여해 보세요.";
 
   try {
     const inviteContext = await readShareTokenContext(token, "collaborator");
     if (inviteContext?.tripId) {
       const tripSnapshot = await admin.firestore().collection("plans").doc(inviteContext.tripId).get();
       const tripData = tripSnapshot.exists ? tripSnapshot.data() || {} : {};
-      const tripTitle = readString(tripData?.meta?.title) || "공유된 여행";
-      const roleOnAccept = normalizeCollaboratorDefaultRole(inviteContext.data?.roleOnAccept);
+      if (!isTripSoftDeleted(tripData)) {
+        const tripTitle = readString(tripData?.meta?.title) || "공유된 일정";
+        const roleOnAccept = normalizeCollaboratorDefaultRole(inviteContext.data?.roleOnAccept);
 
-      title = `${tripTitle} | PLIN 초대`;
-      description = buildInviteRedirectDescription(roleOnAccept);
+        title = `${tripTitle} | PLIN 초대`;
+        description = buildInviteRedirectDescription(roleOnAccept);
+      }
     }
   } catch (error) {
     console.warn("[Invites] Mobile redirect preload error:", error);
@@ -1666,15 +1704,15 @@ app.get("/public-trips/:token", legacyPublicViewLimiter, async (req, res) => {
     if (!tokenContext) {
       return res.status(404).json({
         error: "Public Trip Not Found",
-        message: "공개된 여행을 찾지 못했어요."
+        message: "공개된 일정을 찾지 못했어요."
       });
     }
 
     const tripSnapshot = await admin.firestore().collection("plans").doc(tokenContext.tripId).get();
-    if (!tripSnapshot.exists) {
+    if (!tripSnapshot.exists || isTripSoftDeleted(tripSnapshot.data() || {})) {
       return res.status(404).json({
         error: "Public Trip Not Found",
-        message: "공개된 여행을 찾지 못했어요."
+        message: "공개된 일정을 찾지 못했어요."
       });
     }
 
@@ -1685,7 +1723,7 @@ app.get("/public-trips/:token", legacyPublicViewLimiter, async (req, res) => {
     console.error("Public trip fetch error:", error);
     return res.status(500).json({
       error: "Public Trip Error",
-      message: "공개된 여행을 불러오지 못했어요."
+      message: "공개된 일정을 불러오지 못했어요."
     });
   }
 });
@@ -1728,12 +1766,12 @@ app.get("/config", async (req, res) => {
   }
 });
 
-const DEFAULT_COMMUNITY_AUTHOR_NAME = "익명의 여행자";
+const DEFAULT_COMMUNITY_AUTHOR_NAME = "PLIN 사용자";
 const DEFAULT_COMMUNITY_AUTHOR_PHOTO = "/images/basic-profile.png";
 const MOBILE_TRIP_LIST_BANNER_CONFIG_COLLECTION = "app_config";
 const MOBILE_TRIP_LIST_BANNER_CONFIG_DOC = "mobile_trip_list_banner";
 const TRIP_WRITE_CONFLICT_MESSAGE =
-  "다른 기기에서 먼저 수정했어요. 최신 내용을 다시 불러온 뒤 변경사항을 다시 적용해 주세요.";
+  "다른 곳에서 먼저 수정됐어요. 최신 내용을 다시 불러온 뒤 변경사항을 다시 적용해 주세요.";
 
 function resolveWebBaseUrl(req) {
   const origin = readString(req.headers.origin);
@@ -1745,7 +1783,7 @@ function resolveWebBaseUrl(req) {
 }
 
 function buildDuplicatedTripTitle(title) {
-  const safeTitle = readString(title) || "제목 없는 여행";
+  const safeTitle = readString(title) || "제목 없는 일정";
   return safeTitle.endsWith(" 사본") ? safeTitle : `${safeTitle} 사본`;
 }
 
@@ -2960,17 +2998,9 @@ function readMarketplaceProductId(data) {
   const meta = isPlainObject(safeData.meta) ? safeData.meta : {};
 
   return readString(marketplace.productId)
-    || readString(marketplace.revenueCatProductId)
     || readString(marketplace.storeProductId)
     || readString(safeData.marketplaceProductId)
     || readString(meta.marketplaceProductId);
-}
-
-function buildMarketplacePurchaseDocId(uid, postId) {
-  return crypto
-    .createHash("sha256")
-    .update(`${readString(uid)}:${readString(postId)}`)
-    .digest("hex");
 }
 
 function isActiveMarketplacePurchase(data, productId = "") {
@@ -3000,213 +3030,455 @@ function buildMarketplacePurchaseResponse(postId, data) {
   };
 }
 
-function getRevenueCatSecretApiKey() {
-  return readString(process.env.REVENUECAT_SECRET_API_KEY || process.env.REVENUECAT_API_KEY);
+function getMarketplaceSubscriptionEntitlementId() {
+  return readString(
+    process.env.IAP_MARKETPLACE_ENTITLEMENT_ID
+    || process.env.IAP_SUBSCRIPTION_ENTITLEMENT_ID
+    || process.env.MARKETPLACE_SUBSCRIPTION_ENTITLEMENT_ID
+    || process.env.NATIVE_IAP_SUBSCRIPTION_ENTITLEMENT_ID
+  ) || DEFAULT_MARKETPLACE_SUBSCRIPTION_ENTITLEMENT_ID;
 }
 
-function getRevenueCatWebhookToken() {
-  return readString(process.env.REVENUECAT_WEBHOOK_AUTH_TOKEN || process.env.REVENUECAT_WEBHOOK_TOKEN);
+function getMarketplaceSubscriptionProductIds() {
+  return new Set(
+    readString(
+      process.env.IAP_MARKETPLACE_SUBSCRIPTION_PRODUCT_IDS
+      || process.env.IAP_SUBSCRIPTION_PRODUCT_IDS
+      || process.env.NATIVE_IAP_SUBSCRIPTION_PRODUCT_IDS
+      || "monthly,yearly"
+    )
+      .split(",")
+      .map((entry) => readString(entry))
+      .filter(Boolean)
+  );
 }
 
-function isAuthorizedRevenueCatWebhook(req) {
-  const expectedToken = getRevenueCatWebhookToken();
-  if (!expectedToken) {
+function getMarketplaceLifetimeProductIds() {
+  return new Set(
+    readString(
+      process.env.IAP_MARKETPLACE_LIFETIME_PRODUCT_IDS
+      || process.env.IAP_LIFETIME_PRODUCT_IDS
+      || "lifetime"
+    )
+      .split(",")
+      .map((entry) => readString(entry))
+      .filter(Boolean)
+  );
+}
+
+function isMarketplaceStoreProductId(productId) {
+  const safeProductId = readString(productId);
+  return Boolean(
+    safeProductId
+    && (
+      getMarketplaceSubscriptionProductIds().has(safeProductId)
+      || getMarketplaceLifetimeProductIds().has(safeProductId)
+    )
+  );
+}
+
+function isActiveMarketplaceSubscription(data) {
+  if (!isPlainObject(data)) {
     return false;
   }
 
-  const header = readString(req.headers.authorization);
-  if (header === expectedToken || header === `Bearer ${expectedToken}`) {
-    return true;
+  const status = readString(data.status).toLowerCase();
+  if (status === "revoked" || status === "expired" || status === "cancelled") {
+    return false;
   }
 
-  return readString(req.headers["x-revenuecat-auth-token"]) === expectedToken;
+  if (data.isActive === false) {
+    return false;
+  }
+
+  const expiresAt = readString(data.expiresAt);
+  if (!expiresAt) {
+    return status === "active" || status === "trialing";
+  }
+
+  const parsed = new Date(expiresAt);
+  return Number.isNaN(parsed.getTime()) || parsed.getTime() > Date.now();
 }
 
-async function fetchRevenueCatSubscriber(appUserId) {
-  const apiKey = getRevenueCatSecretApiKey();
-  if (!apiKey) {
-    throw new Error("REVENUECAT_NOT_CONFIGURED");
+function buildMarketplaceSubscriptionResponse(data) {
+  const safeData = isPlainObject(data) ? data : {};
+  const status = readString(safeData.status);
+
+  return {
+    status: status || "inactive",
+    isActive: isActiveMarketplaceSubscription(safeData),
+    productId: readString(safeData.productId),
+    entitlementId: readString(safeData.entitlementId) || getMarketplaceSubscriptionEntitlementId(),
+    periodType: readString(safeData.periodType),
+    trialEndsAt: serializeForJson(safeData.trialEndsAt || null),
+    expiresAt: serializeForJson(safeData.expiresAt || null),
+    updatedAt: serializeForJson(safeData.updatedAt || null)
+  };
+}
+
+async function setMarketplaceSubscription(uid, payload) {
+  const safeUid = readString(uid);
+  if (!safeUid || !isPlainObject(payload)) {
+    throw new Error("INVALID_MARKETPLACE_SUBSCRIPTION");
   }
 
-  const response = await fetch(
-    `${REVENUECAT_API_BASE_URL}/subscribers/${encodeURIComponent(appUserId)}`,
+  const userSubscriptionRef = admin.firestore()
+    .collection("users")
+    .doc(safeUid)
+    .collection("marketplace_subscription")
+    .doc("access");
+  const mirrorSubscriptionRef = admin.firestore()
+    .collection("marketplace_subscriptions")
+    .doc(safeUid);
+
+  await admin.firestore().runTransaction(async (transaction) => {
+    const subscriptionSnapshot = await transaction.get(userSubscriptionRef);
+    const createdAt = subscriptionSnapshot.exists
+      ? subscriptionSnapshot.data()?.createdAt || admin.firestore.FieldValue.serverTimestamp()
+      : admin.firestore.FieldValue.serverTimestamp();
+
+    transaction.set(userSubscriptionRef, {
+      ...payload,
+      createdAt
+    }, { merge: true });
+    transaction.set(mirrorSubscriptionRef, {
+      ...payload,
+      createdAt
+    }, { merge: true });
+  });
+
+  return buildMarketplaceSubscriptionResponse(payload);
+}
+
+async function readMarketplaceSubscription(uid) {
+  const snapshot = await admin.firestore()
+    .collection("users")
+    .doc(uid)
+    .collection("marketplace_subscription")
+    .doc("access")
+    .get();
+
+  return snapshot.exists ? snapshot.data() || {} : null;
+}
+
+function decodeBase64UrlJson(value) {
+  const safeValue = readString(value);
+  if (!safeValue) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(Buffer.from(safeValue, "base64url").toString("utf8"));
+  } catch (error) {
+    return null;
+  }
+}
+
+function decodeJwsPayload(jws) {
+  const parts = readString(jws).split(".");
+  if (parts.length < 2) {
+    return null;
+  }
+
+  return decodeBase64UrlJson(parts[1]);
+}
+
+function normalizePrivateKey(value) {
+  return readString(value).replace(/\\n/g, "\n");
+}
+
+function buildAppleAppAccountToken(uid) {
+  const digest = crypto.createHash("sha256").update(readString(uid)).digest("hex");
+  const variant = ((parseInt(digest.slice(16, 18), 16) & 0x3f) | 0x80).toString(16).padStart(2, "0");
+
+  return [
+    digest.slice(0, 8),
+    digest.slice(8, 12),
+    `4${digest.slice(13, 16)}`,
+    `${variant}${digest.slice(18, 20)}`,
+    digest.slice(20, 32)
+  ].join("-");
+}
+
+function buildAppleServerApiJwt() {
+  const issuerId = readString(process.env.APPLE_IAP_ISSUER_ID || process.env.APP_STORE_CONNECT_ISSUER_ID);
+  const keyId = readString(process.env.APPLE_IAP_KEY_ID || process.env.APP_STORE_CONNECT_KEY_ID);
+  const privateKey = normalizePrivateKey(process.env.APPLE_IAP_PRIVATE_KEY || process.env.APP_STORE_CONNECT_PRIVATE_KEY);
+  const bundleId = readString(process.env.APPLE_IAP_BUNDLE_ID || process.env.APP_BUNDLE_ID || "ink.plin.mobile");
+
+  if (!issuerId || !keyId || !privateKey || !bundleId) {
+    throw new Error("APPLE_IAP_NOT_CONFIGURED");
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  return jwt.sign(
     {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        Accept: "application/json"
+      iss: issuerId,
+      iat: now,
+      exp: now + (20 * 60),
+      aud: "appstoreconnect-v1",
+      bid: bundleId
+    },
+    privateKey,
+    {
+      algorithm: "ES256",
+      keyid: keyId,
+      header: {
+        typ: "JWT"
       }
     }
   );
+}
+
+async function fetchAppleTransactionInfo(transactionId) {
+  const safeTransactionId = readString(transactionId);
+  if (!safeTransactionId) {
+    throw new Error("APPLE_TRANSACTION_ID_REQUIRED");
+  }
+
+  const token = buildAppleServerApiJwt();
+  const endpoints = [
+    `https://api.storekit.itunes.apple.com/inApps/v1/transactions/${encodeURIComponent(safeTransactionId)}`,
+    `https://api.storekit-sandbox.itunes.apple.com/inApps/v1/transactions/${encodeURIComponent(safeTransactionId)}`
+  ];
+
+  let lastBody = "";
+  for (const endpoint of endpoints) {
+    const response = await fetch(endpoint, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json"
+      }
+    });
+
+    if (response.ok) {
+      return response.json();
+    }
+
+    lastBody = await response.text().catch(() => "");
+    if (response.status !== 404 && response.status !== 400) {
+      console.warn("[Marketplace] Apple transaction lookup failed:", response.status, lastBody.slice(0, 240));
+      throw new Error("APPLE_IAP_LOOKUP_FAILED");
+    }
+  }
+
+  console.warn("[Marketplace] Apple transaction not found:", safeTransactionId, lastBody.slice(0, 240));
+  throw new Error("APPLE_IAP_LOOKUP_FAILED");
+}
+
+function readGooglePlayCredentials() {
+  const rawValue = readString(
+    process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON
+    || process.env.PLAY_DEVELOPER_SERVICE_ACCOUNT_JSON
+    || process.env.GOOGLE_ANDROID_PUBLISHER_SERVICE_ACCOUNT_JSON
+  );
+
+  if (!rawValue) {
+    return null;
+  }
+
+  const jsonText = rawValue.startsWith("{")
+    ? rawValue
+    : Buffer.from(rawValue, "base64").toString("utf8");
+
+  try {
+    return JSON.parse(jsonText);
+  } catch (error) {
+    throw new Error("GOOGLE_PLAY_SERVICE_ACCOUNT_INVALID");
+  }
+}
+
+async function getGooglePlayAccessToken() {
+  const credentials = readGooglePlayCredentials();
+  if (!credentials) {
+    throw new Error("GOOGLE_PLAY_IAP_NOT_CONFIGURED");
+  }
+
+  const auth = new GoogleAuth({
+    credentials,
+    scopes: ["https://www.googleapis.com/auth/androidpublisher"]
+  });
+  const client = await auth.getClient();
+  const tokenResponse = await client.getAccessToken();
+  const token = typeof tokenResponse === "string" ? tokenResponse : tokenResponse?.token;
+
+  if (!token) {
+    throw new Error("GOOGLE_PLAY_TOKEN_FAILED");
+  }
+
+  return token;
+}
+
+async function fetchGooglePlayJson(url) {
+  const token = await getGooglePlayAccessToken();
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json"
+    }
+  });
 
   if (!response.ok) {
     const body = await response.text().catch(() => "");
-    console.warn("[Marketplace] RevenueCat subscriber lookup failed:", response.status, body.slice(0, 240));
-    throw new Error("REVENUECAT_LOOKUP_FAILED");
+    console.warn("[Marketplace] Google Play purchase lookup failed:", response.status, body.slice(0, 240));
+    throw new Error("GOOGLE_PLAY_IAP_LOOKUP_FAILED");
   }
 
   return response.json();
 }
 
-function isRevenueCatPurchaseRecordActive(value) {
-  if (!isPlainObject(value)) {
-    return false;
-  }
-
-  const expiresDate = readString(value.expires_date || value.expiresDate);
-  if (!expiresDate) {
-    return true;
-  }
-
-  const parsed = new Date(expiresDate);
-  return Number.isNaN(parsed.getTime()) || parsed.getTime() > Date.now();
+function getGooglePlayPackageName(purchase) {
+  return readString(purchase?.packageName)
+    || readString(process.env.GOOGLE_PLAY_PACKAGE_NAME)
+    || readString(process.env.ANDROID_PACKAGE_NAME)
+    || "ink.plin.mobile";
 }
 
-function revenueCatSubscriberHasProduct(payload, productId) {
-  const safeProductId = readString(productId);
-  if (!safeProductId || !isPlainObject(payload)) {
-    return false;
-  }
-
-  const subscriber = isPlainObject(payload.subscriber) ? payload.subscriber : payload;
-  const nonSubscriptions = isPlainObject(subscriber.non_subscriptions) ? subscriber.non_subscriptions : {};
-  const nonSubscriptionPurchases = nonSubscriptions[safeProductId];
-  if (Array.isArray(nonSubscriptionPurchases) && nonSubscriptionPurchases.length > 0) {
-    return true;
-  }
-
-  const subscriptions = isPlainObject(subscriber.subscriptions) ? subscriber.subscriptions : {};
-  if (isRevenueCatPurchaseRecordActive(subscriptions[safeProductId])) {
-    return true;
-  }
-
-  const entitlements = isPlainObject(subscriber.entitlements) ? subscriber.entitlements : {};
-  return Object.values(entitlements).some((entitlement) => (
-    isPlainObject(entitlement)
-    && readString(entitlement.product_identifier || entitlement.productIdentifier) === safeProductId
-    && isRevenueCatPurchaseRecordActive(entitlement)
-  ));
-}
-
-async function findMarketplacePostByProductId(productId) {
-  const safeProductId = readString(productId);
-  if (!safeProductId) {
-    return null;
-  }
-
-  const snapshot = await admin.firestore()
-    .collection("community_posts")
-    .where("marketplace.productId", "==", safeProductId)
-    .limit(1)
-    .get();
-
-  if (snapshot.empty) {
-    return null;
-  }
-
-  const doc = snapshot.docs[0];
-  return {
-    id: doc.id,
-    data: doc.data() || {}
-  };
-}
-
-async function grantMarketplacePurchase({ uid, postId, productId, source = "sync", event = null }) {
-  const safeUid = readString(uid);
-  const safePostId = readString(postId);
-  const safeProductId = readString(productId);
-
-  if (!safeUid || !safePostId || !safeProductId) {
-    throw new Error("INVALID_MARKETPLACE_PURCHASE");
-  }
-
+function buildNativeIapSubscriptionPayload({ uid, productId, status = "active", expiresAt = null, platform, kind, transactionId, raw }) {
   const now = admin.firestore.FieldValue.serverTimestamp();
-  const payload = {
-    uid: safeUid,
-    postId: safePostId,
-    productId: safeProductId,
-    status: "active",
-    source,
-    updatedAt: now,
-    ...(event ? { lastRevenueCatEvent: serializeForJson(event) } : {})
-  };
-  const userPurchaseRef = admin.firestore()
-    .collection("users")
-    .doc(safeUid)
-    .collection("marketplace_purchases")
-    .doc(safePostId);
-  const mirrorPurchaseRef = admin.firestore()
-    .collection("plan_purchases")
-    .doc(buildMarketplacePurchaseDocId(safeUid, safePostId));
-
-  await admin.firestore().runTransaction(async (transaction) => {
-    const purchaseSnapshot = await transaction.get(userPurchaseRef);
-    const createdAt = purchaseSnapshot.exists
-      ? purchaseSnapshot.data()?.createdAt || now
-      : now;
-
-    transaction.set(userPurchaseRef, {
-      ...payload,
-      createdAt,
-      purchasedAt: purchaseSnapshot.data()?.purchasedAt || now
-    }, { merge: true });
-    transaction.set(mirrorPurchaseRef, {
-      ...payload,
-      createdAt,
-      purchasedAt: purchaseSnapshot.data()?.purchasedAt || now
-    }, { merge: true });
-  });
+  const periodType = status === "trialing" ? "trial" : readString(kind) || "subscription";
 
   return {
-    postId: safePostId,
-    productId: safeProductId,
-    status: "active"
+    uid,
+    status,
+    isActive: status === "active" || status === "trialing",
+    entitlementId: getMarketplaceSubscriptionEntitlementId(),
+    productId,
+    periodType,
+    willRenew: null,
+    trialEndsAt: status === "trialing" ? expiresAt : null,
+    expiresAt,
+    platform,
+    source: "native_iap",
+    transactionId: readString(transactionId) || null,
+    updatedAt: now,
+    lastNativeIapVerification: serializeForJson(raw || null)
   };
 }
 
-async function revokeMarketplacePurchase({ uid, postId, productId, source = "webhook", event = null }) {
-  const safeUid = readString(uid);
-  const safePostId = readString(postId);
-  const safeProductId = readString(productId);
-
-  if (!safeUid || !safePostId || !safeProductId) {
-    throw new Error("INVALID_MARKETPLACE_PURCHASE");
+async function verifyAppleMarketplacePurchase({ uid, purchase }) {
+  const productId = readString(purchase?.productId);
+  const transactionId = readString(purchase?.transactionId);
+  if (!uid || !isMarketplaceStoreProductId(productId) || !transactionId) {
+    throw new Error("INVALID_NATIVE_IAP_PURCHASE");
   }
 
-  const payload = {
-    uid: safeUid,
-    postId: safePostId,
-    productId: safeProductId,
-    status: "revoked",
-    source,
-    revokedAt: admin.firestore.FieldValue.serverTimestamp(),
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    ...(event ? { lastRevenueCatEvent: serializeForJson(event) } : {})
-  };
+  const response = await fetchAppleTransactionInfo(transactionId);
+  const transaction = decodeJwsPayload(response?.signedTransactionInfo);
+  const bundleId = readString(process.env.APPLE_IAP_BUNDLE_ID || process.env.APP_BUNDLE_ID || "ink.plin.mobile");
 
-  const batch = admin.firestore().batch();
-  batch.set(
-    admin.firestore()
-      .collection("users")
-      .doc(safeUid)
-      .collection("marketplace_purchases")
-      .doc(safePostId),
-    payload,
-    { merge: true }
-  );
-  batch.set(
-    admin.firestore()
-      .collection("plan_purchases")
-      .doc(buildMarketplacePurchaseDocId(safeUid, safePostId)),
-    payload,
-    { merge: true }
-  );
-  await batch.commit();
+  if (!transaction || readString(transaction.bundleId) !== bundleId || readString(transaction.productId) !== productId) {
+    throw new Error("APPLE_IAP_PRODUCT_MISMATCH");
+  }
 
-  return {
-    postId: safePostId,
-    productId: safeProductId,
-    status: "revoked"
-  };
+  const expectedAppAccountToken = buildAppleAppAccountToken(uid);
+  const appAccountToken = readString(transaction.appAccountToken);
+  if (appAccountToken && appAccountToken !== expectedAppAccountToken) {
+    throw new Error("APPLE_IAP_ACCOUNT_MISMATCH");
+  }
+
+  if (transaction.revocationDate) {
+    throw new Error("APPLE_IAP_REVOKED");
+  }
+
+  const expiresAtMs = Number(transaction.expiresDate || 0);
+  const isLifetime = getMarketplaceLifetimeProductIds().has(productId);
+  if (!isLifetime && (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now())) {
+    throw new Error("APPLE_IAP_EXPIRED");
+  }
+
+  return buildNativeIapSubscriptionPayload({
+    uid,
+    productId,
+    status: "active",
+    expiresAt: isLifetime ? null : new Date(expiresAtMs).toISOString(),
+    platform: "ios",
+    kind: isLifetime ? "lifetime" : "subscription",
+    transactionId: readString(transaction.transactionId),
+    raw: transaction
+  });
+}
+
+async function verifyGoogleMarketplacePurchase({ uid, purchase }) {
+  const productId = readString(purchase?.productId);
+  const purchaseToken = readString(purchase?.purchaseToken);
+  if (!uid || !isMarketplaceStoreProductId(productId) || !purchaseToken) {
+    throw new Error("INVALID_NATIVE_IAP_PURCHASE");
+  }
+
+  const packageName = getGooglePlayPackageName(purchase);
+  const isLifetime = getMarketplaceLifetimeProductIds().has(productId);
+
+  if (isLifetime) {
+    const productResponse = await fetchGooglePlayJson(
+      `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${encodeURIComponent(packageName)}/purchases/products/${encodeURIComponent(productId)}/tokens/${encodeURIComponent(purchaseToken)}`
+    );
+    if (Number(productResponse.purchaseState) !== 0) {
+      throw new Error("GOOGLE_PLAY_IAP_NOT_PURCHASED");
+    }
+    const productAccountId = readString(productResponse.obfuscatedExternalAccountId);
+    if (productAccountId && productAccountId !== uid) {
+      throw new Error("GOOGLE_PLAY_IAP_ACCOUNT_MISMATCH");
+    }
+
+    return buildNativeIapSubscriptionPayload({
+      uid,
+      productId,
+      status: "active",
+      expiresAt: null,
+      platform: "android",
+      kind: "lifetime",
+      transactionId: readString(productResponse.orderId || purchase?.transactionId),
+      raw: productResponse
+    });
+  }
+
+  const subscriptionResponse = await fetchGooglePlayJson(
+    `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${encodeURIComponent(packageName)}/purchases/subscriptionsv2/tokens/${encodeURIComponent(purchaseToken)}`
+  );
+  const subscriptionAccountId = readString(subscriptionResponse.externalAccountIdentifiers?.obfuscatedExternalAccountId);
+  if (subscriptionAccountId && subscriptionAccountId !== uid) {
+    throw new Error("GOOGLE_PLAY_IAP_ACCOUNT_MISMATCH");
+  }
+
+  const state = readString(subscriptionResponse.subscriptionState);
+  const lineItems = Array.isArray(subscriptionResponse.lineItems) ? subscriptionResponse.lineItems : [];
+  const matchingLineItem = lineItems.find((lineItem) => readString(lineItem?.productId) === productId) || lineItems[0] || null;
+  const expiresAt = readString(matchingLineItem?.expiryTime);
+  const expiresAtMs = expiresAt ? new Date(expiresAt).getTime() : 0;
+  const activeStates = new Set([
+    "SUBSCRIPTION_STATE_ACTIVE",
+    "SUBSCRIPTION_STATE_IN_GRACE_PERIOD",
+    "SUBSCRIPTION_STATE_CANCELED"
+  ]);
+
+  if (!activeStates.has(state) || !Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) {
+    throw new Error("GOOGLE_PLAY_IAP_EXPIRED");
+  }
+
+  return buildNativeIapSubscriptionPayload({
+    uid,
+    productId,
+    status: "active",
+    expiresAt,
+    platform: "android",
+    kind: "subscription",
+    transactionId: readString(subscriptionResponse.latestOrderId || purchase?.transactionId),
+    raw: subscriptionResponse
+  });
+}
+
+async function verifyNativeMarketplacePurchase({ uid, purchase }) {
+  const platform = readString(purchase?.platform).toLowerCase();
+  if (platform === "ios") {
+    return verifyAppleMarketplacePurchase({ uid, purchase });
+  }
+
+  if (platform === "android") {
+    return verifyGoogleMarketplacePurchase({ uid, purchase });
+  }
+
+  throw new Error("UNSUPPORTED_NATIVE_IAP_PLATFORM");
 }
 
 function buildCommunityCommentResponse(commentId, data) {
@@ -3371,7 +3643,7 @@ function buildTripRevisionSummaryText({
 
   if (safeOperation === "restore") {
     const restorePoint = formatTripRevisionSummaryTimestamp(restoredFromRevision?.createdAt);
-    return `${actorName}님이 ${restorePoint} 시점으로 여행 내용을 복구`;
+    return `${actorName}님이 ${restorePoint} 시점으로 일정 내용을 복구`;
   }
 
   const beforeSnapshot = buildTripRevisionSnapshot(beforeData);
@@ -3381,7 +3653,7 @@ function buildTripRevisionSummaryText({
   const changes = [];
 
   if (readString(beforeMeta.title) !== readString(afterMeta.title)) {
-    changes.push("여행 제목 변경");
+    changes.push("일정 제목 변경");
   }
 
   const beforeCoverImage = readNullableString(beforeMeta.coverImage);
@@ -3397,14 +3669,14 @@ function buildTripRevisionSummaryText({
   }
 
   if (readString(beforeMeta.location) !== readString(afterMeta.location)) {
-    changes.push("여행지 변경");
+    changes.push("장소 변경");
   }
 
   if (
     readString(beforeMeta.startDate) !== readString(afterMeta.startDate)
     || readString(beforeMeta.endDate) !== readString(afterMeta.endDate)
   ) {
-    changes.push("여행 날짜 변경");
+    changes.push("일정 날짜 변경");
   }
 
   appendTripRevisionCountChange(
@@ -3427,7 +3699,7 @@ function buildTripRevisionSummaryText({
   );
 
   if (changes.length === 0) {
-    return `${actorName}님이 ${safeOperation === "meta_update" ? "여행 정보를 수정" : "여행 내용을 수정"}`;
+    return `${actorName}님이 ${safeOperation === "meta_update" ? "일정 정보를 수정" : "일정 내용을 수정"}`;
   }
 
   return `${actorName}님이 ${changes.slice(0, 3).join(", ")}`;
@@ -3511,6 +3783,11 @@ function buildTripDetailResponse(tripId, data) {
     ...(isPlainObject(data) ? data : {}),
     contentVersion: readTripContentVersion(data)
   });
+  const safeMeta = isPlainObject(safeData.meta) ? safeData.meta : {};
+  safeData.meta = {
+    ...safeMeta,
+    purpose: safeMeta.purpose === "date" || safeData.purpose === "date" ? "date" : "trip"
+  };
   return {
     id: tripId,
     ...serializeForJson(safeData)
@@ -4067,6 +4344,7 @@ function buildTripMetaUpdateResult(sourceData, input) {
   const hasTitleInput = Boolean(input) && Object.prototype.hasOwnProperty.call(input, "title");
   const hasStartDateInput = Boolean(input) && Object.prototype.hasOwnProperty.call(input, "startDate");
   const hasEndDateInput = Boolean(input) && Object.prototype.hasOwnProperty.call(input, "endDate");
+  const hasPurposeInput = Boolean(input) && Object.prototype.hasOwnProperty.call(input, "purpose");
   const title = hasTitleInput
     ? readString(input?.title)
     : readString(currentMeta.title);
@@ -4076,6 +4354,9 @@ function buildTripMetaUpdateResult(sourceData, input) {
   const endDate = hasEndDateInput
     ? readString(input?.endDate)
     : currentEndDate;
+  const purpose = hasPurposeInput
+    ? (readString(input?.purpose) === "date" ? "date" : "trip")
+    : (readString(currentMeta.purpose) === "date" ? "date" : "trip");
   const hasCoverImageInput = Boolean(input) && Object.prototype.hasOwnProperty.call(input, "coverImage");
   const requestedLocation = readNullableString(input?.location);
   const requestedCoverImage = hasCoverImageInput
@@ -4091,7 +4372,7 @@ function buildTripMetaUpdateResult(sourceData, input) {
     }
     normalizedTitle = titleValidation.normalizedValue;
   } else if (!normalizedTitle) {
-    throw new Error("여행 제목을 입력해 주세요.");
+    throw new Error("일정 제목을 입력해 주세요.");
   }
 
   const parsedStartDate = parseDateOnlyValue(startDate);
@@ -4113,6 +4394,7 @@ function buildTripMetaUpdateResult(sourceData, input) {
     ...currentMeta,
     title: normalizedTitle,
     location,
+    purpose,
     startDate,
     endDate,
     dayCount: buildTripDurationLabel(totalDays),
@@ -4205,7 +4487,7 @@ function buildImportedTripPayload(userId, input) {
   return sanitizeTripMediaPayload({
     meta: {
       ...sourceMeta,
-      title: readString(sourceMeta.title) || "새 여행",
+      title: readString(sourceMeta.title) || "새 일정",
       location,
       startDate,
       endDate,
@@ -4262,6 +4544,7 @@ function buildDuplicatedTripFromPlan(sourceData, ownerUid, options = {}) {
 function buildNewTripPayloadFromInput(userId, input) {
   const title = readString(input?.title);
   const location = readString(input?.location);
+  const purpose = readString(input?.purpose) === "date" ? "date" : "trip";
   const startDate = readString(input?.startDate);
   const endDate = readString(input?.endDate);
   const parsedStartDate = parseDateOnlyValue(startDate);
@@ -4296,6 +4579,7 @@ function buildNewTripPayloadFromInput(userId, input) {
       dayCount: dayCountText,
       subInfo: `${location} • ${startDate} - ${endDate} `,
       location,
+      purpose,
       startDate,
       endDate,
       mapImage,
@@ -4649,6 +4933,20 @@ async function purgeOwnedTripById(tripId) {
   await tripRef.delete().catch(() => {});
 }
 
+async function moveOwnedTripToTrash(tripRef, uid, reason = "owner_trip_delete") {
+  const nowIso = new Date().toISOString();
+  const deletionFields = {
+    deletedAt: nowIso,
+    deletedBy: readString(uid),
+    deletionReason: reason,
+    purgeAfter: buildTripTrashPurgeAfter(nowIso),
+    updatedAt: nowIso
+  };
+
+  await tripRef.update(deletionFields);
+  return deletionFields;
+}
+
 async function purgePendingDeletionAccount(userSnapshot) {
   const uid = readString(userSnapshot.id);
   if (!uid || !userSnapshot.exists) {
@@ -4806,6 +5104,7 @@ app.get("/marketplace/purchases", validateFirebaseIdToken, async (req, res) => {
   const uid = req.user.uid;
 
   try {
+    const subscription = await readMarketplaceSubscription(uid);
     const snapshot = await admin.firestore()
       .collection("users")
       .doc(uid)
@@ -4816,73 +5115,60 @@ app.get("/marketplace/purchases", validateFirebaseIdToken, async (req, res) => {
       .map((doc) => buildMarketplacePurchaseResponse(doc.id, doc.data() || {}))
       .filter((purchase) => purchase.status !== "revoked");
 
-    return res.json({ purchases });
+    return res.json({
+      subscription: buildMarketplaceSubscriptionResponse(subscription),
+      purchases
+    });
   } catch (error) {
     console.error("[Marketplace] Purchase list error:", error);
     return res.status(500).json({
       error: "Marketplace Purchase List Error",
-      message: "구매 내역을 불러오지 못했어요."
+      message: "구독 내역을 불러오지 못했어요."
     });
   }
 });
 
-app.post("/marketplace/purchases/sync", validateFirebaseIdToken, async (req, res) => {
+app.post("/marketplace/subscription/sync", validateFirebaseIdToken, async (req, res) => {
   const uid = req.user.uid;
-  const postId = readString(req.body?.postId);
-  const productId = readString(req.body?.productId);
-
-  if (!postId || !productId) {
-    return res.status(400).json({
-      error: "Missing marketplace purchase",
-      message: "구매한 플랜 정보를 확인하지 못했어요."
-    });
-  }
 
   try {
-    const postSnapshot = await admin.firestore().collection("community_posts").doc(postId).get();
-    if (!postSnapshot.exists) {
-      return res.status(404).json({
-        error: "Post Not Found",
-        message: "구매한 플랜을 찾지 못했어요."
-      });
+    const purchase = isPlainObject(req.body?.purchase) ? req.body.purchase : null;
+    if (!purchase) {
+      const currentSubscription = await readMarketplaceSubscription(uid);
+      const response = buildMarketplaceSubscriptionResponse(currentSubscription);
+      if (!response.isActive) {
+        return res.status(402).json({
+          error: "Subscription Required",
+          message: "구독 내역을 확인하지 못했어요."
+        });
+      }
+
+      return res.json({ subscription: response });
     }
 
-    const postProductId = readMarketplaceProductId(postSnapshot.data() || {});
-    if (!postProductId || postProductId !== productId) {
-      return res.status(400).json({
-        error: "Product Mismatch",
-        message: "플랜 결제 정보가 맞지 않아요."
-      });
-    }
+    const payload = await verifyNativeMarketplacePurchase({ uid, purchase });
+    const subscription = await setMarketplaceSubscription(uid, payload);
 
-    const subscriber = await fetchRevenueCatSubscriber(uid);
-    if (!revenueCatSubscriberHasProduct(subscriber, productId)) {
+    if (!subscription.isActive) {
       return res.status(402).json({
-        error: "Purchase Required",
-        message: "스토어 구매 내역을 확인하지 못했어요."
+        error: "Subscription Required",
+        message: "구독 내역을 확인하지 못했어요."
       });
     }
 
-    const purchase = await grantMarketplacePurchase({
-      uid,
-      postId,
-      productId,
-      source: "sync"
-    });
-
-    return res.json({ purchase });
+    return res.json({ subscription });
   } catch (error) {
-    if (error.message === "REVENUECAT_NOT_CONFIGURED") {
+    if (error.message === "APPLE_IAP_NOT_CONFIGURED" || error.message === "GOOGLE_PLAY_IAP_NOT_CONFIGURED") {
       return res.status(503).json({
-        error: "RevenueCat Not Configured",
+        error: "Store Verification Not Configured",
         message: "결제 검증 설정이 아직 준비되지 않았어요."
       });
     }
 
-    console.error("[Marketplace] Purchase sync error:", error);
+    console.error("[Marketplace] Subscription sync error:", error);
     return res.status(500).json({
-      error: "Marketplace Purchase Sync Error",
-      message: "구매 내역을 확인하지 못했어요."
+      error: "Marketplace Subscription Sync Error",
+      message: "구독 내역을 확인하지 못했어요."
     });
   }
 });
@@ -4919,6 +5205,28 @@ app.get("/marketplace/posts/:postId/paid-content", validateFirebaseIdToken, asyn
     }
 
     if (!isAdmin) {
+      const subscriptionData = await readMarketplaceSubscription(uid);
+      if (isActiveMarketplaceSubscription(subscriptionData)) {
+        if (postData._paidContentStored) {
+          const paidContentSnapshot = await db
+            .collection("community_posts")
+            .doc(postId)
+            .collection("paid_content")
+            .doc("full_days")
+            .get();
+          if (paidContentSnapshot.exists) {
+            const paidContent = paidContentSnapshot.data() || {};
+            return res.json({
+              days: serializeForJson(paidContent.days || [])
+            });
+          }
+        }
+
+        return res.json({
+          days: serializeForJson(postData.days || [])
+        });
+      }
+
       const purchaseSnapshot = await db
         .collection("users")
         .doc(uid)
@@ -4929,7 +5237,7 @@ app.get("/marketplace/posts/:postId/paid-content", validateFirebaseIdToken, asyn
       if (!isActiveMarketplacePurchase(purchaseData, productId)) {
         return res.status(402).json({
           error: "Purchase Required",
-          message: "구매한 큐레이션 플랜만 전체 일정을 확인할 수 있어요."
+          message: "구독 중인 계정만 전체 일정을 확인할 수 있어요."
         });
       }
     }
@@ -4961,77 +5269,6 @@ app.get("/marketplace/posts/:postId/paid-content", validateFirebaseIdToken, asyn
   }
 });
 
-app.post("/marketplace/revenuecat/webhook", async (req, res) => {
-  if (!isAuthorizedRevenueCatWebhook(req)) {
-    return res.status(403).json({
-      error: "Forbidden",
-      message: "웹훅 인증 정보가 올바르지 않습니다."
-    });
-  }
-
-  const event = isPlainObject(req.body?.event) ? req.body.event : req.body;
-  const eventType = readString(event?.type).toUpperCase();
-  const uid = readString(event?.app_user_id || event?.appUserId);
-  const productId = readString(event?.product_id || event?.productId);
-
-  if (!uid || !productId || !eventType) {
-    return res.status(400).json({
-      error: "Invalid RevenueCat Event",
-      message: "웹훅 이벤트 정보가 부족합니다."
-    });
-  }
-
-  if (uid.startsWith("$RCAnonymousID:")) {
-    console.warn("[Marketplace] RevenueCat webhook skipped for anonymous user:", uid, eventType);
-    return res.json({ ok: true, ignored: true });
-  }
-
-  try {
-    await admin.auth().getUser(uid);
-  } catch (authError) {
-    console.warn("[Marketplace] RevenueCat webhook skipped — uid not found in Firebase Auth:", uid, eventType);
-    return res.json({ ok: true, ignored: true });
-  }
-
-  try {
-    const post = await findMarketplacePostByProductId(productId);
-    if (!post) {
-      console.warn("[Marketplace] RevenueCat product has no mapped post:", productId);
-      return res.json({ ok: true, ignored: true });
-    }
-
-    if (REVENUECAT_PURCHASE_GRANT_EVENT_TYPES.has(eventType)) {
-      const purchase = await grantMarketplacePurchase({
-        uid,
-        postId: post.id,
-        productId,
-        source: "revenuecat_webhook",
-        event
-      });
-      return res.json({ ok: true, purchase });
-    }
-
-    if (REVENUECAT_PURCHASE_REVOKE_EVENT_TYPES.has(eventType)) {
-      const purchase = await revokeMarketplacePurchase({
-        uid,
-        postId: post.id,
-        productId,
-        source: "revenuecat_webhook",
-        event
-      });
-      return res.json({ ok: true, purchase });
-    }
-
-    return res.json({ ok: true, ignored: true });
-  } catch (error) {
-    console.error("[Marketplace] RevenueCat webhook error:", error);
-    return res.status(500).json({
-      error: "Marketplace Webhook Error",
-      message: "웹훅 처리 중 오류가 발생했습니다."
-    });
-  }
-});
-
 app.post("/community/posts", validateFirebaseIdToken, async (req, res) => {
   const tripId = readString(req.body?.tripId);
   const uid = req.user.uid;
@@ -5039,31 +5276,23 @@ app.post("/community/posts", validateFirebaseIdToken, async (req, res) => {
   if (!tripId) {
     return res.status(400).json({
       error: "Missing tripId",
-      message: "업로드할 여행을 찾지 못했어요."
+      message: "업로드할 일정을 찾지 못했어요."
     });
   }
 
   try {
-    const isAdmin = await isAdminUser(uid, req.user);
-    if (!isAdmin) {
-      return res.status(403).json({
-        error: "Forbidden",
-        message: "PLIN 큐레이션 업로드는 관리자만 가능해요."
-      });
-    }
-
     const tripContext = await getTripAccessContext(uid, tripId);
     if (!tripContext) {
       return res.status(404).json({
         error: "Trip Not Found",
-        message: "업로드할 여행을 찾지 못했어요."
+        message: "업로드할 일정을 찾지 못했어요."
       });
     }
 
     if (!canEditTripRole(tripContext.role)) {
       return res.status(403).json({
         error: "Forbidden",
-        message: "이 여행은 업로드 권한이 없어요."
+        message: "이 일정은 공개할 수 없어요."
       });
     }
 
@@ -5083,10 +5312,19 @@ app.post("/community/posts", validateFirebaseIdToken, async (req, res) => {
 
     const marketplaceProductId = readMarketplaceProductId(req.body || {});
     if (marketplaceProductId) {
+      const isAdmin = await isAdminUser(uid, req.user);
+      if (!isAdmin) {
+        return res.status(403).json({
+          error: "Forbidden",
+          message: "이 플랜은 지금 유료 공개로 등록할 수 없어요."
+        });
+      }
+
       postData.marketplace = {
         ...(isPlainObject(postData.marketplace) ? postData.marketplace : {}),
         productId: marketplaceProductId,
         priceLabel: readString(req.body?.marketplace?.priceLabel) || undefined,
+        currencyCode: readString(req.body?.marketplace?.currencyCode) || undefined,
         salesStatus: "paid"
       };
       const fullDays = cloneJsonValue(postData.days || []);
@@ -5108,7 +5346,7 @@ app.post("/community/posts", validateFirebaseIdToken, async (req, res) => {
     console.error("[Community] Publish error:", error);
     return res.status(500).json({
       error: "Community Publish Error",
-      message: "큐레이션 플랜 업로드 중 오류가 발생했습니다."
+      message: "플랜 공개 중 오류가 발생했어요."
     });
   }
 });
@@ -5496,6 +5734,7 @@ app.post("/community/posts/:postId/duplicate-to-trip", validateFirebaseIdToken, 
     const isAdmin = await isAdminUser(uid, req.user);
     const postRef = db.collection("community_posts").doc(postId);
     const purchaseRef = db.collection("users").doc(uid).collection("marketplace_purchases").doc(postId);
+    const subscriptionRef = db.collection("users").doc(uid).collection("marketplace_subscription").doc("access");
     const tripRef = db.collection("plans").doc();
     const transactionResult = await db.runTransaction(async (transaction) => {
       const postSnapshot = await transaction.get(postRef);
@@ -5506,9 +5745,16 @@ app.post("/community/posts/:postId/duplicate-to-trip", validateFirebaseIdToken, 
       const postData = postSnapshot.data() || {};
       const productId = readMarketplaceProductId(postData);
       if (productId && !isAdmin) {
-        const purchaseSnapshot = await transaction.get(purchaseRef);
+        const [subscriptionSnapshot, purchaseSnapshot] = await Promise.all([
+          transaction.get(subscriptionRef),
+          transaction.get(purchaseRef)
+        ]);
+        const subscriptionData = subscriptionSnapshot.exists ? subscriptionSnapshot.data() : null;
         const purchaseData = purchaseSnapshot.exists ? purchaseSnapshot.data() : null;
-        if (!isActiveMarketplacePurchase(purchaseData, productId)) {
+        if (
+          !isActiveMarketplaceSubscription(subscriptionData)
+          && !isActiveMarketplacePurchase(purchaseData, productId)
+        ) {
           throw new Error("PURCHASE_REQUIRED");
         }
       }
@@ -5560,14 +5806,14 @@ app.post("/community/posts/:postId/duplicate-to-trip", validateFirebaseIdToken, 
     if (error.message === "PURCHASE_REQUIRED") {
       return res.status(402).json({
         error: "Purchase Required",
-        message: "구매한 큐레이션 플랜만 내 여행으로 가져올 수 있어요."
+        message: "구독 중인 계정만 유료 플랜을 내 일정으로 가져올 수 있어요."
       });
     }
 
     console.error("[Community] Duplicate error:", error);
     return res.status(500).json({
       error: "Community Duplicate Error",
-      message: "내 여행으로 가져오지 못했어요."
+      message: "내 일정으로 가져오지 못했어요."
     });
   }
 });
@@ -5585,21 +5831,24 @@ app.post("/plans", validateFirebaseIdToken, async (req, res) => {
     });
   } catch (error) {
     if (
-      error.message === "여행 제목을 입력해 주세요."
+      error.message === "일정 제목을 입력해 주세요."
+      || error.message === "여행 제목을 입력해 주세요."
       || error.message === getTripTitleTooLongMessage()
       || error.message === "시작일과 종료일을 모두 입력해 주세요."
       || error.message === "종료일은 시작일보다 같거나 뒤여야 해요."
     ) {
       return res.status(400).json({
         error: "Invalid trip payload",
-        message: error.message
+        message: error.message === "여행 제목을 입력해 주세요."
+          ? "일정 제목을 입력해 주세요."
+          : error.message
       });
     }
 
     console.error("[Plans] Create error:", error);
     return res.status(500).json({
       error: "Trip Create Error",
-      message: "새 여행을 만들지 못했어요."
+      message: "새 일정을 만들지 못했어요."
     });
   }
 });
@@ -5619,7 +5868,7 @@ app.post("/plans/import", validateFirebaseIdToken, async (req, res) => {
     console.error("[Plans] Import error:", error);
     return res.status(500).json({
       error: "Trip Import Error",
-      message: "여행 데이터를 저장하지 못했어요."
+      message: "일정 데이터를 저장하지 못했어요."
     });
   }
 });
@@ -5656,7 +5905,47 @@ app.get("/plans", validateFirebaseIdToken, async (req, res) => {
     console.error("[Plans] List fetch error:", error);
     return res.status(500).json({
       error: "Trip List Fetch Error",
-      message: "여행 목록을 불러오지 못했어요."
+      message: "일정 목록을 불러오지 못했어요."
+    });
+  }
+});
+
+app.get("/plans/trash", validateFirebaseIdToken, async (req, res) => {
+  const uid = req.user.uid;
+  const requestedLimit = Number(req.query?.limit);
+  const requestedOffset = Number(req.query?.offset);
+
+  try {
+    const trips = await listTripsForUser(uid, {
+      limit: requestedLimit,
+      offset: requestedOffset,
+      deletedOnly: true
+    });
+    const ownerTrips = trips.filter((entry) => entry.role === "owner");
+    const profileCache = new Map();
+    const tripPayloads = await Promise.all(ownerTrips.map(async (entry) => ({
+      ...buildTripDetailResponse(entry.tripId, entry.data),
+      currentRole: entry.role,
+      listMembers: await buildTripListMembersPreview(
+        normalizeTripMembers(entry.data).membersByUid,
+        {
+          currentUid: uid,
+          decodedToken: req.user,
+          limit: 3,
+          profileCache
+        }
+      )
+    })));
+
+    return res.json({
+      trips: tripPayloads,
+      retentionDays: TRIP_TRASH_RETENTION_DAYS
+    });
+  } catch (error) {
+    console.error("[Plans] Trash list fetch error:", error);
+    return res.status(500).json({
+      error: "Trip Trash Fetch Error",
+      message: "삭제한 일정을 불러오지 못했어요."
     });
   }
 });
@@ -5670,7 +5959,7 @@ app.put("/plans/:tripId/content", validateFirebaseIdToken, async (req, res) => {
   if (!tripId) {
     return res.status(400).json({
       error: "Missing tripId",
-      message: "저장할 여행을 찾지 못했어요."
+      message: "저장할 일정을 찾지 못했어요."
     });
   }
 
@@ -5679,14 +5968,14 @@ app.put("/plans/:tripId/content", validateFirebaseIdToken, async (req, res) => {
     if (!tripContext) {
       return res.status(404).json({
         error: "Trip Not Found",
-        message: "저장할 여행을 찾지 못했어요."
+        message: "저장할 일정을 찾지 못했어요."
       });
     }
 
     if (!canEditTripRole(tripContext.role)) {
       return res.status(403).json({
         error: "Forbidden",
-        message: "이 여행을 저장할 권한이 없어요."
+        message: "이 일정은 저장할 수 없어요."
       });
     }
 
@@ -5745,14 +6034,14 @@ app.put("/plans/:tripId/content", validateFirebaseIdToken, async (req, res) => {
     if (error.message === "INVALID_TRIP_CONTENT") {
       return res.status(400).json({
         error: "Invalid trip content",
-        message: "저장할 여행 데이터 형식이 올바르지 않아요."
+        message: "저장할 일정 데이터 형식이 올바르지 않아요."
       });
     }
 
     console.error("[Plans] Content save error:", error);
     return res.status(500).json({
       error: "Trip Content Save Error",
-      message: "여행 내용을 저장하지 못했어요."
+      message: "일정 내용을 저장하지 못했어요."
     });
   }
 });
@@ -5764,7 +6053,7 @@ app.get("/plans/:tripId", validateFirebaseIdToken, async (req, res) => {
   if (!tripId) {
     return res.status(400).json({
       error: "Missing tripId",
-      message: "여행을 찾을 수 없어요."
+      message: "일정을 찾을 수 없어요."
     });
   }
 
@@ -5773,14 +6062,14 @@ app.get("/plans/:tripId", validateFirebaseIdToken, async (req, res) => {
     if (!tripContext) {
       return res.status(404).json({
         error: "Trip Not Found",
-        message: "여행을 찾을 수 없어요."
+        message: "일정을 찾을 수 없어요."
       });
     }
 
     if (!tripContext.role) {
       return res.status(403).json({
         error: "Forbidden",
-        message: "이 여행을 볼 권한이 없어요."
+        message: "이 일정을 볼 수 없어요."
       });
     }
 
@@ -5791,7 +6080,7 @@ app.get("/plans/:tripId", validateFirebaseIdToken, async (req, res) => {
     console.error("[Plans] Detail fetch error:", error);
     return res.status(500).json({
       error: "Trip Fetch Error",
-      message: "여행 상세를 불러오지 못했어요."
+      message: "일정 상세를 불러오지 못했어요."
     });
   }
 });
@@ -5805,7 +6094,7 @@ app.patch("/plans/:tripId/meta", validateFirebaseIdToken, async (req, res) => {
   if (!tripId) {
     return res.status(400).json({
       error: "Missing tripId",
-      message: "수정할 여행을 찾지 못했어요."
+      message: "수정할 일정을 찾지 못했어요."
     });
   }
 
@@ -5814,14 +6103,14 @@ app.patch("/plans/:tripId/meta", validateFirebaseIdToken, async (req, res) => {
     if (!tripContext) {
       return res.status(404).json({
         error: "Trip Not Found",
-        message: "수정할 여행을 찾지 못했어요."
+        message: "수정할 일정을 찾지 못했어요."
       });
     }
 
     if (!canEditTripRole(tripContext.role)) {
       return res.status(403).json({
         error: "Forbidden",
-        message: "이 여행을 수정할 권한이 없어요."
+        message: "이 일정은 수정할 수 없어요."
       });
     }
 
@@ -5873,21 +6162,24 @@ app.patch("/plans/:tripId/meta", validateFirebaseIdToken, async (req, res) => {
     });
   } catch (error) {
     if (
-      error.message === "여행 제목을 입력해 주세요."
+      error.message === "일정 제목을 입력해 주세요."
+      || error.message === "여행 제목을 입력해 주세요."
       || error.message === getTripTitleTooLongMessage()
       || error.message === "시작일과 종료일을 모두 입력해 주세요."
       || error.message === "종료일은 시작일보다 같거나 뒤여야 해요."
     ) {
       return res.status(400).json({
         error: "Invalid trip payload",
-        message: error.message
+        message: error.message === "여행 제목을 입력해 주세요."
+          ? "일정 제목을 입력해 주세요."
+          : error.message
       });
     }
 
     console.error("[Plans] Meta update error:", error);
     return res.status(500).json({
       error: "Trip Meta Update Error",
-      message: "여행 정보를 저장하지 못했어요."
+      message: "일정 정보를 저장하지 못했어요."
     });
   }
 });
@@ -5908,7 +6200,7 @@ app.get("/plans/:tripId/revisions", validateFirebaseIdToken, async (req, res) =>
   if (!tripId) {
     return res.status(400).json({
       error: "Missing tripId",
-      message: "여행을 찾을 수 없어요."
+      message: "일정을 찾을 수 없어요."
     });
   }
 
@@ -5917,14 +6209,14 @@ app.get("/plans/:tripId/revisions", validateFirebaseIdToken, async (req, res) =>
     if (!tripContext) {
       return res.status(404).json({
         error: "Trip Not Found",
-        message: "여행을 찾을 수 없어요."
+        message: "일정을 찾을 수 없어요."
       });
     }
 
     if (!canEditTripRole(tripContext.role)) {
       return res.status(403).json({
         error: "Forbidden",
-        message: "이 여행의 수정 기록을 볼 권한이 없어요."
+        message: "이 일정의 수정 기록을 볼 수 없어요."
       });
     }
 
@@ -5990,14 +6282,14 @@ app.post("/plans/:tripId/revisions/:revisionId/restore", validateFirebaseIdToken
     if (!tripContext) {
       return res.status(404).json({
         error: "Trip Not Found",
-        message: "복구할 여행을 찾지 못했어요."
+        message: "복구할 일정을 찾지 못했어요."
       });
     }
 
     if (!canEditTripRole(tripContext.role)) {
       return res.status(403).json({
         error: "Forbidden",
-        message: "이 여행을 복구할 권한이 없어요."
+        message: "이 일정은 복구할 수 없어요."
       });
     }
 
@@ -6027,7 +6319,7 @@ app.post("/plans/:tripId/revisions/:revisionId/restore", validateFirebaseIdToken
     if (!hasValidMeta || !hasValidDays) {
       return res.status(400).json({
         error: "Invalid trip revision snapshot",
-        message: "이 수정 기록으로는 여행을 복구할 수 없어요."
+        message: "이 수정 기록으로는 일정을 복구할 수 없어요."
       });
     }
 
@@ -6073,7 +6365,7 @@ app.post("/plans/:tripId/revisions/:revisionId/restore", validateFirebaseIdToken
     console.error("[Plans] Revision restore error:", error);
     return res.status(500).json({
       error: "Trip Revision Restore Error",
-      message: "여행을 이전 기록으로 복구하지 못했어요."
+      message: "일정을 이전 기록으로 복구하지 못했어요."
     });
   }
 });
@@ -6088,7 +6380,7 @@ app.post("/plans/:tripId/duplicate", validateFirebaseIdToken, async (req, res) =
   if (!tripId) {
     return res.status(400).json({
       error: "Missing tripId",
-      message: "사본을 만들 여행을 찾지 못했어요."
+      message: "사본을 만들 일정을 찾지 못했어요."
     });
   }
 
@@ -6097,14 +6389,14 @@ app.post("/plans/:tripId/duplicate", validateFirebaseIdToken, async (req, res) =
     if (!tripContext) {
       return res.status(404).json({
         error: "Trip Not Found",
-        message: "사본을 만들 여행을 찾지 못했어요."
+        message: "사본을 만들 일정을 찾지 못했어요."
       });
     }
 
     if (!tripContext.role) {
       return res.status(403).json({
         error: "Forbidden",
-        message: "사본을 만들 여행에 접근할 수 없어요."
+        message: "사본을 만들 일정을 찾지 못했어요."
       });
     }
 
@@ -6119,7 +6411,7 @@ app.post("/plans/:tripId/duplicate", validateFirebaseIdToken, async (req, res) =
     console.error("[Plans] Duplicate error:", error);
     return res.status(500).json({
       error: "Trip Duplicate Error",
-      message: "여행 사본을 만들지 못했어요."
+      message: "일정 사본을 만들지 못했어요."
     });
   }
 });
@@ -6132,7 +6424,7 @@ app.delete("/plans/:tripId", validateFirebaseIdToken, async (req, res) => {
   if (!tripId) {
     return res.status(400).json({
       error: "Missing tripId",
-      message: "삭제할 여행을 찾지 못했어요."
+      message: "삭제할 일정을 찾지 못했어요."
     });
   }
 
@@ -6141,14 +6433,21 @@ app.delete("/plans/:tripId", validateFirebaseIdToken, async (req, res) => {
     if (!tripContext) {
       return res.status(404).json({
         error: "Trip Not Found",
-        message: "삭제할 여행을 찾지 못했어요."
+        message: "삭제할 일정을 찾지 못했어요."
       });
     }
 
     if (!canDeleteTripRole(tripContext.role)) {
       return res.status(403).json({
         error: "Forbidden",
-        message: "여행을 삭제할 권한이 없어요."
+        message: "이 일정은 삭제할 수 없어요."
+      });
+    }
+
+    if (isTripSoftDeleted(tripContext.data)) {
+      return res.status(409).json({
+        error: "Trip Already Deleted",
+        message: "이미 삭제한 일정이에요. 설정의 삭제한 일정에서 복구하거나 영구 삭제할 수 있어요."
       });
     }
 
@@ -6158,7 +6457,7 @@ app.delete("/plans/:tripId", validateFirebaseIdToken, async (req, res) => {
       if (!transferOwnerUid) {
         return res.status(409).json({
           error: "Owner Transfer Required",
-          message: "함께하는 멤버가 있어요. 여행을 삭제하려면 먼저 소유권을 넘길 멤버를 선택해 주세요.",
+          message: "함께하는 멤버가 있어요. 일정을 삭제하려면 먼저 소유권을 넘길 멤버를 선택해 주세요.",
           requiresOwnerTransfer: true
         });
       }
@@ -6184,14 +6483,173 @@ app.delete("/plans/:tripId", validateFirebaseIdToken, async (req, res) => {
       });
     }
 
-    await purgeOwnedTripById(tripId);
+    const deletedFields = await moveOwnedTripToTrash(tripContext.ref, uid);
 
-    return res.status(204).send();
+    return res.json({
+      status: "trashed",
+      tripId,
+      purgeAfter: deletedFields.purgeAfter
+    });
   } catch (error) {
     console.error("[Plans] Delete error:", error);
     return res.status(500).json({
       error: "Trip Delete Error",
-      message: "여행을 삭제하지 못했어요."
+      message: "일정을 삭제하지 못했어요."
+    });
+  }
+});
+
+app.post("/plans/:tripId/restore", validateFirebaseIdToken, async (req, res) => {
+  const tripId = readString(req.params.tripId);
+  const uid = req.user.uid;
+
+  if (!tripId) {
+    return res.status(400).json({
+      error: "Missing tripId",
+      message: "복구할 일정을 찾지 못했어요."
+    });
+  }
+
+  try {
+    const tripContext = await getTripAccessContext(uid, tripId, {
+      includeDeleted: true
+    });
+    if (!tripContext) {
+      return res.status(404).json({
+        error: "Trip Not Found",
+        message: "복구할 일정을 찾지 못했어요."
+      });
+    }
+
+    if (tripContext.role !== "owner") {
+      return res.status(403).json({
+        error: "Forbidden",
+        message: "삭제한 일정 복구는 소유자만 할 수 있어요."
+      });
+    }
+
+    const nowIso = new Date().toISOString();
+    await tripContext.ref.update({
+      deletedAt: admin.firestore.FieldValue.delete(),
+      deletedBy: admin.firestore.FieldValue.delete(),
+      deletionReason: admin.firestore.FieldValue.delete(),
+      purgeAfter: admin.firestore.FieldValue.delete(),
+      updatedAt: nowIso
+    });
+
+    const nextData = {
+      ...tripContext.data,
+      updatedAt: nowIso
+    };
+    delete nextData.deletedAt;
+    delete nextData.deletedBy;
+    delete nextData.deletionReason;
+    delete nextData.purgeAfter;
+
+    return res.json({
+      trip: buildTripDetailResponse(tripId, nextData)
+    });
+  } catch (error) {
+    console.error("[Plans] Restore error:", error);
+    return res.status(500).json({
+      error: "Trip Restore Error",
+      message: "일정을 복구하지 못했어요."
+    });
+  }
+});
+
+app.delete("/plans/:tripId/permanent", validateFirebaseIdToken, async (req, res) => {
+  const tripId = readString(req.params.tripId);
+  const uid = req.user.uid;
+
+  if (!tripId) {
+    return res.status(400).json({
+      error: "Missing tripId",
+      message: "영구 삭제할 일정을 찾지 못했어요."
+    });
+  }
+
+  try {
+    const tripContext = await getTripAccessContext(uid, tripId, {
+      includeDeleted: true
+    });
+    if (!tripContext) {
+      return res.status(404).json({
+        error: "Trip Not Found",
+        message: "영구 삭제할 일정을 찾지 못했어요."
+      });
+    }
+
+    if (tripContext.role !== "owner") {
+      return res.status(403).json({
+        error: "Forbidden",
+        message: "일정 영구 삭제는 소유자만 할 수 있어요."
+      });
+    }
+
+    if (!isTripSoftDeleted(tripContext.data)) {
+      return res.status(400).json({
+        error: "Trip Not In Trash",
+        message: "먼저 일정을 삭제한 뒤 영구 삭제할 수 있어요."
+      });
+    }
+
+    await purgeOwnedTripById(tripId);
+
+    return res.status(204).send();
+  } catch (error) {
+    console.error("[Plans] Permanent delete error:", error);
+    return res.status(500).json({
+      error: "Trip Permanent Delete Error",
+      message: "일정을 영구 삭제하지 못했어요."
+    });
+  }
+});
+
+app.delete("/plans/:tripId/leave", validateFirebaseIdToken, async (req, res) => {
+  const tripId = readString(req.params.tripId);
+  const uid = req.user.uid;
+
+  if (!tripId) {
+    return res.status(400).json({
+      error: "Missing tripId",
+      message: "나갈 일정을 찾지 못했어요."
+    });
+  }
+
+  try {
+    const tripContext = await getTripAccessContext(uid, tripId);
+    if (!tripContext) {
+      return res.status(404).json({
+        error: "Trip Not Found",
+        message: "나갈 일정을 찾지 못했어요."
+      });
+    }
+
+    const membership = normalizeTripMembers(tripContext.data);
+    if (membership.ownerUid === uid || tripContext.role === "owner") {
+      return res.status(400).json({
+        error: "Owner cannot leave",
+        message: "소유자는 일정에서 나갈 수 없어요. 소유권을 넘기거나 일정을 삭제해 주세요."
+      });
+    }
+
+    const nextMembers = {
+      ...membership.membersByUid
+    };
+    delete nextMembers[uid];
+
+    await tripContext.ref.update({
+      members: nextMembers,
+      updatedAt: new Date().toISOString()
+    });
+
+    return res.status(204).send();
+  } catch (error) {
+    console.error("[Plans] Leave error:", error);
+    return res.status(500).json({
+      error: "Trip Leave Error",
+      message: "일정에서 나가지 못했어요."
     });
   }
 });
@@ -6213,7 +6671,7 @@ app.post("/plans/:tripId/owner-transfer", validateFirebaseIdToken, async (req, r
     if (!tripContext) {
       return res.status(404).json({
         error: "Trip Not Found",
-        message: "소유권을 넘길 여행을 찾지 못했어요."
+        message: "소유권을 넘길 일정을 찾지 못했어요."
       });
     }
 
@@ -6261,7 +6719,7 @@ app.get("/plans/:tripId/share", validateFirebaseIdToken, async (req, res) => {
   if (!tripId) {
     return res.status(400).json({
       error: "Missing tripId",
-      message: "공유할 여행을 찾지 못했어요."
+      message: "공유할 일정을 찾지 못했어요."
     });
   }
 
@@ -6270,7 +6728,7 @@ app.get("/plans/:tripId/share", validateFirebaseIdToken, async (req, res) => {
     if (!tripContext) {
       return res.status(404).json({
         error: "Trip Not Found",
-        message: "공유할 여행을 찾지 못했어요."
+        message: "공유할 일정을 찾지 못했어요."
       });
     }
 
@@ -6312,7 +6770,7 @@ app.patch("/plans/:tripId/share", validateFirebaseIdToken, async (req, res) => {
   if (!tripId) {
     return res.status(400).json({
       error: "Missing tripId",
-      message: "공유 설정을 변경할 여행을 찾지 못했어요."
+      message: "공유 설정을 변경할 일정을 찾지 못했어요."
     });
   }
 
@@ -6321,7 +6779,7 @@ app.patch("/plans/:tripId/share", validateFirebaseIdToken, async (req, res) => {
     if (!tripContext) {
       return res.status(404).json({
         error: "Trip Not Found",
-        message: "공유 설정을 변경할 여행을 찾지 못했어요."
+        message: "공유 설정을 변경할 일정을 찾지 못했어요."
       });
     }
 
@@ -6457,7 +6915,7 @@ app.patch("/plans/:tripId/members/:memberUid", validateFirebaseIdToken, async (r
     if (!tripContext) {
       return res.status(404).json({
         error: "Trip Not Found",
-        message: "멤버를 수정할 여행을 찾지 못했어요."
+        message: "멤버를 수정할 일정을 찾지 못했어요."
       });
     }
 
@@ -6529,7 +6987,7 @@ app.delete("/plans/:tripId/members/:memberUid", validateFirebaseIdToken, async (
     if (!tripContext) {
       return res.status(404).json({
         error: "Trip Not Found",
-        message: "멤버를 제거할 여행을 찾지 못했어요."
+        message: "멤버를 제거할 일정을 찾지 못했어요."
       });
     }
 
@@ -6591,7 +7049,7 @@ app.post("/plans/:tripId/announcement-push", validateFirebaseIdToken, announceme
   if (!tripId) {
     return res.status(400).json({
       error: "Missing tripId",
-      message: "공지를 보낼 여행을 찾지 못했어요."
+      message: "공지를 보낼 일정을 찾지 못했어요."
     });
   }
 
@@ -6600,7 +7058,7 @@ app.post("/plans/:tripId/announcement-push", validateFirebaseIdToken, announceme
     if (!tripContext) {
       return res.status(404).json({
         error: "Trip Not Found",
-        message: "공지를 보낼 여행을 찾지 못했어요."
+        message: "공지를 보낼 일정을 찾지 못했어요."
       });
     }
 
@@ -6674,7 +7132,7 @@ app.get("/invites/:token", attachOptionalFirebaseIdToken, async (req, res) => {
       if (!tripSnapshot.exists) {
         return res.status(404).json({
           error: "Invite Not Found",
-          message: "초대받은 여행을 찾지 못했어요."
+          message: "초대받은 일정을 찾지 못했어요."
         });
       }
 
@@ -6683,7 +7141,7 @@ app.get("/invites/:token", attachOptionalFirebaseIdToken, async (req, res) => {
         invite: {
           token,
           tripId: inviteContext.tripId,
-          title: readString(tripData?.meta?.title) || "공유된 여행",
+          title: readString(tripData?.meta?.title) || "공유된 일정",
           roleOnAccept: normalizeCollaboratorDefaultRole(inviteContext.data?.roleOnAccept),
           alreadyMember: uid ? Boolean(resolveTripRoleFromData(tripData, uid)) : false,
           legacy: false
@@ -6698,7 +7156,7 @@ app.get("/invites/:token", attachOptionalFirebaseIdToken, async (req, res) => {
           invite: {
             token,
             tripId: tripContext.tripId,
-            title: readString(tripContext.data?.meta?.title) || "공유된 여행",
+            title: readString(tripContext.data?.meta?.title) || "공유된 일정",
             roleOnAccept: tripContext.role,
             alreadyMember: true,
             legacy: true
@@ -6751,7 +7209,7 @@ app.post("/invites/:token/accept", validateFirebaseIdToken, async (req, res) => 
 
       const tripRef = db.collection("plans").doc(tripId);
       const tripSnapshot = await transaction.get(tripRef);
-      if (!tripSnapshot.exists) {
+      if (!tripSnapshot.exists || isTripSoftDeleted(tripSnapshot.data() || {})) {
         throw new Error("TRIP_NOT_FOUND");
       }
 
@@ -6803,7 +7261,7 @@ app.post("/invites/:token/accept", validateFirebaseIdToken, async (req, res) => 
     if (error.message === "TRIP_NOT_FOUND") {
       return res.status(404).json({
         error: "Trip Not Found",
-        message: "초대받은 여행을 찾지 못했어요."
+        message: "초대받은 일정을 찾지 못했어요."
       });
     }
 
@@ -6822,7 +7280,7 @@ app.post("/plans/:tripId/members/self-join-legacy", validateFirebaseIdToken, asy
   if (!tripId) {
     return res.status(400).json({
       error: "Missing tripId",
-      message: "참여할 여행을 찾지 못했어요."
+      message: "참여할 일정을 찾지 못했어요."
     });
   }
 
@@ -6842,7 +7300,7 @@ app.post("/plans/:tripId/members/self-join-legacy", validateFirebaseIdToken, asy
     console.error("[Plans] Legacy join error:", error);
     return res.status(500).json({
       error: "Legacy Join Error",
-      message: "여행 참여 중 오류가 발생했습니다."
+      message: "일정 참여 중 오류가 발생했어요."
     });
   }
 });
@@ -8558,7 +9016,7 @@ app.post("/transfer-google-photo", validateFirebaseIdToken, transferPhotoLimiter
   if (!apiKey || !reference || !tripId) {
     return res.status(400).json({
       error: "Missing required parameters",
-      message: "사진을 저장할 여행 정보를 확인해 주세요."
+      message: "사진을 저장할 일정 정보를 확인해 주세요."
     });
   }
 
@@ -8567,7 +9025,7 @@ app.post("/transfer-google-photo", validateFirebaseIdToken, transferPhotoLimiter
     if (!tripContext || !canEditTripRole(tripContext.role)) {
       return res.status(403).json({
         error: "Forbidden",
-        message: "이 여행 계획에 대한 수정 권한이 없습니다."
+        message: "이 일정은 열람만 가능해요. 편집 멤버에게 수정을 요청해 주세요."
       });
     }
   } catch (error) {
@@ -8771,7 +9229,7 @@ app.post("/storage/upload-trip-image", validateFirebaseIdToken, storageUploadLim
     if (!tripContext || !canEditTripRole(tripContext.role)) {
       return res.status(403).json({
         error: "Forbidden",
-        message: "이 여행 계획에 대한 수정 권한이 없습니다."
+        message: "이 일정은 열람만 가능해요. 편집 멤버에게 수정을 요청해 주세요."
       });
     }
 
@@ -8874,7 +9332,7 @@ app.post("/storage/upload-trip-attachment", validateFirebaseIdToken, storageUplo
     if (!tripContext || !canEditTripRole(tripContext.role)) {
       return res.status(403).json({
         error: "Forbidden",
-        message: "이 여행 계획에 대한 수정 권한이 없습니다."
+        message: "이 일정은 열람만 가능해요. 편집 멤버에게 수정을 요청해 주세요."
       });
     }
 
@@ -9090,6 +9548,52 @@ exports.purgeExpiredTripRevisions = onSchedule({
   console.info("[Trip Revisions] Purge worker complete", {
     purgedCount,
     retentionDays: TRIP_REVISION_RETENTION_DAYS
+  });
+});
+
+exports.purgeExpiredDeletedTrips = onSchedule({
+  schedule: "every 24 hours",
+  region: "asia-northeast3",
+  memory: "512MiB",
+  timeoutSeconds: 540,
+  maxInstances: 1
+}, async () => {
+  const nowIso = new Date().toISOString();
+  let purgedCount = 0;
+
+  while (true) {
+    const snapshot = await admin
+      .firestore()
+      .collection("plans")
+      .where("purgeAfter", "<=", nowIso)
+      .limit(TRIP_TRASH_PURGE_BATCH_LIMIT)
+      .get();
+
+    if (snapshot.empty) {
+      break;
+    }
+
+    for (const docSnapshot of snapshot.docs) {
+      const data = docSnapshot.data() || {};
+      if (!isTripSoftDeleted(data)) {
+        await docSnapshot.ref.update({
+          purgeAfter: admin.firestore.FieldValue.delete()
+        }).catch(() => {});
+        continue;
+      }
+
+      await purgeOwnedTripById(docSnapshot.id);
+      purgedCount += 1;
+    }
+
+    if (snapshot.size < TRIP_TRASH_PURGE_BATCH_LIMIT) {
+      break;
+    }
+  }
+
+  console.info("[Trip Trash] Purge worker complete", {
+    purgedCount,
+    retentionDays: TRIP_TRASH_RETENTION_DAYS
   });
 });
 

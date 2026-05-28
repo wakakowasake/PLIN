@@ -28,7 +28,7 @@ function mapProfilePhotoPickerError(error: unknown) {
         || normalizedMessage.includes('native module')
         || normalizedMessage.includes('require native module')
     ) {
-        return '프로필 사진 기능을 쓰려면 앱을 한 번 다시 빌드해 주세요.';
+        return '프로필 사진 기능을 사용할 수 없어요. 앱을 업데이트한 뒤 다시 시도해 주세요.';
     }
 
     if (normalizedMessage.includes('permission')) {

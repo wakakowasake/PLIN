@@ -30,7 +30,7 @@ function getPrimaryLabel(summary: MobileProfileSummary) {
         return email;
     }
 
-    return 'PLIN 여행자';
+    return 'PLIN 사용자';
 }
 
 function getSupportLabel(summary: MobileProfileSummary, isLoading: boolean) {

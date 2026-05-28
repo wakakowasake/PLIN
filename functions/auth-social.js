@@ -1329,7 +1329,7 @@ function registerAuthSocialRoutes({
     if (intent === "link" && !req.user?.uid) {
       return res.status(403).json({
         error: "Unauthorized",
-        message: "로그인이 필요합니다."
+        message: "로그인이 필요해요."
       });
     }
 
@@ -1479,7 +1479,7 @@ function registerAuthSocialRoutes({
     if (intent === "link" && !currentUid) {
       return res.status(403).json({
         error: "Unauthorized",
-        message: "로그인이 필요합니다."
+        message: "로그인이 필요해요."
       });
     }
 
@@ -1558,7 +1558,7 @@ function registerAuthSocialRoutes({
     if (intent === "link" && !req.user?.uid) {
       return res.status(403).json({
         error: "Unauthorized",
-        message: "로그인이 필요합니다."
+        message: "로그인이 필요해요."
       });
     }
 
@@ -1730,7 +1730,7 @@ function registerAuthSocialRoutes({
     if (intent === "link" && !currentUid) {
       return res.status(403).json({
         error: "Unauthorized",
-        message: "로그인이 필요합니다."
+        message: "로그인이 필요해요."
       });
     }
 

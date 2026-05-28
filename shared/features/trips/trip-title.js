@@ -23,7 +23,7 @@ function toSafeString(value) {
 }
 
 export function getTripTitleTooLongMessage(maxLength = TRIP_TITLE_MAX_LENGTH) {
-    return `여행 제목은 ${maxLength}자 이내로 입력해 주세요.`;
+    return `일정 제목은 ${maxLength}자 이내로 입력해 주세요.`;
 }
 
 export function splitTripTitleGraphemes(value = '') {
@@ -62,7 +62,7 @@ export function validateTripTitle(value, { required = true, maxLength = TRIP_TIT
             normalizedValue,
             length: 0,
             maxLength,
-            message: required ? '여행 제목을 입력해 주세요.' : ''
+            message: required ? '일정 제목을 입력해 주세요.' : ''
         };
     }
 

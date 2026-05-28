@@ -281,7 +281,7 @@ function buildFallbackDayCount(daysLength) {
 
 function buildFallbackSubInfo(dayDates) {
     if (dayDates.length === 0) {
-        return '여행 정보 준비 중';
+        return '일정 정보 준비 중';
     }
 
     if (dayDates.length === 1) {
@@ -720,12 +720,16 @@ function normalizeTripMeta(data, days, legacyFallbacks) {
         : getTripStatus({
             days: days.map((day) => ({ date: day.date }))
         });
+    const purpose = meta.purpose === 'date' || data.purpose === 'date'
+        ? 'date'
+        : 'trip';
 
     return {
-        title: readDisplayString(meta.title ?? data.title) || '제목 없는 여행',
+        title: readDisplayString(meta.title ?? data.title) || '제목 없는 일정',
         subInfo,
         dayCount,
         location,
+        purpose,
         startDate,
         endDate,
         budget: readNullableNumber(meta.budget ?? data.budget),
@@ -981,7 +985,7 @@ export function buildTripInfoWritePatch(input, currentTrip) {
     });
 
     if (savePlan.status === 'missing_title') {
-        throw new Error('여행 제목을 입력해 주세요.');
+        throw new Error('일정 제목을 입력해 주세요.');
     }
 
     if (savePlan.status === 'title_too_long') {

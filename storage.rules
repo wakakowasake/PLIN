@@ -40,6 +40,24 @@ service firebase.storage {
       return hasTripDocument(tripId) && (role == 'owner' || role == 'editor');
     }
 
+    function isAdmin() {
+      return request.auth != null &&
+        (
+          request.auth.token.admin == true ||
+          (
+            request.auth.token.email_verified == true &&
+            (
+              request.auth.token.email == 'contact@plin.ink' ||
+              request.auth.token.email == 'plin.ink@gmail.com'
+            )
+          ) ||
+          (
+            firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+            firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin'
+          )
+        );
+    }
+
     // 추억 사진
     match /memories/{tripId}/{fileName} {
       allow read: if canReadTrip(tripId);
@@ -55,6 +73,16 @@ service firebase.storage {
       allow write: if canWriteToTrip(tripId)
                     && request.resource.size < 10 * 1024 * 1024
                     && request.resource.contentType.matches('image/.*');
+    }
+
+    // 블로그 대표 이미지
+    match /blog-covers/{userId}/{fileName} {
+      allow read: if true;
+      allow create, update: if isAdmin()
+                    && request.auth.uid == userId
+                    && request.resource.size < 5 * 1024 * 1024
+                    && request.resource.contentType.matches('image/.*');
+      allow delete: if isAdmin();
     }
     
     // 첨부파일 (사진, PDF)

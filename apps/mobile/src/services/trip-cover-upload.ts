@@ -28,7 +28,7 @@ function mapTripCoverPickerError(error: unknown) {
         || normalizedMessage.includes('native module')
         || normalizedMessage.includes('require native module')
     ) {
-        return '대표 사진 기능을 쓰려면 앱을 한 번 다시 빌드해 주세요.';
+        return '대표 사진 기능을 사용할 수 없어요. 앱을 업데이트한 뒤 다시 시도해 주세요.';
     }
 
     if (normalizedMessage.includes('permission')) {
@@ -55,7 +55,7 @@ function mapTripCoverUploadError(error: unknown) {
         || normalizedMessage.includes('does not have permission')
         || normalizedMessage.includes('unauthorized')
     ) {
-        return '대표 사진을 올릴 권한이 없어요. 여행 편집 권한을 확인해 주세요.';
+        return '이 일정은 열람만 가능해요. 편집 멤버에게 수정을 요청해 주세요.';
     }
 
     if (
@@ -114,13 +114,13 @@ export async function uploadTripCoverAsset({
     asset: PickedTripCoverAsset;
 }) {
     if (!tripId || !asset?.uri) {
-        throw new Error('대표 사진을 저장할 여행 정보를 찾지 못했어요.');
+        throw new Error('대표 사진을 저장할 일정 정보를 찾지 못했어요.');
     }
 
     try {
         const safeTripId = tripId.trim();
         if (!safeTripId) {
-            throw new Error('대표 사진을 저장할 여행 정보를 찾지 못했어요.');
+            throw new Error('대표 사진을 저장할 일정 정보를 찾지 못했어요.');
         }
 
         const storage = getMobileStorage();

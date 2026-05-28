@@ -90,13 +90,17 @@ const MOBILE_PUBLIC_ENV = {
         envName: 'EXPO_PUBLIC_PLIN_BACKEND_URL',
         value: process.env.EXPO_PUBLIC_PLIN_BACKEND_URL
     },
-    revenueCatIosApiKey: {
-        envName: 'EXPO_PUBLIC_PLIN_REVENUECAT_IOS_API_KEY',
-        value: process.env.EXPO_PUBLIC_PLIN_REVENUECAT_IOS_API_KEY
+    iapMonthlyProductId: {
+        envName: 'EXPO_PUBLIC_PLIN_IAP_MONTHLY_PRODUCT_ID',
+        value: process.env.EXPO_PUBLIC_PLIN_IAP_MONTHLY_PRODUCT_ID
     },
-    revenueCatAndroidApiKey: {
-        envName: 'EXPO_PUBLIC_PLIN_REVENUECAT_ANDROID_API_KEY',
-        value: process.env.EXPO_PUBLIC_PLIN_REVENUECAT_ANDROID_API_KEY
+    iapYearlyProductId: {
+        envName: 'EXPO_PUBLIC_PLIN_IAP_YEARLY_PRODUCT_ID',
+        value: process.env.EXPO_PUBLIC_PLIN_IAP_YEARLY_PRODUCT_ID
+    },
+    iapLifetimeProductId: {
+        envName: 'EXPO_PUBLIC_PLIN_IAP_LIFETIME_PRODUCT_ID',
+        value: process.env.EXPO_PUBLIC_PLIN_IAP_LIFETIME_PRODUCT_ID
     },
     webBasePath: {
         envName: 'EXPO_PUBLIC_PLIN_WEB_BASE_PATH',
@@ -201,19 +205,7 @@ function buildConfigErrorMessage(
         return null;
     }
 
-    if (!__DEV__) {
-        return `${subject} 설정 오류입니다. 관리자에게 문의해 주세요.`;
-    }
-
-    const suffix = missingKeys.length > 0
-        ? ` 누락: ${formatMissingEnvKeys(missingKeys)}`
-        : '';
-
-    if (state === 'partial') {
-        return `${subject} 환경 변수가 일부만 설정되어 있습니다.${suffix}`;
-    }
-
-    return `${subject} 환경 변수가 설정되지 않았습니다.${suffix}`;
+    return `${subject} 설정을 확인하지 못했어요. 고객센터로 문의해 주세요.`;
 }
 
 function buildMockModeNotice(
@@ -221,18 +213,14 @@ function buildMockModeNotice(
     status: Pick<ConfigStatus<Record<string, string>>, 'state' | 'missingKeys'>
 ) {
     if (__DEV__) {
-        const suffix = status.missingKeys.length > 0
-            ? ` (${formatMissingEnvKeys(status.missingKeys)})`
-            : '';
-
         if (status.state === 'partial') {
-            return `모바일 Firebase 환경 변수가 일부만 설정되어 있어 ${fallbackLabel} 중이에요.${suffix}`;
+            return `앱 설정을 일부 불러오지 못해 ${fallbackLabel} 중이에요.`;
         }
 
-        return `모바일 Firebase 환경 변수가 없어 ${fallbackLabel} 중이에요.${suffix}`;
+        return `앱 설정을 불러오지 못해 ${fallbackLabel} 중이에요.`;
     }
 
-    return `앱 설정 오류로 ${fallbackLabel} 중이에요. 관리자에게 문의해 주세요.`;
+    return `앱 설정을 확인하지 못해 ${fallbackLabel} 중이에요. 고객센터로 문의해 주세요.`;
 }
 
 export function readMobilePublicEnv(key: MobilePublicEnvKey, fallback = '') {

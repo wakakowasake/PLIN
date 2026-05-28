@@ -31,7 +31,7 @@ function mapTripAttachmentPickerError(error: unknown) {
         || normalizedMessage.includes('native module')
         || normalizedMessage.includes('require native module')
     ) {
-        return '첨부파일 기능을 쓰려면 앱을 한 번 다시 빌드해 주세요.';
+        return '첨부파일 기능을 사용할 수 없어요. 앱을 업데이트한 뒤 다시 시도해 주세요.';
     }
 
     if (normalizedMessage.includes('permission')) {
@@ -168,7 +168,7 @@ async function uploadTripAttachmentAssetViaBackend({
 export async function pickTripAttachmentAssets(remainingCount: number): Promise<PickedTripAttachmentAsset[]> {
     const safeRemainingCount = Math.max(0, Math.floor(Number(remainingCount) || 0));
     if (safeRemainingCount < 1) {
-        throw new Error(`첨부파일은 여행 계획당 최대 ${MAX_TRIP_ATTACHMENT_COUNT}개까지 추가할 수 있어요.`);
+        throw new Error(`첨부파일은 일정당 최대 ${MAX_TRIP_ATTACHMENT_COUNT}개까지 추가할 수 있어요.`);
     }
 
     try {
@@ -188,7 +188,7 @@ export async function pickTripAttachmentAssets(remainingCount: number): Promise<
             : [];
 
         if (assets.length > safeRemainingCount) {
-            throw new Error(`첨부파일은 여행 계획당 최대 ${MAX_TRIP_ATTACHMENT_COUNT}개까지 추가할 수 있어요.`);
+            throw new Error(`첨부파일은 일정당 최대 ${MAX_TRIP_ATTACHMENT_COUNT}개까지 추가할 수 있어요.`);
         }
 
         assets.forEach(assertAttachmentAsset);

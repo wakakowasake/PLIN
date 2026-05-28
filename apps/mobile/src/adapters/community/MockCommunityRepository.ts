@@ -20,6 +20,7 @@ import type { CanonicalTripDocument, MobileTripDetail } from '@/types/trip';
 import { buildDuplicatedTripPayload } from '@/adapters/trips/trip-duplicate-payload';
 import { normalizeTripDocument } from '@shared/features/trips/trip-canonical.js';
 import type {
+    CommunityPublishOptions,
     CommunityPostListPage,
     CommunityRepository,
     OffsetPageRequest
@@ -29,7 +30,7 @@ const MOCK_COMMUNITY_POSTS: RawCommunityPost[] = [
     {
         id: 'community-jeju-spring',
         authorUid: 'mock-author-1',
-        authorName: 'PLIN 여행자',
+        authorName: 'PLIN 사용자',
         authorPhoto: null,
         likesCount: 14,
         clonesCount: 6,
@@ -65,7 +66,7 @@ const MOCK_COMMUNITY_POSTS: RawCommunityPost[] = [
     {
         id: 'community-osaka-food',
         authorUid: 'mock-author-2',
-        authorName: '먹방 여행자',
+        authorName: 'PLIN 사용자',
         authorPhoto: null,
         likesCount: 22,
         clonesCount: 11,
@@ -105,7 +106,7 @@ const MOCK_COMMUNITY_COMMENTS: Record<string, RawCommunityComment[]> = {
             id: 'comment-jeju-1',
             text: '바다 색감이 정말 예뻐 보여요.',
             authorUid: 'mock-commenter-1',
-            authorName: '푸른 여행자',
+            authorName: 'PLIN 사용자',
             authorPhoto: null,
             createdAt: '2026-03-20T08:20:00.000Z'
         }
@@ -131,11 +132,15 @@ function delay(ms: number) {
     });
 }
 
-function buildMockCommunityPostFromTrip(userId: string, trip: MobileTripDetail): RawCommunityPost {
+function buildMockCommunityPostFromTrip(
+    userId: string,
+    trip: MobileTripDetail,
+    options?: CommunityPublishOptions
+): RawCommunityPost {
     return {
         id: `community-published-${trip.id}-${Date.now()}`,
         authorUid: userId,
-        authorName: 'PLIN 여행자',
+        authorName: 'PLIN 사용자',
         authorPhoto: null,
         likesCount: 0,
         clonesCount: 0,
@@ -167,6 +172,12 @@ function buildMockCommunityPostFromTrip(userId: string, trip: MobileTripDetail):
                 placeId: item.placeId || ''
             }))
         })),
+        marketplace: options?.marketplace?.productId ? {
+            productId: options.marketplace.productId,
+            priceLabel: options.marketplace.priceLabel || 'PLIN Plus',
+            currencyCode: options.marketplace.currencyCode || 'KRW',
+            salesStatus: 'paid'
+        } : undefined,
         shoppingList: [],
         checklist: []
     };
@@ -225,18 +236,18 @@ export class MockCommunityRepository implements CommunityRepository {
             : null;
     }
 
-    async publishTrip(userId: string, trip: MobileTripDetail): Promise<void> {
+    async publishTrip(userId: string, trip: MobileTripDetail, options?: CommunityPublishOptions): Promise<void> {
         await delay(160);
 
         if (!userId) {
-            throw new Error('로그인이 필요합니다.');
+            throw new Error('로그인이 필요해요.');
         }
 
         if (!trip?.id) {
-            throw new Error('업로드할 여행을 찾을 수 없어요.');
+            throw new Error('공개할 일정을 찾을 수 없어요.');
         }
 
-        MOCK_COMMUNITY_POSTS.unshift(buildMockCommunityPostFromTrip(userId, trip));
+        MOCK_COMMUNITY_POSTS.unshift(buildMockCommunityPostFromTrip(userId, trip, options));
     }
 
     async listComments(userId: string, postId: string): Promise<MobileCommunityComment[]> {
@@ -279,7 +290,7 @@ export class MockCommunityRepository implements CommunityRepository {
         const post = MOCK_COMMUNITY_POSTS.find((item) => item.id === postId);
 
         if (!post) {
-            throw new Error('큐레이션 플랜을 찾을 수 없어요.');
+            throw new Error('플랜을 찾을 수 없어요.');
         }
 
         const likedSet = mockLikedPostsByUser.get(userId) || new Set<string>();
@@ -303,7 +314,7 @@ export class MockCommunityRepository implements CommunityRepository {
         await delay(80);
 
         if (!postId || !reason) {
-            throw new Error('신고할 큐레이션 플랜을 찾을 수 없어요.');
+            throw new Error('신고할 플랜을 찾을 수 없어요.');
         }
     }
 
@@ -343,17 +354,17 @@ export class MockCommunityRepository implements CommunityRepository {
         await delay(140);
 
         if (!userId || !postId) {
-            throw new Error('삭제할 큐레이션 플랜을 찾을 수 없어요.');
+            throw new Error('삭제할 플랜을 찾을 수 없어요.');
         }
 
         const postIndex = MOCK_COMMUNITY_POSTS.findIndex((item) => item.id === postId);
         if (postIndex < 0) {
-            throw new Error('삭제할 큐레이션 플랜을 찾을 수 없어요.');
+            throw new Error('삭제할 플랜을 찾을 수 없어요.');
         }
 
         const post = MOCK_COMMUNITY_POSTS[postIndex];
         if ((post.authorUid || '') !== userId) {
-            throw new Error('작성자 본인만 큐레이션 플랜을 삭제할 수 있어요.');
+            throw new Error('작성한 플랜만 삭제할 수 있어요.');
         }
 
         MOCK_COMMUNITY_POSTS.splice(postIndex, 1);
@@ -379,7 +390,7 @@ export class MockCommunityRepository implements CommunityRepository {
 
         const post = MOCK_COMMUNITY_POSTS.find((item) => item.id === postId);
         if (!post) {
-            throw new Error('가져올 큐레이션 플랜을 찾을 수 없어요.');
+            throw new Error('가져올 플랜을 찾을 수 없어요.');
         }
 
         const canonicalTrip = normalizeTripDocument(post.id, post) as CanonicalTripDocument;

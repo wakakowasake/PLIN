@@ -18,10 +18,12 @@ export default defineConfig({
                 openview: resolve(__dirname, 'public/openview.html'),
                 accountDelete: resolve(__dirname, 'public/account-delete.html'),
                 authSocialComplete: resolve(__dirname, 'public/auth-social-complete.html'),
+                blog: resolve(__dirname, 'public/blog.html'),
                 company: resolve(__dirname, 'public/company.html'),
                 notices: resolve(__dirname, 'public/notices.html'),
                 privacy: resolve(__dirname, 'public/privacy.html'),
                 terms: resolve(__dirname, 'public/terms.html'),
+                subscriptionTerms: resolve(__dirname, 'public/subscription-terms.html'),
                 locationTerms: resolve(__dirname, 'public/location-terms.html'),
                 operationPolicy: resolve(__dirname, 'public/operation-policy.html'),
                 youthProtectionPolicy: resolve(__dirname, 'public/youth-protection-policy.html')

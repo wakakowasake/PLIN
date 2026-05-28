@@ -47,11 +47,12 @@ import { usePrimaryScrollActivityReporter } from '@/state/primary-scroll-activit
 import { publishTripCreated } from '@/state/trip-write-sync';
 import { type AppTheme, useAppTheme } from '@/theme';
 import { isPlinAdminProfile } from '@/utils/admin-access';
+import { getNativeStoreLabel } from '@/utils/native-store-copy';
 import type {
     MobileCommunityPostSummary,
     MobileCommunityTripDuplicateInput
 } from '@/types/community';
-import type { MobileTripSummary } from '@/types/trip';
+import type { MobileTripSummary, PlanPurpose } from '@/types/trip';
 import {
     getTripTitleTooLongMessage,
     truncateTripTitle,
@@ -62,6 +63,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Community'>;
 type CommunitySortKey = 'recent' | 'likes' | 'clones';
 type CommunitySortDirection = 'asc' | 'desc';
 type CommunityViewMode = 'card' | 'feed';
+type PlanPurposeFilter = 'all' | PlanPurpose;
 type DuplicateDraftState = {
     post: MobileCommunityPostSummary;
     title: string;
@@ -98,13 +100,22 @@ const VIEW_MODE_ICONS: Record<CommunityViewMode, keyof typeof Ionicons.glyphMap>
     feed: 'newspaper-outline'
 };
 
+const PLAN_PURPOSE_FILTER_OPTIONS: ReadonlyArray<{
+    key: PlanPurposeFilter;
+    label: string;
+}> = [
+    { key: 'all', label: '전체' },
+    { key: 'trip', label: '여행' },
+    { key: 'date', label: '데이트' }
+];
+
 const COMMUNITY_LOADING_PLACEHOLDERS = [0, 1, 2];
 
 const COMMUNITY_SHARE_BASE_URL = 'https://plin.ink';
 
 function buildCommunityShareMessage(title: string) {
-    const safeTitle = String(title || '').trim() || '큐레이션 플랜';
-    return `PLIN 큐레이션 플랜 "${safeTitle}"을 확인해 보세요.\n${COMMUNITY_SHARE_BASE_URL}`;
+    const safeTitle = String(title || '').trim() || '플랜';
+    return `PLIN에서 "${safeTitle}" 플랜을 확인해 보세요.\n${COMMUNITY_SHARE_BASE_URL}`;
 }
 
 function parseDateOnly(value: string) {
@@ -150,7 +161,7 @@ function addDays(date: Date, days: number) {
 }
 
 function buildDuplicateTitleDefault(title: string) {
-    const safeTitle = String(title || '').trim() || '제목 없는 여행';
+    const safeTitle = String(title || '').trim() || '제목 없는 일정';
     const nextTitle = safeTitle.endsWith(' 사본') ? safeTitle : `${safeTitle} 사본`;
     return truncateTripTitle(nextTitle);
 }
@@ -179,7 +190,7 @@ function buildDuplicateDraft(post: MobileCommunityPostSummary): DuplicateDraftSt
 function buildDuplicateValidationMessage(input: MobileCommunityTripDuplicateInput) {
     const titleValidation = validateTripTitle(input.title);
     if (titleValidation.code === 'missing') {
-        return '새 여행 이름을 입력해 주세요.';
+        return '새 일정 이름을 입력해 주세요.';
     }
 
     if (titleValidation.code === 'too_long') {
@@ -374,10 +385,12 @@ export function CommunityScreen({ navigation }: Props) {
     const [sortKey, setSortKey] = React.useState<CommunitySortKey>('recent');
     const [sortDirection, setSortDirection] = React.useState<CommunitySortDirection>('desc');
     const [viewMode, setViewMode] = React.useState<CommunityViewMode>('feed');
+    const [purposeFilter, setPurposeFilter] = React.useState<PlanPurposeFilter>('all');
     const [isViewModeTransitioning, setIsViewModeTransitioning] = React.useState(false);
     const [isViewModeHydrated, setIsViewModeHydrated] = React.useState(false);
     const [searchQuery, setSearchQuery] = React.useState('');
     const [isSortModalVisible, setIsSortModalVisible] = React.useState(false);
+    const [isPurposeFilterModalVisible, setIsPurposeFilterModalVisible] = React.useState(false);
     const [isPublishHubVisible, setPublishHubVisible] = React.useState(false);
     const [publishableTrips, setPublishableTrips] = React.useState<MobileTripSummary[]>([]);
     const [isPublishHubLoading, setPublishHubLoading] = React.useState(false);
@@ -392,18 +405,26 @@ export function CommunityScreen({ navigation }: Props) {
     const [pendingSharePost, setPendingSharePost] = React.useState<MobileCommunityPostSummary | null>(null);
     const viewModeTransitionTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const { notifyPrimaryScrollActivity, scrollEventThrottle } = usePrimaryScrollActivityReporter();
+    const nativeStoreLabel = getNativeStoreLabel();
     const sortedItems = React.useMemo(
         () => sortPosts(items, sortKey, sortDirection),
         [items, sortDirection, sortKey]
     );
     const trimmedSearchQuery = React.useMemo(() => searchQuery.trim(), [searchQuery]);
     const filteredItems = React.useMemo(() => (
-        sortedItems.filter((item) => matchesCommunitySearch(item, trimmedSearchQuery))
-    ), [sortedItems, trimmedSearchQuery]);
+        sortedItems.filter((item) => (
+            (purposeFilter === 'all' || item.purpose === purposeFilter)
+            && matchesCommunitySearch(item, trimmedSearchQuery)
+        ))
+    ), [purposeFilter, sortedItems, trimmedSearchQuery]);
     const isInitialLoading = loading && sortedItems.length === 0;
     const activeSortOption = React.useMemo(() => (
         SORT_OPTIONS.find((option) => option.key === sortKey) || SORT_OPTIONS[0]
     ), [sortKey]);
+    const activePurposeFilterOption = React.useMemo(() => (
+        PLAN_PURPOSE_FILTER_OPTIONS.find((option) => option.key === purposeFilter)
+        || PLAN_PURPOSE_FILTER_OPTIONS[0]
+    ), [purposeFilter]);
     const activeViewOption = React.useMemo(() => (
         VIEW_OPTIONS.find((option) => option.key === viewMode) || VIEW_OPTIONS[0]
     ), [viewMode]);
@@ -439,7 +460,6 @@ export function CommunityScreen({ navigation }: Props) {
     }), [insets.bottom, theme.spacing.md]);
     const hasPendingAction = Boolean(processingPostId || purchaseBusyPostId);
     const activeMenuIsLockedPlan = activeMenuPost?.marketplace.purchaseState === 'locked';
-    const activeMenuPriceLabel = activeMenuPost?.marketplace.priceLabel || '유료 플랜';
     const communityRenderItems = React.useMemo<Array<MobileCommunityPostSummary | LoadingCommunityRow>>(
         () => (
             isInitialLoading
@@ -455,7 +475,7 @@ export function CommunityScreen({ navigation }: Props) {
         () => (isViewModeTransitioning ? [] : communityRenderItems),
         [communityRenderItems, isViewModeTransitioning]
     );
-    const isEmptyFeedState = isEmpty && !trimmedSearchQuery;
+    const isEmptyFeedState = isEmpty && !trimmedSearchQuery && purposeFilter === 'all';
     const activeSortDirectionIcon: keyof typeof Ionicons.glyphMap =
         sortDirection === 'asc' ? 'arrow-up' : 'arrow-down';
     const activeViewModeIcon: keyof typeof Ionicons.glyphMap = VIEW_MODE_ICONS[viewMode];
@@ -553,13 +573,7 @@ export function CommunityScreen({ navigation }: Props) {
     const loadPublishableTrips = React.useCallback(async () => {
         if (!user?.uid) {
             setPublishableTrips([]);
-            setPublishHubError('로그인 후 업로드 가능한 여행을 확인할 수 있어요.');
-            return;
-        }
-
-        if (!isCommunityAdmin) {
-            setPublishableTrips([]);
-            setPublishHubError('PLIN 큐레이션 업로드는 관리자만 가능해요.');
+            setPublishHubError('로그인 후 공개 가능한 일정을 확인할 수 있어요.');
             return;
         }
 
@@ -575,13 +589,13 @@ export function CommunityScreen({ navigation }: Props) {
             setPublishHubError(
                 loadError instanceof Error
                     ? loadError.message
-                    : '업로드 가능한 여행을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.'
+                    : '공개 가능한 일정을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.'
             );
             setPublishableTrips([]);
         } finally {
             setPublishHubLoading(false);
         }
-    }, [isCommunityAdmin, tripRepository, user?.uid]);
+    }, [tripRepository, user?.uid]);
 
     const closePublishHub = React.useCallback(() => {
         if (isPublishHubLoading) {
@@ -618,11 +632,16 @@ export function CommunityScreen({ navigation }: Props) {
         }
 
         setIsSortModalVisible(false);
+        setIsPurposeFilterModalVisible(false);
         setActiveMenuPost(post);
     }, [hasPendingAction]);
 
     const closeSortModal = React.useCallback(() => {
         setIsSortModalVisible(false);
+    }, []);
+
+    const closePurposeFilterModal = React.useCallback(() => {
+        setIsPurposeFilterModalVisible(false);
     }, []);
 
     const handleOpenSortModal = React.useCallback(() => {
@@ -632,6 +651,23 @@ export function CommunityScreen({ navigation }: Props) {
 
         setIsSortModalVisible(true);
     }, [hasPendingAction, isInitialLoading]);
+
+    const handleOpenPurposeFilterModal = React.useCallback(() => {
+        if (hasPendingAction || isInitialLoading) {
+            return;
+        }
+
+        setIsPurposeFilterModalVisible(true);
+    }, [hasPendingAction, isInitialLoading]);
+
+    const handleSelectPurposeFilter = React.useCallback((nextPurposeFilter: PlanPurposeFilter) => {
+        if (hasPendingAction) {
+            return;
+        }
+
+        setPurposeFilter(nextPurposeFilter);
+        setIsPurposeFilterModalVisible(false);
+    }, [hasPendingAction]);
 
     const handleSelectSortOption = React.useCallback((nextSortKey: CommunitySortKey) => {
         if (hasPendingAction) {
@@ -697,7 +733,7 @@ export function CommunityScreen({ navigation }: Props) {
         }
 
         Alert.alert(
-            '큐레이션 플랜을 삭제할까요?',
+            '플랜을 삭제할까요?',
             `"${post.title}" 플랜이 내려가요.`,
             [
                 { text: '취소', style: 'cancel' },
@@ -718,7 +754,7 @@ export function CommunityScreen({ navigation }: Props) {
                                 setActionError(
                                     deleteError instanceof Error
                                         ? deleteError.message
-                                        : '큐레이션 플랜을 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.'
+                                        : '플랜을 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.'
                                 );
                             } finally {
                                 setProcessingPostId(null);
@@ -835,7 +871,7 @@ export function CommunityScreen({ navigation }: Props) {
         }
 
         if (post.marketplace.purchaseState === 'locked') {
-            setActionError('구매한 큐레이션 플랜만 내 여행으로 가져올 수 있어요.');
+            setActionError('PLIN Plus가 필요한 플랜이에요.');
             return;
         }
 
@@ -857,7 +893,7 @@ export function CommunityScreen({ navigation }: Props) {
 
         const productId = post.marketplace.productId;
         if (!productId) {
-            setActionError('구매할 플랜 정보를 찾지 못했어요.');
+            setActionError('구독이 필요한 플랜 정보를 찾지 못했어요.');
             return;
         }
 
@@ -872,7 +908,7 @@ export function CommunityScreen({ navigation }: Props) {
             });
             await refresh();
             setActiveMenuPost(null);
-            Alert.alert('구매 완료', '이제 내 여행으로 가져올 수 있어요.');
+            Alert.alert('PLIN Plus 활성화', '이제 내 일정으로 가져올 수 있어요.');
         } catch (purchaseError) {
             if (isPurchaseCancelledError(purchaseError)) {
                 return;
@@ -880,9 +916,9 @@ export function CommunityScreen({ navigation }: Props) {
 
             const message = purchaseError instanceof Error
                 ? purchaseError.message
-                : '구매를 완료하지 못했어요. 잠시 후 다시 시도해 주세요.';
+                : '구독을 시작하지 못했어요. 잠시 후 다시 시도해 주세요.';
             setActionError(message);
-            Alert.alert('구매 실패', message);
+            Alert.alert('구독을 시작하지 못했어요', message, undefined, { presentation: 'native' });
         } finally {
             setPurchaseBusyPostId(null);
         }
@@ -910,13 +946,13 @@ export function CommunityScreen({ navigation }: Props) {
             });
             await refresh();
             setActiveMenuPost(null);
-            Alert.alert('구매 복원 완료', '이제 내 여행으로 가져올 수 있어요.');
+            Alert.alert('구독을 복원했어요', '이제 내 일정으로 가져올 수 있어요.');
         } catch (restoreError) {
             const message = restoreError instanceof Error
                 ? restoreError.message
-                : '구매 내역을 복원하지 못했어요.';
+                : '구독 내역을 복원하지 못했어요.';
             setActionError(message);
-            Alert.alert('복원 실패', message);
+            Alert.alert('구독을 복원하지 못했어요', message);
         } finally {
             setPurchaseBusyPostId(null);
         }
@@ -1004,7 +1040,7 @@ export function CommunityScreen({ navigation }: Props) {
                     nextInput
                 );
                 if (!duplicatedTrip) {
-                    throw new Error('내 여행으로 가져오지 못했어요. 잠시 후 다시 시도해 주세요.');
+                    throw new Error('내 일정으로 가져오지 못했어요. 잠시 후 다시 시도해 주세요.');
                 }
 
                 setDuplicateDraft(null);
@@ -1012,12 +1048,12 @@ export function CommunityScreen({ navigation }: Props) {
                 publishTripCreated(duplicatedTrip);
                 setHasAnyTrips(true);
                 Alert.alert(
-                    '내 여행에 담았어요',
-                    `"${duplicatedTrip.title}" 여행을 내 여행 목록에 추가했어요.`,
+                    '내 일정에 담았어요',
+                    `"${duplicatedTrip.title}" 일정을 내 일정 목록에 추가했어요.`,
                     [
                         { text: '닫기', style: 'cancel' },
                         {
-                            text: '내 여행 보기',
+                            text: '내 일정 보기',
                             onPress: () => {
                                 navigation.navigate('TripList');
                             }
@@ -1027,7 +1063,7 @@ export function CommunityScreen({ navigation }: Props) {
             } catch (duplicateError) {
                 const nextMessage = duplicateError instanceof Error
                     ? duplicateError.message
-                    : '내 여행으로 가져오지 못했어요. 잠시 후 다시 시도해 주세요.';
+                    : '내 일정으로 가져오지 못했어요. 잠시 후 다시 시도해 주세요.';
 
                 setDuplicateDraft((currentDraft) => currentDraft ? {
                     ...currentDraft,
@@ -1093,7 +1129,7 @@ export function CommunityScreen({ navigation }: Props) {
                                         ? '세션을 다시 확인해 주세요.'
                                         : errorKind === 'network'
                                             ? '연결이 잠시 불안정해요.'
-                                            : '큐레이션 플랜을 불러오지 못했어요.'
+                                            : '플랜을 불러오지 못했어요.'
                                 }
                                 description={error}
                                 supportText={
@@ -1146,7 +1182,7 @@ export function CommunityScreen({ navigation }: Props) {
                                     <TextInput
                                         value={searchQuery}
                                         onChangeText={setSearchQuery}
-                                        placeholder="여행 제목, 설명, 작성자 검색"
+                                        placeholder="제목, 설명, 작성자 검색"
                                         placeholderTextColor={theme.colors.textSecondary}
                                         autoCapitalize="none"
                                         autoCorrect={false}
@@ -1171,32 +1207,60 @@ export function CommunityScreen({ navigation }: Props) {
                                 </View>
                             </View>
                             <View style={styles.sectionHeader}>
-                                <Pressable
-                                    accessibilityRole="button"
-                                    accessibilityLabel={`정렬 기준. 현재 ${activeSortOption.label}, ${
-                                        sortDirection === 'asc' ? '오름차순' : '내림차순'
-                                    }`}
-                                    disabled={hasPendingAction || isInitialLoading}
-                                    onPress={handleOpenSortModal}
-                                    style={({ pressed }) => [
-                                        styles.sortTriggerButton,
-                                        hasPendingAction || isInitialLoading
-                                            ? styles.actionButtonDisabled
-                                            : null,
-                                        pressed && !hasPendingAction && !isInitialLoading
-                                            ? styles.sortTriggerButtonPressed
-                                            : null
-                                    ]}
-                                >
-                                    <Text style={styles.sortTriggerText}>
-                                        {activeSortOption.label}
-                                    </Text>
-                                    <Ionicons
-                                        name={activeSortDirectionIcon}
-                                        size={18}
-                                        color={theme.colors.textPrimary}
-                                    />
-                                </Pressable>
+                                <View style={styles.sectionFilterControls}>
+                                    <Pressable
+                                        accessibilityRole="button"
+                                        accessibilityLabel={`정렬 기준. 현재 ${activeSortOption.label}, ${
+                                            sortDirection === 'asc' ? '오름차순' : '내림차순'
+                                        }`}
+                                        disabled={hasPendingAction || isInitialLoading}
+                                        onPress={handleOpenSortModal}
+                                        style={({ pressed }) => [
+                                            styles.sortTriggerButton,
+                                            hasPendingAction || isInitialLoading
+                                                ? styles.actionButtonDisabled
+                                                : null,
+                                            pressed && !hasPendingAction && !isInitialLoading
+                                                ? styles.sortTriggerButtonPressed
+                                                : null
+                                        ]}
+                                    >
+                                        <Text style={styles.sortTriggerText}>
+                                            {activeSortOption.label}
+                                        </Text>
+                                        <Ionicons
+                                            name={activeSortDirectionIcon}
+                                            size={18}
+                                            color={theme.colors.textPrimary}
+                                        />
+                                    </Pressable>
+                                    <Pressable
+                                        accessibilityRole="button"
+                                        accessibilityLabel={`플랜 유형. 현재 ${activePurposeFilterOption.label}`}
+                                        disabled={hasPendingAction || isInitialLoading}
+                                        onPress={handleOpenPurposeFilterModal}
+                                        style={({ pressed }) => [
+                                            styles.purposeFilterTriggerButton,
+                                            purposeFilter !== 'all' ? styles.purposeFilterTriggerButtonActive : null,
+                                            hasPendingAction || isInitialLoading ? styles.actionButtonDisabled : null,
+                                            pressed && !hasPendingAction && !isInitialLoading ? styles.sortTriggerButtonPressed : null
+                                        ]}
+                                    >
+                                        <Text
+                                            style={[
+                                                styles.purposeFilterTriggerText,
+                                                purposeFilter !== 'all' ? styles.purposeFilterTriggerTextActive : null
+                                            ]}
+                                        >
+                                            {activePurposeFilterOption.label}
+                                        </Text>
+                                        <Ionicons
+                                            name="chevron-down"
+                                            size={15}
+                                            color={purposeFilter !== 'all' ? theme.colors.accent : theme.colors.textSecondary}
+                                        />
+                                    </Pressable>
+                                </View>
                                 <View style={styles.sectionActions}>
                                     <Pressable
                                         accessibilityRole="button"
@@ -1229,7 +1293,7 @@ export function CommunityScreen({ navigation }: Props) {
                                 {trimmedSearchQuery ? (
                                     <EmptyState
                                         title="검색 결과가 없어요."
-                                        description={`"${trimmedSearchQuery}"와 일치하는 큐레이션 플랜을 찾지 못했어요.`}
+                                        description={`"${trimmedSearchQuery}"와 일치하는 플랜을 찾지 못했어요.`}
                                         actionLabel="검색 지우기"
                                         onAction={() => {
                                             setSearchQuery('');
@@ -1238,16 +1302,25 @@ export function CommunityScreen({ navigation }: Props) {
                                 ) : isEmptyFeedState ? (
                                     <EmptyState
                                         title="아직 올라온 플랜이 없어요."
-                                        description="PLIN이 준비한 큐레이션 플랜이 올라오면 여기에 보여드릴게요."
-                                        actionLabel="내 여행 보기"
+                                        description="새 플랜이 올라오면 여기에 보여드릴게요."
+                                        actionLabel="내 일정 보기"
                                         onAction={() => {
                                             navigation.navigate('TripList');
+                                        }}
+                                    />
+                                ) : purposeFilter !== 'all' ? (
+                                    <EmptyState
+                                        title={`${purposeFilter === 'date' ? '데이트' : '여행'} 플랜이 없어요.`}
+                                        description="필터를 바꾸면 다른 플랜을 볼 수 있어요."
+                                        actionLabel="전체 보기"
+                                        onAction={() => {
+                                            setPurposeFilter('all');
                                         }}
                                     />
                                 ) : (
                                     <EmptyState
                                         title="검색 결과가 없어요."
-                                        description={`"${trimmedSearchQuery}"와 일치하는 큐레이션 플랜을 찾지 못했어요.`}
+                                        description={`"${trimmedSearchQuery}"와 일치하는 플랜을 찾지 못했어요.`}
                                         actionLabel="검색 지우기"
                                         onAction={() => {
                                             setSearchQuery('');
@@ -1359,10 +1432,10 @@ export function CommunityScreen({ navigation }: Props) {
                         <View style={styles.actionModalHeader}>
                             <Text style={styles.actionModalEyebrow}>플랜 메뉴</Text>
                             <Text style={styles.actionModalTitle} numberOfLines={2}>
-                                {activeMenuPost?.title || '큐레이션 플랜'}
+                                {activeMenuPost?.title || '플랜'}
                             </Text>
                             <Text style={styles.actionModalSubtitle} numberOfLines={2}>
-                                {activeMenuPost?.subInfo || '이 여행에서 할 작업을 선택해 주세요.'}
+                                {activeMenuPost?.subInfo || '이 플랜에서 할 작업을 선택해 주세요.'}
                             </Text>
                         </View>
 
@@ -1381,7 +1454,7 @@ export function CommunityScreen({ navigation }: Props) {
                         >
                             <View style={styles.actionMenuCopy}>
                                 <Text style={styles.actionMenuLabel}>공유</Text>
-                                <Text style={styles.actionMenuHint}>이 여행을 링크로 바로 공유할 수 있어요.</Text>
+                                <Text style={styles.actionMenuHint}>이 일정을 링크로 바로 공유할 수 있어요.</Text>
                             </View>
                             <Text style={styles.actionMenuArrow}>›</Text>
                         </Pressable>
@@ -1405,10 +1478,10 @@ export function CommunityScreen({ navigation }: Props) {
                                     >
                                         <View style={styles.actionMenuCopy}>
                                             <Text style={[styles.actionMenuLabel, styles.actionMenuPrimaryLabel]}>
-                                                구매 후 가져오기
+                                                1개월 무료 체험 시작
                                             </Text>
                                             <Text style={styles.actionMenuHint}>
-                                                {`${activeMenuPriceLabel} 결제 후 내 여행으로 담을 수 있어요.`}
+                                                {nativeStoreLabel} 계정으로 시작하고, 플랜을 내 일정으로 가져올 수 있어요.
                                             </Text>
                                         </View>
                                         <Text style={[styles.actionMenuArrow, styles.actionMenuPrimaryLabel]}>›</Text>
@@ -1427,8 +1500,8 @@ export function CommunityScreen({ navigation }: Props) {
                                         ]}
                                     >
                                         <View style={styles.actionMenuCopy}>
-                                            <Text style={styles.actionMenuLabel}>구매 복원</Text>
-                                            <Text style={styles.actionMenuHint}>이미 구매했다면 이 계정에 다시 연결해요.</Text>
+                                            <Text style={styles.actionMenuLabel}>구독 복원</Text>
+                                            <Text style={styles.actionMenuHint}>이미 구독 중이라면 {nativeStoreLabel} 구독 내역을 다시 확인해요.</Text>
                                         </View>
                                         <Text style={styles.actionMenuArrow}>›</Text>
                                     </Pressable>
@@ -1448,8 +1521,8 @@ export function CommunityScreen({ navigation }: Props) {
                                     ]}
                                 >
                                     <View style={styles.actionMenuCopy}>
-                                        <Text style={styles.actionMenuLabel}>내 여행으로 가져오기</Text>
-                                        <Text style={styles.actionMenuHint}>이름과 날짜를 정해 내 여행으로 가져와요.</Text>
+                                        <Text style={styles.actionMenuLabel}>내 일정으로 가져오기</Text>
+                                        <Text style={styles.actionMenuHint}>이름과 날짜를 정해 내 일정으로 가져와요.</Text>
                                     </View>
                                     <Text style={styles.actionMenuArrow}>›</Text>
                                 </Pressable>
@@ -1523,10 +1596,10 @@ export function CommunityScreen({ navigation }: Props) {
                                     pressed && !hasPendingAction ? styles.actionMenuButtonPressed : null
                                 ]}
                             >
-                                <View style={styles.actionMenuCopy}>
-                                    <Text style={[styles.actionMenuLabel, styles.actionMenuDeleteLabel]}>삭제</Text>
-                                    <Text style={styles.actionMenuHint}>작성자와 관리자가 큐레이션 플랜을 삭제할 수 있어요.</Text>
-                                </View>
+                                    <View style={styles.actionMenuCopy}>
+                                        <Text style={[styles.actionMenuLabel, styles.actionMenuDeleteLabel]}>삭제</Text>
+                                        <Text style={styles.actionMenuHint}>작성한 플랜만 삭제할 수 있어요.</Text>
+                                    </View>
                                 <Text style={[styles.actionMenuArrow, styles.actionMenuDeleteLabel]}>›</Text>
                             </Pressable>
                         ) : null}
@@ -1541,6 +1614,80 @@ export function CommunityScreen({ navigation }: Props) {
                             ]}
                         >
                             <Text style={styles.actionModalCancelText}>닫기</Text>
+                        </Pressable>
+                    </View>
+                </View>
+            </Modal>
+            <Modal
+                animationType="fade"
+                transparent
+                visible={isPurposeFilterModalVisible}
+                onRequestClose={closePurposeFilterModal}
+            >
+                <View style={styles.sortSheetBackdrop}>
+                    <Pressable
+                        accessibilityRole="button"
+                        onPress={closePurposeFilterModal}
+                        style={StyleSheet.absoluteFill}
+                    />
+                    <View style={styles.sortSheetCard}>
+                        <View style={styles.sortSheetHandle} />
+                        <View style={styles.sortSheetHeader}>
+                            <Text style={styles.sortSheetTitle}>플랜 유형</Text>
+                            <Text style={styles.sortSheetSubtitle}>
+                                여행과 데이트 플랜을 필요한 흐름에 맞춰 골라보세요.
+                            </Text>
+                        </View>
+                        {PLAN_PURPOSE_FILTER_OPTIONS.map((option) => {
+                            const isActive = option.key === purposeFilter;
+
+                            return (
+                                <Pressable
+                                    key={option.key}
+                                    accessibilityRole="button"
+                                    accessibilityState={{ selected: isActive }}
+                                    onPress={() => {
+                                        handleSelectPurposeFilter(option.key);
+                                    }}
+                                    style={({ pressed }) => [
+                                        styles.sortSheetOptionButton,
+                                        isActive ? styles.sortSheetOptionButtonActive : null,
+                                        pressed ? styles.actionMenuButtonPressed : null
+                                    ]}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.sortSheetOptionLabel,
+                                            isActive ? styles.sortSheetOptionLabelActive : null
+                                        ]}
+                                    >
+                                        {option.label}
+                                    </Text>
+                                    {isActive ? (
+                                        <View style={styles.sortSheetOptionState}>
+                                            <Ionicons
+                                                name="checkmark"
+                                                size={16}
+                                                color={theme.colors.accent}
+                                            />
+                                            <Text style={styles.sortSheetOptionStateText}>
+                                                선택됨
+                                            </Text>
+                                        </View>
+                                    ) : null}
+                                </Pressable>
+                            );
+                        })}
+
+                        <Pressable
+                            accessibilityRole="button"
+                            onPress={closePurposeFilterModal}
+                            style={({ pressed }) => [
+                                styles.sortSheetCloseButton,
+                                pressed ? styles.actionMenuButtonPressed : null
+                            ]}
+                        >
+                            <Text style={styles.sortSheetCloseText}>닫기</Text>
                         </Pressable>
                     </View>
                 </View>
@@ -1650,15 +1797,15 @@ export function CommunityScreen({ navigation }: Props) {
                         <View style={styles.actionModalHeader}>
                             <Text style={styles.actionModalEyebrow}>가져오기 설정</Text>
                             <Text style={styles.actionModalTitle} numberOfLines={2}>
-                                {duplicateDraft?.post.title || '큐레이션 플랜'}
+                                {duplicateDraft?.post.title || '플랜'}
                             </Text>
                             <Text style={styles.actionModalSubtitle}>
-                                여행 이름과 날짜를 정한 뒤 내 여행으로 가져올 수 있어요.
+                                일정 이름과 날짜를 정한 뒤 내 일정으로 가져올 수 있어요.
                             </Text>
                         </View>
 
                         <View style={styles.duplicateFieldGroup}>
-                            <Text style={styles.duplicateFieldLabel}>여행 이름</Text>
+                            <Text style={styles.duplicateFieldLabel}>일정 이름</Text>
                             <TextInput
                                 value={duplicateDraft?.title || ''}
                                 onChangeText={(nextTitle) => {
@@ -1669,7 +1816,7 @@ export function CommunityScreen({ navigation }: Props) {
                                     } : currentDraft);
                                 }}
                                 editable={!hasPendingAction}
-                                placeholder="새 여행 이름"
+                                placeholder="새 일정 이름"
                                 placeholderTextColor={theme.colors.textSecondary}
                                 onFocus={createDuplicateFocusHandler()}
                                 style={styles.duplicateTextInput}
@@ -1678,7 +1825,7 @@ export function CommunityScreen({ navigation }: Props) {
 
                         <View style={styles.duplicateFieldGroup}>
                             <View style={styles.duplicateFieldHeaderRow}>
-                                <Text style={styles.duplicateFieldLabel}>여행 날짜</Text>
+                                <Text style={styles.duplicateFieldLabel}>일정 날짜</Text>
                                 <Pressable
                                     accessibilityRole="button"
                                     disabled={hasPendingAction}
@@ -1774,7 +1921,7 @@ export function CommunityScreen({ navigation }: Props) {
                                 ]}
                             >
                                 <Text style={styles.duplicatePrimaryButtonText}>
-                                    {hasPendingAction ? '가져오는 중...' : '내 여행에 담기'}
+                                    {hasPendingAction ? '가져오는 중...' : '내 일정에 담기'}
                                 </Text>
                             </Pressable>
                         </View>
@@ -1807,16 +1954,16 @@ export function CommunityScreen({ navigation }: Props) {
                     <View style={[styles.publishSheet, publishSheetInsetStyle]}>
                         <View style={styles.publishSheetHandle} />
                         <View style={styles.publishSheetHeader}>
-                            <Text style={styles.publishSheetEyebrow}>큐레이션 업로드</Text>
-                            <Text style={styles.publishSheetTitle}>등록할 여행 선택</Text>
+                            <Text style={styles.publishSheetEyebrow}>플랜 공개</Text>
+                            <Text style={styles.publishSheetTitle}>등록할 일정 선택</Text>
                             <Text style={styles.publishSheetSubtitle}>
-                                PLIN이 직접 검수한 여행 플랜만 공개 공간에 올릴 수 있어요.
+                                공개할 일정을 선택해 주세요. 상세 메모, 지출, 사진 같은 개인 정보는 제외돼요.
                             </Text>
                         </View>
 
                         {isPublishHubLoading ? (
                             <View style={styles.publishSheetLoadingWrap}>
-                                <LoadingView title="공개 가능한 여행 불러오는 중" fullscreen={false} />
+                                <LoadingView title="공개 가능한 일정 불러오는 중" fullscreen={false} />
                             </View>
                         ) : publishHubError ? (
                             <View style={styles.publishSheetStateBlock}>
@@ -1839,9 +1986,9 @@ export function CommunityScreen({ navigation }: Props) {
                         ) : publishableTrips.length === 0 ? (
                             <View style={styles.publishSheetStateBlock}>
                                 <EmptyState
-                                    title="공개할 여행이 아직 없어요."
-                                    description="관리자 계정의 여행에서 업로드할 플랜을 먼저 준비해 주세요."
-                                    actionLabel="내 여행 보기"
+                                    title="공개할 일정이 아직 없어요."
+                                    description="공개할 수 있는 일정을 먼저 준비해 주세요."
+                                    actionLabel="내 일정 보기"
                                     onAction={() => {
                                         setPublishHubVisible(false);
                                         navigation.navigate('TripList');
@@ -1876,7 +2023,7 @@ export function CommunityScreen({ navigation }: Props) {
                                                 {buildPublishableTripMeta(trip)}
                                             </Text>
                                             <Text style={styles.publishTripSubInfoText} numberOfLines={1}>
-                                                {trip.subInfo || '여행 정보를 확인해 공개할 수 있어요.'}
+                                                {trip.subInfo || '일정 정보를 확인해 공개할 수 있어요.'}
                                             </Text>
                                         </View>
                                         <Text style={styles.publishTripActionText}>등록</Text>
@@ -1899,10 +2046,10 @@ export function CommunityScreen({ navigation }: Props) {
                     </View>
                 </View>
             </Modal>
-            {hasAnyTrips && isCommunityAdmin ? (
+            {hasAnyTrips ? (
                 <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="큐레이션 업로드"
+                    accessibilityLabel="플랜 공개"
                     disabled={isPublishHubLoading}
                     onPress={handleOpenPublishHub}
                     style={({ pressed }) => [
@@ -1912,7 +2059,7 @@ export function CommunityScreen({ navigation }: Props) {
                         pressed && !isPublishHubLoading ? styles.composeFabPressed : null
                     ]}
                 >
-                    <Text style={styles.composeFabText}>업로드</Text>
+                    <Text style={styles.composeFabText}>공개</Text>
                 </Pressable>
             ) : null}
             <BottomNavBar activeTab="Community" />
@@ -2159,7 +2306,15 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        gap: theme.spacing.xs,
         marginBottom: theme.spacing.sm
+    },
+    sectionFilterControls: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+        gap: theme.spacing.xs
     },
     sectionHeaderCopy: {
         flex: 1,
@@ -2181,28 +2336,61 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         alignItems: 'center'
     },
     sortTriggerButton: {
+        minHeight: 36,
         flexDirection: 'row',
         alignItems: 'center',
         gap: theme.spacing.xs,
-        paddingVertical: theme.spacing.xs
+        paddingHorizontal: theme.spacing.sm,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        borderRadius: theme.radius.full,
+        backgroundColor: theme.colors.surface
     },
     sortTriggerButtonPressed: {
         opacity: 0.82
     },
     sortTriggerText: {
-        color: theme.colors.textPrimary,
-        fontSize: 18,
-        fontFamily: theme.fonts.bold
+        color: theme.colors.textSecondary,
+        fontSize: 13,
+        lineHeight: 18,
+        fontFamily: theme.fonts.semibold
+    },
+    purposeFilterTriggerButton: {
+        minHeight: 36,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: theme.spacing.micro,
+        paddingHorizontal: theme.spacing.sm,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        borderRadius: theme.radius.full,
+        backgroundColor: theme.colors.surface
+    },
+    purposeFilterTriggerButtonActive: {
+        borderColor: theme.colors.accent,
+        backgroundColor: theme.colors.accentSoft
+    },
+    purposeFilterTriggerText: {
+        color: theme.colors.textSecondary,
+        fontSize: 13,
+        lineHeight: 18,
+        fontFamily: theme.fonts.semibold
+    },
+    purposeFilterTriggerTextActive: {
+        color: theme.colors.accent
     },
     actionButtonDisabled: {
         opacity: 0.55
     },
     viewModeToggleButton: {
-        width: 40,
-        height: 40,
+        width: 36,
+        height: 36,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'transparent'
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        borderRadius: theme.radius.full,
+        backgroundColor: theme.colors.surface
     },
     viewModeToggleButtonPressed: {
         opacity: 0.88

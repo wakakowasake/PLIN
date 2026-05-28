@@ -28,6 +28,7 @@ type CalendarBaseProps = {
     startDate: string;
     endDate: string;
     helperNotice?: CalendarNotice | null;
+    selectionMode?: 'range' | 'single';
     onSelectRange(startDate: string, endDate: string): void;
     onDraftRangeChange?(startDate: string, endDate: string): void;
 };
@@ -123,6 +124,7 @@ function DateCalendarPanel({
     helperNotice,
     onSelectRange,
     onDraftRangeChange,
+    selectionMode = 'range',
     isActive,
     onClose,
     showCloseButton,
@@ -168,16 +170,30 @@ function DateCalendarPanel({
     }, [endDate, isActive, startDate, variant]);
 
     const cells = React.useMemo(() => buildCalendarCells(visibleMonth), [visibleMonth]);
+    const isSingleDateMode = selectionMode === 'single';
     const hasCompleteRange = Boolean(draftStartDate && draftEndDate);
     const subtitle = hasCompleteRange
-        ? '다시 누르면 새로운 시작일부터 다시 고를 수 있어요.'
+        ? isSingleDateMode
+            ? '다시 누르면 날짜를 바꿀 수 있어요.'
+            : '다시 누르면 새로운 시작일부터 다시 고를 수 있어요.'
         : draftStartDate
-            ? '돌아오는 날을 선택하면 기간이 완성돼요.'
-            : '출발일과 돌아오는 날을 차례로 선택해 주세요.';
+            ? isSingleDateMode
+                ? '선택한 날짜로 일정이 만들어져요.'
+                : '돌아오는 날을 선택하면 기간이 완성돼요.'
+            : isSingleDateMode
+                ? '진행할 날짜를 선택해 주세요.'
+                : '출발일과 돌아오는 날을 차례로 선택해 주세요.';
     const showSubtitle = variant !== 'inline';
     const showHeader = Boolean(title) || showSubtitle || (showCloseButton && onClose);
 
     const handleSelectDay = React.useCallback((isoDate: string) => {
+        if (isSingleDateMode) {
+            onDraftRangeChange?.(isoDate, isoDate);
+            setDraftStartDate(isoDate);
+            setDraftEndDate(isoDate);
+            return;
+        }
+
         if (!draftStartDate || draftEndDate) {
             onDraftRangeChange?.(isoDate, '');
             setDraftStartDate(isoDate);
@@ -194,7 +210,7 @@ function DateCalendarPanel({
 
         onDraftRangeChange?.(draftStartDate, isoDate);
         setDraftEndDate(isoDate);
-    }, [draftEndDate, draftStartDate, onDraftRangeChange]);
+    }, [draftEndDate, draftStartDate, isSingleDateMode, onDraftRangeChange]);
 
     return (
         <View style={[styles.card, variant === 'inline' ? styles.cardInline : null]}>
@@ -234,20 +250,24 @@ function DateCalendarPanel({
                     styles.selectionSummaryCard,
                     variant === 'inline' ? styles.selectionSummaryCardInline : null
                 ]}>
-                    <Text style={styles.selectionSummaryLabel}>시작일</Text>
+                    <Text style={styles.selectionSummaryLabel}>
+                        {isSingleDateMode ? '날짜' : '시작일'}
+                    </Text>
                     <Text style={styles.selectionSummaryValue}>
                         {formatCalendarDisplayDate(draftStartDate)}
                     </Text>
                 </View>
-                <View style={[
-                    styles.selectionSummaryCard,
-                    variant === 'inline' ? styles.selectionSummaryCardInline : null
-                ]}>
-                    <Text style={styles.selectionSummaryLabel}>종료일</Text>
-                    <Text style={styles.selectionSummaryValue}>
-                        {formatCalendarDisplayDate(draftEndDate)}
-                    </Text>
-                </View>
+                {!isSingleDateMode ? (
+                    <View style={[
+                        styles.selectionSummaryCard,
+                        variant === 'inline' ? styles.selectionSummaryCardInline : null
+                    ]}>
+                        <Text style={styles.selectionSummaryLabel}>종료일</Text>
+                        <Text style={styles.selectionSummaryValue}>
+                            {formatCalendarDisplayDate(draftEndDate)}
+                        </Text>
+                    </View>
+                ) : null}
             </View>
 
             <View style={[styles.monthRow, variant === 'inline' ? styles.monthRowInline : null]}>
@@ -347,7 +367,9 @@ function DateCalendarPanel({
             ) : null}
 
             <Text style={[styles.helperText, variant === 'inline' ? styles.helperTextInline : null]}>
-                하루 여행도 가능하고, 종료일을 시작일과 같은 날로 선택할 수 있어요.
+                {isSingleDateMode
+                    ? '데이트 일정은 선택한 날짜 하루로 만들어져요.'
+                    : '하루 일정도 가능하고, 종료일을 시작일과 같은 날로 선택할 수 있어요.'}
             </Text>
 
             {showConfirmButton ? (

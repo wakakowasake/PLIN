@@ -127,7 +127,7 @@ type TimelineItemEditDraftSnapshot = {
     reminderEnabledDraft: boolean;
 };
 
-const TRIP_WRITE_CONFLICT_MESSAGE = '다른 기기에서 먼저 수정했어요. 최신 내용을 다시 불러온 뒤 변경사항을 다시 적용해 주세요.';
+const TRIP_WRITE_CONFLICT_MESSAGE = '다른 곳에서 먼저 수정됐어요. 최신 내용을 다시 불러온 뒤 변경사항을 다시 적용해 주세요.';
 const EDIT_SHEET_DISMISS_DISTANCE = 112;
 const EDIT_SHEET_DISMISS_VELOCITY = 1.05;
 const AIRPORT_SUGGESTION_LIMIT = 6;
@@ -159,7 +159,7 @@ function normalizeTime(value: string) {
 
 function normalizeDurationMinutes(value: number | null | undefined) {
     const parsed = Number(value);
-    if (!Number.isFinite(parsed) || parsed < 1) {
+    if (!Number.isFinite(parsed) || parsed < 0) {
         return 30;
     }
 
@@ -1560,7 +1560,7 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
         if (remainingTripAttachmentCount < 1) {
             Alert.alert(
                 '첨부파일 제한',
-                `첨부파일은 여행 계획당 최대 ${MAX_TRIP_ATTACHMENT_COUNT}개까지 추가할 수 있어요.`
+                `첨부파일은 일정당 최대 ${MAX_TRIP_ATTACHMENT_COUNT}개까지 추가할 수 있어요.`
             );
             return;
         }
@@ -1777,14 +1777,14 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
                             || draftReminderItem;
                         const result = await scheduleTimelineReminder({
                             tripId: route.params.tripId,
-                            tripTitle: updatedTrip?.title || route.params.tripTitle || '여행 일정',
+                            tripTitle: updatedTrip?.title || route.params.tripTitle || '일정',
                             day: reminderDay,
                             item: reminderItem
                         });
 
                         if (!result.ok || !result.record) {
                             if (result.reason === 'permission-denied') {
-                                throw new Error('여행 일정을 알려드리려면 알림 권한을 허용해 주세요.');
+                                throw new Error('일정 알림을 받으려면 알림을 허용해 주세요.');
                             }
 
                             if (result.reason === 'past') {
@@ -1907,7 +1907,7 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
 
         Alert.alert(
             '일정을 삭제할까요?',
-            `"${route.params.itemTitle || '이 일정'}" 항목이 여행 일정에서 삭제돼요.`,
+            `"${route.params.itemTitle || '이 일정'}" 항목이 일정에서 삭제돼요.`,
             [
                 {
                     text: '취소',
@@ -2134,7 +2134,7 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
             />
             <KeyboardAvoidingView
                 style={styles.keyboardArea}
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             >
                 <Animated.View
                     style={[
@@ -2696,7 +2696,7 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
                         <View style={styles.sectionHeaderCopy}>
                             <Text style={styles.fieldLabel}>첨부파일</Text>
                             <Text style={styles.sectionHelpText}>
-                                여행 계획당 최대 {MAX_TRIP_ATTACHMENT_COUNT}개, 파일당 {MAX_TRIP_ATTACHMENT_SIZE_LABEL}까지 가능해요.
+                                일정당 최대 {MAX_TRIP_ATTACHMENT_COUNT}개, 파일당 {MAX_TRIP_ATTACHMENT_SIZE_LABEL}까지 가능해요.
                             </Text>
                         </View>
                         <Pressable

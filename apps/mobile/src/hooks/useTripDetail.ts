@@ -101,7 +101,7 @@ export function useTripDetail(userId: string | null, tripId: string) {
                 setRefreshError(
                     isOfflineModeRef.current
                         ? null
-                        : '연결이 잠시 불안정해 최신 여행 상세를 다시 확인하지 못했어요. 현재는 마지막으로 불러온 내용을 계속 보여주고 있어요.'
+                        : '연결이 잠시 불안정해 최신 일정 상세를 다시 확인하지 못했어요. 마지막으로 불러온 내용을 보여드릴게요.'
                 );
             } else {
                 detailRef.current = null;

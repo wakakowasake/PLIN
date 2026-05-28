@@ -110,10 +110,10 @@ export function TripRevisionHistorySheet({
                         <View style={styles.headerCopy}>
                             <Text style={styles.headerEyebrow}>수정 기록</Text>
                             <Text numberOfLines={1} style={styles.headerTitle}>
-                                {tripTitle || '여행'}
+                                {tripTitle || '일정'}
                             </Text>
                             <Text style={styles.headerDescription}>
-                                누가 언제 무엇을 바꿨는지 보고, 필요한 시점으로 전체 여행을 복구할 수 있어요.
+                                누가 언제 무엇을 바꿨는지 보고, 필요한 시점으로 전체 일정을 복구할 수 있어요.
                             </Text>
                         </View>
                         <Pressable
@@ -171,7 +171,7 @@ export function TripRevisionHistorySheet({
                             <View style={styles.emptyState}>
                                 <MaterialCommunityIcons name="history" size={28} color={theme.colors.textSecondary} />
                                 <Text style={styles.emptyStateTitle}>아직 저장된 수정 기록이 없어요.</Text>
-                                <Text style={styles.emptyStateBody}>여행을 수정하고 저장하면 여기에서 기록을 볼 수 있어요.</Text>
+                                <Text style={styles.emptyStateBody}>일정을 수정하고 저장하면 여기에서 기록을 볼 수 있어요.</Text>
                             </View>
                         ) : null}
 
@@ -212,7 +212,7 @@ export function TripRevisionHistorySheet({
                                     </View>
 
                                     <Text style={styles.summaryText}>
-                                        {entry.summary.text || '여행 내용 수정'}
+                                        {entry.summary.text || '일정 내용 수정'}
                                     </Text>
 
                                     <View style={styles.versionRow}>

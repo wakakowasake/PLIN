@@ -28,6 +28,7 @@ type Props = {
     tripTitle: string;
     shareInfo: TripShareResponse | null;
     canPublishCommunity?: boolean;
+    canPublishPaidCommunity?: boolean;
     loading?: boolean;
     error?: string | null;
     busyAction?: string | null;
@@ -81,10 +82,10 @@ function shareRoleHint(role: TripShareLinkRole) {
     }
 
     if (role === 'member') {
-        return '로그인한 뒤 읽기 전용 멤버로 여행에 참여해요.';
+        return '로그인한 뒤 읽기 전용 멤버로 일정에 참여해요.';
     }
 
-    return '로그인한 뒤 편집 멤버로 여행에 참여해요.';
+    return '로그인한 뒤 편집 멤버로 일정에 참여해요.';
 }
 
 function buildMemberInitial(member: TripShareMember) {
@@ -433,7 +434,7 @@ export function TripShareSheet({
                         <View style={styles.headerRow}>
                             <SheetBackButton disabled={isBusy} onPress={onClose} />
                             <View style={styles.headerCopy}>
-                                <Text numberOfLines={1} style={styles.title}>여행 공유</Text>
+                                <Text numberOfLines={1} style={styles.title}>일정 공유</Text>
                             </View>
                         </View>
 
@@ -446,7 +447,7 @@ export function TripShareSheet({
                             <Text style={styles.sectionEyebrow}>링크 공유</Text>
                             <Text style={styles.sectionTitle}>공유 링크</Text>
                             <Text style={styles.sectionHint}>
-                                비공개로 둘지, 링크로 공유할지 정하고 링크 권한도 함께 선택할 수 있어요.
+                                공유 범위와 링크 접근을 선택해요.
                             </Text>
 
                             <View
@@ -524,7 +525,7 @@ export function TripShareSheet({
                             <Text style={styles.sectionTitle}>멤버</Text>
                             <Text style={styles.sectionHint}>
                                 {canManageMembers
-                                    ? '소유자는 멤버 권한을 바꾸거나 접근 권한을 제거할 수 있어요.'
+                                    ? '소유자는 멤버 역할을 바꾸거나 내보낼 수 있어요.'
                                     : '참여 중인 멤버를 확인할 수 있어요.'}
                             </Text>
 
@@ -556,9 +557,9 @@ export function TripShareSheet({
                         {showCommunityPublishSection ? (
                             <View style={styles.sectionCard}>
                                 <Text style={styles.sectionEyebrow}>커뮤니티 공개</Text>
-                                <Text style={styles.sectionTitle}>커뮤니티 업로드</Text>
+                                <Text style={styles.sectionTitle}>플랜 공개</Text>
                                 <Text style={styles.sectionHint}>
-                                    PLIN이 큐레이션한 여행 플랜만 공개 공간에 올릴 수 있어요.
+                                    공유 가능한 플랜을 공개 공간에 올릴 수 있어요.
                                 </Text>
 
                                 <View style={styles.communityNoticeCard}>
@@ -595,13 +596,13 @@ export function TripShareSheet({
                                             color="#ffffff"
                                         />
                                         <Text style={styles.primaryActionButtonText}>
-                                            {busyAction === 'community-publish' ? '업로드 중...' : '큐레이션에 올리기'}
+                                            {busyAction === 'community-publish' ? '공개 중...' : '플랜 공개하기'}
                                         </Text>
                                     </View>
                                 </Pressable>
 
                                 <Text style={styles.communityCaption}>
-                                    공개 포스트는 개인 계획과 별도의 발행본으로 저장돼요. 민감한 정보가 없는지 한 번 더 확인해 주세요.
+                                    공개 플랜은 개인 일정과 별도로 저장돼요. 민감한 정보가 없는지 한 번 더 확인해 주세요.
                                 </Text>
                             </View>
                         ) : null}

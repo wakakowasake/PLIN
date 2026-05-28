@@ -41,7 +41,79 @@
         {
           "locationWhenInUsePermission": "PLIN이 여행 경로 확인과 주변 이동 안내를 위해 위치를 사용해요."
         }
-      ]
+      ],
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./assets/fonts/Pretendard-Regular.otf",
+            "./assets/fonts/Pretendard-Medium.otf",
+            "./assets/fonts/Pretendard-SemiBold.otf",
+            "./assets/fonts/Pretendard-Bold.otf",
+            "./assets/fonts/Pretendard-ExtraBold.otf",
+            "./assets/fonts/MemomentKkukkukk.ttf"
+          ],
+          "android": {
+            "fonts": [
+              {
+                "fontFamily": "PretendardRegular",
+                "fontDefinitions": [
+                  {
+                    "path": "./assets/fonts/Pretendard-Regular.otf",
+                    "weight": 400
+                  }
+                ]
+              },
+              {
+                "fontFamily": "PretendardMedium",
+                "fontDefinitions": [
+                  {
+                    "path": "./assets/fonts/Pretendard-Medium.otf",
+                    "weight": 500
+                  }
+                ]
+              },
+              {
+                "fontFamily": "PretendardSemiBold",
+                "fontDefinitions": [
+                  {
+                    "path": "./assets/fonts/Pretendard-SemiBold.otf",
+                    "weight": 600
+                  }
+                ]
+              },
+              {
+                "fontFamily": "PretendardBold",
+                "fontDefinitions": [
+                  {
+                    "path": "./assets/fonts/Pretendard-Bold.otf",
+                    "weight": 700
+                  }
+                ]
+              },
+              {
+                "fontFamily": "PretendardExtraBold",
+                "fontDefinitions": [
+                  {
+                    "path": "./assets/fonts/Pretendard-ExtraBold.otf",
+                    "weight": 800
+                  }
+                ]
+              },
+              {
+                "fontFamily": "MemomentKkukkukk",
+                "fontDefinitions": [
+                  {
+                    "path": "./assets/fonts/MemomentKkukkukk.ttf",
+                    "weight": 400
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "expo-iap"
     ],
     "ios": {
       "supportsTablet": true,

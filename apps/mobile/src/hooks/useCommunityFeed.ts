@@ -170,7 +170,7 @@ export function useCommunityFeed(userId: string | null) {
                     );
                 } else if (nextError.kind === 'network') {
                     setRefreshError(
-                        '연결이 잠시 불안정해 최신 큐레이션 플랜을 다시 확인하지 못했어요. 현재는 마지막으로 불러온 목록을 보여주고 있어요.'
+                        '연결이 잠시 불안정해 최신 플랜을 다시 확인하지 못했어요. 마지막으로 불러온 목록을 보여드릴게요.'
                     );
                 } else {
                     setRefreshError(nextError.message);

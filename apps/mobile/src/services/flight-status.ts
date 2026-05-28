@@ -102,7 +102,7 @@ export function buildManualFlightCard(input: FlightLookupInput): FlightStatusIte
         id: `manual:${flightNumber}:${normalizeText(input.flightDate) || 'date-unknown'}:${airportCode || 'airport-unknown'}:${direction || 'any'}`,
         flightNumber,
         providerLabel: '직접 입력',
-        sourceLabel: '공개 운항 데이터 연결 전 임시 카드',
+        sourceLabel: '직접 입력한 항공편',
         statusLabel: '등록됨',
         direction,
         originCode: direction === 'departure' ? airportCode || undefined : undefined,

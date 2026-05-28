@@ -41,7 +41,7 @@ import {
     type TripPlaceSuggestion
 } from '@/services/trip-place-search';
 import { type AppTheme, useAppTheme } from '@/theme';
-import type { MobileTripCreatePlace } from '@/types/trip';
+import type { MobileTripCreatePlace, PlanPurpose } from '@/types/trip';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -58,8 +58,8 @@ type FieldErrorMap = {
     endDate: string | null;
     form: string | null;
 };
-type TripCreateStepKey = 'place' | 'dates';
-type DestinationScope = 'international' | 'domestic';
+type TripCreateStepKey = 'purpose' | 'place' | 'dates';
+type DestinationScope = 'international' | 'domestic' | 'capitalArea' | 'nonCapitalArea';
 type PopularTripDestination = {
     id: string;
     name: string;
@@ -97,6 +97,7 @@ type SelectedTripDestination = {
     place?: MobileTripCreatePlace | null;
 };
 type TripCreateDraftSnapshot = {
+    planPurpose: PlanPurpose;
     locationQuery: string;
     startDate: string;
     endDate: string;
@@ -110,17 +111,26 @@ type PopularDestinationImageStatus = 'idle' | 'loading' | 'loaded' | 'failed';
 const POPULAR_TRIP_DESTINATIONS = popularTripDestinations as PopularTripDestination[];
 const TRIP_DESTINATION_POPULARITY_LIST = require('../../../../public/static/images/trip-destinations/destination-image-file-list.json') as TripDestinationPopularityEntry[];
 const DESTINATION_SCOPE_OPTIONS = destinationScopeOptions as Array<{
-    id: DestinationScope;
+    id: Extract<DestinationScope, 'international' | 'domestic'>;
     label: string;
 }>;
 const DESTINATION_SCOPE_DISPLAY_ORDER: Record<DestinationScope, number> = {
     domestic: 0,
-    international: 1
+    international: 1,
+    capitalArea: 0,
+    nonCapitalArea: 1
 };
-const ORDERED_DESTINATION_SCOPE_OPTIONS = [...DESTINATION_SCOPE_OPTIONS]
+const TRIP_SCOPE_OPTIONS = [...DESTINATION_SCOPE_OPTIONS]
     .sort((left, right) => (
         DESTINATION_SCOPE_DISPLAY_ORDER[left.id] - DESTINATION_SCOPE_DISPLAY_ORDER[right.id]
     ));
+const DATE_SCOPE_OPTIONS: Array<{
+    id: Extract<DestinationScope, 'capitalArea' | 'nonCapitalArea'>;
+    label: string;
+}> = [
+    { id: 'capitalArea', label: '수도권' },
+    { id: 'nonCapitalArea', label: '비수도권' }
+];
 const POPULAR_DESTINATION_CATEGORY_DEFINITIONS_BY_SCOPE: Record<DestinationScope, PopularDestinationCategoryDefinition[]> = {
     international: [
         { id: 'japan', label: '일본' },
@@ -139,20 +149,472 @@ const POPULAR_DESTINATION_CATEGORY_DEFINITIONS_BY_SCOPE: Record<DestinationScope
         { id: 'gyeongsang', label: '부산/경상' },
         { id: 'jeolla', label: '전라' },
         { id: 'jeju', label: '제주' }
+    ],
+    capitalArea: [
+        { id: 'seoul-hotplace', label: '서울 핫플' },
+        { id: 'incheon-gyeonggi', label: '근교 데이트' }
+    ],
+    nonCapitalArea: [
+        { id: 'metro-hotplace', label: '광역시' },
+        { id: 'local-date', label: '로컬 데이트' }
     ]
 };
 const DEFAULT_DESTINATION_TAG_BY_SCOPE: Record<DestinationScope, string> = {
     international: 'featured',
-    domestic: 'featured'
+    domestic: 'featured',
+    capitalArea: 'featured',
+    nonCapitalArea: 'featured'
 };
 const DEFAULT_DESTINATION_SCOPE: DestinationScope = 'domestic';
+const DEFAULT_DATE_DESTINATION_SCOPE: DestinationScope = 'capitalArea';
 const POPULAR_DESTINATION_LIMIT = 12;
 const POPULAR_DESTINATION_PREFETCH_LIMIT = 5;
 const POPULAR_DESTINATION_IMAGE_TIMEOUT_MS = 5000;
 const POPULAR_DESTINATION_CATEGORY_SAMPLE_SIZE = 3;
-const POPULAR_DESTINATION_ORDER_BY_ID = new Map(
-    TRIP_DESTINATION_POPULARITY_LIST.map((entry) => [entry.id, Number(entry.popularityOrder) || Number.MAX_SAFE_INTEGER])
-);
+const DATE_DESTINATION_IMAGE_BASE_URL = 'https://plin-db93d.web.app/images/trip-destinations';
+const DATE_DESTINATION_IMAGE_ASSET_VERSION = '2026-04-20';
+
+function createDateDestinationImageUrl(imageId: string) {
+    const safeImageId = String(imageId || 'default').trim() || 'default';
+    return `${DATE_DESTINATION_IMAGE_BASE_URL}/${safeImageId}.jpg?v=${DATE_DESTINATION_IMAGE_ASSET_VERSION}`;
+}
+
+const DATE_DESTINATION_IMAGE_ID_BY_ID: Record<string, string> = {
+    'date-seongsu': 'seoul',
+    'date-hongdae': 'seoul',
+    'date-yongsan': 'seoul',
+    'date-jongno': 'seoul',
+    'date-wolmido': 'incheon',
+    'date-suwon-haenggung': 'suwon',
+    'date-jamsil-seokchon': 'seoul',
+    'date-coex-bon': 'seoul',
+    'date-yeouido-hangang': 'seoul',
+    'date-mangwon': 'seoul',
+    'date-sinsa-garosu': 'seoul',
+    'date-seochon-bukchon': 'seoul',
+    'date-hannam': 'seoul',
+    'date-songdo': 'incheon',
+    'date-paju-heyri': 'paju',
+    'date-yangpyeong-dumulmeori': 'yangpyeong',
+    'date-gwacheon-grandpark': 'seoul',
+    'date-ilsan-lakepark': 'goyang',
+    'date-busan-jeonpo': 'busan',
+    'date-daegu-dongseongro': 'daegu',
+    'date-daejeon-euneungjeongi': 'daejeon',
+    'date-jeonju-hanok': 'jeonju',
+    'date-gyeongju-hwangnidan': 'gyeongju',
+    'date-gangneung': 'gangneung',
+    'date-busan-gwangalli': 'busan',
+    'date-daegu-suseongmot': 'daegu',
+    'date-daejeon-expo': 'daejeon',
+    'date-gwangju-yangnim': 'gwangju',
+    'date-ulsan-taehwagang': 'ulsan',
+    'date-yeosu-nightsea': 'yeosu',
+    'date-chuncheon': 'chuncheon',
+    'date-sokcho': 'sokcho',
+    'date-pohang-yeongildae': 'pohang',
+    'date-jeju-aewol': 'aewol',
+    'date-tongyeong': 'tongyeong'
+};
+
+const RAW_DATE_POPULAR_DESTINATIONS: PopularTripDestination[] = [
+    {
+        id: 'date-seongsu',
+        name: '성수',
+        subtitle: '카페, 편집숍, 서울숲 산책',
+        scope: 'capitalArea',
+        categoryId: 'seoul-hotplace',
+        keywords: ['성수동', '서울숲', '카페', '편집숍', '핫플'],
+        latitude: 37.5446,
+        longitude: 127.0557,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-hongdae',
+        name: '홍대',
+        subtitle: '공연, 맛집, 연남 산책',
+        scope: 'capitalArea',
+        categoryId: 'seoul-hotplace',
+        keywords: ['홍대입구', '연남동', '공연', '맛집', '데이트'],
+        latitude: 37.5571,
+        longitude: 126.9254,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-yongsan',
+        name: '용산',
+        subtitle: '전시, 공원, 이태원 코스',
+        scope: 'capitalArea',
+        categoryId: 'seoul-hotplace',
+        keywords: ['용산', '국립중앙박물관', '이태원', '전시', '공원'],
+        latitude: 37.5299,
+        longitude: 126.9648,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-jongno',
+        name: '종로',
+        subtitle: '익선동, 북촌, 고궁 산책',
+        scope: 'capitalArea',
+        categoryId: 'seoul-hotplace',
+        keywords: ['종로', '익선동', '북촌', '고궁', '서촌'],
+        latitude: 37.5735,
+        longitude: 126.9789,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-wolmido',
+        name: '월미도',
+        subtitle: '바다, 놀이공원, 노을 코스',
+        scope: 'capitalArea',
+        categoryId: 'incheon-gyeonggi',
+        keywords: ['월미도', '인천', '바다', '노을', '놀이공원'],
+        latitude: 37.4754,
+        longitude: 126.5965,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-suwon-haenggung',
+        name: '수원 행궁동',
+        subtitle: '골목 카페, 화성 산책',
+        scope: 'capitalArea',
+        categoryId: 'incheon-gyeonggi',
+        keywords: ['수원', '행궁동', '화성', '카페', '산책'],
+        latitude: 37.2819,
+        longitude: 127.0142,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-jamsil-seokchon',
+        name: '잠실 석촌호수',
+        subtitle: '호수 산책, 롯데월드타워, 야경',
+        scope: 'capitalArea',
+        categoryId: 'seoul-hotplace',
+        keywords: ['잠실', '석촌호수', '롯데월드타워', '야경', '데이트'],
+        latitude: 37.5112,
+        longitude: 127.0982,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-coex-bon',
+        name: '코엑스',
+        subtitle: '별마당도서관, 전시, 쇼핑',
+        scope: 'capitalArea',
+        categoryId: 'seoul-hotplace',
+        keywords: ['코엑스', '별마당도서관', '삼성동', '전시', '쇼핑'],
+        latitude: 37.5118,
+        longitude: 127.0592,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-yeouido-hangang',
+        name: '여의도 한강',
+        subtitle: '한강공원, 더현대, 피크닉',
+        scope: 'capitalArea',
+        categoryId: 'seoul-hotplace',
+        keywords: ['여의도', '한강공원', '더현대서울', '피크닉', '노을'],
+        latitude: 37.5263,
+        longitude: 126.9338,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-mangwon',
+        name: '망원',
+        subtitle: '망리단길, 시장, 한강 산책',
+        scope: 'capitalArea',
+        categoryId: 'seoul-hotplace',
+        keywords: ['망원동', '망리단길', '망원시장', '한강', '카페'],
+        latitude: 37.5568,
+        longitude: 126.9046,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-sinsa-garosu',
+        name: '신사 가로수길',
+        subtitle: '브런치, 쇼룸, 도산공원',
+        scope: 'capitalArea',
+        categoryId: 'seoul-hotplace',
+        keywords: ['신사', '가로수길', '도산공원', '브런치', '쇼룸'],
+        latitude: 37.5214,
+        longitude: 127.0227,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-seochon-bukchon',
+        name: '서촌·북촌',
+        subtitle: '고궁, 한옥길, 작은 전시',
+        scope: 'capitalArea',
+        categoryId: 'seoul-hotplace',
+        keywords: ['서촌', '북촌', '경복궁', '한옥', '전시'],
+        latitude: 37.5815,
+        longitude: 126.9830,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-hannam',
+        name: '한남',
+        subtitle: '갤러리, 카페, 리움 산책',
+        scope: 'capitalArea',
+        categoryId: 'seoul-hotplace',
+        keywords: ['한남동', '리움', '갤러리', '카페', '이태원'],
+        latitude: 37.5345,
+        longitude: 127.0006,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-songdo',
+        name: '송도 센트럴파크',
+        subtitle: '수변 산책, 야경, 쇼핑',
+        scope: 'capitalArea',
+        categoryId: 'incheon-gyeonggi',
+        keywords: ['송도', '센트럴파크', '인천', '야경', '수변'],
+        latitude: 37.3925,
+        longitude: 126.6380,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-paju-heyri',
+        name: '파주 헤이리',
+        subtitle: '갤러리, 책방, 근교 드라이브',
+        scope: 'capitalArea',
+        categoryId: 'incheon-gyeonggi',
+        keywords: ['파주', '헤이리', '출판단지', '갤러리', '드라이브'],
+        latitude: 37.7882,
+        longitude: 126.6992,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-yangpyeong-dumulmeori',
+        name: '양평 두물머리',
+        subtitle: '강변 산책, 연꽃, 근교 나들이',
+        scope: 'capitalArea',
+        categoryId: 'incheon-gyeonggi',
+        keywords: ['양평', '두물머리', '강변', '연꽃', '근교'],
+        latitude: 37.5374,
+        longitude: 127.3103,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-gwacheon-grandpark',
+        name: '과천 서울대공원',
+        subtitle: '동물원, 미술관, 공원 산책',
+        scope: 'capitalArea',
+        categoryId: 'incheon-gyeonggi',
+        keywords: ['과천', '서울대공원', '국립현대미술관', '공원', '동물원'],
+        latitude: 37.4275,
+        longitude: 127.0197,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-ilsan-lakepark',
+        name: '일산 호수공원',
+        subtitle: '호수 산책, 라페스타, 노을',
+        scope: 'capitalArea',
+        categoryId: 'incheon-gyeonggi',
+        keywords: ['일산', '호수공원', '라페스타', '노을', '산책'],
+        latitude: 37.6546,
+        longitude: 126.7680,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-busan-jeonpo',
+        name: '부산 전포',
+        subtitle: '전포카페거리, 서면 맛집',
+        scope: 'nonCapitalArea',
+        categoryId: 'metro-hotplace',
+        keywords: ['부산', '전포', '서면', '카페거리', '맛집'],
+        latitude: 35.1577,
+        longitude: 129.0631,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-daegu-dongseongro',
+        name: '대구 동성로',
+        subtitle: '쇼핑, 맛집, 근대골목',
+        scope: 'nonCapitalArea',
+        categoryId: 'metro-hotplace',
+        keywords: ['대구', '동성로', '쇼핑', '맛집', '근대골목'],
+        latitude: 35.8696,
+        longitude: 128.5961,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-daejeon-euneungjeongi',
+        name: '대전 은행동',
+        subtitle: '성심당, 원도심 산책',
+        scope: 'nonCapitalArea',
+        categoryId: 'metro-hotplace',
+        keywords: ['대전', '은행동', '성심당', '원도심', '데이트'],
+        latitude: 36.3274,
+        longitude: 127.4285,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-jeonju-hanok',
+        name: '전주 한옥마을',
+        subtitle: '한옥길, 야경, 먹거리',
+        scope: 'nonCapitalArea',
+        categoryId: 'local-date',
+        keywords: ['전주', '한옥마을', '야경', '먹거리', '산책'],
+        latitude: 35.8151,
+        longitude: 127.1532,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-gyeongju-hwangnidan',
+        name: '경주 황리단길',
+        subtitle: '감성 골목, 카페, 유적 산책',
+        scope: 'nonCapitalArea',
+        categoryId: 'local-date',
+        keywords: ['경주', '황리단길', '카페', '유적', '감성'],
+        latitude: 35.8382,
+        longitude: 129.2114,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-gangneung',
+        name: '강릉',
+        subtitle: '바다, 커피거리, 노을',
+        scope: 'nonCapitalArea',
+        categoryId: 'local-date',
+        keywords: ['강릉', '안목해변', '커피거리', '바다', '노을'],
+        latitude: 37.7519,
+        longitude: 128.8761,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-busan-gwangalli',
+        name: '부산 광안리',
+        subtitle: '바다, 광안대교 야경, 카페',
+        scope: 'nonCapitalArea',
+        categoryId: 'metro-hotplace',
+        keywords: ['부산', '광안리', '광안대교', '바다', '야경'],
+        latitude: 35.1532,
+        longitude: 129.1187,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-daegu-suseongmot',
+        name: '대구 수성못',
+        subtitle: '호수 산책, 야경, 카페',
+        scope: 'nonCapitalArea',
+        categoryId: 'metro-hotplace',
+        keywords: ['대구', '수성못', '호수', '야경', '카페'],
+        latitude: 35.8293,
+        longitude: 128.6215,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-daejeon-expo',
+        name: '대전 엑스포과학공원',
+        subtitle: '한빛탑, 갑천 산책, 야경',
+        scope: 'nonCapitalArea',
+        categoryId: 'metro-hotplace',
+        keywords: ['대전', '엑스포과학공원', '한빛탑', '갑천', '야경'],
+        latitude: 36.3767,
+        longitude: 127.3925,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-gwangju-yangnim',
+        name: '광주 양림동',
+        subtitle: '근대 골목, 펭귄마을, 카페',
+        scope: 'nonCapitalArea',
+        categoryId: 'metro-hotplace',
+        keywords: ['광주', '양림동', '펭귄마을', '근대골목', '카페'],
+        latitude: 35.1417,
+        longitude: 126.9145,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-ulsan-taehwagang',
+        name: '울산 태화강',
+        subtitle: '국가정원, 강변 산책, 야경',
+        scope: 'nonCapitalArea',
+        categoryId: 'metro-hotplace',
+        keywords: ['울산', '태화강', '국가정원', '강변', '야경'],
+        latitude: 35.5487,
+        longitude: 129.3009,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-yeosu-nightsea',
+        name: '여수 밤바다',
+        subtitle: '해상케이블카, 낭만포차, 야경',
+        scope: 'nonCapitalArea',
+        categoryId: 'local-date',
+        keywords: ['여수', '밤바다', '해상케이블카', '낭만포차', '야경'],
+        latitude: 34.7407,
+        longitude: 127.7444,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-chuncheon',
+        name: '춘천',
+        subtitle: '의암호, 레고랜드, 소양강',
+        scope: 'nonCapitalArea',
+        categoryId: 'local-date',
+        keywords: ['춘천', '의암호', '소양강', '레고랜드', '닭갈비'],
+        latitude: 37.8813,
+        longitude: 127.7298,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-sokcho',
+        name: '속초',
+        subtitle: '바다, 중앙시장, 설악산',
+        scope: 'nonCapitalArea',
+        categoryId: 'local-date',
+        keywords: ['속초', '바다', '중앙시장', '설악산', '카페'],
+        latitude: 38.2043,
+        longitude: 128.5918,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-pohang-yeongildae',
+        name: '포항 영일대',
+        subtitle: '해변 산책, 스페이스워크, 야경',
+        scope: 'nonCapitalArea',
+        categoryId: 'local-date',
+        keywords: ['포항', '영일대', '스페이스워크', '해변', '야경'],
+        latitude: 36.0609,
+        longitude: 129.3784,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-jeju-aewol',
+        name: '제주 애월',
+        subtitle: '해안도로, 카페, 노을',
+        scope: 'nonCapitalArea',
+        categoryId: 'local-date',
+        keywords: ['제주', '애월', '해안도로', '카페', '노을'],
+        latitude: 33.4622,
+        longitude: 126.3093,
+        countryCode: 'KR'
+    },
+    {
+        id: 'date-tongyeong',
+        name: '통영',
+        subtitle: '동피랑, 케이블카, 바다 전망',
+        scope: 'nonCapitalArea',
+        categoryId: 'local-date',
+        keywords: ['통영', '동피랑', '케이블카', '바다', '전망'],
+        latitude: 34.8544,
+        longitude: 128.4332,
+        countryCode: 'KR'
+    }
+];
+const DATE_POPULAR_DESTINATIONS: PopularTripDestination[] = RAW_DATE_POPULAR_DESTINATIONS.map((destination) => ({
+    ...destination,
+    imageUrl: createDateDestinationImageUrl(DATE_DESTINATION_IMAGE_ID_BY_ID[destination.id] || 'default')
+}));
+const POPULAR_DESTINATION_ORDER_BY_ID = new Map([
+    ...TRIP_DESTINATION_POPULARITY_LIST.map((entry) => [
+        entry.id,
+        Number(entry.popularityOrder) || Number.MAX_SAFE_INTEGER
+    ] as const),
+    ...DATE_POPULAR_DESTINATIONS.map((entry, index) => [entry.id, index + 1] as const)
+]);
 
 function buildPopularDestinationCategoryOrder(scope: DestinationScope) {
     const categoryDefinitions = POPULAR_DESTINATION_CATEGORY_DEFINITIONS_BY_SCOPE[scope];
@@ -199,7 +661,9 @@ function buildPopularDestinationCategoryOrder(scope: DestinationScope) {
 
 const POPULAR_DESTINATION_CATEGORY_ORDER_BY_SCOPE: Record<DestinationScope, string[]> = {
     international: buildPopularDestinationCategoryOrder('international'),
-    domestic: buildPopularDestinationCategoryOrder('domestic')
+    domestic: buildPopularDestinationCategoryOrder('domestic'),
+    capitalArea: buildPopularDestinationCategoryOrder('capitalArea'),
+    nonCapitalArea: buildPopularDestinationCategoryOrder('nonCapitalArea')
 };
 
 const POPULAR_DESTINATION_TAG_OPTIONS_BY_SCOPE: Record<DestinationScope, PopularDestinationTagDefinition[]> = {
@@ -236,6 +700,40 @@ const POPULAR_DESTINATION_TAG_OPTIONS_BY_SCOPE: Record<DestinationScope, Popular
                 categoryIds: [categoryId]
             };
         })
+    ],
+    capitalArea: [
+        {
+            id: 'featured',
+            label: '인기 핫플',
+            categoryIds: POPULAR_DESTINATION_CATEGORY_ORDER_BY_SCOPE.capitalArea
+        },
+        ...POPULAR_DESTINATION_CATEGORY_ORDER_BY_SCOPE.capitalArea.map((categoryId) => {
+            const definition = POPULAR_DESTINATION_CATEGORY_DEFINITIONS_BY_SCOPE.capitalArea
+                .find((item) => item.id === categoryId);
+
+            return {
+                id: categoryId,
+                label: definition?.label || categoryId,
+                categoryIds: [categoryId]
+            };
+        })
+    ],
+    nonCapitalArea: [
+        {
+            id: 'featured',
+            label: '인기 핫플',
+            categoryIds: POPULAR_DESTINATION_CATEGORY_ORDER_BY_SCOPE.nonCapitalArea
+        },
+        ...POPULAR_DESTINATION_CATEGORY_ORDER_BY_SCOPE.nonCapitalArea.map((categoryId) => {
+            const definition = POPULAR_DESTINATION_CATEGORY_DEFINITIONS_BY_SCOPE.nonCapitalArea
+                .find((item) => item.id === categoryId);
+
+            return {
+                id: categoryId,
+                label: definition?.label || categoryId,
+                categoryIds: [categoryId]
+            };
+        })
     ]
 };
 
@@ -246,6 +744,12 @@ const TRIP_CREATE_STEPS: Array<{
     subtitle: string;
 }> = [
     {
+        key: 'purpose',
+        label: '목적',
+        title: '어떤 일정을 만들까요?',
+        subtitle: '여행과 데이트 중 일정의 목적을 먼저 골라 주세요.'
+    },
+    {
         key: 'place',
         label: '장소',
         title: '어디로 떠나시나요?',
@@ -254,11 +758,70 @@ const TRIP_CREATE_STEPS: Array<{
     {
         key: 'dates',
         label: '날짜',
-        title: '언제 떠나시나요?',
-        subtitle: '출발일과 돌아오는 날을 골라 주세요.'
+        title: '언제 진행하나요?',
+        subtitle: '시작일과 종료일을 골라 주세요.'
     }
 ];
 const TRIP_CREATE_DRAFT_STORAGE_KEY = 'plin.mobileWeb.tripCreateDraft';
+
+const PURPOSE_OPTIONS: Array<{
+    id: PlanPurpose;
+    title: string;
+    subtitle: string;
+}> = [
+    {
+        id: 'trip',
+        title: '여행',
+        subtitle: '도시와 여행지를 중심으로 며칠짜리 일정을 만들어요.'
+    },
+    {
+        id: 'date',
+        title: '데이트',
+        subtitle: '핫플, 산책, 맛집 중심으로 가벼운 데이트 일정을 만들어요.'
+    }
+];
+
+function getDefaultDestinationScopeForPurpose(planPurpose: PlanPurpose): DestinationScope {
+    return planPurpose === 'date' ? DEFAULT_DATE_DESTINATION_SCOPE : DEFAULT_DESTINATION_SCOPE;
+}
+
+function getDestinationScopeOptions(planPurpose: PlanPurpose) {
+    return planPurpose === 'date' ? DATE_SCOPE_OPTIONS : TRIP_SCOPE_OPTIONS;
+}
+
+function getDestinationsForPurpose(planPurpose: PlanPurpose) {
+    return planPurpose === 'date' ? DATE_POPULAR_DESTINATIONS : POPULAR_TRIP_DESTINATIONS;
+}
+
+function buildPlanPurposeCopy(planPurpose: PlanPurpose) {
+    if (planPurpose === 'date') {
+        return {
+            locationError: '데이트할 장소를 검색하거나 아래 핫플에서 한 곳 이상 선택해 주세요.',
+            placeTitle: '어디서 만날까요?',
+            placeSubtitle: '수도권/비수도권 핫플을 고르거나 직접 검색해 보세요.',
+            searchPlaceholder: '동네나 핫플을 검색해 보세요',
+            emptyTitle: '조건에 맞는 핫플이 아직 없어요.',
+            searchToggleTitle: '찾는 장소가 없나요?',
+            selectedLabel: '선택한 장소',
+            titleSuffix: '데이트',
+            creatingLabel: '일정 만드는 중...',
+            createLabel: '일정 만들기'
+        };
+    }
+
+    return {
+        locationError: '여행지를 검색하거나 아래에서 한 곳 이상 선택해 주세요.',
+        placeTitle: '어디로 떠나시나요?',
+        placeSubtitle: '검색하거나 아래 인기 여행지 태그에서 골라 보세요.',
+        searchPlaceholder: '도시나 장소를 검색해 보세요',
+        emptyTitle: '조건에 맞는 인기 여행지가 아직 없어요.',
+        searchToggleTitle: '찾는 도시가 없나요?',
+        selectedLabel: '선택한 여행지',
+        titleSuffix: '여행',
+        creatingLabel: '일정 만드는 중...',
+        createLabel: '일정 만들기'
+    };
+}
 
 function normalizeDestinationTagId(scope: DestinationScope, value: string | null | undefined) {
     const normalizedValue = String(value || '').trim();
@@ -348,17 +911,19 @@ function isIsoDateInput(value: string) {
 }
 
 function buildValidationState({
+    planPurpose,
     location,
     startDate,
     endDate
 }: {
+    planPurpose: PlanPurpose;
     location: string;
     startDate: string;
     endDate: string;
 }): FieldErrorMap {
     if (!location) {
         return {
-            location: '여행지를 검색하거나 아래에서 한 곳 이상 선택해 주세요.',
+            location: buildPlanPurposeCopy(planPurpose).locationError,
             startDate: null,
             endDate: null,
             form: null
@@ -377,7 +942,9 @@ function buildValidationState({
     if (!isIsoDateInput(startDate)) {
         return {
             location: null,
-            startDate: '시작일은 YYYY-MM-DD 형식으로 입력해 주세요.',
+            startDate: planPurpose === 'date'
+                ? '날짜는 YYYY-MM-DD 형식으로 입력해 주세요.'
+                : '시작일은 YYYY-MM-DD 형식으로 입력해 주세요.',
             endDate: null,
             form: null
         };
@@ -596,6 +1163,7 @@ export function TripCreateScreen({ navigation }: Props) {
         paddingBottom: insets.bottom + theme.spacing.sm
     }), [insets.bottom, theme.spacing.sm]);
     const defaultDates = React.useMemo(() => buildDefaultDates(), []);
+    const [planPurpose, setPlanPurpose] = React.useState<PlanPurpose>('trip');
     const [locationQuery, setLocationQuery] = React.useState('');
     const [startDate, setStartDate] = React.useState(defaultDates.startDate);
     const [endDate, setEndDate] = React.useState(defaultDates.endDate);
@@ -615,7 +1183,9 @@ export function TripCreateScreen({ navigation }: Props) {
     const [destinationScope, setDestinationScope] = React.useState<DestinationScope>(DEFAULT_DESTINATION_SCOPE);
     const [destinationCategoryByScope, setDestinationCategoryByScope] = React.useState<Record<DestinationScope, string>>({
         international: DEFAULT_DESTINATION_TAG_BY_SCOPE.international,
-        domestic: DEFAULT_DESTINATION_TAG_BY_SCOPE.domestic
+        domestic: DEFAULT_DESTINATION_TAG_BY_SCOPE.domestic,
+        capitalArea: DEFAULT_DESTINATION_TAG_BY_SCOPE.capitalArea,
+        nonCapitalArea: DEFAULT_DESTINATION_TAG_BY_SCOPE.nonCapitalArea
     });
     const [destinationImageStatusById, setDestinationImageStatusById] = React.useState<Record<string, PopularDestinationImageStatus>>({});
     const searchRequestIdRef = React.useRef(0);
@@ -662,6 +1232,10 @@ export function TripCreateScreen({ navigation }: Props) {
             return;
         }
 
+        if (storedDraft.planPurpose === 'trip' || storedDraft.planPurpose === 'date') {
+            setPlanPurpose(storedDraft.planPurpose);
+        }
+
         if (typeof storedDraft.locationQuery === 'string') {
             setLocationQuery(storedDraft.locationQuery);
         }
@@ -678,7 +1252,12 @@ export function TripCreateScreen({ navigation }: Props) {
             setSelectedDestinations(storedDraft.selectedDestinations);
         }
 
-        if (storedDraft.destinationScope === 'domestic' || storedDraft.destinationScope === 'international') {
+        if (
+            storedDraft.destinationScope === 'domestic'
+            || storedDraft.destinationScope === 'international'
+            || storedDraft.destinationScope === 'capitalArea'
+            || storedDraft.destinationScope === 'nonCapitalArea'
+        ) {
             setDestinationScope(storedDraft.destinationScope);
         }
 
@@ -691,6 +1270,14 @@ export function TripCreateScreen({ navigation }: Props) {
                 domestic: normalizeDestinationTagId(
                     'domestic',
                     storedDraft.destinationCategoryByScope.domestic
+                ),
+                capitalArea: normalizeDestinationTagId(
+                    'capitalArea',
+                    storedDraft.destinationCategoryByScope.capitalArea
+                ),
+                nonCapitalArea: normalizeDestinationTagId(
+                    'nonCapitalArea',
+                    storedDraft.destinationCategoryByScope.nonCapitalArea
                 )
             });
         }
@@ -706,12 +1293,27 @@ export function TripCreateScreen({ navigation }: Props) {
     const activeStep = TRIP_CREATE_STEPS[currentStepIndex];
     const isFinalStep = currentStepIndex === TRIP_CREATE_STEPS.length - 1;
     const isPlaceStep = activeStep.key === 'place';
+    const purposeCopy = React.useMemo(() => buildPlanPurposeCopy(planPurpose), [planPurpose]);
+    const activeScopeOptions = React.useMemo(() => getDestinationScopeOptions(planPurpose), [planPurpose]);
+    const activePopularDestinations = React.useMemo(() => getDestinationsForPurpose(planPurpose), [planPurpose]);
+
+    React.useEffect(() => {
+        if (activeScopeOptions.some((option) => option.id === destinationScope)) {
+            return;
+        }
+
+        setDestinationScope(getDefaultDestinationScopeForPurpose(planPurpose));
+    }, [activeScopeOptions, destinationScope, planPurpose]);
 
     React.useLayoutEffect(() => {
         navigation.setOptions({
-            title: activeStep.key === 'dates' ? '언제 떠나시나요?' : activeStep.title
+            title: activeStep.key === 'dates'
+                ? '언제 진행하나요?'
+                : activeStep.key === 'place'
+                    ? purposeCopy.placeTitle
+                    : activeStep.title
         });
-    }, [activeStep.key, activeStep.title, navigation]);
+    }, [activeStep.key, activeStep.title, navigation, purposeCopy.placeTitle]);
 
     const selectedDestinationNames = React.useMemo(() => (
         selectedDestinations.map((destination) => destination.name.trim()).filter(Boolean)
@@ -729,11 +1331,11 @@ export function TripCreateScreen({ navigation }: Props) {
 
     const resolvedTitle = React.useMemo(() => {
         const nextTitle = selectedDestinationNames.length > 1
-            ? `${selectedDestinationNames[0]} 외 ${selectedDestinationNames.length - 1}곳 여행`
-            : (resolvedLocation ? `${resolvedLocation} 여행` : '');
+            ? `${selectedDestinationNames[0]} 외 ${selectedDestinationNames.length - 1}곳 ${purposeCopy.titleSuffix}`
+            : (resolvedLocation ? `${resolvedLocation} ${purposeCopy.titleSuffix}` : '');
 
         return truncateTripTitle(nextTitle, TRIP_TITLE_MAX_LENGTH);
-    }, [resolvedLocation, selectedDestinationNames]);
+    }, [purposeCopy.titleSuffix, resolvedLocation, selectedDestinationNames]);
 
     const representativeSelectedPlace = React.useMemo(() => (
         selectedDestinations[0]?.place || null
@@ -747,19 +1349,24 @@ export function TripCreateScreen({ navigation }: Props) {
         return `${selectedDestinationNames.slice(0, 3).join(', ')} 외 ${selectedDestinationNames.length - 3}곳`;
     }, [selectedDestinationNames]);
 
+    const effectiveEndDate = React.useMemo(() => (
+        planPurpose === 'date' ? startDate.trim() : endDate.trim()
+    ), [endDate, planPurpose, startDate]);
+
     const validationState = React.useMemo(() => buildValidationState({
+        planPurpose,
         location: resolvedLocation,
         startDate: startDate.trim(),
-        endDate: endDate.trim()
-    }), [endDate, resolvedLocation, startDate]);
+        endDate: effectiveEndDate
+    }), [effectiveEndDate, planPurpose, resolvedLocation, startDate]);
 
     const dateStepError = React.useMemo(() => (
         validationState.form || validationState.startDate || validationState.endDate
     ), [validationState.endDate, validationState.form, validationState.startDate]);
 
     const dateDurationLabel = React.useMemo(() => (
-        buildTripDurationLabel(startDate, endDate)
-    ), [endDate, startDate]);
+        buildTripDurationLabel(startDate, effectiveEndDate)
+    ), [effectiveEndDate, startDate]);
 
     const backButtonWidth = React.useMemo(() => (
         backButtonProgress.interpolate({
@@ -794,7 +1401,7 @@ export function TripCreateScreen({ navigation }: Props) {
             return [];
         }
 
-        const matchingDestinations = POPULAR_TRIP_DESTINATIONS
+        const matchingDestinations = activePopularDestinations
             .filter((destination) => {
                 if (destination.scope !== destinationScope) {
                     return false;
@@ -817,7 +1424,7 @@ export function TripCreateScreen({ navigation }: Props) {
 
         return sortDestinationsByPopularity(matchingDestinations)
             .slice(0, POPULAR_DESTINATION_LIMIT);
-    }, [destinationCategoryByScope, destinationScope, locationQuery]);
+    }, [activePopularDestinations, destinationCategoryByScope, destinationScope, locationQuery]);
 
     const activeDestinationCategories = React.useMemo(() => (
         POPULAR_DESTINATION_TAG_OPTIONS_BY_SCOPE[destinationScope]
@@ -862,20 +1469,26 @@ export function TripCreateScreen({ navigation }: Props) {
         Boolean(locationQuery.trim())
         || startDate !== defaultDates.startDate
         || endDate !== defaultDates.endDate
+        || planPurpose !== 'trip'
         || selectedDestinations.length > 0
         || currentStepIndex > 0
         || destinationScope !== DEFAULT_DESTINATION_SCOPE
         || destinationCategoryByScope.international !== DEFAULT_DESTINATION_TAG_BY_SCOPE.international
         || destinationCategoryByScope.domestic !== DEFAULT_DESTINATION_TAG_BY_SCOPE.domestic
+        || destinationCategoryByScope.capitalArea !== DEFAULT_DESTINATION_TAG_BY_SCOPE.capitalArea
+        || destinationCategoryByScope.nonCapitalArea !== DEFAULT_DESTINATION_TAG_BY_SCOPE.nonCapitalArea
     ), [
         currentStepIndex,
         defaultDates.endDate,
         defaultDates.startDate,
+        destinationCategoryByScope.capitalArea,
         destinationCategoryByScope.domestic,
         destinationCategoryByScope.international,
+        destinationCategoryByScope.nonCapitalArea,
         destinationScope,
         endDate,
         locationQuery,
+        planPurpose,
         selectedDestinations.length,
         startDate
     ]);
@@ -891,9 +1504,10 @@ export function TripCreateScreen({ navigation }: Props) {
         }
 
         writeMobileWebSessionJson(TRIP_CREATE_DRAFT_STORAGE_KEY, {
+            planPurpose,
             locationQuery,
             startDate,
-            endDate,
+            endDate: effectiveEndDate,
             selectedDestinations,
             currentStepIndex,
             destinationScope,
@@ -903,8 +1517,9 @@ export function TripCreateScreen({ navigation }: Props) {
         currentStepIndex,
         destinationCategoryByScope,
         destinationScope,
-        endDate,
+        effectiveEndDate,
         locationQuery,
+        planPurpose,
         selectedDestinations,
         shouldPersistDraft,
         startDate
@@ -927,6 +1542,23 @@ export function TripCreateScreen({ navigation }: Props) {
             });
         });
     }, [isPlaceStep]);
+
+    const handleSelectPlanPurpose = React.useCallback((nextPurpose: PlanPurpose) => {
+        if (planPurpose === nextPurpose) {
+            return;
+        }
+
+        setPlanPurpose(nextPurpose);
+        setLocationQuery('');
+        setSelectedDestinations([]);
+        setSuggestions([]);
+        setIsSearchResultsVisible(false);
+        setSearchError(null);
+        setDestinationScope(getDefaultDestinationScopeForPurpose(nextPurpose));
+        if (nextPurpose === 'date') {
+            setEndDate(startDate);
+        }
+    }, [planPurpose, startDate]);
 
     React.useEffect(() => {
         const query = locationQuery.trim();
@@ -1045,8 +1677,8 @@ export function TripCreateScreen({ navigation }: Props) {
 
     const handleSelectDateRange = React.useCallback((nextStartDate: string, nextEndDate: string) => {
         setStartDate(nextStartDate);
-        setEndDate(nextEndDate);
-    }, []);
+        setEndDate(planPurpose === 'date' ? nextStartDate : nextEndDate);
+    }, [planPurpose]);
 
     const handleSelectSuggestion = React.useCallback(async (suggestion: TripPlaceSuggestion) => {
         const selectionId = buildSearchDestinationSelectionId(suggestion.placeId);
@@ -1196,17 +1828,22 @@ export function TripCreateScreen({ navigation }: Props) {
     const handleNext = React.useCallback(() => {
         setSaveError(null);
 
-        if (currentStepIndex === 0) {
+        if (activeStep.key === 'purpose') {
+            animateToStep(1);
+            return;
+        }
+
+        if (activeStep.key === 'place') {
             setDidAttemptPlaceStep(true);
 
             if (validationState.location) {
                 return;
             }
 
-            animateToStep(1);
+            animateToStep(2);
             return;
         }
-    }, [animateToStep, currentStepIndex, validationState.location]);
+    }, [activeStep.key, animateToStep, validationState.location]);
 
     const handleBack = React.useCallback(() => {
         setSaveError(null);
@@ -1224,7 +1861,7 @@ export function TripCreateScreen({ navigation }: Props) {
         }
 
         if (!user?.uid) {
-            setSaveError('여행을 만들려면 로그인 상태를 먼저 확인해 주세요.');
+            setSaveError('일정을 만들려면 로그인 상태를 먼저 확인해 주세요.');
             return;
         }
 
@@ -1248,14 +1885,15 @@ export function TripCreateScreen({ navigation }: Props) {
             const createdTrip = await tripRepository.createTrip(user.uid, {
                 title: resolvedTitle,
                 location: resolvedLocation,
+                purpose: planPurpose,
                 startDate: startDate.trim(),
-                endDate: endDate.trim(),
+                endDate: effectiveEndDate,
                 coverImage: representativeSelectedPlace?.mapImageUrl || null,
                 place: representativeSelectedPlace
             });
 
             if (!createdTrip) {
-                throw new Error('여행을 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
+                throw new Error('일정을 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
             }
 
             publishTripCreated(createdTrip);
@@ -1268,15 +1906,16 @@ export function TripCreateScreen({ navigation }: Props) {
             setSaveError(
                 error instanceof Error
                     ? error.message
-                    : '여행을 만들지 못했어요. 잠시 후 다시 시도해 주세요.'
+                    : '일정을 만들지 못했어요. 잠시 후 다시 시도해 주세요.'
             );
         } finally {
             setIsSubmitting(false);
         }
     }, [
-        endDate,
+        effectiveEndDate,
         isLoadingPlaceDetail,
         navigation,
+        planPurpose,
         resolvedLocation,
         resolvedTitle,
         representativeSelectedPlace,
@@ -1290,12 +1929,49 @@ export function TripCreateScreen({ navigation }: Props) {
     ]);
 
     const renderStepBody = () => {
+        if (activeStep.key === 'purpose') {
+            return (
+                <View style={styles.purposeList}>
+                    {PURPOSE_OPTIONS.map((option) => {
+                        const isSelected = planPurpose === option.id;
+
+                        return (
+                            <Pressable
+                                key={option.id}
+                                accessibilityRole="button"
+                                onPress={() => {
+                                    handleSelectPlanPurpose(option.id);
+                                }}
+                                style={({ pressed }) => [
+                                    styles.purposeCard,
+                                    isSelected ? styles.purposeCardSelected : null,
+                                    pressed ? styles.cardPressed : null
+                                ]}
+                            >
+                                <View style={[
+                                    styles.purposeRadio,
+                                    isSelected ? styles.purposeRadioSelected : null
+                                ]}>
+                                    {isSelected ? <View style={styles.purposeRadioDot} /> : null}
+                                </View>
+                                <View style={styles.purposeCopy}>
+                                    <Text style={styles.purposeTitle}>{option.title}</Text>
+                                    <Text style={styles.purposeSubtitle}>{option.subtitle}</Text>
+                                </View>
+                            </Pressable>
+                        );
+                    })}
+                </View>
+            );
+        }
+
         if (activeStep.key === 'dates') {
             return (
                 <>
                     <DateCalendarInline
                         startDate={startDate}
-                        endDate={endDate}
+                        endDate={effectiveEndDate}
+                        selectionMode={planPurpose === 'date' ? 'single' : 'range'}
                         helperNotice={didAttemptDateStep && dateStepError
                             ? {
                                 tone: 'warning',
@@ -1348,6 +2024,10 @@ export function TripCreateScreen({ navigation }: Props) {
                                 ]}
                                 ListHeaderComponent={(
                                     <View style={styles.placeStickySection}>
+                                        <View style={styles.placeHeaderCompact}>
+                                            <Text style={styles.placeHeaderTitle}>{purposeCopy.placeTitle}</Text>
+                                            <Text style={styles.placeHeaderSubtitle}>{purposeCopy.placeSubtitle}</Text>
+                                        </View>
                                         <View style={[styles.fieldBlock, styles.placeFieldBlock]}>
                                             <TextInput
                                                 value={locationQuery}
@@ -1355,7 +2035,7 @@ export function TripCreateScreen({ navigation }: Props) {
                                                     setLocationQuery(nextValue);
                                                     setIsSearchResultsVisible(false);
                                                 }}
-                                                placeholder="도시나 장소를 검색해 보세요"
+                                                placeholder={purposeCopy.searchPlaceholder}
                                                 placeholderTextColor={theme.colors.textSecondary}
                                                 autoCapitalize="words"
                                                 autoCorrect={false}
@@ -1370,7 +2050,7 @@ export function TripCreateScreen({ navigation }: Props) {
 
                                         <View style={styles.placeFilterSection}>
                                             <View style={styles.scopeTabRow}>
-                                                {ORDERED_DESTINATION_SCOPE_OPTIONS.map((option) => (
+                                                {activeScopeOptions.map((option) => (
                                                     <Pressable
                                                         key={option.id}
                                                         accessibilityRole="button"
@@ -1443,7 +2123,7 @@ export function TripCreateScreen({ navigation }: Props) {
                                 ListEmptyComponent={(
                                     <View style={styles.popularEmptyCard}>
                                         <Text style={styles.popularEmptyTitle}>
-                                            조건에 맞는 인기 여행지가 아직 없어요.
+                                            {purposeCopy.emptyTitle}
                                         </Text>
                                         <Text style={styles.popularEmptySubtitle}>
                                             검색어를 바꾸거나 아래 검색 결과를 확인해 주세요.
@@ -1462,7 +2142,7 @@ export function TripCreateScreen({ navigation }: Props) {
                                                 ]}
                                             >
                                                 <View style={styles.googleMapsLinkTextWrap}>
-                                                    <Text style={styles.googleMapsLinkTitle}>찾는 도시가 없나요?</Text>
+                                                    <Text style={styles.googleMapsLinkTitle}>{purposeCopy.searchToggleTitle}</Text>
                                                     <Text style={styles.googleMapsLinkSubtitle}>
                                                         {isSearchResultsVisible
                                                             ? `"${locationQuery.trim()}" 검색 결과 접기`
@@ -1621,7 +2301,7 @@ export function TripCreateScreen({ navigation }: Props) {
                 {isPlaceStep && selectedDestinationCount > 0 ? (
                     <View style={styles.selectionSummaryBar}>
                         <Text style={styles.selectionSummaryTitle}>
-                            선택한 여행지 {selectedDestinationCount}곳
+                            {purposeCopy.selectedLabel} {selectedDestinationCount}곳
                         </Text>
                         <Text style={styles.selectionSummarySubtitle}>
                             {selectedDestinationSummaryText}
@@ -1690,8 +2370,8 @@ export function TripCreateScreen({ navigation }: Props) {
                         <Text style={styles.primaryButtonText}>
                             {isFinalStep
                                 ? isSubmitting
-                                    ? '여행 만드는 중...'
-                                    : '여행 만들기'
+                                    ? purposeCopy.creatingLabel
+                                    : purposeCopy.createLabel
                                 : '다음'}
                         </Text>
                     </Pressable>
@@ -1784,6 +2464,59 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         color: theme.colors.textSecondary,
         lineHeight: 20,
         fontSize: 13,
+        fontFamily: theme.fonts.body
+    },
+    purposeList: {
+        marginTop: theme.spacing.md,
+        gap: theme.spacing.sm
+    },
+    purposeCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: theme.spacing.sm,
+        padding: theme.spacing.md,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        borderRadius: theme.radius.lg,
+        backgroundColor: theme.colors.surface
+    },
+    purposeCardSelected: {
+        borderColor: theme.colors.accent,
+        backgroundColor: theme.colors.accentSoft
+    },
+    purposeRadio: {
+        width: 24,
+        height: 24,
+        borderRadius: theme.radius.full,
+        borderWidth: 2,
+        borderColor: theme.colors.border,
+        alignItems: 'center',
+        justifyContent: 'center'
+    },
+    purposeRadioSelected: {
+        borderColor: theme.colors.accent
+    },
+    purposeRadioDot: {
+        width: 10,
+        height: 10,
+        borderRadius: theme.radius.full,
+        backgroundColor: theme.colors.accent
+    },
+    purposeCopy: {
+        flex: 1,
+        minWidth: 0
+    },
+    purposeTitle: {
+        color: theme.colors.textPrimary,
+        fontSize: 18,
+        lineHeight: 24,
+        fontFamily: theme.fonts.bold
+    },
+    purposeSubtitle: {
+        marginTop: 4,
+        color: theme.colors.textSecondary,
+        fontSize: 13,
+        lineHeight: 19,
         fontFamily: theme.fonts.body
     },
     placeStickySection: {

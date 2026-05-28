@@ -27,7 +27,7 @@ const TAB_ITEMS: Array<{
     activeIcon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 }> = [
     { key: 'Home', label: '홈', inactiveIcon: 'home-outline', activeIcon: 'home' },
-    { key: 'TripList', label: '내 여행', inactiveIcon: 'bag-suitcase-outline', activeIcon: 'bag-suitcase' },
+    { key: 'TripList', label: '내 일정', inactiveIcon: 'bag-suitcase-outline', activeIcon: 'bag-suitcase' },
     { key: 'Community', label: '플랜', inactiveIcon: 'compass', activeIcon: 'compass' },
     { key: 'Settings', label: '설정', inactiveIcon: 'cog-outline', activeIcon: 'cog' }
 ];

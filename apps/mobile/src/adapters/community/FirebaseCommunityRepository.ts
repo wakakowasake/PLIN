@@ -40,6 +40,7 @@ import {
 } from '@/utils/pagination';
 import { normalizeTripDocument } from '@shared/features/trips/trip-canonical.js';
 import type {
+    CommunityPublishOptions,
     CommunityPostListPage,
     CommunityRepository,
     OffsetPageRequest
@@ -68,6 +69,10 @@ type TripDetailResponse = {
 };
 
 type MarketplacePurchasesResponse = {
+    subscription?: {
+        status?: unknown;
+        isActive?: unknown;
+    };
     purchases?: Array<{
         postId?: unknown;
         productId?: unknown;
@@ -123,13 +128,19 @@ export class FirebaseCommunityRepository implements CommunityRepository {
             : [];
     }
 
-    private async readPurchasedCommunityPostIds(userId: string): Promise<Set<string> | null> {
+    private async readPurchasedCommunityPostIds(userId: string): Promise<Set<string> | 'all' | null> {
         if (!userId) {
             return new Set<string>();
         }
 
         try {
             const response = await fetchBackendJson<MarketplacePurchasesResponse>('/marketplace/purchases');
+            const subscription = response?.subscription;
+            const subscriptionStatus = this.readString(subscription?.status).toLowerCase();
+            if (subscription?.isActive === true || subscriptionStatus === 'active' || subscriptionStatus === 'trialing') {
+                return 'all';
+            }
+
             const purchases = Array.isArray(response?.purchases) ? response.purchases : [];
             return new Set(
                 purchases
@@ -138,14 +149,14 @@ export class FirebaseCommunityRepository implements CommunityRepository {
                     .filter(Boolean)
             );
         } catch {
-            console.warn('[Marketplace] 구매 내역 조회 실패 — 유료 플랜 상태를 확인하지 못했어요.');
+            console.warn('[Marketplace] 구독 내역 조회 실패 — PLIN Plus 상태를 확인하지 못했어요.');
             return null;
         }
     }
 
     private applyMarketplacePurchaseState<T extends { id: string; marketplace: MobileCommunityMarketplaceInfo }>(
         item: T,
-        purchasedPostIds: Set<string> | null
+        purchasedPostIds: Set<string> | 'all' | null
     ): T {
         if (item.marketplace.salesStatus === 'unavailable') {
             return {
@@ -167,7 +178,7 @@ export class FirebaseCommunityRepository implements CommunityRepository {
             };
         }
 
-        // 구매 내역 조회 실패 시 기존 서버 상태를 유지 (무조건 locked 처리 방지)
+        // 구독 내역 조회 실패 시 기존 서버 상태를 유지 (무조건 locked 처리 방지)
         if (!purchasedPostIds) {
             return item;
         }
@@ -176,7 +187,7 @@ export class FirebaseCommunityRepository implements CommunityRepository {
             ...item,
             marketplace: {
                 ...item.marketplace,
-                purchaseState: purchasedPostIds.has(item.id) ? 'owned' : 'locked'
+                purchaseState: purchasedPostIds === 'all' || purchasedPostIds.has(item.id) ? 'owned' : 'locked'
             }
         };
     }
@@ -381,19 +392,27 @@ export class FirebaseCommunityRepository implements CommunityRepository {
         return detail;
     }
 
-    async publishTrip(userId: string, trip: MobileTripDetail): Promise<void> {
+    async publishTrip(userId: string, trip: MobileTripDetail, options?: CommunityPublishOptions): Promise<void> {
         if (!userId) {
-            throw new Error('로그인이 필요합니다.');
+            throw new Error('로그인이 필요해요.');
         }
 
         if (!trip?.id) {
-            throw new Error('업로드할 여행을 찾을 수 없어요.');
+            throw new Error('공개할 일정을 찾을 수 없어요.');
         }
 
         await fetchBackendJson('/community/posts', {
             method: 'POST',
             body: {
-                tripId: trip.id
+                tripId: trip.id,
+                ...(options?.marketplace?.productId ? {
+                    marketplaceProductId: options.marketplace.productId,
+                    marketplace: {
+                        productId: options.marketplace.productId,
+                        priceLabel: options.marketplace.priceLabel || undefined,
+                        currencyCode: options.marketplace.currencyCode || undefined
+                    }
+                } : {})
             }
         });
     }
@@ -467,7 +486,7 @@ export class FirebaseCommunityRepository implements CommunityRepository {
 
     async reportPost(postId: string, reason = 'other'): Promise<void> {
         if (!postId) {
-            throw new Error('신고할 큐레이션 플랜을 찾을 수 없어요.');
+            throw new Error('신고할 플랜을 찾을 수 없어요.');
         }
 
         await fetchBackendJson(`/community/posts/${encodeURIComponent(postId)}/report`, {
@@ -522,7 +541,7 @@ export class FirebaseCommunityRepository implements CommunityRepository {
 
     async deletePost(userId: string, postId: string): Promise<void> {
         if (!userId || !postId) {
-            throw new Error('삭제할 큐레이션 플랜을 찾을 수 없어요.');
+            throw new Error('삭제할 플랜을 찾을 수 없어요.');
         }
 
         await fetchBackendJson(`/community/posts/${encodeURIComponent(postId)}`, {
@@ -556,7 +575,7 @@ export class FirebaseCommunityRepository implements CommunityRepository {
         );
 
         if (!payload?.trip?.id) {
-            throw new Error('가져온 여행 정보를 불러오지 못했어요.');
+            throw new Error('가져온 일정 정보를 불러오지 못했어요.');
         }
 
         return mapTripDetail(

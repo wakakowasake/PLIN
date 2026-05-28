@@ -24,6 +24,7 @@ export type FeedbackAlertButton = {
 export type FeedbackAlertOptions = {
     cancelable?: boolean;
     onDismiss?: () => void;
+    presentation?: 'auto' | 'toast' | 'dialog' | 'native';
 };
 
 type ToastPayload = {
@@ -164,6 +165,11 @@ function presentAlert(
     buttons?: FeedbackAlertButton[],
     options?: FeedbackAlertOptions
 ) {
+    if (options?.presentation === 'native') {
+        NativeAlert.alert(title, message, buttons, options);
+        return;
+    }
+
     if (!activeBridge) {
         NativeAlert.alert(title, message, buttons, options);
         return;
@@ -173,7 +179,7 @@ function presentAlert(
     const tone = resolveTone(content.title, content.message, buttons);
     const toastAction = resolveToastAction(tone, buttons);
 
-    if (shouldUseToast(tone, buttons)) {
+    if (options?.presentation === 'toast' || (options?.presentation !== 'dialog' && shouldUseToast(tone, buttons))) {
         activeBridge.presentToast({
             title: content.title,
             message: content.message,

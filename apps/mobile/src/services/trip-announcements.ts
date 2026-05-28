@@ -59,7 +59,7 @@ function readExpoProjectId() {
 }
 
 function buildMissingPushProjectIdMessage() {
-    return '푸시 설정이 누락되어 알림을 준비하지 못했어요. EXPO_PUBLIC_PLIN_EAS_PROJECT_ID를 설정한 뒤 앱을 다시 빌드해 주세요.';
+    return '알림을 준비하지 못했어요. 앱을 업데이트한 뒤 다시 시도해 주세요.';
 }
 
 async function getPushInstallationId() {

@@ -54,7 +54,7 @@ export function AdaptersProvider({ children }: Props) {
             authModeNotice: modes.authModeNotice,
             communityRepositoryModeNotice: modes.firebase.isReady
                 ? null
-                : '큐레이션 플랜은 데모 데이터로 표시되고 있어요.'
+                : '플랜을 불러오지 못해 예시를 보여주고 있어요.'
         };
     }, []);
 

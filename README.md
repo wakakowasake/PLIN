@@ -4,15 +4,15 @@
 
 현재 운영 기준은 아래 세 표면을 함께 봐야 합니다.
 
-- 웹 앱: `public/` 기반 바닐라 JS + Vite
+- 웹 사이트: `public/` 기반 정적 사이트 + Vite
 - 모바일 앱: `apps/mobile/` 기반 Expo + React Native
 - 백엔드 및 배포 연결: `functions/` + Firebase Hosting
 
 ## 현재 구조
 
-- 메인 웹 앱: `public/index.html`
-- 공개 뷰어: `public/openview.html`
-- 웹 핵심 로직: `public/js/`
+- 메인 웹 사이트: `public/index.html`
+- 공개 링크 안내: `public/openview.html`
+- 웹 사이트 로직: `public/js/pages/`, `public/js/services/`
 - 웹 정적 자산: `public/static/`
 - 모바일 앱: `apps/mobile/`
 - 모바일 웹 산출물: `dist/m` -> Hosting 경로 `/m`
@@ -20,7 +20,7 @@
 
 ## 기술 스택
 
-- 웹: HTML, ES modules, Tailwind CSS v3, Vite
+- 웹: HTML, ES modules, CSS, Vite, TinyMCE
 - 모바일: Expo, React Native, TypeScript, React Native Web export
 - 백엔드: Firebase Functions, Express
 - 데이터/인증: Firestore, Firebase Auth, Firebase Storage
@@ -71,8 +71,15 @@ GOOGLE_MAPS_BROWSER_API_KEY=...
 PLIN_FIREBASE_API_KEY=...
 UNSPLASH_ACCESS_KEY=...
 KOREA_OPEN_DATA_SERVICE_KEY=...
-REVENUECAT_SECRET_API_KEY=...
-REVENUECAT_WEBHOOK_AUTH_TOKEN=...
+IAP_SUBSCRIPTION_ENTITLEMENT_ID=PLIN Plus
+IAP_SUBSCRIPTION_PRODUCT_IDS=monthly,yearly
+IAP_LIFETIME_PRODUCT_IDS=lifetime
+APPLE_IAP_ISSUER_ID=...
+APPLE_IAP_KEY_ID=...
+APPLE_IAP_PRIVATE_KEY=...
+APPLE_IAP_BUNDLE_ID=ink.plin.mobile
+GOOGLE_PLAY_PACKAGE_NAME=ink.plin.mobile
+GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=...
 
 # functions/.env.local
 EKISPERT_API_KEY=...
@@ -82,8 +89,11 @@ EKISPERT_API_KEY=...
 - `GOOGLE_MAPS_BROWSER_API_KEY`: 웹 브라우저에서 `Maps JavaScript API`와 `Maps Embed API`를 로드할 때 쓰는 키
 - `KOREA_OPEN_DATA_SERVICE_KEY`: 공공데이터포털/한국관광공사 TourAPI와 국내 공항 공공데이터 조회에 쓰는 서버용 키
 - `EKISPERT_API_KEY`: 로컬 개발에서는 `functions/.env.local`에 두고, 배포 함수는 Firebase Secret Manager 값을 사용합니다.
-- `REVENUECAT_SECRET_API_KEY`: 앱 내 큐레이션 플랜 구매 내역을 RevenueCat 서버에서 검증할 때 쓰는 서버용 키
-- `REVENUECAT_WEBHOOK_AUTH_TOKEN`: RevenueCat 웹훅 `/marketplace/revenuecat/webhook` 요청을 검증하는 공유 토큰
+- `IAP_SUBSCRIPTION_ENTITLEMENT_ID`: 유료 큐레이션 플랜 접근권 이름입니다. 기본값은 `PLIN Plus`입니다.
+- `IAP_SUBSCRIPTION_PRODUCT_IDS`: 해당 접근권을 여는 iOS/Android 구독 상품 ID 목록입니다. 여러 개면 쉼표로 구분합니다.
+- `IAP_LIFETIME_PRODUCT_IDS`: 평생권 같은 비구독 인앱 상품 ID 목록입니다.
+- `APPLE_IAP_*`: App Store Server API로 iOS 구매를 검증할 때 쓰는 App Store Connect API 키 설정입니다.
+- `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`: Google Play Developer API로 Android 구매를 검증할 때 쓰는 서비스 계정 JSON입니다. JSON 원문 또는 base64 문자열을 넣을 수 있습니다.
 - 웹용 키에는 `https://plin.ink/*`, `https://www.plin.ink/*`, `https://plin-db93d.web.app/*`, `http://localhost:*` 같은 HTTP referrer 제한을 거는 것을 권장합니다.
 
 모바일 환경 변수:
@@ -92,7 +102,9 @@ EKISPERT_API_KEY=...
 - 예시는 `apps/mobile/.env.example`을 참고합니다.
 - `EXPO_PUBLIC_*` 값을 바꾸면 Expo가 JS 번들에 값을 다시 박아야 하므로 앱을 반드시 재빌드하고 재설치해야 합니다.
 - 원격 푸시 테스트까지 하려면 `EXPO_PUBLIC_PLIN_EAS_PROJECT_ID`도 함께 넣어야 합니다. 값이 없으면 공지용 Expo 푸시 토큰이 등록되지 않습니다.
-- 앱 내 큐레이션 플랜 구매를 테스트하려면 `EXPO_PUBLIC_PLIN_REVENUECAT_IOS_API_KEY`, `EXPO_PUBLIC_PLIN_REVENUECAT_ANDROID_API_KEY`를 플랫폼별로 넣고 네이티브 앱을 재빌드해야 합니다.
+- 앱 내 큐레이션 플랜 구매를 테스트하려면 `EXPO_PUBLIC_PLIN_IAP_MONTHLY_PRODUCT_ID`, `EXPO_PUBLIC_PLIN_IAP_YEARLY_PRODUCT_ID`, `EXPO_PUBLIC_PLIN_IAP_LIFETIME_PRODUCT_ID`를 스토어 상품 ID와 맞추고 네이티브 앱을 재빌드해야 합니다.
+- 1개월 무료 체험은 앱 코드가 아니라 App Store Connect / Play Console 구독 상품에서 설정합니다.
+- 자세한 네이티브 IAP 설정은 `docs/NATIVE_IAP_SUBSCRIPTION_SETUP.md`를 참고합니다.
 - 내부 테스트용 standalone 앱은 `release APK/AAB`를 사용하세요. `debug APK`는 Metro 개발 서버에 의존할 수 있습니다.
 - iOS도 동일합니다. 내부 테스트 설치본은 `Release/TestFlight/Archive` 빌드를 사용하세요. `Debug` 설치본은 Metro가 없으면 `No script URL provided` 또는 `unsanitizedScriptURLString = (null)`로 종료될 수 있습니다.
 
@@ -104,8 +116,8 @@ EKISPERT_API_KEY=...
 npm run dev
 ```
 
-- 메인 앱: `http://localhost:5173/`
-- 공개 뷰어: `http://localhost:5173/openview.html?id=[TRIP_ID]`
+- 웹 루트: `http://localhost:5173/`
+- 공개 링크 안내: `http://localhost:5173/openview.html`
 - `/api` 프록시는 기본적으로 배포 Functions를 사용하고, `VITE_USE_FUNCTIONS_EMULATOR=true`일 때만 로컬 Functions Emulator로 전환합니다.
 
 모바일 앱 개발 서버:
@@ -141,8 +153,6 @@ npm run dev
 npm run build:web
 npm run build:mobile-web
 npm run build
-npm run build:css
-npm run watch:css
 npm run sync:openview
 npm run serve
 npm run test:mobile
@@ -151,7 +161,6 @@ npm run test:mobile
 - `build:web`: `public/` 기반 웹 앱을 `dist/`로 빌드합니다.
 - `build:mobile-web`: `apps/mobile`을 `dist/m`으로 export 합니다.
 - `build`: 웹 앱 + 모바일 웹을 함께 빌드합니다.
-- `build:css`와 `watch:css`는 `public/static/css/input.css`에서 `public/static/css/style.css`를 생성합니다.
 - `sync:openview`는 `dist/openview.html`을 `functions/openview.html`로 복사합니다.
 
 모바일 워크스페이스:
@@ -214,12 +223,13 @@ MOBILE_TRIP_LIST_BANNER_TARGET_URL=
 
 - Hosting 루트는 `dist/`입니다.
 - 루트 `npm run build`는 `dist/` 웹 앱과 `dist/m` 모바일 웹을 함께 만듭니다.
-- 배포 전 공개 뷰어 변경이 포함되면 `npm run sync:openview`로 `functions/openview.html`을 갱신합니다.
+- 배포 전 공개 링크 안내 화면 변경이 포함되면 `npm run sync:openview`로 `functions/openview.html`을 갱신합니다.
 - Service Worker 소스는 `public/static/sw.js`입니다.
 
 ## 주의사항
 
-- 메인 웹 런타임은 `public/js/ui.js`와 `public/js/ui-transit.js`입니다.
-- 공개 뷰어 런타임은 `public/js/viewer.js`입니다.
-- 메인 앱은 `/static/css/input.css`를 직접 읽고, 공개 뷰어는 `/css/style.css`를 직접 읽습니다.
+- 웹 루트는 회사 소개/공지사항/블로그/약관 중심의 정적 사이트입니다.
+- 실제 앱 화면은 모바일 앱과 `/m` 모바일 웹을 기준으로 관리합니다.
+- 기존 바닐라 웹 여행 앱과 공개 일정 렌더러는 제거되었습니다.
+- 웹 사이트 화면은 `/css/site-pages.css`를 사용합니다.
 - Firebase 설정은 `public/js/firebase.js`와 백엔드 `/config` 응답을 함께 사용합니다.

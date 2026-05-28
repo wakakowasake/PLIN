@@ -1,4 +1,5 @@
 import React from 'react';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
     Animated,
     Image,
@@ -27,6 +28,7 @@ import { EmojiText, containsEmojiText, emojiSafeFontFamily } from '@/components/
 import { EmptyState } from '@/components/EmptyState';
 import { Alert } from '@/feedback';
 import { LoadingView } from '@/components/LoadingView';
+import { TimelineItemDetailSheet } from '@/components/TimelineItemDetailSheet';
 import { TripHeader } from '@/components/TripHeader';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { normalizeCommunityLoadError } from '@/hooks/community-load-error';
@@ -41,7 +43,9 @@ import {
 import { usePrimaryScrollActivityReporter } from '@/state/primary-scroll-activity';
 import { type AppTheme, useAppTheme } from '@/theme';
 import type { MobileCommunityComment } from '@/types/community';
+import type { MobileTimelineDisplayItem, MobileTripDaySection } from '@/types/trip';
 import { isPlinAdminProfile } from '@/utils/admin-access';
+import { getNativeStoreLabel } from '@/utils/native-store-copy';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CommunityPostDetail'>;
 const COMMENT_INPUT_LINE_HEIGHT = 20;
@@ -51,12 +55,19 @@ const COMMENT_INPUT_MAX_HEIGHT = 104;
 const COMMENT_INPUT_VERTICAL_PADDING = 14;
 const COMMENT_KEYBOARD_SAFE_SPACING = 10;
 
+type SelectedTimelineTarget = {
+    dayId: string;
+    itemId: string;
+    itemIndex: number;
+};
+
 export function CommunityPostDetailScreen({ navigation, route }: Props) {
     const theme = useAppTheme();
     const styles = React.useMemo(() => createStyles(theme), [theme]);
     const isFocused = useIsFocused();
     const insets = useSafeAreaInsets();
     const { height: windowHeight } = useWindowDimensions();
+    const nativeStoreLabel = getNativeStoreLabel();
     const { communityRepository } = useAdapters();
     const { user, profileSummary, retryBootstrap, refreshSession } = useAuthSession();
     const {
@@ -81,6 +92,7 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
     const [isLiked, setIsLiked] = React.useState(false);
     const [likesCount, setLikesCount] = React.useState(0);
     const [isCommentsModalVisible, setIsCommentsModalVisible] = React.useState(false);
+    const [selectedTimelineTarget, setSelectedTimelineTarget] = React.useState<SelectedTimelineTarget | null>(null);
     const [isCommentsSheetExpanded, setCommentsSheetExpanded] = React.useState(false);
     const [commentInputLineCount, setCommentInputLineCount] = React.useState(1);
     const [isCommentInputScrollable, setIsCommentInputScrollable] = React.useState(false);
@@ -305,15 +317,47 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
         setLikesCount(detail?.likesCount ?? 0);
     }, [detail?.id, detail?.isLiked, detail?.likesCount]);
 
+    const selectedTimelineDay = React.useMemo<MobileTripDaySection | null>(() => {
+        if (!detail || !selectedTimelineTarget) {
+            return null;
+        }
+
+        return detail.trip.days.find((day) => day.id === selectedTimelineTarget.dayId) || null;
+    }, [detail, selectedTimelineTarget]);
+
+    const selectedTimelineItem = React.useMemo<MobileTimelineDisplayItem | null>(() => {
+        if (!selectedTimelineDay || !selectedTimelineTarget) {
+            return null;
+        }
+
+        const indexedItem = selectedTimelineDay.items[selectedTimelineTarget.itemIndex];
+        if (indexedItem?.id === selectedTimelineTarget.itemId) {
+            return indexedItem;
+        }
+
+        return selectedTimelineDay.items.find((item) => item.id === selectedTimelineTarget.itemId) || null;
+    }, [selectedTimelineDay, selectedTimelineTarget]);
+
+    const handleOpenTimelineItem = React.useCallback((
+        day: MobileTripDaySection,
+        item: MobileTimelineDisplayItem,
+        itemIndex: number
+    ) => {
+        setSelectedTimelineTarget({
+            dayId: day.id,
+            itemId: item.id,
+            itemIndex
+        });
+    }, []);
+
+    const handleCloseTimelineItem = React.useCallback(() => {
+        setSelectedTimelineTarget(null);
+    }, []);
+
     const isCommunityAdmin = isPlinAdminProfile(profileSummary, user);
     const isPostAuthor = Boolean(detail && user && detail.authorUid === user.uid);
     const canDeletePost = Boolean(detail && user && (isPostAuthor || isCommunityAdmin));
     const isLockedPlan = detail?.marketplace.purchaseState === 'locked';
-    const marketplaceLabel = detail?.marketplace.purchaseState === 'owned'
-        ? '구매 완료'
-        : detail?.marketplace.productId
-            ? detail.marketplace.priceLabel || '유료 플랜'
-            : '무료 플랜';
 
     const handleRefresh = React.useCallback(async () => {
         if (loading || refreshing) {
@@ -414,7 +458,7 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
         }
 
         Alert.alert(
-            '큐레이션 플랜을 삭제할까요?',
+            '플랜을 삭제할까요?',
             `"${detail.trip.title}" 플랜이 내려가요.`,
             [
                 { text: '취소', style: 'cancel' },
@@ -438,7 +482,7 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
                                 setInteractionError(
                                     error instanceof Error && error.message
                                         ? error.message
-                                        : '큐레이션 플랜을 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.'
+                                        : '플랜을 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.'
                                 );
                             }
                         })();
@@ -463,17 +507,17 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
                 productId: detail.marketplace.productId
             });
             await refresh();
-            Alert.alert('구매 완료', '이제 내 여행으로 가져올 수 있어요.');
+            Alert.alert('PLIN Plus 활성화', '이제 내 일정으로 가져올 수 있어요.');
         } catch (error) {
             if (isPurchaseCancelledError(error)) {
                 return;
             }
 
-            setInteractionError(
-                error instanceof Error
-                    ? error.message
-                    : '구매를 완료하지 못했어요.'
-            );
+            const message = error instanceof Error
+                ? error.message
+                : '구독을 시작하지 못했어요.';
+            setInteractionError(message);
+            Alert.alert('구독을 시작하지 못했어요', message, undefined, { presentation: 'native' });
         } finally {
             setIsPurchaseUpdating(false);
         }
@@ -494,13 +538,13 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
                 productId: detail.marketplace.productId
             });
             await refresh();
-            Alert.alert('구매 복원 완료', '이제 내 여행으로 가져올 수 있어요.');
+            Alert.alert('구독을 복원했어요', '이제 내 일정으로 가져올 수 있어요.');
         } catch (error) {
-            setInteractionError(
-                error instanceof Error
-                    ? error.message
-                    : '구매 내역을 복원하지 못했어요.'
-            );
+            const message = error instanceof Error
+                ? error.message
+                : '구독 내역을 복원하지 못했어요.';
+            setInteractionError(message);
+            Alert.alert('구독을 복원하지 못했어요', message, undefined, { presentation: 'native' });
         } finally {
             setIsPurchaseUpdating(false);
         }
@@ -625,8 +669,6 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
         );
     }, [communityRepository, route.params.postId]);
 
-    const representativeComment = comments[0] ?? null;
-
     useForegroundResumeRefresh({
         enabled: isFocused && Boolean(user),
         onRefresh: handleRefresh
@@ -685,7 +727,7 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
                 <View style={styles.screenBody}>
                     <View style={styles.stateContent}>
                         <EmptyState
-                            title="큐레이션 플랜을 찾을 수 없어요."
+                            title="플랜을 찾을 수 없어요."
                             description="플랜 목록에서 다시 선택해 주세요."
                             actionLabel="목록으로 돌아가기"
                             onAction={() => {
@@ -741,77 +783,100 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
                     <TripHeader trip={detail.trip} />
                 )}
 
-                <View style={styles.authorCard}>
-                    <View style={styles.authorRow}>
-                        <AvatarImage
-                            uri={detail.authorPhotoURL}
-                            label={detail.authorName}
-                            size={44}
-                            textSize={16}
-                            tone="warning"
-                        />
-                        <View style={styles.authorCopy}>
-                            <EmojiText style={styles.authorName}>{detail.authorName}</EmojiText>
-                            <EmojiText style={styles.authorMeta}>{detail.publishedLabel}</EmojiText>
+                <View style={styles.planMetaCard}>
+                    <View style={styles.planMetaTopRow}>
+                        <View style={styles.authorRow}>
+                            <AvatarImage
+                                uri={detail.authorPhotoURL}
+                                label={detail.authorName}
+                                size={36}
+                                textSize={14}
+                                tone="warning"
+                            />
+                            <View style={styles.authorCopy}>
+                                <EmojiText style={styles.authorName} numberOfLines={1}>{detail.authorName}</EmojiText>
+                                <EmojiText style={styles.authorMeta} numberOfLines={1}>{detail.publishedLabel}</EmojiText>
+                            </View>
+                        </View>
+                        <View style={styles.planTypeBadge}>
+                            <MaterialCommunityIcons
+                                name={detail.marketplace.productId ? 'crown-outline' : 'bookmark-outline'}
+                                size={14}
+                                color={detail.marketplace.productId ? theme.colors.accent : theme.colors.textSecondary}
+                            />
                         </View>
                     </View>
-                    <View style={styles.metaRow}>
+                    <View style={styles.engagementRow}>
                         <Pressable
                             accessibilityRole="button"
                             onPress={() => {
                                 void handleToggleLike();
                             }}
                             style={[
-                                styles.actionPill,
-                                isLiked ? styles.actionPillLiked : null,
-                                isLikeUpdating ? styles.actionPillDisabled : null
+                                styles.engagementButton,
+                                isLiked ? styles.engagementButtonLiked : null,
+                                isLikeUpdating ? styles.engagementButtonDisabled : null
                             ]}
                         >
-                            <Text style={[styles.actionPillIcon, isLiked ? styles.actionPillIconLiked : null]}>
-                                {isLiked ? '❤️' : '🤍'}
-                            </Text>
-                            <Text style={[styles.actionPillText, isLiked ? styles.actionPillTextLiked : null]}>
-                                좋아요 {likesCount}
+                            <MaterialCommunityIcons
+                                name={isLiked ? 'heart' : 'heart-outline'}
+                                size={17}
+                                color={isLiked ? theme.colors.warning : theme.colors.textSecondary}
+                            />
+                            <Text style={[
+                                styles.engagementText,
+                                isLiked ? styles.engagementTextLiked : null
+                            ]}>
+                                {likesCount}
                             </Text>
                         </Pressable>
-                        <View style={styles.metaPill}>
-                            <Text style={styles.metaPillText}>복사 {detail.clonesCount}</Text>
-                        </View>
                         <Pressable
                             accessibilityRole="button"
                             onPress={() => {
                                 setIsCommentsModalVisible(true);
                             }}
-                            style={styles.metaPill}
+                            style={styles.engagementButton}
                         >
-                            <Text style={styles.metaPillText}>댓글 {comments.length}</Text>
+                            <MaterialCommunityIcons
+                                name="comment-outline"
+                                size={17}
+                                color={theme.colors.textSecondary}
+                            />
+                            <Text style={styles.engagementText}>{comments.length}</Text>
                         </Pressable>
+                        <View style={styles.engagementStat}>
+                            <MaterialCommunityIcons
+                                name="content-copy"
+                                size={16}
+                                color={theme.colors.textSecondary}
+                            />
+                            <Text style={styles.engagementText}>{detail.clonesCount}</Text>
+                        </View>
                     </View>
                     {user && (!isPostAuthor || canDeletePost) ? (
-                        <View style={styles.authorActionRow}>
+                        <View style={styles.moderationActionRow}>
                             {!isPostAuthor ? (
                                 <>
                                     <Pressable
                                         accessibilityRole="button"
                                         onPress={handleReportPost}
                                         style={({ pressed }) => [
-                                            styles.authorActionButton,
+                                            styles.moderationActionButton,
                                             pressed ? styles.authorActionButtonPressed : null
                                         ]}
                                     >
-                                        <Text style={styles.authorActionText}>글 신고</Text>
+                                        <Text style={styles.moderationActionText}>신고</Text>
                                     </Pressable>
                                     <Pressable
                                         accessibilityRole="button"
                                         onPress={handleToggleBlockAuthor}
                                         style={({ pressed }) => [
-                                            styles.authorActionButton,
-                                            styles.authorActionButtonWarn,
+                                            styles.moderationActionButton,
                                             pressed ? styles.authorActionButtonPressed : null
                                         ]}
                                     >
-                                        <Text style={[styles.authorActionText, styles.authorActionTextWarn]}>
-                                            {profileSummary?.blockedUserIds.includes(detail.authorUid) ? '차단 해제' : '작성자 차단'}
+                                        <Text style={styles.moderationActionText}>
+                                            {profileSummary?.blockedUserIds.includes(detail.authorUid) ? '차단 해제' : '차단'}
                                         </Text>
                                     </Pressable>
                                 </>
@@ -821,12 +886,11 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
                                     accessibilityRole="button"
                                     onPress={handleDeletePost}
                                     style={({ pressed }) => [
-                                        styles.authorActionButton,
-                                        styles.authorActionButtonWarn,
+                                        styles.moderationActionButton,
                                         pressed ? styles.authorActionButtonPressed : null
                                     ]}
                                 >
-                                    <Text style={[styles.authorActionText, styles.authorActionTextWarn]}>글 삭제</Text>
+                                    <Text style={[styles.moderationActionText, styles.moderationActionTextWarn]}>삭제</Text>
                                 </Pressable>
                             ) : null}
                         </View>
@@ -837,21 +901,20 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
                     <View style={styles.purchaseCard}>
                         <View style={styles.purchaseHeaderRow}>
                             <View style={styles.purchaseCopy}>
-                                <Text style={styles.purchaseEyebrow}>PLIN 큐레이션 플랜</Text>
+                                <Text style={styles.purchaseEyebrow}>PLIN Plus 플랜</Text>
                                 <Text style={styles.purchaseTitle}>
-                                    {isLockedPlan ? '구매 후 내 여행으로 가져올 수 있어요.' : '내 여행으로 가져올 수 있어요.'}
+                                    {isLockedPlan ? `${nativeStoreLabel}에서 1개월 무료 체험 후 구독으로 자동 갱신돼요.` : '내 일정으로 가져올 수 있어요.'}
                                 </Text>
                             </View>
-                            <View style={[
-                                styles.purchaseBadge,
-                                detail.marketplace.purchaseState === 'owned' ? styles.purchaseBadgeOwned : null
-                            ]}>
-                                <Text style={[
-                                    styles.purchaseBadgeText,
-                                    detail.marketplace.purchaseState === 'owned' ? styles.purchaseBadgeOwnedText : null
-                                ]}>
-                                    {marketplaceLabel}
-                                </Text>
+                            <View
+                                accessibilityLabel="PLIN Plus 플랜"
+                                style={styles.purchaseBadge}
+                            >
+                                <MaterialCommunityIcons
+                                    name="crown-outline"
+                                    size={15}
+                                    color={theme.colors.accent}
+                                />
                             </View>
                         </View>
                         {isLockedPlan ? (
@@ -869,7 +932,7 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
                                     ]}
                                 >
                                     <Text style={styles.purchasePrimaryButtonText}>
-                                        {isPurchaseUpdating ? '처리 중...' : '구매하기'}
+                                        {isPurchaseUpdating ? '처리 중...' : '무료 체험 시작'}
                                     </Text>
                                 </Pressable>
                                 <Pressable
@@ -884,45 +947,12 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
                                         isPurchaseUpdating ? styles.purchaseButtonDisabled : null
                                     ]}
                                 >
-                                    <Text style={styles.purchaseSecondaryButtonText}>구매 복원</Text>
+                                    <Text style={styles.purchaseSecondaryButtonText}>구독 복원</Text>
                                 </Pressable>
                             </View>
                         ) : null}
                     </View>
                 ) : null}
-
-                <Pressable
-                    accessibilityRole="button"
-                    onPress={() => {
-                        setIsCommentsModalVisible(true);
-                    }}
-                    style={styles.commentPreviewCard}
-                >
-                    <View style={styles.commentPreviewHeader}>
-                        <Text style={styles.commentPreviewTitle}>대표 댓글</Text>
-                        <View style={styles.commentsCountPill}>
-                            <Text style={styles.commentsCountText}>{comments.length}개</Text>
-                        </View>
-                    </View>
-                    {isCommentsLoading ? (
-                        <Text style={styles.commentPreviewBody}>댓글을 불러오는 중이에요.</Text>
-                    ) : commentsError ? (
-                        <Text style={styles.commentPreviewBody}>{commentsError}</Text>
-                    ) : representativeComment ? (
-                        <>
-                            <EmojiText style={styles.commentPreviewAuthor}>
-                                {representativeComment.authorName} · {representativeComment.createdLabel}
-                            </EmojiText>
-                            <EmojiText style={styles.commentPreviewBody} numberOfLines={2}>
-                                {representativeComment.text}
-                            </EmojiText>
-                        </>
-                    ) : (
-                        <Text style={styles.commentPreviewBody}>
-                            첫 번째 댓글을 남겨보세요.
-                        </Text>
-                    )}
-                </Pressable>
 
                 {refreshError ? (
                     <View style={styles.warningCard}>
@@ -931,12 +961,28 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
                     </View>
                 ) : null}
 
+                <View style={styles.planSectionHeader}>
+                    <Text style={styles.planSectionTitle}>일정 구성</Text>
+                    <Text style={styles.planSectionMeta}>{detail.trip.days.length}일</Text>
+                </View>
+
                 {detail.trip.days.map((day) => (
-                    <DaySection key={day.id} day={day} />
+                    <DaySection
+                        key={day.id}
+                        day={day}
+                        onSelectItem={handleOpenTimelineItem}
+                    />
                 ))}
 
             </ScrollView>
             <BottomNavBar activeTab="Community" />
+            <TimelineItemDetailSheet
+                visible={Boolean(selectedTimelineDay && selectedTimelineItem)}
+                day={selectedTimelineDay}
+                item={selectedTimelineItem}
+                itemIndex={selectedTimelineTarget?.itemIndex}
+                onClose={handleCloseTimelineItem}
+            />
 
             <Modal
                 visible={isCommentsModalVisible}
@@ -1253,23 +1299,35 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         paddingHorizontal: theme.spacing.sm,
         paddingVertical: theme.spacing.xs
     },
-    authorCard: {
+    planMetaCard: {
         marginBottom: theme.spacing.md,
         padding: theme.spacing.sm,
-        borderRadius: theme.radius.lg,
+        borderRadius: theme.radius.md,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: theme.colors.border,
         backgroundColor: theme.colors.surface
     },
-    authorRow: {
+    planMetaTopRow: {
         flexDirection: 'row',
-        alignItems: 'center'
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: theme.spacing.sm
+    },
+    authorRow: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        minWidth: 0
     },
     authorCopy: {
         flex: 1,
+        minWidth: 0,
         marginLeft: theme.spacing.xs
     },
     authorName: {
         color: theme.colors.textPrimary,
-        fontSize: 16,
+        fontSize: 15,
+        lineHeight: 20,
         fontFamily: theme.fonts.bold
     },
     authorMeta: {
@@ -1277,6 +1335,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         color: theme.colors.textSecondary,
         fontSize: 12,
         fontFamily: theme.fonts.body
+    },
+    planTypeBadge: {
+        width: 30,
+        height: 30,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: theme.radius.sm,
+        backgroundColor: theme.colors.surfaceMuted
     },
     purchaseCard: {
         marginBottom: theme.spacing.md,
@@ -1306,26 +1372,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         fontFamily: theme.fonts.bold
     },
     purchaseBadge: {
+        width: 30,
+        height: 30,
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: 30,
-        paddingHorizontal: theme.spacing.xs,
         borderRadius: theme.radius.sm,
         backgroundColor: theme.colors.accentSoft
-    },
-    purchaseBadgeOwned: {
-        backgroundColor: theme.mode === 'dark' ? '#234139' : '#ddf4e8'
-    },
-    purchaseBadgeText: {
-        color: theme.colors.accent,
-        fontSize: 12,
-        lineHeight: 16,
-        includeFontPadding: false,
-        textAlignVertical: 'center',
-        fontFamily: theme.fonts.semibold
-    },
-    purchaseBadgeOwnedText: {
-        color: theme.mode === 'dark' ? '#9be0bf' : '#257a4e'
     },
     purchaseActionRow: {
         flexDirection: 'row',
@@ -1361,94 +1413,70 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         fontSize: 14,
         fontFamily: theme.fonts.semibold
     },
-    metaRow: {
+    engagementRow: {
         flexDirection: 'row',
-        flexWrap: 'wrap',
-        marginTop: theme.spacing.sm
+        alignItems: 'center',
+        gap: theme.spacing.micro,
+        marginTop: theme.spacing.sm,
+        paddingTop: theme.spacing.xs,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: theme.colors.border
     },
-    authorActionRow: {
+    engagementButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 30,
+        paddingHorizontal: theme.spacing.xs,
+        borderRadius: theme.radius.sm,
+        backgroundColor: theme.colors.surfaceMuted
+    },
+    engagementButtonLiked: {
+        backgroundColor: theme.mode === 'dark' ? '#322323' : '#fdf2f2'
+    },
+    engagementButtonDisabled: {
+        opacity: 0.65
+    },
+    engagementStat: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 30,
+        paddingHorizontal: theme.spacing.xs
+    },
+    engagementText: {
+        marginLeft: 4,
+        color: theme.colors.textSecondary,
+        fontSize: 12,
+        lineHeight: 16,
+        includeFontPadding: false,
+        textAlignVertical: 'center',
+        fontFamily: theme.fonts.semibold
+    },
+    engagementTextLiked: {
+        color: theme.colors.warning
+    },
+    moderationActionRow: {
         flexDirection: 'row',
         flexWrap: 'wrap',
         marginTop: theme.spacing.xs,
         gap: theme.spacing.xs
     },
-    actionPill: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: theme.spacing.micro,
-        marginBottom: theme.spacing.micro,
-        minHeight: 32,
+    moderationActionButton: {
         paddingHorizontal: theme.spacing.xs,
-        paddingVertical: 0,
+        paddingVertical: theme.spacing.micro,
         borderRadius: theme.radius.sm,
         backgroundColor: theme.colors.surfaceMuted
-    },
-    actionPillLiked: {
-        backgroundColor: theme.mode === 'dark' ? '#4a2724' : '#fde6e0'
-    },
-    actionPillDisabled: {
-        opacity: 0.65
-    },
-    actionPillIcon: {
-        marginRight: 4,
-        color: theme.colors.textSecondary,
-        fontSize: 12,
-        lineHeight: 16,
-        includeFontPadding: false,
-        textAlignVertical: 'center'
-    },
-    actionPillIconLiked: {
-        color: theme.mode === 'dark' ? '#ffb1a1' : '#cf5d45'
-    },
-    actionPillText: {
-        color: theme.colors.textSecondary,
-        fontSize: 12,
-        lineHeight: 16,
-        includeFontPadding: false,
-        textAlignVertical: 'center',
-        fontFamily: theme.fonts.semibold
-    },
-    actionPillTextLiked: {
-        color: theme.mode === 'dark' ? '#ffb1a1' : '#cf5d45'
-    },
-    metaPill: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: theme.spacing.micro,
-        marginBottom: theme.spacing.micro,
-        minHeight: 32,
-        paddingHorizontal: theme.spacing.xs,
-        paddingVertical: 0,
-        borderRadius: theme.radius.sm,
-        backgroundColor: theme.colors.surfaceMuted
-    },
-    metaPillText: {
-        color: theme.colors.textSecondary,
-        fontSize: 12,
-        lineHeight: 16,
-        includeFontPadding: false,
-        textAlignVertical: 'center',
-        fontFamily: theme.fonts.semibold
-    },
-    authorActionButton: {
-        paddingHorizontal: theme.spacing.sm,
-        paddingVertical: theme.spacing.xs,
-        borderRadius: theme.radius.sm,
-        backgroundColor: theme.colors.surfaceMuted
-    },
-    authorActionButtonWarn: {
-        backgroundColor: theme.mode === 'dark' ? '#2f211c' : '#fff6ef'
     },
     authorActionButtonPressed: {
         opacity: 0.88
     },
-    authorActionText: {
+    moderationActionText: {
         color: theme.colors.textSecondary,
-        fontSize: 13,
+        fontSize: 12,
         fontFamily: theme.fonts.semibold
     },
-    authorActionTextWarn: {
+    moderationActionTextWarn: {
         color: theme.colors.warning
     },
     warningCard: {
@@ -1468,33 +1496,23 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         lineHeight: 20,
         fontFamily: theme.fonts.body
     },
-    commentPreviewCard: {
-        marginBottom: theme.spacing.md,
-        padding: theme.spacing.sm,
-        borderRadius: theme.radius.lg,
-        backgroundColor: theme.colors.surface
-    },
-    commentPreviewHeader: {
+    planSectionHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: theme.spacing.xs
+        marginBottom: theme.spacing.xs,
+        paddingHorizontal: theme.spacing.micro
     },
-    commentPreviewTitle: {
+    planSectionTitle: {
         color: theme.colors.textPrimary,
-        fontSize: 14,
-        fontFamily: theme.fonts.semibold
+        fontSize: 17,
+        lineHeight: 22,
+        fontFamily: theme.fonts.bold
     },
-    commentPreviewAuthor: {
+    planSectionMeta: {
         color: theme.colors.textSecondary,
         fontSize: 12,
-        fontFamily: theme.fonts.medium
-    },
-    commentPreviewBody: {
-        marginTop: 4,
-        color: theme.colors.textPrimary,
-        lineHeight: 20,
-        fontFamily: theme.fonts.body
+        fontFamily: theme.fonts.semibold
     },
     commentsModalRoot: {
         flex: 1,
@@ -1547,17 +1565,6 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         fontSize: 20,
         lineHeight: 26,
         fontFamily: theme.fonts.bold
-    },
-    commentsCountPill: {
-        paddingHorizontal: theme.spacing.xs,
-        paddingVertical: theme.spacing.xs,
-        borderRadius: theme.radius.sm,
-        backgroundColor: theme.colors.surfaceMuted
-    },
-    commentsCountText: {
-        color: theme.colors.textSecondary,
-        fontSize: 12,
-        fontFamily: theme.fonts.semibold
     },
     commentsCloseButton: {
         paddingHorizontal: theme.spacing.xs,

@@ -19,11 +19,19 @@ export type CommunityPostListPage = {
     hasMore: boolean;
 };
 
+export type CommunityPublishOptions = {
+    marketplace?: {
+        productId: string;
+        priceLabel?: string | null;
+        currencyCode?: string | null;
+    } | null;
+};
+
 export interface CommunityRepository {
     listPostsPage(userId: string, options?: OffsetPageRequest): Promise<CommunityPostListPage>;
     listPosts(userId: string): Promise<MobileCommunityPostSummary[]>;
     getPostDetail(userId: string, postId: string): Promise<MobileCommunityPostDetail | null>;
-    publishTrip(userId: string, trip: MobileTripDetail): Promise<void>;
+    publishTrip(userId: string, trip: MobileTripDetail, options?: CommunityPublishOptions): Promise<void>;
     listComments(userId: string, postId: string): Promise<MobileCommunityComment[]>;
     addComment(postId: string, input: MobileCommunityCommentCreateInput): Promise<void>;
     toggleLike(userId: string, postId: string, currentlyLiked: boolean): Promise<MobileCommunityLikeResult>;

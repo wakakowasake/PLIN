@@ -151,7 +151,7 @@ export function TripAnnouncementSheet({
             }}
         >
             <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 style={styles.backdrop}
             >
                 <Pressable style={StyleSheet.absoluteFill} />
@@ -211,7 +211,7 @@ export function TripAnnouncementSheet({
                                 maxLength={TITLE_MAX_LENGTH}
                                 onChangeText={setTitle}
                                 onFocus={createFocusHandler()}
-                                placeholder="비워 두면 여행 제목으로 발송돼요"
+                                placeholder="비워 두면 일정 제목으로 발송돼요"
                                 placeholderTextColor={theme.colors.textSecondary}
                                 style={styles.input}
                                 value={title}

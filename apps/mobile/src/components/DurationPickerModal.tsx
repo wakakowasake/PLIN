@@ -49,8 +49,8 @@ function resolveCenteredLoopIndex(values: string[], selectedValue: string) {
 
 function parseDurationValue(value: string) {
     const parsed = Number(String(value || '').trim());
-    const safeMinutes = Number.isFinite(parsed) && parsed >= 1
-        ? clamp(Math.floor(parsed), 1, MAX_DURATION_MINUTES)
+    const safeMinutes = Number.isFinite(parsed) && parsed >= 0
+        ? clamp(Math.floor(parsed), 0, MAX_DURATION_MINUTES)
         : 30;
 
     return {
@@ -72,8 +72,8 @@ function resolveTotalMinutes(hour: string, minute: string) {
 
 function formatDurationLabel(hour: string, minute: string) {
     const totalMinutes = resolveTotalMinutes(hour, minute);
-    if (totalMinutes < 1) {
-        return '1분 이상 선택';
+    if (totalMinutes === 0) {
+        return '0분';
     }
 
     const hours = Math.floor(totalMinutes / 60);
@@ -275,16 +275,16 @@ export function DurationPickerModal({ visible, value, onClose, onConfirm }: Prop
 
                     <Pressable
                         accessibilityRole="button"
-                        disabled={selectedTotalMinutes < 1}
+                        disabled={selectedTotalMinutes < 0}
                         onPress={() => {
-                            if (selectedTotalMinutes >= 1) {
+                            if (selectedTotalMinutes >= 0) {
                                 onConfirm(String(selectedTotalMinutes));
                             }
                         }}
                         style={({ pressed }) => [
                             styles.confirmButton,
-                            selectedTotalMinutes < 1 ? styles.confirmButtonDisabled : null,
-                            pressed && selectedTotalMinutes >= 1 ? styles.buttonPressed : null
+                            selectedTotalMinutes < 0 ? styles.confirmButtonDisabled : null,
+                            pressed && selectedTotalMinutes >= 0 ? styles.buttonPressed : null
                         ]}
                     >
                         <Text style={styles.confirmButtonText}>이 시간으로 선택</Text>

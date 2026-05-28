@@ -1,57 +1,50 @@
 <!DOCTYPE html>
-<html lang="ko" class="light">
+<html lang="ko">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>공지사항 | PLIN</title>
-
     <meta name="description" content="PLIN 서비스 공지, 업데이트, 점검 안내를 확인하는 공지사항 게시판입니다.">
-    <link rel="canonical" href="https://plin.ink/notices.html">
-
+    <link rel="canonical" href="https://plin.ink/notices">
     <link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png">
     <link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png">
-
-    <link rel="stylesheet" as="style" crossorigin
-        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
-
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#ff6600',
-                    },
-                    fontFamily: {
-                        sans: ['Pretendard', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-                    }
-                }
-            }
-        }
-    </script>
-    <link rel="stylesheet" href="/css/policy-docs.css">
+    <meta name="theme-color" content="#fff8f3">
+    <link rel="stylesheet" href="/css/site-pages.css">
 </head>
 
 <body>
-    <div class="policy-page notice-page">
-        <header class="policy-header">
-            <div class="policy-topbar">
-                <a href="/" class="policy-brand">PLIN</a>
-                <nav class="policy-topnav" aria-label="PLIN 앱">
-                    <a href="/?tab=notices" aria-current="page">앱에서 공지 보기</a>
-                </nav>
-            </div>
-            <p class="policy-kicker">Notice Board</p>
-            <h1>공지사항</h1>
-            <p class="policy-meta">서비스 업데이트, 점검, 운영 안내를 이곳에서 확인할 수 있습니다.</p>
-        </header>
+    <header class="site-header">
+        <div class="header-inner">
+            <a href="/" class="brand-mark" aria-label="PLIN 홈">
+                <img class="brand-icon" src="/icon-only.png" alt="" aria-hidden="true">
+                <span>PLIN</span>
+            </a>
+            <nav class="nav-links" aria-label="PLIN 사이트 메뉴">
+                <a href="/company">회사소개</a>
+                <a href="/notices" aria-current="page">공지사항</a>
+                <a href="/blog">블로그</a>
+                <a href="mailto:contact@plin.ink">문의</a>
+            </nav>
+            <a href="#login" class="button button-primary" data-site-auth-open>시작하기</a>
+        </div>
+    </header>
 
-        <main class="policy-main notice-main">
-            <section class="notice-admin-panel notice-editor-page hidden" id="notice-admin-panel" aria-labelledby="notice-admin-title">
+    <main class="site-page notice-page">
+        <section class="page-hero" aria-labelledby="notice-page-title">
+            <div>
+                <p class="page-kicker">Notice Board</p>
+                <h1 id="notice-page-title">공지사항</h1>
+                <p class="page-lead">서비스 업데이트와 점검 소식을 한눈에 확인할 수 있습니다.</p>
+            </div>
+        </section>
+
+        <div class="site-content notice-main">
+            <section class="notice-admin-panel notice-editor-page hidden" id="notice-admin-panel"
+                aria-labelledby="notice-admin-title">
                 <div class="notice-section-header">
                     <div>
-                        <p class="notice-eyebrow">Admin</p>
+                        <p class="notice-eyebrow">관리자</p>
                         <h2 id="notice-admin-title">공지 작성</h2>
                     </div>
                     <button type="button" class="notice-ghost-button" id="notice-cancel-edit-btn">목록으로</button>
@@ -88,7 +81,7 @@
                 </form>
             </section>
 
-            <section id="notice-list-section" aria-labelledby="notice-list-title">
+            <section id="notice-list-section" class="content-panel" aria-labelledby="notice-list-title">
                 <div class="notice-section-header">
                     <div>
                         <p class="notice-eyebrow">PLIN Updates</p>
@@ -108,7 +101,8 @@
                 </div>
             </section>
 
-            <section id="notice-detail-section" class="notice-detail-section hidden" aria-labelledby="notice-detail-title">
+            <section id="notice-detail-section" class="content-panel notice-detail-section hidden"
+                aria-labelledby="notice-detail-title">
                 <div class="notice-section-header">
                     <div>
                         <p class="notice-eyebrow">Notice Detail</p>
@@ -118,19 +112,38 @@
                 </div>
                 <div id="notice-detail-content" class="notice-detail-content"></div>
             </section>
-
-            <footer class="policy-footer-note">
-                <p>관리자 계정으로 로그인한 경우 이 화면에서 공지를 등록하고 수정할 수 있습니다.</p>
-            </footer>
-        </main>
-
-        <div class="policy-footer-nav">
-            <a href="/">PLIN 홈으로 돌아가기</a>
-            <a href="/?tab=notices">앱 안에서 보기</a>
         </div>
-    </div>
+    </main>
+
+    <footer class="site-footer">
+        <div class="footer-inner">
+            <div>
+                <a href="/" class="footer-brand">PLIN</a>
+                <p class="footer-copy">
+                    문의 : <a href="mailto:contact@plin.ink">contact@plin.ink</a><br>
+                    대표자 : 우지형<br>
+                    주소 : 서울특별시 동작구 상도로 55길 8 2층<br>
+                    사업자등록번호 : 663-02-03874<br>
+                    통신판매업 신고 : 2026-서울동작-0669<br>
+                    © 2026 플린(PLIN). PLIN은 여행 계획과 기록을 위한 베타 서비스입니다.
+                </p>
+            </div>
+            <nav class="footer-links" aria-label="정책 문서">
+                <a href="/company">회사 소개</a>
+                <a href="/notices">공지사항</a>
+                <a href="/blog">블로그</a>
+                <a href="/terms">서비스 이용약관</a>
+                <a href="/subscription-terms">유료서비스 약관</a>
+                <a href="/privacy">개인정보처리방침</a>
+                <a href="/location-terms">위치기반서비스 약관</a>
+                <a href="/operation-policy">운영정책</a>
+                <a href="/youth-protection-policy">청소년보호정책</a>
+            </nav>
+        </div>
+    </footer>
 
     <script type="module" src="/js/pages/notices.js"></script>
+    <script type="module" src="/js/pages/site-auth.js"></script>
 </body>
 
 </html>

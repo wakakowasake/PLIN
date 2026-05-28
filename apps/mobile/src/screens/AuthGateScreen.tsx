@@ -31,6 +31,7 @@ import { type AppTheme, useAppTheme } from '@/theme';
 import { type AuthProvider } from '@/types/auth';
 
 const TERMS_URL = 'https://plin.ink/terms';
+const SUBSCRIPTION_TERMS_URL = 'https://plin.ink/subscription-terms';
 const PRIVACY_URL = 'https://plin.ink/privacy';
 const LOCATION_TERMS_URL = 'https://plin.ink/location-terms';
 const OPERATION_POLICY_URL = 'https://plin.ink/operation-policy';
@@ -89,6 +90,11 @@ const SUPPORT_POLICY_LINKS: ReadonlyArray<{
         label: '이용약관',
         url: TERMS_URL,
         icon: 'document-text-outline'
+    },
+    {
+        label: '유료서비스 약관',
+        url: SUBSCRIPTION_TERMS_URL,
+        icon: 'card-outline'
     },
     {
         label: '위치기반서비스 약관',
@@ -730,7 +736,7 @@ export function AuthGateScreen({ navigation }: Props) {
                             ? '보낸 인증 메일의 링크를 열어야 PLIN 가입을 완료할 수 있어요.'
                             : needsMandatoryAgreement
                                 ? '서비스를 시작하기 전에 약관과 개인정보 처리 안내를 확인해 주세요.'
-                                : authActionInlineNotice?.description || '여행의 설레는 계획부터 소중한 추억까지\nPLIN과 함께 한 권의 여행책처럼 기록해 보세요.'}
+                                : authActionInlineNotice?.description || '설레는 계획부터 소중한 추억까지\nPLIN과 함께 한 번의 일정을 차분히 기록해 보세요.'}
                     </Text>
                 </View>
 

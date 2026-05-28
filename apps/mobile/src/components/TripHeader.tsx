@@ -25,12 +25,12 @@ export function TripHeader({ trip, variant = 'card' }: Props) {
         <View style={[styles.container, isHero ? styles.containerHero : null]}>
             <View style={[styles.badge, isHero ? styles.badgeHero : null]}>
                 <Text style={[styles.badgeText, isHero ? styles.badgeTextHero : null]}>
-                    {trip.status === 'completed' ? '여행 기록' : '여행 계획'}
+                    {trip.status === 'completed' ? '일정 기록' : '일정 계획'}
                 </Text>
             </View>
             <EmojiText style={[styles.title, isHero ? styles.titleHero : null]}>{trip.title}</EmojiText>
             <EmojiText style={[styles.subInfo, isHero ? styles.subInfoHero : null]}>
-                {trip.subInfo || '여행 정보 준비 중'}
+                {trip.subInfo || '일정 정보 준비 중'}
             </EmojiText>
             <View style={styles.metaRow}>
                 <Text style={[styles.metaText, isHero ? styles.metaTextHero : null]}>{trip.dayCount}</Text>
