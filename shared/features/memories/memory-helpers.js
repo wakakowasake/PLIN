@@ -29,6 +29,12 @@ export function buildMemoryFileName({ dayIndex, itemIndex, timestamp, fileIndex 
     return `memory_${dayIndex}_${itemIndex}_${timestamp}_${fileIndex}.jpg`;
 }
 
+export const FREE_TRIP_MEMORY_PHOTO_LIMIT = 50;
+
+export function getTripMemoryPhotoLimitMessage(limit = FREE_TRIP_MEMORY_PHOTO_LIMIT) {
+    return `무료 일정은 추억 사진을 ${limit}장까지 저장할 수 있어요. PLIN Plus로 더 많은 사진을 남겨보세요.`;
+}
+
 function readMemoryUrl(value) {
     return String(value || '').trim();
 }

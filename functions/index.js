@@ -147,6 +147,9 @@ const PLIN_ADMIN_EMAILS = new Set([
   "plin.ink@gmail.com"
 ]);
 const DEFAULT_MARKETPLACE_SUBSCRIPTION_ENTITLEMENT_ID = "PLIN Plus";
+const FREE_TRIP_MEMORY_PHOTO_LIMIT = 50;
+const FREE_TRIP_MEMORY_PHOTO_LIMIT_MESSAGE =
+  `무료 일정은 추억 사진을 ${FREE_TRIP_MEMORY_PHOTO_LIMIT}장까지 저장할 수 있어요. PLIN Plus로 더 많은 사진을 남겨보세요.`;
 const MAX_STORAGE_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAX_STORAGE_ATTACHMENT_UPLOAD_BYTES = 10 * 1024 * 1024;
 const GOOGLE_PHOTO_REFERENCE_PATTERN = /^[A-Za-z0-9._~%+=:/-]{10,1024}$/;
@@ -1007,6 +1010,121 @@ async function getTripAccessContext(uid, tripId, options = {}) {
     data,
     role
   };
+}
+
+function readTripMemoryPhotoUrl(memory) {
+  if (typeof memory === "string") {
+    return readString(memory);
+  }
+
+  if (!isPlainObject(memory)) {
+    return "";
+  }
+
+  return readString(
+    memory.photoUrl
+    || memory.url
+    || memory.image
+    || memory.previewUrl
+    || memory.thumbnailUrl
+  );
+}
+
+function readTripMemoryCollection(value) {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (isPlainObject(value)) {
+    return Object.values(value);
+  }
+
+  return [];
+}
+
+function readTimelineItemsForMemoryCounting(day) {
+  if (!isPlainObject(day)) {
+    return [];
+  }
+
+  const items = readTripMemoryCollection(day.items);
+  if (items.length > 0) {
+    return items;
+  }
+
+  return readTripMemoryCollection(day.timeline);
+}
+
+function countTimelineItemMemoryPhotos(item) {
+  if (!isPlainObject(item)) {
+    return 0;
+  }
+
+  const memories = Array.isArray(item.memories)
+    ? item.memories
+    : Array.isArray(item.memoryEntries)
+      ? item.memoryEntries
+      : Array.isArray(item.photos)
+        ? item.photos
+        : [];
+
+  return memories.reduce((count, memory) => (
+    count + (readTripMemoryPhotoUrl(memory) ? 1 : 0)
+  ), 0);
+}
+
+function countTripMemoryPhotos(tripData) {
+  const days = Array.isArray(tripData?.days) ? tripData.days : [];
+  return days.reduce((total, day) => (
+    total + readTimelineItemsForMemoryCounting(day).reduce((dayTotal, item) => (
+      dayTotal + countTimelineItemMemoryPhotos(item)
+    ), 0)
+  ), 0);
+}
+
+function normalizeRequestedMemoryPhotoCount(value) {
+  const count = Number.parseInt(readString(value), 10);
+  if (!Number.isFinite(count) || count <= 0) {
+    return 1;
+  }
+
+  return Math.min(count, FREE_TRIP_MEMORY_PHOTO_LIMIT + 1);
+}
+
+function createTripMemoryPhotoLimitError({ currentCount, nextCount }) {
+  const error = new Error("TRIP_MEMORY_PHOTO_LIMIT_EXCEEDED");
+  error.statusCode = 402;
+  error.userMessage = FREE_TRIP_MEMORY_PHOTO_LIMIT_MESSAGE;
+  error.limit = FREE_TRIP_MEMORY_PHOTO_LIMIT;
+  error.currentCount = currentCount;
+  error.nextCount = nextCount;
+  return error;
+}
+
+async function assertTripMemoryPhotoLimitForUser(uid, { currentCount, nextCount }) {
+  if (
+    nextCount <= FREE_TRIP_MEMORY_PHOTO_LIMIT
+    || nextCount <= currentCount
+  ) {
+    return;
+  }
+
+  const subscriptionData = await readMarketplaceSubscription(uid);
+  if (isActiveMarketplaceSubscription(subscriptionData)) {
+    return;
+  }
+
+  throw createTripMemoryPhotoLimitError({ currentCount, nextCount });
+}
+
+function sendTripMemoryPhotoLimitResponse(res, error) {
+  return res.status(error?.statusCode || 402).json({
+    error: "Trip Memory Photo Limit Exceeded",
+    message: FREE_TRIP_MEMORY_PHOTO_LIMIT_MESSAGE,
+    limit: FREE_TRIP_MEMORY_PHOTO_LIMIT,
+    currentCount: Number.isFinite(error?.currentCount) ? error.currentCount : null,
+    nextCount: Number.isFinite(error?.nextCount) ? error.nextCount : null
+  });
 }
 
 async function fetchTripMembershipSnapshots(plansRef, safeUid) {
@@ -6003,6 +6121,10 @@ app.put("/plans/:tripId/content", validateFirebaseIdToken, async (req, res) => {
       ...tripContext.data,
       ...nextTripState
     };
+    await assertTripMemoryPhotoLimitForUser(uid, {
+      currentCount: countTripMemoryPhotos(tripContext.data),
+      nextCount: countTripMemoryPhotos(nextTripData)
+    });
     if (TRIP_REVISIONS_ENABLED) {
       const revisionRef = tripContext.ref.collection("revisions").doc();
       const revisionRecord = await buildTripRevisionRecord({
@@ -6031,6 +6153,10 @@ app.put("/plans/:tripId/content", validateFirebaseIdToken, async (req, res) => {
       trip: buildTripDetailResponse(tripId, nextTripData)
     });
   } catch (error) {
+    if (error.message === "TRIP_MEMORY_PHOTO_LIMIT_EXCEEDED") {
+      return sendTripMemoryPhotoLimitResponse(res, error);
+    }
+
     if (error.message === "INVALID_TRIP_CONTENT") {
       return res.status(400).json({
         error: "Invalid trip content",
@@ -9233,6 +9359,15 @@ app.post("/storage/upload-trip-image", validateFirebaseIdToken, storageUploadLim
       });
     }
 
+    if (uploadKind !== "tripCover") {
+      const currentCount = countTripMemoryPhotos(tripContext.data);
+      const requestedMemoryCount = normalizeRequestedMemoryPhotoCount(req.body?.requestedMemoryCount);
+      await assertTripMemoryPhotoLimitForUser(uid, {
+        currentCount,
+        nextCount: currentCount + requestedMemoryCount
+      });
+    }
+
     const extension = getImageExtensionFromContentType(contentType);
     let storagePath = "";
 
@@ -9289,6 +9424,10 @@ app.post("/storage/upload-trip-image", validateFirebaseIdToken, storageUploadLim
       contentType
     });
   } catch (error) {
+    if (error.message === "TRIP_MEMORY_PHOTO_LIMIT_EXCEEDED") {
+      return sendTripMemoryPhotoLimitResponse(res, error);
+    }
+
     console.error("Trip image upload error:", error);
     return res.status(500).json({
       error: "Upload failed",

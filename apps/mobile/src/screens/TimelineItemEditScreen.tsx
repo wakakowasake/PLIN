@@ -62,7 +62,11 @@ import {
     uploadTripAttachmentAssets,
     type PickedTripAttachmentAsset
 } from '@/services/trip-attachment-upload';
-import { uploadTripMemoryAssets, type PickedTripMemoryAsset } from '@/services/trip-memory-upload';
+import {
+    isTripMemoryPhotoLimitMessage,
+    uploadTripMemoryAssets,
+    type PickedTripMemoryAsset
+} from '@/services/trip-memory-upload';
 import { publishTripDetailUpdated } from '@/state/trip-write-sync';
 import { type AppTheme, useAppTheme } from '@/theme';
 import { MOBILE_BOTTOM_SHEET_HEIGHTS } from '@/theme/bottomSheet';
@@ -83,6 +87,7 @@ import {
     removeMobileWebSessionValue,
     writeMobileWebSessionJson
 } from '@/utils/mobile-web-session';
+import { promptSubscriptionUpgradeForMemoryLimit } from '@/utils/subscription-upgrade-prompt';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TimelineItemEdit'>;
 type PendingMemoryDraft = {
@@ -1825,6 +1830,13 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
             }
 
             setSaveError(message);
+            if (isTripMemoryPhotoLimitMessage(message)) {
+                promptSubscriptionUpgradeForMemoryLimit({
+                    userId: user?.uid,
+                    message,
+                    onError: setSaveError
+                });
+            }
         } finally {
             setIsSaving(false);
         }

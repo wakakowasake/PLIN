@@ -1,8 +1,13 @@
 import React from 'react';
 
 import type { TripRepository } from '@/adapters/trips/TripRepository';
-import { uploadTripMemoryAssets, type PickedTripMemoryAsset } from '@/services/trip-memory-upload';
+import {
+    isTripMemoryPhotoLimitMessage,
+    uploadTripMemoryAssets,
+    type PickedTripMemoryAsset
+} from '@/services/trip-memory-upload';
 import type { MobileTripDetail } from '@/types/trip';
+import { promptSubscriptionUpgradeForMemoryLimit } from '@/utils/subscription-upgrade-prompt';
 
 type TimelineMemoryComposerTarget = {
     dayId: string;
@@ -83,6 +88,13 @@ export function useTripDetailTimelineMemoryActions({
             const message = error instanceof Error ? error.message : '추억을 추가하지 못했어요.';
             if (await recoverTripWriteConflict(message, { inlineError: setError })) {
                 return;
+            }
+            if (isTripMemoryPhotoLimitMessage(message)) {
+                promptSubscriptionUpgradeForMemoryLimit({
+                    userId,
+                    message,
+                    onError: setError
+                });
             }
             setError(message);
         } finally {

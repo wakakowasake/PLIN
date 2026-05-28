@@ -1,8 +1,17 @@
 import * as ImagePicker from 'expo-image-picker';
-import { buildMemoryFileName } from '@shared/features/memories/memory-helpers.js';
+import {
+    buildMemoryFileName,
+    FREE_TRIP_MEMORY_PHOTO_LIMIT,
+    getTripMemoryPhotoLimitMessage
+} from '@shared/features/memories/memory-helpers.js';
 
-import { fetchBackendJson } from '@/services/backend-client';
+import { BackendRequestError, fetchBackendJson } from '@/services/backend-client';
 import { readLocalAssetUploadData } from '@/services/local-asset-upload';
+
+export { FREE_TRIP_MEMORY_PHOTO_LIMIT, getTripMemoryPhotoLimitMessage };
+
+const TRIP_MEMORY_PHOTO_LIMIT_ERROR = 'Trip Memory Photo Limit Exceeded';
+const TRIP_MEMORY_PHOTO_LIMIT_MESSAGE_FRAGMENT = `추억 사진을 ${FREE_TRIP_MEMORY_PHOTO_LIMIT}장까지`;
 
 export type PickedTripMemoryAsset = {
     uri: string;
@@ -64,10 +73,36 @@ function getErrorCode(error: unknown) {
         : '';
 }
 
+function isTripMemoryPhotoLimitBackendError(error: unknown) {
+    if (!(error instanceof BackendRequestError)) {
+        return false;
+    }
+
+    const payload = error.payload;
+    if (!payload || typeof payload !== 'object') {
+        return false;
+    }
+
+    const record = payload as Record<string, unknown>;
+    return error.status === 402
+        && (
+            String(record.error || '') === TRIP_MEMORY_PHOTO_LIMIT_ERROR
+            || Number(record.limit) === FREE_TRIP_MEMORY_PHOTO_LIMIT
+        );
+}
+
+export function isTripMemoryPhotoLimitMessage(value: unknown) {
+    return String(value || '').includes(TRIP_MEMORY_PHOTO_LIMIT_MESSAGE_FRAGMENT);
+}
+
 function mapTripMemoryUploadError(error: unknown) {
     const code = getErrorCode(error);
     const message = error instanceof Error ? error.message : String(error || '');
     const normalizedMessage = `${code} ${message}`.toLowerCase();
+
+    if (isTripMemoryPhotoLimitBackendError(error) || isTripMemoryPhotoLimitMessage(message)) {
+        return getTripMemoryPhotoLimitMessage();
+    }
 
     if (
         code === 'storage/unauthorized'
@@ -112,12 +147,14 @@ async function uploadTripMemoryAssetViaBackend({
     tripId,
     fileName,
     contentType,
-    base64
+    base64,
+    requestedMemoryCount
 }: {
     tripId: string;
     fileName: string;
     contentType: string;
     base64: string;
+    requestedMemoryCount: number;
 }) {
     const response = await fetchBackendJson<{
         url?: string;
@@ -130,7 +167,8 @@ async function uploadTripMemoryAssetViaBackend({
             tripId,
             fileName,
             contentType,
-            base64
+            base64,
+            requestedMemoryCount
         }
     });
     const url = String(response?.url || '').trim();
@@ -213,6 +251,7 @@ export async function uploadTripMemoryAssets({
     }
 
     const timestamp = Date.now();
+    const requestedMemoryCount = safeAssets.length;
     const uploadedEntries: UploadedTripMemoryAsset[] = [];
 
     try {
@@ -244,7 +283,8 @@ export async function uploadTripMemoryAssets({
                 tripId,
                 fileName,
                 contentType: metadata.contentType,
-                base64: uploadPayload.data
+                base64: uploadPayload.data,
+                requestedMemoryCount
             }));
         }
     } catch (error) {
