@@ -110,7 +110,7 @@ function mapTripMemoryUploadError(error: unknown) {
         || normalizedMessage.includes('does not have permission')
         || normalizedMessage.includes('unauthorized')
     ) {
-        return '이 일정은 열람만 가능해요. 편집 멤버에게 수정을 요청해 주세요.';
+        return '이 일정은 열람 전용이에요. 편집 멤버에게 수정을 요청해 주세요.';
     }
 
     if (
@@ -263,7 +263,7 @@ export async function uploadTripMemoryAssets({
                 maxBytes: 10 * 1024 * 1024,
                 readUriAsBase64: true,
                 readErrorMessage: '선택한 사진 파일을 읽지 못했어요.',
-                sizeErrorMessage: '추억 사진은 파일당 10MB 이하만 추가할 수 있어요.'
+                sizeErrorMessage: '추억 사진은 파일당 10MB 이하여야 해요.'
             });
             const fileName = buildMemoryFileName({
                 dayIndex,

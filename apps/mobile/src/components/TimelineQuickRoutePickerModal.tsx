@@ -227,8 +227,8 @@ export function TimelineQuickRoutePickerModal({
                     {loading ? (
                         <View style={styles.loadingCard}>
                             <ActivityIndicator size="small" color={theme.colors.accent} />
-                            <Text style={styles.loadingTitle}>자동 추천 경로를 찾는 중이에요.</Text>
-                            <Text style={styles.loadingBody}>후보를 고른 뒤 이동 카드를 일정 사이에 바로 넣을 수 있어요.</Text>
+                            <Text style={styles.loadingTitle}>자동 추천 경로를 찾고 있어요.</Text>
+                            <Text style={styles.loadingBody}>후보를 고른 뒤 이동 카드를 일정 사이에 바로 넣어요.</Text>
                         </View>
                     ) : errorMessage ? (
                         <View style={[styles.noticeCard, styles.noticeCardWarning]}>

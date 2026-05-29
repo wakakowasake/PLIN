@@ -12,23 +12,27 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // 헬퍼 함수: 관리자 여부 확인 (B 방식: 유저 문서의 role 필드 확인)
-    function isAdmin() {
+    function hasAdminClaim() {
       return isAuthenticated() &&
         (
-          request.auth.token.admin == true ||
-          (
-            request.auth.token.email_verified == true &&
-            (
-              request.auth.token.email == 'contact@plin.ink'
-              || request.auth.token.email == 'plin.ink@gmail.com'
-            )
-          ) ||
-          (
-            exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
-          )
+          request.auth.token.admin == true
+          || request.auth.token.plinAdmin == true
+          || request.auth.token.plin_admin == true
         );
+    }
+
+    function hasLegacyAdminEmail() {
+      return isAuthenticated() &&
+        (
+          request.auth.token.email == 'contact@plin.ink'
+          || request.auth.token.email == 'wakakowasake@gmail.com'
+        );
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        request.auth.token.email_verified == true &&
+        (hasAdminClaim() || hasLegacyAdminEmail());
     }
     
     function roleForPlan(data) {

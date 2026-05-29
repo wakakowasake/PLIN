@@ -57,6 +57,26 @@ import {
 } from './android-google-signin';
 import type { AuthSessionAdapter, SessionListener } from './AuthSessionAdapter';
 
+const PLIN_ADMIN_EMAILS = new Set([
+    'contact@plin.ink',
+    'wakakowasake@gmail.com'
+]);
+
+function normalizeEmail(value?: string | null) {
+    return String(value || '').trim().toLowerCase();
+}
+
+function isAllowedAdminEmail(user: User) {
+    return user.emailVerified === true
+        && PLIN_ADMIN_EMAILS.has(normalizeEmail(user.email));
+}
+
+function hasPlinAdminClaim(claims: Record<string, unknown>) {
+    return claims.admin === true
+        || claims.plinAdmin === true
+        || claims.plin_admin === true;
+}
+
 WebBrowser.maybeCompleteAuthSession();
 
 const AUTH_READY_TIMEOUT_MS = 12000;
@@ -139,7 +159,8 @@ async function toAuthSessionUser(user: User | null): Promise<AuthSessionUser | n
     let isAdmin = false;
     try {
         const tokenResult = await user.getIdTokenResult();
-        isAdmin = tokenResult.claims.admin === true;
+        isAdmin = user.emailVerified === true
+            && (hasPlinAdminClaim(tokenResult.claims) || isAllowedAdminEmail(user));
     } catch {}
 
     return {
@@ -363,7 +384,7 @@ function mapFirebaseAuthAdapterError(
 
     if (errorCode === 'auth/user-disabled') {
         return new Error(
-            '계정 삭제가 요청되어 다시 로그인할 수 없어요. 데이터 삭제 처리 중입니다.'
+            '계정 삭제가 진행 중이라 다시 로그인할 수 없어요.'
         );
     }
 
@@ -372,7 +393,7 @@ function mapFirebaseAuthAdapterError(
 
         if (message.includes('auth/user-disabled') || message.includes('user-disabled')) {
             return new Error(
-                '계정 삭제가 요청되어 다시 로그인할 수 없어요. 데이터 삭제 처리 중입니다.'
+                '계정 삭제가 진행 중이라 다시 로그인할 수 없어요.'
             );
         }
 
@@ -501,7 +522,7 @@ function mapEmailPasswordSignUpError(error: unknown) {
         : '';
 
     if (errorCode === 'auth/email-already-in-use') {
-        return new Error('이미 가입된 이메일이에요. 가입 때 사용한 로그인 방식으로 들어가 주세요. 이메일로 가입한 계정이면 로그인 탭에서 계속할 수 있어요.');
+        return new Error('이미 가입된 이메일이에요. 가입 때 사용한 로그인 방식으로 들어가 주세요. 이메일로 가입한 계정이면 로그인 탭에서 계속해 주세요.');
     }
 
     if (errorCode === 'auth/invalid-email') {
@@ -766,8 +787,8 @@ async function buildGoogleFirebaseCredential() {
 
     if (result.type !== 'success' || !result.params.code) {
         throw new Error(result.type === 'error'
-            ? (result.error?.message || 'Google 로그인에 실패했습니다.')
-            : 'Google 로그인에 실패했습니다.');
+            ? (result.error?.message || 'Google 로그인을 완료하지 못했어요.')
+            : 'Google 로그인을 완료하지 못했어요.');
     }
 
     debugAuthLog('signIn:exchangeCode:start', {
@@ -958,7 +979,7 @@ export class FirebaseAuthSessionAdapter implements AuthSessionAdapter {
                 const user = await toAuthSessionUser(signInResult.user);
 
                 if (!user) {
-                    throw new Error('로그인 사용자 정보를 읽지 못했습니다.');
+                    throw new Error('로그인 정보를 확인하지 못했어요.');
                 }
 
                 return user;
@@ -970,7 +991,7 @@ export class FirebaseAuthSessionAdapter implements AuthSessionAdapter {
                 const user = await toAuthSessionUser(signInResult.user);
 
                 if (!user) {
-                    throw new Error('로그인 사용자 정보를 읽지 못했습니다.');
+                    throw new Error('로그인 정보를 확인하지 못했어요.');
                 }
 
                 return {
@@ -988,7 +1009,7 @@ export class FirebaseAuthSessionAdapter implements AuthSessionAdapter {
                 const user = await toAuthSessionUser(webUser);
 
                 if (!user) {
-                    throw new Error('로그인 사용자 정보를 읽지 못했습니다.');
+                    throw new Error('로그인 정보를 확인하지 못했어요.');
                 }
 
                 return user;
@@ -1008,7 +1029,7 @@ export class FirebaseAuthSessionAdapter implements AuthSessionAdapter {
             const user = await toAuthSessionUser(signInResult.user);
 
             if (!user) {
-                throw new Error('로그인 사용자 정보를 읽지 못했습니다.');
+                throw new Error('로그인 정보를 확인하지 못했어요.');
             }
 
             return user;
@@ -1039,7 +1060,7 @@ export class FirebaseAuthSessionAdapter implements AuthSessionAdapter {
             const user = await toAuthSessionUser(signInResult.user);
 
             if (!user) {
-                throw new Error('로그인 사용자 정보를 읽지 못했습니다.');
+                throw new Error('로그인 정보를 확인하지 못했어요.');
             }
 
             return {
@@ -1083,7 +1104,7 @@ export class FirebaseAuthSessionAdapter implements AuthSessionAdapter {
             const user = await toAuthSessionUser(auth.currentUser || signUpResult.user);
 
             if (!user) {
-                throw new Error('가입한 사용자 정보를 읽지 못했습니다.');
+                throw new Error('가입 정보를 확인하지 못했어요.');
             }
 
             return {

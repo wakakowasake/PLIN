@@ -99,7 +99,7 @@ function getAuthErrorMessage(error: unknown, fallbackMessage: string) {
 }
 
 function buildPendingDeletionMessage(_profileSummary?: MobileProfileSummary | null) {
-    return '계정 삭제가 요청되어 다시 로그인할 수 없어요. 데이터 삭제 처리 중입니다.';
+    return '계정 삭제가 진행 중이라 다시 로그인할 수 없어요.';
 }
 
 export function SessionStoreProvider({ children }: Props) {
@@ -158,17 +158,14 @@ export function SessionStoreProvider({ children }: Props) {
         setLastSessionEventAt(Date.now());
     }, []);
 
-    const refreshNativeSubscriptionState = useCallback((sessionUser: AuthSessionUser | null) => {
+    const syncNativeSubscriptionState = useCallback(async (sessionUser: AuthSessionUser | null) => {
         if (Platform.OS === 'web' || !sessionUser?.uid) {
             return;
         }
 
-        if (nativeSubscriptionRefreshUidRef.current === sessionUser.uid) {
-            return;
-        }
-
-        nativeSubscriptionRefreshUidRef.current = sessionUser.uid;
-        refreshActivePlanMarketplaceSubscription({ userId: sessionUser.uid }).catch((error) => {
+        try {
+            await refreshActivePlanMarketplaceSubscription({ userId: sessionUser.uid });
+        } catch (error) {
             const status = typeof error === 'object' && error && 'status' in error
                 ? Number((error as { status?: unknown }).status)
                 : 0;
@@ -179,8 +176,21 @@ export function SessionStoreProvider({ children }: Props) {
             if (__DEV__) {
                 console.warn('[IAP] Failed to refresh native subscription state', error);
             }
-        });
+        }
     }, []);
+
+    const refreshNativeSubscriptionState = useCallback((sessionUser: AuthSessionUser | null) => {
+        if (Platform.OS === 'web' || !sessionUser?.uid) {
+            return;
+        }
+
+        if (nativeSubscriptionRefreshUidRef.current === sessionUser.uid) {
+            return;
+        }
+
+        nativeSubscriptionRefreshUidRef.current = sessionUser.uid;
+        void syncNativeSubscriptionState(sessionUser);
+    }, [syncNativeSubscriptionState]);
 
     useEffect(() => {
         refreshNativeSubscriptionState(user);
@@ -492,6 +502,12 @@ export function SessionStoreProvider({ children }: Props) {
             && profileSummary?.accountStatus !== 'pending_deletion',
         onRefresh: syncAnnouncementPushInstallation,
         throttleMs: 5000
+    });
+
+    useForegroundResumeRefresh({
+        enabled: Platform.OS !== 'web' && Boolean(user),
+        onRefresh: () => syncNativeSubscriptionState(user),
+        throttleMs: 30000
     });
 
     const signIn = useCallback(async (provider: AuthProvider = 'google') => {

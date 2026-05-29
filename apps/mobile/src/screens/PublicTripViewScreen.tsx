@@ -225,7 +225,7 @@ export function PublicTripViewScreen({ route }: Props) {
             <SafeAreaView style={styles.safeArea}>
                 <View style={styles.centerState}>
                     <ActivityIndicator color={theme.colors.accent} size="large" />
-                    <Text style={styles.stateTitle}>공유 일정을 여는 중이에요</Text>
+                    <Text style={styles.stateTitle}>공유 일정을 열고 있어요</Text>
                     <Text style={styles.stateDescription}>잠시만 기다려 주세요.</Text>
                 </View>
             </SafeAreaView>
@@ -665,7 +665,7 @@ function OpenChoiceModal({
                     </View>
                     <Text style={styles.modalTitle}>앱에서 이어서 볼까요?</Text>
                     <Text style={styles.modalDescription}>
-                        앱이 있다면 더 편하게 볼 수 있어요. 웹에서도 바로 확인할 수 있습니다.
+                        앱에서 더 편하게 보고, 지금 화면에서도 계속 확인해요.
                     </Text>
                     <Pressable
                         accessibilityRole="button"
@@ -679,7 +679,7 @@ function OpenChoiceModal({
                         onPress={onClose}
                         style={({ pressed }) => [styles.modalSecondaryButton, pressed ? styles.buttonPressed : null]}
                     >
-                        <Text style={styles.modalSecondaryButtonText}>웹으로 볼게요</Text>
+                        <Text style={styles.modalSecondaryButtonText}>계속 볼게요</Text>
                     </Pressable>
                     <Pressable
                         accessibilityRole="button"

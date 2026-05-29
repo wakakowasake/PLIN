@@ -214,13 +214,13 @@ function buildMockModeNotice(
 ) {
     if (__DEV__) {
         if (status.state === 'partial') {
-            return `앱 설정을 일부 불러오지 못해 ${fallbackLabel} 중이에요.`;
+            return `앱 설정 일부를 불러오지 못해 ${fallbackLabel}해요.`;
         }
 
-        return `앱 설정을 불러오지 못해 ${fallbackLabel} 중이에요.`;
+        return `앱 설정을 불러오지 못해 ${fallbackLabel}해요.`;
     }
 
-    return `앱 설정을 확인하지 못해 ${fallbackLabel} 중이에요. 고객센터로 문의해 주세요.`;
+    return `앱 설정을 확인하지 못해 ${fallbackLabel}해요. 고객센터로 문의해 주세요.`;
 }
 
 export function readMobilePublicEnv(key: MobilePublicEnvKey, fallback = '') {

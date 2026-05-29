@@ -318,7 +318,7 @@ export function AuthGateScreen({ navigation }: Props) {
         if (isPendingDeletionIssue) {
             return {
                 title: '계정 이용을 확인해 주세요.',
-                description: '현재 계정 처리가 진행 중이에요.\n도움이 필요하면 고객 지원으로 문의해 주세요.'
+                description: '현재 계정 처리를 진행하고 있어요.\n도움이 필요하면 고객 지원으로 문의해 주세요.'
             };
         }
 
@@ -385,7 +385,7 @@ export function AuthGateScreen({ navigation }: Props) {
 
         let isCancelled = false;
         hasRequestedInitialEmailVerificationRef.current = true;
-        setEmailVerificationNotice('인증 메일을 보내는 중이에요.');
+        setEmailVerificationNotice('인증 메일을 보내고 있어요.');
 
         void (async () => {
             try {
@@ -696,7 +696,7 @@ export function AuthGateScreen({ navigation }: Props) {
                             styles.agreementStartButtonText,
                             !isAllRequiredAgreementsChecked ? styles.agreementStartButtonTextDisabled : null
                         ]}>
-                            {isAuthActionLoading ? '처리 중...' : '시작하기'}
+                            {isAuthActionLoading ? '처리 중' : '시작하기'}
                         </Text>
                     </Pressable>
                 </View>
@@ -733,7 +733,7 @@ export function AuthGateScreen({ navigation }: Props) {
                     </Text>
                     <Text numberOfLines={2} style={styles.welcomeDescription}>
                         {needsEmailVerification
-                            ? '보낸 인증 메일의 링크를 열어야 PLIN 가입을 완료할 수 있어요.'
+                            ? '보낸 인증 메일의 링크를 열면 PLIN 가입이 완료돼요.'
                             : needsMandatoryAgreement
                                 ? '서비스를 시작하기 전에 약관과 개인정보 처리 안내를 확인해 주세요.'
                                 : authActionInlineNotice?.description || '설레는 계획부터 소중한 추억까지\nPLIN과 함께 한 번의 일정을 차분히 기록해 보세요.'}
@@ -753,7 +753,7 @@ export function AuthGateScreen({ navigation }: Props) {
                     <View style={styles.emailVerificationCard}>
                         <Text style={styles.emailVerificationTitle}>메일 인증이 필요해요.</Text>
                         <Text style={styles.emailVerificationDescription}>
-                            PLIN 인증 링크를 열어야 가입을 완료할 수 있어요. 메일이 보이지 않으면 스팸함도 함께 확인해 주세요.
+                            PLIN 인증 링크를 열면 가입이 완료돼요. 메일이 보이지 않으면 스팸함도 함께 확인해 주세요.
                         </Text>
                         {emailVerificationNotice ? (
                             <Text style={styles.emailVerificationNotice}>{emailVerificationNotice}</Text>
@@ -769,7 +769,7 @@ export function AuthGateScreen({ navigation }: Props) {
                             ]}
                         >
                             <Text style={styles.emailVerificationPrimaryText}>
-                                {isAuthActionLoading ? '확인 중...' : '인증 완료 확인'}
+                                {isAuthActionLoading ? '확인 중' : '인증 완료 확인'}
                             </Text>
                         </Pressable>
                         <View style={styles.emailVerificationActionRow}>
@@ -865,7 +865,7 @@ export function AuthGateScreen({ navigation }: Props) {
                             ]}
                         >
                             <Text style={styles.primaryButtonText}>
-                                {isProviderAvailabilityLoading ? '확인 중...' : '로그인 방식 다시 확인'}
+                                {isProviderAvailabilityLoading ? '확인 중' : '로그인 방식 다시 확인'}
                             </Text>
                         </Pressable>
                     ) : (
@@ -886,7 +886,7 @@ export function AuthGateScreen({ navigation }: Props) {
                         >
                             <Text style={styles.primaryButtonText}>
                                 {isAuthActionLoading
-                                    ? '처리 중...'
+                                    ? '처리 중'
                                     : needsMandatoryAgreement
                                         ? shouldRetryAgreementState
                                             ? '약관 상태 다시 확인'
@@ -946,7 +946,7 @@ export function AuthGateScreen({ navigation }: Props) {
                     <View style={styles.footerPolicyButtonCopy}>
                         <Text style={styles.footerPolicyButtonTitle}>문의/운영정책</Text>
                         <Text style={styles.footerPolicyButtonDescription}>
-                            문의와 약관은 여기서 확인할 수 있어요.
+                            문의와 약관을 여기서 확인해요.
                         </Text>
                     </View>
                     <Ionicons
@@ -1001,7 +1001,7 @@ export function AuthGateScreen({ navigation }: Props) {
                     <EmptyState
                         title={
                             isBootstrapPendingDeletionIssue
-                                ? '계정 삭제가 진행 중이에요.'
+                                ? '계정 삭제를 진행하고 있어요.'
                                 : isBootstrapNetworkIssue
                                     ? '연결을 확인해 주세요.'
                                     : '세션을 다시 확인해 주세요.'
@@ -1009,9 +1009,9 @@ export function AuthGateScreen({ navigation }: Props) {
                         description={bootstrapError}
                         supportText={
                             isBootstrapPendingDeletionIssue
-                                ? '삭제 요청을 취소하는 기능은 제공하지 않아요. 웹 안내 페이지에서 동일한 내용을 확인할 수 있어요.'
+                                ? '삭제 요청 취소는 제공하지 않아요. 안내 페이지에도 같은 내용이 있어요.'
                                 : isBootstrapNetworkIssue
-                                ? '연결이 돌아오면 현재 계정 상태를 다시 확인하고 로그인할 수 있어요.'
+                                ? '연결이 돌아오면 현재 계정 상태를 다시 확인하고 로그인해요.'
                                 : undefined
                         }
                         actionLabel={isBootstrapPendingDeletionIssue ? undefined : isBootstrapNetworkIssue ? '다시 연결 시도' : '다시 확인'}

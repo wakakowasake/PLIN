@@ -361,7 +361,7 @@ export function TabletRootShell({ navigation, route }: Props) {
             },
             appearance: {
                 title: '화면 설정',
-                description: '다크 모드와 글꼴 설정은 기존 설정 화면의 토큰을 그대로 사용합니다.',
+                description: '다크 모드와 글꼴 스타일을 한곳에서 관리해요.',
                 actionLabel: '화면 설정 열기',
                 action: () => navigation.navigate('Settings'),
                 icon: 'palette-outline'

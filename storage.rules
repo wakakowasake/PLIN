@@ -42,19 +42,13 @@ service firebase.storage {
 
     function isAdmin() {
       return request.auth != null &&
+        request.auth.token.email_verified == true &&
         (
           request.auth.token.admin == true ||
-          (
-            request.auth.token.email_verified == true &&
-            (
-              request.auth.token.email == 'contact@plin.ink' ||
-              request.auth.token.email == 'plin.ink@gmail.com'
-            )
-          ) ||
-          (
-            firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
-            firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin'
-          )
+          request.auth.token.plinAdmin == true ||
+          request.auth.token.plin_admin == true ||
+          request.auth.token.email == 'contact@plin.ink' ||
+          request.auth.token.email == 'wakakowasake@gmail.com'
         );
     }
 

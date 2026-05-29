@@ -256,7 +256,7 @@ function buildTrashTripMeta(trip: MobileTripSummary) {
     return trip.subInfo || trip.dayCount || '일정 정보 없음';
 }
 
-export function SettingsScreen({ navigation }: Props) {
+export function SettingsScreen({ navigation, route }: Props) {
     const theme = useAppTheme();
     const styles = React.useMemo(() => createStyles(theme), [theme]);
     const insets = useSafeAreaInsets();
@@ -470,7 +470,7 @@ export function SettingsScreen({ navigation }: Props) {
                                 if (restoredTrip) {
                                     publishTripCreated(restoredTrip);
                                 }
-                                Alert.alert('복구했어요', '일정 목록에서 다시 확인할 수 있어요.');
+                                Alert.alert('복구했어요', '일정 목록에서 다시 확인해요.');
                             } catch (error) {
                                 const message = error instanceof Error && error.message
                                     ? error.message
@@ -533,7 +533,7 @@ export function SettingsScreen({ navigation }: Props) {
 
     const handleOpenSubscriptionCenter = React.useCallback(async () => {
         if (!user?.uid) {
-            Alert.alert('로그인이 필요해요.', '구독 관리는 로그인 후 이용할 수 있어요.');
+            Alert.alert('로그인이 필요해요.', '구독 관리는 로그인 후 이용해요.');
             return;
         }
 
@@ -563,6 +563,15 @@ export function SettingsScreen({ navigation }: Props) {
         }
     }, [user?.uid]);
 
+    React.useEffect(() => {
+        if (!route.params?.openSubscription) {
+            return;
+        }
+
+        navigation.setParams({ openSubscription: false });
+        void handleOpenSubscriptionCenter();
+    }, [handleOpenSubscriptionCenter, navigation, route.params?.openSubscription]);
+
     const closeSubscriptionSheet = React.useCallback(() => {
         if (isSubscriptionActionLoading) {
             return;
@@ -573,7 +582,7 @@ export function SettingsScreen({ navigation }: Props) {
 
     const handleManageActiveSubscription = React.useCallback(async () => {
         if (!user?.uid) {
-            Alert.alert('로그인이 필요해요.', '구독 관리는 로그인 후 이용할 수 있어요.');
+            Alert.alert('로그인이 필요해요.', '구독 관리는 로그인 후 이용해요.');
             return;
         }
 
@@ -593,13 +602,13 @@ export function SettingsScreen({ navigation }: Props) {
 
     const handleStartSubscription = React.useCallback(async (packageIdentifier: 'monthly' | 'yearly') => {
         if (!user?.uid) {
-            Alert.alert('로그인이 필요해요.', '구독은 로그인 후 이용할 수 있어요.');
+            Alert.alert('로그인이 필요해요.', '구독은 로그인 후 이용해요.');
             return;
         }
 
         setIsSubscriptionActionLoading(true);
         try {
-            await purchasePlanMarketplacePackage({
+            const purchaseResult = await purchasePlanMarketplacePackage({
                 userId: user.uid,
                 postId: 'plin-plus',
                 productId: '',
@@ -607,9 +616,9 @@ export function SettingsScreen({ navigation }: Props) {
             });
             setIsSubscriptionSheetVisible(false);
             setSubscriptionSheetMode('active');
-            setActiveSubscriptionProductId(selectedSubscriptionPackage);
+            setActiveSubscriptionProductId(purchaseResult.subscription?.productId || packageIdentifier);
             await refreshSession();
-            Alert.alert('PLIN Plus 활성화', 'PLIN Plus를 바로 이용할 수 있어요.');
+            Alert.alert('PLIN Plus 활성화', 'PLIN Plus를 바로 이용해요.');
         } catch (error) {
             if (isPurchaseCancelledError(error)) {
                 return;
@@ -626,7 +635,7 @@ export function SettingsScreen({ navigation }: Props) {
 
     const handleRestoreSubscription = React.useCallback(async () => {
         if (!user?.uid) {
-            Alert.alert('로그인이 필요해요.', '구독 복원은 로그인 후 이용할 수 있어요.');
+            Alert.alert('로그인이 필요해요.', '구독 복원은 로그인 후 이용해요.');
             return;
         }
 
@@ -642,7 +651,7 @@ export function SettingsScreen({ navigation }: Props) {
             setActiveSubscriptionProductId(nextActiveSubscriptionProductId);
             setSubscriptionSheetMode(nextActiveSubscriptionProductId ? 'active' : 'idle');
             await refreshSession();
-            Alert.alert('구독을 복원했어요.', 'PLIN Plus를 바로 이용할 수 있어요.');
+            Alert.alert('구독을 복원했어요.', 'PLIN Plus를 바로 이용해요.');
         } catch (error) {
             const message = error instanceof Error && error.message
                 ? error.message
@@ -1126,7 +1135,7 @@ export function SettingsScreen({ navigation }: Props) {
                                 ]}
                             >
                                 <Text style={styles.profilePrimaryButtonText}>
-                                    {isProfileEditorBusy ? '저장 중...' : '저장'}
+                                    {isProfileEditorBusy ? '저장 중' : '저장'}
                                 </Text>
                             </Pressable>
                         </View>
@@ -1254,7 +1263,7 @@ export function SettingsScreen({ navigation }: Props) {
                             {isTrashLoading && !deletedTrips.length ? (
                                 <View style={styles.trashStateBox}>
                                     <Ionicons name="hourglass-outline" size={28} color={theme.colors.textSecondary} />
-                                    <Text style={styles.trashStateTitle}>삭제한 일정을 불러오는 중이에요</Text>
+                                    <Text style={styles.trashStateTitle}>삭제한 일정을 불러오고 있어요</Text>
                                 </View>
                             ) : null}
 
@@ -1263,7 +1272,7 @@ export function SettingsScreen({ navigation }: Props) {
                                     <Ionicons name="archive-outline" size={30} color={theme.colors.textSecondary} />
                                     <Text style={styles.trashStateTitle}>삭제한 일정이 없어요</Text>
                                     <Text style={styles.trashStateDescription}>
-                                        일정을 삭제하면 이곳에서 다시 복구할 수 있어요.
+                                        일정을 삭제하면 이곳에서 다시 복구해요.
                                     </Text>
                                 </View>
                             ) : null}
@@ -1294,7 +1303,7 @@ export function SettingsScreen({ navigation }: Props) {
                                                 ]}
                                             >
                                                 <Text style={styles.trashRestoreButtonText}>
-                                                    {isBusy ? '처리 중...' : '복구'}
+                                                    {isBusy ? '처리 중' : '복구'}
                                                 </Text>
                                             </Pressable>
                                             <Pressable
@@ -1308,7 +1317,7 @@ export function SettingsScreen({ navigation }: Props) {
                                                 ]}
                                             >
                                                 <Text style={styles.trashDeleteButtonText}>
-                                                    {isBusy ? '처리 중...' : '영구 삭제'}
+                                                    {isBusy ? '처리 중' : '영구 삭제'}
                                                 </Text>
                                             </Pressable>
                                         </View>
@@ -1379,12 +1388,12 @@ export function SettingsScreen({ navigation }: Props) {
                                 </View>
                                 <Text style={styles.subscriptionHeroLabel}>PLIN Plus</Text>
                                 <Text style={styles.subscriptionIntroTitle}>
-                                    {subscriptionSheetMode === 'active' ? '구독 중이에요' : 'PLIN Plus 무료 체험'}
+                                    {subscriptionSheetMode === 'active' ? 'PLIN Plus 이용 중' : 'PLIN Plus 무료 체험'}
                                 </Text>
                                 <Text style={styles.subscriptionIntroDescription}>
                                     {subscriptionSheetMode === 'active'
                                         ? `결제와 해지는 ${nativeStoreLabel}에서 관리돼요. PLIN에서는 이용 상태만 확인해요.`
-                                        : `첫 달은 무료예요. ${nativeStoreLabel} 계정으로 시작하고, 마음에 드는 플랜을 내 일정으로 가져올 수 있어요.`}
+                                        : `첫 달은 무료예요. ${nativeStoreLabel} 계정으로 시작하고, 마음에 드는 플랜을 내 일정으로 가져와요.`}
                                 </Text>
                             </View>
 
@@ -1399,7 +1408,7 @@ export function SettingsScreen({ navigation }: Props) {
                                             {activeSubscriptionPlan?.price || '구독 중'}
                                         </Text>
                                         <Text style={styles.subscriptionPlanDescription}>
-                                            결제 상태, 갱신일, 해지는 {nativeStoreLabel} 구독 관리에서 확인할 수 있어요.
+                                            결제 상태, 갱신일, 해지는 {nativeStoreLabel} 구독 관리에서 확인해요.
                                         </Text>
                                     </View>
                                 </View>
@@ -1514,7 +1523,7 @@ export function SettingsScreen({ navigation }: Props) {
                                 <Ionicons name="sparkles" size={18} color={theme.mode === 'dark' ? '#16120f' : '#fffaf2'} />
                                 <Text style={styles.subscriptionPrimaryButtonText}>
                                     {isSubscriptionActionLoading
-                                        ? '처리 중...'
+                                        ? '처리 중'
                                         : subscriptionSheetMode === 'active'
                                             ? `${nativeStoreLabel}에서 구독 관리`
                                             : `1개월 무료로 시작하기 · ${selectedSubscriptionPlan.price}`}

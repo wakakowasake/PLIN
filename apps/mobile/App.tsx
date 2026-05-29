@@ -38,7 +38,7 @@ function AppRoot() {
                     <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
                     {runtimeGate.isBlocked ? (
                         <RuntimeConfigErrorScreen
-                            title={runtimeGate.title || '앱 설정을 확인해 주세요.'}
+                            title={runtimeGate.title || '앱을 열 수 없어요.'}
                             description={runtimeGate.description || '앱 설정을 확인하지 못했어요.'}
                             supportText={runtimeGate.supportText}
                         />

@@ -108,7 +108,7 @@ export function TripDetailBudgetSummarySection({
                     <Text style={styles.summaryCaption}>
                         {firstBudgetQuickAddDayId
                             ? '아직 기록된 지출이 없어요.'
-                            : '일정을 추가하면 지출을 연결할 수 있어요.'}
+                            : '일정을 추가하면 지출도 함께 정리돼요.'}
                     </Text>
                 </View>
                 {canEditContent ? (

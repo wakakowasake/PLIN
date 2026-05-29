@@ -42,7 +42,7 @@ function mapAndroidGoogleSignInError(
         }
 
         if (error.code === googleModule.statusCodes.IN_PROGRESS) {
-            return new Error('Google 로그인이 이미 진행 중이에요. 잠시 후 다시 시도해 주세요.');
+            return new Error('Google 로그인을 처리하고 있어요. 잠시 후 다시 시도해 주세요.');
         }
 
         if (error.code === googleModule.statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {

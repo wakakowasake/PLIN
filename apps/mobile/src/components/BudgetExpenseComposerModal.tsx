@@ -434,7 +434,7 @@ export function BudgetExpenseComposerModal({
                                         ]}
                                     >
                                         <Text style={styles.sheetSaveButtonText}>
-                                            {isSaving ? '저장 중...' : '저장'}
+                                            {isSaving ? '저장 중' : '저장'}
                                         </Text>
                                     </Pressable>
                                 </View>

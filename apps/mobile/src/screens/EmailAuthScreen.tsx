@@ -66,8 +66,8 @@ export function EmailAuthScreen({ navigation }: Props) {
     }), [insets.bottom, insets.top, theme.spacing.md, theme.spacing.sm]);
     const screenTitle = emailAuthMode === 'signUp' ? '이메일로 가입' : '이메일로 로그인';
     const helperCopy = emailAuthMode === 'signUp'
-        ? '가입 후 메일함에서 인증 링크를 열면 PLIN을 시작할 수 있어요.'
-        : '가입한 이메일과 비밀번호로 PLIN에 들어갈 수 있어요.';
+        ? '가입 후 메일함에서 인증 링크를 열면 PLIN을 시작해요.'
+        : '가입한 이메일과 비밀번호로 PLIN에 들어가요.';
 
     React.useEffect(() => {
         if (!user) {
@@ -287,7 +287,7 @@ export function EmailAuthScreen({ navigation }: Props) {
                     >
                         <Text style={styles.submitButtonText}>
                             {isAuthActionLoading
-                                ? '확인 중...'
+                                ? '확인 중'
                                 : emailAuthMode === 'signUp'
                                     ? '이메일로 가입'
                                     : '이메일로 로그인'}

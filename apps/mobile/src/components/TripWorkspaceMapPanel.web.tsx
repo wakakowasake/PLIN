@@ -436,7 +436,7 @@ export function TripWorkspaceMapPanel({
             <View style={styles.shell}>
                 <View style={styles.loadingCard}>
                     <ActivityIndicator color={theme.colors.accent} />
-                    <Text style={styles.loadingText}>지도와 일정 장소를 준비하는 중이에요</Text>
+                    <Text style={styles.loadingText}>지도와 일정 장소를 준비하고 있어요</Text>
                 </View>
             </View>
         );

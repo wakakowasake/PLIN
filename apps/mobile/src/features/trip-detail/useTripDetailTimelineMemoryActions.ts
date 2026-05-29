@@ -35,6 +35,7 @@ type Options = {
     tripRepository: Pick<TripRepository, 'appendTimelineItemMemories'>;
     publishTripDetailUpdatedWithFeedback(detail: MobileTripDetail): void;
     recoverTripWriteConflict: RecoverTripWriteConflict;
+    openSubscriptionCenter?: () => void;
 };
 
 export function useTripDetailTimelineMemoryActions({
@@ -47,7 +48,8 @@ export function useTripDetailTimelineMemoryActions({
     setTarget,
     tripRepository,
     publishTripDetailUpdatedWithFeedback,
-    recoverTripWriteConflict
+    recoverTripWriteConflict,
+    openSubscriptionCenter
 }: Options) {
     const handleSubmitTimelineMemory = React.useCallback(async (input: { assets: PickedTripMemoryAsset[] }) => {
         if (!userId || !target || isSaving) {
@@ -93,6 +95,7 @@ export function useTripDetailTimelineMemoryActions({
                 promptSubscriptionUpgradeForMemoryLimit({
                     userId,
                     message,
+                    onOpenSubscription: openSubscriptionCenter,
                     onError: setError
                 });
             }
@@ -110,7 +113,8 @@ export function useTripDetailTimelineMemoryActions({
         target,
         tripId,
         tripRepository,
-        userId
+        userId,
+        openSubscriptionCenter
     ]);
 
     return {

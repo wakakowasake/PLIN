@@ -144,12 +144,12 @@ const SAFE_STORAGE_ATTACHMENT_CONTENT_TYPES = new Set([
 ]);
 const PLIN_ADMIN_EMAILS = new Set([
   "contact@plin.ink",
-  "plin.ink@gmail.com"
+  "wakakowasake@gmail.com"
 ]);
 const DEFAULT_MARKETPLACE_SUBSCRIPTION_ENTITLEMENT_ID = "PLIN Plus";
 const FREE_TRIP_MEMORY_PHOTO_LIMIT = 50;
 const FREE_TRIP_MEMORY_PHOTO_LIMIT_MESSAGE =
-  `무료 일정은 추억 사진을 ${FREE_TRIP_MEMORY_PHOTO_LIMIT}장까지 저장할 수 있어요. PLIN Plus로 더 많은 사진을 남겨보세요.`;
+  `무료 일정은 추억 사진 ${FREE_TRIP_MEMORY_PHOTO_LIMIT}장까지 저장됩니다. 더 남기려면 PLIN Plus를 이용해 주세요.`;
 const MAX_STORAGE_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAX_STORAGE_ATTACHMENT_UPLOAD_BYTES = 10 * 1024 * 1024;
 const GOOGLE_PHOTO_REFERENCE_PATTERN = /^[A-Za-z0-9._~%+=:/-]{10,1024}$/;
@@ -303,11 +303,30 @@ function isConfiguredAdminEmail(value) {
   return PLIN_ADMIN_EMAILS.has(normalizeEmail(value));
 }
 
+function hasPlinAdminClaim(decodedToken = null) {
+  return decodedToken?.admin === true
+    || decodedToken?.plinAdmin === true
+    || decodedToken?.plin_admin === true;
+}
+
 function isVerifiedConfiguredAdminToken(decodedToken = null) {
   return (
     decodedToken?.email_verified === true
     || decodedToken?.emailVerified === true
-  ) && isConfiguredAdminEmail(decodedToken?.email);
+  ) && (
+    hasPlinAdminClaim(decodedToken)
+    || isConfiguredAdminEmail(decodedToken?.email)
+  );
+}
+
+function isVerboseServerLogEnabled() {
+  return ["1", "true", "yes"].includes(normalizeEmail(process.env.PLIN_VERBOSE_LOGGING));
+}
+
+function debugServerLog(...args) {
+  if (isVerboseServerLogEnabled()) {
+    console.log(...args);
+  }
 }
 
 function readNullableString(value) {
@@ -2970,23 +2989,7 @@ async function isAdminUser(uid, decodedToken = null) {
     return false;
   }
 
-  if (decodedToken?.admin === true) {
-    return true;
-  }
-
-  if (isVerifiedConfiguredAdminToken(decodedToken)) {
-    return true;
-  }
-
-  try {
-    const snapshot = await admin.firestore().collection("users").doc(safeUid).get();
-    const data = snapshot.exists ? (snapshot.data() || {}) : {};
-    const role = readString(data.role).toLowerCase();
-
-    return role === "admin";
-  } catch (error) {
-    return false;
-  }
+  return isVerifiedConfiguredAdminToken(decodedToken);
 }
 
 function sanitizeCommunityTripData(data) {
@@ -3279,6 +3282,85 @@ async function readMarketplaceSubscription(uid) {
   return snapshot.exists ? snapshot.data() || {} : null;
 }
 
+function getMarketplaceWebhookSecret() {
+  return readString(
+    process.env.IAP_WEBHOOK_SECRET
+    || process.env.MARKETPLACE_IAP_WEBHOOK_SECRET
+    || process.env.STORE_WEBHOOK_SECRET
+  );
+}
+
+function isTimingSafeStringEqual(left, right) {
+  const leftBuffer = Buffer.from(readString(left));
+  const rightBuffer = Buffer.from(readString(right));
+  return leftBuffer.length === rightBuffer.length && crypto.timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function verifyMarketplaceWebhookSecret(req) {
+  const expectedSecret = getMarketplaceWebhookSecret();
+  if (!expectedSecret) {
+    return true;
+  }
+
+  const receivedSecret = readString(req.get("x-plin-iap-webhook-secret"))
+    || readString(req.get("x-webhook-secret"))
+    || readString(req.query?.secret);
+
+  return Boolean(receivedSecret && isTimingSafeStringEqual(receivedSecret, expectedSecret));
+}
+
+async function recordMarketplaceIapWebhookEvent(source, eventId, payload = {}) {
+  const safeSource = readString(source) || "unknown";
+  const safeEventId = readString(eventId) || crypto.randomUUID();
+  const eventRef = admin.firestore()
+    .collection("marketplace_iap_webhook_events")
+    .doc(`${safeSource}_${safeEventId}`);
+
+  await eventRef.set({
+    source: safeSource,
+    eventId: safeEventId,
+    payload: serializeForJson(payload),
+    receivedAt: admin.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+}
+
+async function findMarketplaceSubscriptionUidByField(field, value) {
+  const safeField = readString(field);
+  const safeValue = readString(value);
+  if (!safeField || !safeValue) {
+    return null;
+  }
+
+  const snapshot = await admin.firestore()
+    .collection("marketplace_subscriptions")
+    .where(safeField, "==", safeValue)
+    .limit(1)
+    .get();
+
+  if (snapshot.empty) {
+    return null;
+  }
+
+  return snapshot.docs[0].id;
+}
+
+async function findAppleMarketplaceSubscriptionUid(transaction) {
+  const candidates = [
+    ["appAccountToken", transaction?.appAccountToken],
+    ["originalTransactionId", transaction?.originalTransactionId],
+    ["transactionId", transaction?.transactionId]
+  ];
+
+  for (const [field, value] of candidates) {
+    const uid = await findMarketplaceSubscriptionUidByField(field, value);
+    if (uid) {
+      return uid;
+    }
+  }
+
+  return null;
+}
+
 function decodeBase64UrlJson(value) {
   const safeValue = readString(value);
   if (!safeValue) {
@@ -3452,23 +3534,48 @@ function getGooglePlayPackageName(purchase) {
     || "ink.plin.mobile";
 }
 
-function buildNativeIapSubscriptionPayload({ uid, productId, status = "active", expiresAt = null, platform, kind, transactionId, raw }) {
+function buildNativeIapSubscriptionPayload({
+  uid,
+  productId,
+  status = "active",
+  isActive = null,
+  expiresAt = null,
+  platform,
+  kind,
+  transactionId,
+  purchaseToken = null,
+  originalTransactionId = null,
+  appAccountToken = null,
+  willRenew = null,
+  notificationType = null,
+  notificationSubtype = null,
+  raw
+}) {
   const now = admin.firestore.FieldValue.serverTimestamp();
-  const periodType = status === "trialing" ? "trial" : readString(kind) || "subscription";
+  const safeStatus = readString(status) || "active";
+  const periodType = safeStatus === "trialing" ? "trial" : readString(kind) || "subscription";
+  const resolvedIsActive = typeof isActive === "boolean"
+    ? isActive
+    : safeStatus === "active" || safeStatus === "trialing";
 
   return {
     uid,
-    status,
-    isActive: status === "active" || status === "trialing",
+    status: safeStatus,
+    isActive: resolvedIsActive,
     entitlementId: getMarketplaceSubscriptionEntitlementId(),
     productId,
     periodType,
-    willRenew: null,
-    trialEndsAt: status === "trialing" ? expiresAt : null,
+    willRenew: typeof willRenew === "boolean" ? willRenew : null,
+    trialEndsAt: safeStatus === "trialing" ? expiresAt : null,
     expiresAt,
     platform,
     source: "native_iap",
     transactionId: readString(transactionId) || null,
+    purchaseToken: readString(purchaseToken) || null,
+    originalTransactionId: readString(originalTransactionId) || null,
+    appAccountToken: readString(appAccountToken) || null,
+    lastNotificationType: readString(notificationType) || null,
+    lastNotificationSubtype: readString(notificationSubtype) || null,
     updatedAt: now,
     lastNativeIapVerification: serializeForJson(raw || null)
   };
@@ -3491,7 +3598,7 @@ async function verifyAppleMarketplacePurchase({ uid, purchase }) {
 
   const expectedAppAccountToken = buildAppleAppAccountToken(uid);
   const appAccountToken = readString(transaction.appAccountToken);
-  if (appAccountToken && appAccountToken !== expectedAppAccountToken) {
+  if (appAccountToken !== expectedAppAccountToken) {
     throw new Error("APPLE_IAP_ACCOUNT_MISMATCH");
   }
 
@@ -3513,40 +3620,72 @@ async function verifyAppleMarketplacePurchase({ uid, purchase }) {
     platform: "ios",
     kind: isLifetime ? "lifetime" : "subscription",
     transactionId: readString(transaction.transactionId),
+    originalTransactionId: readString(transaction.originalTransactionId),
+    appAccountToken,
     raw: transaction
   });
 }
 
-async function verifyGoogleMarketplacePurchase({ uid, purchase }) {
-  const productId = readString(purchase?.productId);
+function mapGoogleMarketplaceSubscriptionStatus(state, isCurrentlyActive) {
+  if (isCurrentlyActive) {
+    return "active";
+  }
+
+  if (state === "SUBSCRIPTION_STATE_ON_HOLD") {
+    return "on_hold";
+  }
+
+  if (state === "SUBSCRIPTION_STATE_PAUSED") {
+    return "paused";
+  }
+
+  if (state === "SUBSCRIPTION_STATE_PENDING") {
+    return "pending";
+  }
+
+  return "expired";
+}
+
+async function verifyGoogleMarketplacePurchase({ uid, purchase, allowInactive = false }) {
+  const requestedProductId = readString(purchase?.productId);
   const purchaseToken = readString(purchase?.purchaseToken);
-  if (!uid || !isMarketplaceStoreProductId(productId) || !purchaseToken) {
+  if (!purchaseToken || (requestedProductId && !isMarketplaceStoreProductId(requestedProductId))) {
     throw new Error("INVALID_NATIVE_IAP_PURCHASE");
   }
 
   const packageName = getGooglePlayPackageName(purchase);
-  const isLifetime = getMarketplaceLifetimeProductIds().has(productId);
+  const isLifetime = getMarketplaceLifetimeProductIds().has(requestedProductId);
+  const requestedUid = readString(uid);
 
   if (isLifetime) {
     const productResponse = await fetchGooglePlayJson(
-      `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${encodeURIComponent(packageName)}/purchases/products/${encodeURIComponent(productId)}/tokens/${encodeURIComponent(purchaseToken)}`
+      `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${encodeURIComponent(packageName)}/purchases/products/${encodeURIComponent(requestedProductId)}/tokens/${encodeURIComponent(purchaseToken)}`
     );
-    if (Number(productResponse.purchaseState) !== 0) {
-      throw new Error("GOOGLE_PLAY_IAP_NOT_PURCHASED");
-    }
     const productAccountId = readString(productResponse.obfuscatedExternalAccountId);
-    if (productAccountId && productAccountId !== uid) {
+    const resolvedUid = requestedUid || productAccountId;
+    if (!resolvedUid) {
+      throw new Error("GOOGLE_PLAY_IAP_ACCOUNT_REQUIRED");
+    }
+
+    if (requestedUid && productAccountId && productAccountId !== requestedUid) {
       throw new Error("GOOGLE_PLAY_IAP_ACCOUNT_MISMATCH");
     }
 
+    const isPurchased = Number(productResponse.purchaseState) === 0;
+    if (!isPurchased && !allowInactive) {
+      throw new Error("GOOGLE_PLAY_IAP_NOT_PURCHASED");
+    }
+
     return buildNativeIapSubscriptionPayload({
-      uid,
-      productId,
-      status: "active",
+      uid: resolvedUid,
+      productId: requestedProductId,
+      status: isPurchased ? "active" : "revoked",
+      isActive: isPurchased,
       expiresAt: null,
       platform: "android",
       kind: "lifetime",
       transactionId: readString(productResponse.orderId || purchase?.transactionId),
+      purchaseToken,
       raw: productResponse
     });
   }
@@ -3555,33 +3694,54 @@ async function verifyGoogleMarketplacePurchase({ uid, purchase }) {
     `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${encodeURIComponent(packageName)}/purchases/subscriptionsv2/tokens/${encodeURIComponent(purchaseToken)}`
   );
   const subscriptionAccountId = readString(subscriptionResponse.externalAccountIdentifiers?.obfuscatedExternalAccountId);
-  if (subscriptionAccountId && subscriptionAccountId !== uid) {
+  const resolvedUid = requestedUid || subscriptionAccountId;
+  if (!resolvedUid) {
+    throw new Error("GOOGLE_PLAY_IAP_ACCOUNT_REQUIRED");
+  }
+
+  if (requestedUid && subscriptionAccountId && subscriptionAccountId !== requestedUid) {
     throw new Error("GOOGLE_PLAY_IAP_ACCOUNT_MISMATCH");
   }
 
   const state = readString(subscriptionResponse.subscriptionState);
   const lineItems = Array.isArray(subscriptionResponse.lineItems) ? subscriptionResponse.lineItems : [];
-  const matchingLineItem = lineItems.find((lineItem) => readString(lineItem?.productId) === productId) || lineItems[0] || null;
+  const matchingLineItem = requestedProductId
+    ? lineItems.find((lineItem) => readString(lineItem?.productId) === requestedProductId) || lineItems[0] || null
+    : lineItems.find((lineItem) => isMarketplaceStoreProductId(lineItem?.productId)) || lineItems[0] || null;
+  const productId = requestedProductId || readString(matchingLineItem?.productId);
+  if (!isMarketplaceStoreProductId(productId)) {
+    throw new Error("GOOGLE_PLAY_IAP_PRODUCT_MISMATCH");
+  }
+
+  if (requestedProductId && lineItems.length > 0 && lineItems.every((lineItem) => readString(lineItem?.productId) && readString(lineItem?.productId) !== requestedProductId)) {
+    throw new Error("GOOGLE_PLAY_IAP_PRODUCT_MISMATCH");
+  }
+
   const expiresAt = readString(matchingLineItem?.expiryTime);
   const expiresAtMs = expiresAt ? new Date(expiresAt).getTime() : 0;
+  const autoRenewEnabled = matchingLineItem?.autoRenewingPlan?.autoRenewEnabled;
   const activeStates = new Set([
     "SUBSCRIPTION_STATE_ACTIVE",
     "SUBSCRIPTION_STATE_IN_GRACE_PERIOD",
     "SUBSCRIPTION_STATE_CANCELED"
   ]);
+  const isCurrentlyActive = activeStates.has(state) && Number.isFinite(expiresAtMs) && expiresAtMs > Date.now();
 
-  if (!activeStates.has(state) || !Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) {
+  if (!isCurrentlyActive && !allowInactive) {
     throw new Error("GOOGLE_PLAY_IAP_EXPIRED");
   }
 
   return buildNativeIapSubscriptionPayload({
-    uid,
+    uid: resolvedUid,
     productId,
-    status: "active",
+    status: mapGoogleMarketplaceSubscriptionStatus(state, isCurrentlyActive),
+    isActive: isCurrentlyActive,
     expiresAt,
     platform: "android",
     kind: "subscription",
     transactionId: readString(subscriptionResponse.latestOrderId || purchase?.transactionId),
+    purchaseToken,
+    willRenew: typeof autoRenewEnabled === "boolean" ? autoRenewEnabled : null,
     raw: subscriptionResponse
   });
 }
@@ -3597,6 +3757,69 @@ async function verifyNativeMarketplacePurchase({ uid, purchase }) {
   }
 
   throw new Error("UNSUPPORTED_NATIVE_IAP_PLATFORM");
+}
+
+function decodeGoogleRtdnPayload(body) {
+  const encodedData = readString(body?.message?.data);
+  if (!encodedData) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(Buffer.from(encodedData, "base64").toString("utf8"));
+  } catch (error) {
+    return null;
+  }
+}
+
+function getAppleNotificationTransactionId(decodedPayload) {
+  const transaction = decodeJwsPayload(decodedPayload?.data?.signedTransactionInfo);
+  return readString(transaction?.transactionId);
+}
+
+function getAppleNotificationWillRenew(decodedPayload) {
+  const renewalInfo = decodeJwsPayload(decodedPayload?.data?.signedRenewalInfo);
+  const autoRenewStatus = renewalInfo?.autoRenewStatus;
+  if (autoRenewStatus === 1 || autoRenewStatus === "1" || autoRenewStatus === true) {
+    return true;
+  }
+
+  if (autoRenewStatus === 0 || autoRenewStatus === "0" || autoRenewStatus === false) {
+    return false;
+  }
+
+  return null;
+}
+
+function buildAppleMarketplaceNotificationPayload({ uid, transaction, notificationType, notificationSubtype, willRenew }) {
+  const productId = readString(transaction?.productId);
+  const isLifetime = getMarketplaceLifetimeProductIds().has(productId);
+  const expiresAtMs = Number(transaction?.expiresDate || 0);
+  const hasFutureExpiry = isLifetime || (Number.isFinite(expiresAtMs) && expiresAtMs > Date.now());
+  const revoked = Boolean(transaction?.revocationDate)
+    || notificationType === "REFUND"
+    || notificationType === "REVOKE";
+  const expired = !revoked && (!hasFutureExpiry || notificationType === "EXPIRED");
+  const isActive = !revoked && !expired;
+
+  return buildNativeIapSubscriptionPayload({
+    uid,
+    productId,
+    status: revoked ? "revoked" : isActive ? "active" : "expired",
+    isActive,
+    expiresAt: isLifetime || !Number.isFinite(expiresAtMs) || expiresAtMs <= 0
+      ? null
+      : new Date(expiresAtMs).toISOString(),
+    platform: "ios",
+    kind: isLifetime ? "lifetime" : "subscription",
+    transactionId: readString(transaction?.transactionId),
+    originalTransactionId: readString(transaction?.originalTransactionId),
+    appAccountToken: readString(transaction?.appAccountToken),
+    willRenew,
+    notificationType,
+    notificationSubtype,
+    raw: transaction
+  });
 }
 
 function buildCommunityCommentResponse(commentId, data) {
@@ -5242,6 +5465,246 @@ app.get("/marketplace/purchases", validateFirebaseIdToken, async (req, res) => {
     return res.status(500).json({
       error: "Marketplace Purchase List Error",
       message: "구독 내역을 불러오지 못했어요."
+    });
+  }
+});
+
+app.post("/marketplace/subscription/apple-notifications", async (req, res) => {
+  if (!verifyMarketplaceWebhookSecret(req)) {
+    return res.status(401).json({
+      error: "Unauthorized",
+      message: "알림 인증값이 올바르지 않아요."
+    });
+  }
+
+  const signedPayload = readString(req.body?.signedPayload);
+  const notificationPayload = decodeJwsPayload(signedPayload);
+  const notificationUUID = readString(notificationPayload?.notificationUUID) || crypto.randomUUID();
+
+  if (!notificationPayload) {
+    await recordMarketplaceIapWebhookEvent("apple", notificationUUID, {
+      status: "invalid_payload"
+    });
+    return res.status(400).json({
+      error: "Invalid Apple Notification",
+      message: "Apple 알림 payload를 읽지 못했어요."
+    });
+  }
+
+  try {
+    const notificationType = readString(notificationPayload.notificationType);
+    const notificationSubtype = readString(notificationPayload.subtype);
+    const transactionId = getAppleNotificationTransactionId(notificationPayload);
+
+    if (!transactionId) {
+      await recordMarketplaceIapWebhookEvent("apple", notificationUUID, {
+        status: "ignored",
+        reason: "missing_transaction",
+        notificationType,
+        notificationSubtype
+      });
+      return res.json({ ok: true, ignored: true });
+    }
+
+    const response = await fetchAppleTransactionInfo(transactionId);
+    const transaction = decodeJwsPayload(response?.signedTransactionInfo);
+    const bundleId = readString(process.env.APPLE_IAP_BUNDLE_ID || process.env.APP_BUNDLE_ID || "ink.plin.mobile");
+    const productId = readString(transaction?.productId);
+
+    if (!transaction || readString(transaction.bundleId) !== bundleId || !isMarketplaceStoreProductId(productId)) {
+      await recordMarketplaceIapWebhookEvent("apple", notificationUUID, {
+        status: "ignored",
+        reason: "non_marketplace_product",
+        notificationType,
+        notificationSubtype,
+        transactionId,
+        productId
+      });
+      return res.json({ ok: true, ignored: true });
+    }
+
+    const uid = await findAppleMarketplaceSubscriptionUid(transaction);
+    if (!uid) {
+      await recordMarketplaceIapWebhookEvent("apple", notificationUUID, {
+        status: "unmatched",
+        notificationType,
+        notificationSubtype,
+        transactionId,
+        originalTransactionId: readString(transaction.originalTransactionId),
+        appAccountToken: readString(transaction.appAccountToken)
+      });
+      return res.json({ ok: true, unmatched: true });
+    }
+
+    const appAccountToken = readString(transaction.appAccountToken);
+    if (!appAccountToken) {
+      await recordMarketplaceIapWebhookEvent("apple", notificationUUID, {
+        status: "ignored",
+        reason: "missing_app_account_token",
+        notificationType,
+        notificationSubtype,
+        transactionId,
+        originalTransactionId: readString(transaction.originalTransactionId)
+      });
+      return res.json({ ok: true, ignored: true });
+    }
+
+    if (appAccountToken && appAccountToken !== buildAppleAppAccountToken(uid)) {
+      throw new Error("APPLE_IAP_ACCOUNT_MISMATCH");
+    }
+
+    const payload = buildAppleMarketplaceNotificationPayload({
+      uid,
+      transaction,
+      notificationType,
+      notificationSubtype,
+      willRenew: getAppleNotificationWillRenew(notificationPayload)
+    });
+    const subscription = await setMarketplaceSubscription(uid, payload);
+
+    await recordMarketplaceIapWebhookEvent("apple", notificationUUID, {
+      status: "processed",
+      notificationType,
+      notificationSubtype,
+      uid,
+      transactionId,
+      subscription
+    });
+
+    return res.json({ ok: true, subscription });
+  } catch (error) {
+    console.error("[Marketplace] Apple subscription notification error:", error);
+    return res.status(500).json({
+      error: "Apple Subscription Notification Error",
+      message: "Apple 구독 알림을 처리하지 못했어요."
+    });
+  }
+});
+
+app.post("/marketplace/subscription/google-rtdn", async (req, res) => {
+  if (!verifyMarketplaceWebhookSecret(req)) {
+    return res.status(401).json({
+      error: "Unauthorized",
+      message: "알림 인증값이 올바르지 않아요."
+    });
+  }
+
+  const rtdnPayload = decodeGoogleRtdnPayload(req.body);
+  const messageId = readString(req.body?.message?.messageId) || crypto.randomUUID();
+
+  if (!rtdnPayload) {
+    await recordMarketplaceIapWebhookEvent("google", messageId, {
+      status: "invalid_payload"
+    });
+    return res.status(400).json({
+      error: "Invalid Google RTDN",
+      message: "Google Play 알림 payload를 읽지 못했어요."
+    });
+  }
+
+  try {
+    if (rtdnPayload.testNotification) {
+      await recordMarketplaceIapWebhookEvent("google", messageId, {
+        status: "test",
+        payload: rtdnPayload
+      });
+      return res.json({ ok: true, test: true });
+    }
+
+    const voidedNotification = rtdnPayload.voidedPurchaseNotification;
+    if (voidedNotification) {
+      const purchaseToken = readString(voidedNotification.purchaseToken);
+      const uid = await findMarketplaceSubscriptionUidByField("purchaseToken", purchaseToken);
+      if (!uid) {
+        await recordMarketplaceIapWebhookEvent("google", messageId, {
+          status: "unmatched",
+          reason: "voided_purchase",
+          payload: rtdnPayload
+        });
+        return res.json({ ok: true, unmatched: true });
+      }
+
+      const currentSubscription = await readMarketplaceSubscription(uid);
+      const payload = buildNativeIapSubscriptionPayload({
+        uid,
+        productId: readString(currentSubscription?.productId),
+        status: "revoked",
+        isActive: false,
+        expiresAt: readString(currentSubscription?.expiresAt) || null,
+        platform: "android",
+        kind: readString(currentSubscription?.periodType) || "subscription",
+        transactionId: readString(currentSubscription?.transactionId || voidedNotification.orderId),
+        purchaseToken,
+        notificationType: `voided:${readString(voidedNotification.productType)}`,
+        notificationSubtype: `refund:${readString(voidedNotification.refundType)}`,
+        raw: {
+          previousSubscription: currentSubscription,
+          voidedPurchaseNotification: voidedNotification
+        }
+      });
+      const subscription = await setMarketplaceSubscription(uid, payload);
+
+      await recordMarketplaceIapWebhookEvent("google", messageId, {
+        status: "processed",
+        notificationType: "voided_purchase",
+        uid,
+        productId: payload.productId,
+        subscription
+      });
+
+      return res.json({ ok: true, subscription });
+    }
+
+    const subscriptionNotification = rtdnPayload.subscriptionNotification;
+    const productNotification = rtdnPayload.oneTimeProductNotification;
+    const purchaseToken = readString(subscriptionNotification?.purchaseToken || productNotification?.purchaseToken);
+    const productId = readString(subscriptionNotification?.subscriptionId || productNotification?.sku);
+    const notificationType = readString(subscriptionNotification?.notificationType || productNotification?.notificationType);
+
+    if (!purchaseToken || (productId && !isMarketplaceStoreProductId(productId)) || (productNotification && !productId)) {
+      await recordMarketplaceIapWebhookEvent("google", messageId, {
+        status: "ignored",
+        reason: "non_marketplace_product",
+        productId,
+        notificationType
+      });
+      return res.json({ ok: true, ignored: true });
+    }
+
+    const payload = await verifyGoogleMarketplacePurchase({
+      uid: null,
+      purchase: {
+        platform: "android",
+        packageName: readString(rtdnPayload.packageName) || getGooglePlayPackageName({}),
+        productId,
+        purchaseToken
+      },
+      allowInactive: true
+    });
+    const subscription = await setMarketplaceSubscription(payload.uid, payload);
+
+    await recordMarketplaceIapWebhookEvent("google", messageId, {
+      status: "processed",
+      notificationType,
+      uid: payload.uid,
+      productId: payload.productId,
+      subscription
+    });
+
+    return res.json({ ok: true, subscription });
+  } catch (error) {
+    if (error.message === "GOOGLE_PLAY_IAP_ACCOUNT_REQUIRED") {
+      await recordMarketplaceIapWebhookEvent("google", messageId, {
+        status: "unmatched",
+        payload: rtdnPayload
+      });
+      return res.json({ ok: true, unmatched: true });
+    }
+
+    console.error("[Marketplace] Google RTDN error:", error);
+    return res.status(500).json({
+      error: "Google RTDN Error",
+      message: "Google Play 구독 알림을 처리하지 못했어요."
     });
   }
 });
@@ -8897,7 +9360,7 @@ app.post("/ai-recommend", validateFirebaseIdToken, aiRecommendLimiter, async (re
         optimizedQuery = `${regionHints[0]} ${optimizedQuery}`.trim();
       }
     }
-    console.log(`[AI Recommend] Optimized Query: ${optimizedQuery}`);
+    debugServerLog("[AI Recommend] Optimized query prepared");
 
     // 3. Google Maps API를 통해 실시간 데이터 확보 (Grounded Data)
     const mapsSearchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(optimizedQuery)}&key=${apiKey}&language=ko`;
@@ -8927,7 +9390,7 @@ app.post("/ai-recommend", validateFirebaseIdToken, aiRecommendLimiter, async (re
       })
       .slice(0, 10);
 
-    console.log("[AI Recommend] Region hints", {
+    debugServerLog("[AI Recommend] Region hints", {
       regionHints,
       totalCandidates: mapsData.results.length,
       matchedCandidates: matchedPlaces.length
@@ -9029,7 +9492,7 @@ app.get("/unsplash-proxy", validateFirebaseIdToken, imageSearchLimiter, async (r
   const query = req.query.query;
   const accessKey = process.env.UNSPLASH_ACCESS_KEY;
 
-  console.log(`[Unsplash Proxy] Requesting: ${query}`); // [추가] 서버 로그 확인용
+  debugServerLog("[Unsplash Proxy] Request received");
 
   // [추가] API 키가 없는 경우 명확한 에러 반환
   if (!accessKey) {
@@ -9530,7 +9993,7 @@ app.get("/ekispert-proxy", validateFirebaseIdToken, routeSearchLimiter, async (r
     return res.status(500).json({ error: "EKISPERT_API_KEY is not configured" });
   }
 
-  console.log(`[Ekispert Proxy] From: (${fromLat},${fromLng}), To: (${toLat},${toLng})`);
+  debugServerLog("[Ekispert Proxy] Request received");
 
   if (!fromLat || !fromLng || !toLat || !toLng) {
     return res.status(400).json({ error: "Missing required parameters" });
@@ -9548,12 +10011,15 @@ app.get("/ekispert-proxy", validateFirebaseIdToken, routeSearchLimiter, async (r
     const fromGeoPoint = `${fromLat},${fromLng}`;
     const fromStationUrl = `https://api.ekispert.jp/v1/json/geo/station?key=${apiKey}&geoPoint=${encodeURIComponent(fromGeoPoint)}&gcs=wgs84`;
 
-    console.log(`[Ekispert] Finding station near from: ${fromStationUrl.replace(apiKey, '***')}`);
+    debugServerLog("[Ekispert] Finding station near departure");
     const fromStationRes = await fetch(fromStationUrl);
     const fromStationData = await fromStationRes.json();
 
     if (!fromStationRes.ok || fromStationData.ResultSet?.Error || !fromStationData.ResultSet?.Point) {
-      console.error(`[Ekispert] From station not found:`, JSON.stringify(fromStationData)); // Limit log detail if needed
+      console.error("[Ekispert] From station not found:", {
+        status: fromStationRes.status,
+        hasError: Boolean(fromStationData.ResultSet?.Error)
+      });
       return res.status(400).json({ error: 'From station not found', message: '출발지 근처 역을 찾지 못했어요.' });
     }
 
@@ -9561,12 +10027,15 @@ app.get("/ekispert-proxy", validateFirebaseIdToken, routeSearchLimiter, async (r
     const toGeoPoint = `${toLat},${toLng}`;
     const toStationUrl = `https://api.ekispert.jp/v1/json/geo/station?key=${apiKey}&geoPoint=${encodeURIComponent(toGeoPoint)}&gcs=wgs84`;
 
-    console.log(`[Ekispert] Finding station near to: ${toStationUrl.replace(apiKey, '***')}`);
+    debugServerLog("[Ekispert] Finding station near arrival");
     const toStationRes = await fetch(toStationUrl);
     const toStationData = await toStationRes.json();
 
     if (!toStationRes.ok || toStationData.ResultSet?.Error || !toStationData.ResultSet?.Point) {
-      console.error(`[Ekispert] To station not found:`, toStationData);
+      console.error("[Ekispert] To station not found:", {
+        status: toStationRes.status,
+        hasError: Boolean(toStationData.ResultSet?.Error)
+      });
       return res.status(400).json({ error: 'To station not found', message: '도착지 근처 역을 찾지 못했어요.' });
     }
 
@@ -9576,21 +10045,24 @@ app.get("/ekispert-proxy", validateFirebaseIdToken, routeSearchLimiter, async (r
     const fromStationName = fromStation.Name;
     const toStationName = toStation.Name;
 
-    console.log(`[Ekispert] Stations found: ${fromStationName} → ${toStationName}`);
+    debugServerLog("[Ekispert] Stations found");
 
     // Step 4: 역 이름으로 경로 검색
     const viaList = `${fromStationName}:${toStationName}`;
     const routeUrl = `https://api.ekispert.jp/v1/json/search/course/extreme?key=${apiKey}&viaList=${encodeURIComponent(viaList)}&searchType=plain&sort=time`;
 
     // [Security Fix] Log Sanitization: 마스킹 처리
-    console.log(`[Ekispert] Route search: ${routeUrl.replace(apiKey, '***')}`);
+    debugServerLog("[Ekispert] Route search started");
     const routeRes = await fetch(routeUrl);
     const routeData = await routeRes.json();
 
-    console.log(`[Ekispert] Route result:`, JSON.stringify(routeData, null, 2));
+    debugServerLog("[Ekispert] Route result received");
 
     if (!routeRes.ok || routeData.ResultSet?.Error) {
-      console.error(`[Ekispert] Route search failed:`, routeData);
+      console.error("[Ekispert] Route search failed:", {
+        status: routeRes.status,
+        hasError: Boolean(routeData.ResultSet?.Error)
+      });
       return res.status(routeRes.ok ? 400 : routeRes.status).json({
         error: 'Route search failed',
         message: '철도 경로를 찾지 못했어요.'

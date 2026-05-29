@@ -113,7 +113,7 @@ export function TripRevisionHistorySheet({
                                 {tripTitle || '일정'}
                             </Text>
                             <Text style={styles.headerDescription}>
-                                누가 언제 무엇을 바꿨는지 보고, 필요한 시점으로 전체 일정을 복구할 수 있어요.
+                                누가 언제 무엇을 바꿨는지 보고, 필요한 시점으로 전체 일정을 복구해요.
                             </Text>
                         </View>
                         <Pressable
@@ -156,7 +156,7 @@ export function TripRevisionHistorySheet({
                         {loading ? (
                             <View style={styles.loadingState}>
                                 <ActivityIndicator color={theme.colors.accent} />
-                                <Text style={styles.loadingText}>수정 기록을 불러오는 중이에요.</Text>
+                                <Text style={styles.loadingText}>수정 기록을 불러오고 있어요.</Text>
                             </View>
                         ) : null}
 
@@ -171,7 +171,7 @@ export function TripRevisionHistorySheet({
                             <View style={styles.emptyState}>
                                 <MaterialCommunityIcons name="history" size={28} color={theme.colors.textSecondary} />
                                 <Text style={styles.emptyStateTitle}>아직 저장된 수정 기록이 없어요.</Text>
-                                <Text style={styles.emptyStateBody}>일정을 수정하고 저장하면 여기에서 기록을 볼 수 있어요.</Text>
+                                <Text style={styles.emptyStateBody}>일정을 수정하고 저장하면 여기에서 기록을 확인해요.</Text>
                             </View>
                         ) : null}
 
@@ -225,7 +225,7 @@ export function TripRevisionHistorySheet({
                                                 : entry.sourceClient === 'web'
                                                     ? '브라우저'
                                                     : entry.sourceClient === 'server'
-                                                        ? '서버'
+                                                        ? '자동 반영'
                                                         : '기타'}
                                         </Text>
                                     </View>
@@ -247,7 +247,7 @@ export function TripRevisionHistorySheet({
                                                 <MaterialCommunityIcons name="restore" size={16} color="#ffffff" />
                                             )}
                                             <Text style={styles.restoreButtonLabel}>
-                                                {isBusy ? '복구 중...' : '이 시점으로 복구'}
+                                                {isBusy ? '복구 중' : '이 시점으로 복구'}
                                             </Text>
                                         </Pressable>
                                     ) : null}

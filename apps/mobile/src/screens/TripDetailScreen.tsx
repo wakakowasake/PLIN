@@ -1344,8 +1344,8 @@ export function TripDetailScreen({
                 iconName: 'cloud-sync',
                 label: '최신 확인 중',
                 message: isUsingCachedDetail
-                    ? '마지막으로 본 내용을 먼저 보여주고 있어요. 최신 확인 후 수정할 수 있어요.'
-                    : '최신 일정 내용을 확인하고 있어요. 잠시 후 수정할 수 있어요.'
+                    ? '마지막으로 본 내용을 먼저 보여줘요. 최신 확인이 끝나면 수정해요.'
+                    : '최신 일정 내용을 확인하고 있어요. 잠시 후 수정해요.'
             };
         }
 
@@ -1845,7 +1845,7 @@ export function TripDetailScreen({
         if (!selectedTimelineReminderSchedule) {
             return {
                 visible: true,
-                body: '시간이 설정된 일정만 알림을 추가할 수 있어요.',
+                body: '시간이 설정된 일정에만 알림을 추가해요.',
                 support: '시작 시간이 있는 장소·이동 일정에서 쓸 수 있어요.',
                 canAdd: false,
                 canRemove: false
@@ -2373,7 +2373,7 @@ export function TripDetailScreen({
         itemIndex: number
     ) => {
         if (isTimelineEditMode && !isRemoteReady) {
-            Alert.alert('최신 확인 중', '최신 일정 내용을 확인한 뒤 수정할 수 있어요.');
+            Alert.alert('최신 확인 중', '최신 일정 내용을 확인한 뒤 수정해요.');
             return;
         }
 
@@ -3213,6 +3213,10 @@ export function TripDetailScreen({
         user?.uid
     ]);
 
+    const openSubscriptionCenter = React.useCallback(() => {
+        navigation.navigate('Settings', { openSubscription: true });
+    }, [navigation]);
+
     const { handleSubmitTimelineMemory } = useTripDetailTimelineMemoryActions({
         userId: user?.uid,
         tripId: route.params.tripId,
@@ -3223,7 +3227,8 @@ export function TripDetailScreen({
         setTarget: setTimelineMemoryComposerTarget,
         tripRepository,
         publishTripDetailUpdatedWithFeedback,
-        recoverTripWriteConflict
+        recoverTripWriteConflict,
+        openSubscriptionCenter
     });
 
     const scheduleAutoReminderForTransitItem = React.useCallback(async (
@@ -3427,7 +3432,7 @@ export function TripDetailScreen({
         }
 
         if (!isRemoteReady) {
-            Alert.alert('최신 확인 중', '최신 일정 내용을 확인한 뒤 수정할 수 있어요.');
+            Alert.alert('최신 확인 중', '최신 일정 내용을 확인한 뒤 수정해요.');
             return;
         }
 
@@ -3447,7 +3452,7 @@ export function TripDetailScreen({
         }
 
         if (!isRemoteReady) {
-            Alert.alert('최신 확인 중', '최신 일정 내용을 확인한 뒤 수정할 수 있어요.');
+            Alert.alert('최신 확인 중', '최신 일정 내용을 확인한 뒤 수정해요.');
             return;
         }
 
@@ -3642,7 +3647,7 @@ export function TripDetailScreen({
         }
 
         if (hasPendingTimelineDayOrders) {
-            Alert.alert('순서 저장 필요', '순서를 바꾼 뒤에는 완료 체크로 먼저 저장한 다음 재정렬을 사용할 수 있어요.');
+            Alert.alert('순서 저장 필요', '순서를 바꾼 뒤에는 완료 체크로 먼저 저장한 다음 재정렬해요.');
             return;
         }
 
@@ -3765,7 +3770,7 @@ export function TripDetailScreen({
         }
 
         if (!isRemoteReady) {
-            Alert.alert('최신 확인 중', '최신 일정 내용을 확인한 뒤 수정할 수 있어요.');
+            Alert.alert('최신 확인 중', '최신 일정 내용을 확인한 뒤 수정해요.');
             return;
         }
 
@@ -4302,7 +4307,7 @@ export function TripDetailScreen({
                     return;
                 }
 
-                Alert.alert('알림 설정 불가', '시간이 설정된 일정만 알림을 추가할 수 있어요.');
+                Alert.alert('알림 설정 불가', '시간이 설정된 일정에만 알림을 추가해요.');
                 return;
             }
 
@@ -4355,7 +4360,7 @@ export function TripDetailScreen({
                     return;
                 }
 
-                Alert.alert('알림 설정 불가', '시간이 설정된 일정만 알림을 추가할 수 있어요.');
+                Alert.alert('알림 설정 불가', '시간이 설정된 일정에만 알림을 추가해요.');
                 return;
             }
 
@@ -4564,7 +4569,7 @@ export function TripDetailScreen({
                             description={error}
                             supportText={
                                 errorKind === 'network'
-                                    ? '인터넷 연결이 돌아오면 새로고침으로 상세 내용을 다시 확인할 수 있어요.'
+                                    ? '인터넷 연결이 돌아오면 새로고침으로 상세 내용을 다시 확인해요.'
                                     : undefined
                             }
                             actionLabel={
@@ -4950,7 +4955,7 @@ export function TripDetailScreen({
                         <View style={styles.editModeNoticeCopy}>
                             <Text style={styles.editModeNoticeLabel}>편집 모드</Text>
                             <Text style={styles.editModeNoticeText}>
-                                카드를 눌러 내용을 수정하고, 오른쪽 상단 조작으로 순서를 바꾸거나 삭제할 수 있어요.
+                                카드를 눌러 내용을 수정하고, 오른쪽 상단에서 순서를 바꾸거나 삭제해요.
                             </Text>
                         </View>
                     </View>
@@ -4972,7 +4977,7 @@ export function TripDetailScreen({
                     <View style={styles.pendingOrderNoticeCopy}>
                         <Text style={styles.pendingOrderNoticeLabel}>순서 변경 저장 필요</Text>
                         <Text style={styles.pendingOrderNoticeText}>
-                            순서를 저장해야 새 일정 추가를 계속할 수 있어요.
+                            순서를 저장한 뒤 새 일정을 추가해요.
                         </Text>
                     </View>
                     <Pressable
@@ -5007,7 +5012,7 @@ export function TripDetailScreen({
                     <Text style={styles.readOnlyNoticeText}>
                         {isOfflineMode || isUsingCachedDetail
                             ? '마지막으로 본 내용을 먼저 보여주고 있어요. 오프라인 상태에서는 데이터 유실을 막기 위해 수정을 잠시 제한해요.'
-                            : '최신 일정 내용을 확인한 뒤 수정할 수 있어요.'}
+                            : '최신 일정 내용을 확인한 뒤 수정해요.'}
                     </Text>
                 </View>
             ) : null}
@@ -5706,7 +5711,7 @@ export function TripDetailScreen({
                                             ]}
                                         >
                                             <Text numberOfLines={1} style={styles.sheetDeleteButtonText}>
-                                                {isTimelineItemDeleting ? '삭제 중...' : '삭제'}
+                                                {isTimelineItemDeleting ? '삭제 중' : '삭제'}
                                             </Text>
                                         </Pressable>
                                     ) : null}
@@ -5983,7 +5988,7 @@ export function TripDetailScreen({
                                                 ]}
                                             >
                                                 <Text style={styles.mapButtonText}>
-                                                    {isTimelineReminderSaving ? '알림 설정 중...' : '10분 전 알림 추가'}
+                                                    {isTimelineReminderSaving ? '알림 설정 중' : '10분 전 알림 추가'}
                                                 </Text>
                                             </Pressable>
                                         ) : null}
@@ -5999,7 +6004,7 @@ export function TripDetailScreen({
                                                 ]}
                                             >
                                                 <Text style={styles.secondaryActionButtonText}>
-                                                    {isTimelineReminderSaving ? '알림 삭제 중...' : '알림 삭제'}
+                                                    {isTimelineReminderSaving ? '알림 삭제 중' : '알림 삭제'}
                                                 </Text>
                                             </Pressable>
                                         ) : null}

@@ -804,7 +804,7 @@ function buildPlanPurposeCopy(planPurpose: PlanPurpose) {
             searchToggleTitle: '찾는 장소가 없나요?',
             selectedLabel: '선택한 장소',
             titleSuffix: '데이트',
-            creatingLabel: '일정 만드는 중...',
+            creatingLabel: '일정 만드는 중',
             createLabel: '일정 만들기'
         };
     }
@@ -818,7 +818,7 @@ function buildPlanPurposeCopy(planPurpose: PlanPurpose) {
         searchToggleTitle: '찾는 도시가 없나요?',
         selectedLabel: '선택한 여행지',
         titleSuffix: '여행',
-        creatingLabel: '일정 만드는 중...',
+        creatingLabel: '일정 만드는 중',
         createLabel: '일정 만들기'
     };
 }

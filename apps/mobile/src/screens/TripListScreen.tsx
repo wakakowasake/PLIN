@@ -945,7 +945,7 @@ export function TripListScreen({
 
         setActionError(null);
         setProcessingTripId(trip.id);
-        setProcessingActionLabel(transferOwnerUid ? '소유권 넘기는 중...' : '삭제 중...');
+        setProcessingActionLabel(transferOwnerUid ? '소유권 넘기는 중' : '삭제 중');
         setOwnerTransferDeleteState((current) => (
             current?.trip.id === trip.id
                 ? { ...current, submitting: true, error: null }
@@ -987,7 +987,7 @@ export function TripListScreen({
 
         setActionError(null);
         setProcessingTripId(trip.id);
-        setProcessingActionLabel('나가는 중...');
+        setProcessingActionLabel('나가는 중');
 
         try {
             await tripRepository.leaveTrip(user.uid, trip.id);
@@ -1062,7 +1062,7 @@ export function TripListScreen({
 
                 Alert.alert(
                     '일정을 삭제할까요?',
-                    `"${trip.title}" 일정이 삭제한 일정으로 이동해요. 30일 안에는 설정에서 복구할 수 있어요.`,
+                    `"${trip.title}" 일정이 삭제한 일정으로 이동해요. 30일 동안 설정에 보관돼요.`,
                     [
                         {
                             text: '취소',
@@ -1112,7 +1112,7 @@ export function TripListScreen({
         void (async () => {
             setActionError(null);
             setProcessingTripId(trip.id);
-            setProcessingActionLabel('사본 만드는 중...');
+            setProcessingActionLabel('사본 만드는 중');
 
             try {
                 const duplicatedTrip = await tripRepository.duplicateTrip(user.uid, trip.id);
@@ -1417,7 +1417,7 @@ export function TripListScreen({
 
         Alert.alert(
             '소유권을 넘길까요?',
-            `${memberLabel} 님에게 이 일정의 소유권을 넘겨요. 넘긴 뒤에도 편집 멤버로 계속 참여할 수 있어요.`,
+            `${memberLabel} 님에게 이 일정의 소유권을 넘겨요. 넘긴 뒤에도 편집 멤버로 계속 참여해요.`,
             [
                 {
                     text: '취소',
@@ -2463,7 +2463,7 @@ export function TripListScreen({
                                 ]}
                             >
                                 <Text style={styles.profilePrimaryButtonText}>
-                                    {isProfileEditorBusy ? '저장 중...' : '저장'}
+                                    {isProfileEditorBusy ? '저장 중' : '저장'}
                                 </Text>
                             </Pressable>
                         </View>
@@ -2512,7 +2512,7 @@ export function TripListScreen({
                             >
                                 <View style={styles.actionMenuCopy}>
                                     <Text style={styles.actionMenuLabel}>공유</Text>
-                                    <Text style={styles.actionMenuHint}>초대 링크와 멤버 역할을 바로 관리할 수 있어요.</Text>
+                                    <Text style={styles.actionMenuHint}>초대 링크와 멤버 역할을 바로 관리해요.</Text>
                                 </View>
                                 <Text style={styles.actionMenuArrow}>›</Text>
                             </Pressable>
@@ -2583,7 +2583,7 @@ export function TripListScreen({
                                 <View style={styles.actionMenuCopy}>
                                     <Text style={[styles.actionMenuLabel, styles.actionMenuLabelDanger]}>삭제</Text>
                                     <Text style={[styles.actionMenuHint, styles.actionMenuHintDanger]}>
-                                        삭제한 일정은 30일 동안 복구할 수 있어요.
+                                        삭제한 일정은 30일 동안 설정에 보관돼요.
                                     </Text>
                                 </View>
                                 <Text style={[styles.actionMenuArrow, styles.actionMenuArrowDanger]}>›</Text>
@@ -2738,7 +2738,7 @@ export function TripListScreen({
                                 ]}
                             >
                                 <Text style={styles.ownerTransferPrimaryText}>
-                                    {ownerTransferDeleteState?.submitting ? '넘기는 중...' : '소유권 넘기고 삭제'}
+                                    {ownerTransferDeleteState?.submitting ? '넘기는 중' : '소유권 넘기고 삭제'}
                                 </Text>
                             </Pressable>
                         </View>

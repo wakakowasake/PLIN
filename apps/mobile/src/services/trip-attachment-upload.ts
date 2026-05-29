@@ -100,11 +100,11 @@ function assertAttachmentAsset(asset: PickedTripAttachmentAsset) {
     }
 
     if (!isAllowedAttachmentMimeType(asset.mimeType)) {
-        throw new Error('첨부파일은 이미지 또는 PDF만 추가할 수 있어요.');
+        throw new Error('첨부파일은 이미지 또는 PDF만 지원해요.');
     }
 
     if (typeof asset.size === 'number' && asset.size > MAX_TRIP_ATTACHMENT_BYTES) {
-        throw new Error(`첨부파일은 파일당 ${MAX_TRIP_ATTACHMENT_SIZE_LABEL} 이하만 추가할 수 있어요.`);
+        throw new Error(`첨부파일은 파일당 ${MAX_TRIP_ATTACHMENT_SIZE_LABEL} 이하여야 해요.`);
     }
 }
 
@@ -168,7 +168,7 @@ async function uploadTripAttachmentAssetViaBackend({
 export async function pickTripAttachmentAssets(remainingCount: number): Promise<PickedTripAttachmentAsset[]> {
     const safeRemainingCount = Math.max(0, Math.floor(Number(remainingCount) || 0));
     if (safeRemainingCount < 1) {
-        throw new Error(`첨부파일은 일정당 최대 ${MAX_TRIP_ATTACHMENT_COUNT}개까지 추가할 수 있어요.`);
+        throw new Error(`첨부파일은 일정당 최대 ${MAX_TRIP_ATTACHMENT_COUNT}개까지예요.`);
     }
 
     try {
@@ -188,7 +188,7 @@ export async function pickTripAttachmentAssets(remainingCount: number): Promise<
             : [];
 
         if (assets.length > safeRemainingCount) {
-            throw new Error(`첨부파일은 일정당 최대 ${MAX_TRIP_ATTACHMENT_COUNT}개까지 추가할 수 있어요.`);
+            throw new Error(`첨부파일은 일정당 최대 ${MAX_TRIP_ATTACHMENT_COUNT}개까지예요.`);
         }
 
         assets.forEach(assertAttachmentAsset);
@@ -228,7 +228,7 @@ export async function uploadTripAttachmentAssets({
                 maxBytes: MAX_TRIP_ATTACHMENT_BYTES,
                 readUriAsBase64: true,
                 readErrorMessage: '선택한 첨부파일을 읽지 못했어요.',
-                sizeErrorMessage: `첨부파일은 파일당 ${MAX_TRIP_ATTACHMENT_SIZE_LABEL} 이하만 추가할 수 있어요.`
+                sizeErrorMessage: `첨부파일은 파일당 ${MAX_TRIP_ATTACHMENT_SIZE_LABEL} 이하여야 해요.`
             });
 
             if (uploadPayload.kind !== 'base64') {

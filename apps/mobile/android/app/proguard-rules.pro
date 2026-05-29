@@ -19,6 +19,10 @@
 # Expo modules
 -keep class expo.modules.** { *; }
 
+# Native IAP and WebView modules are part of purchase/support flows.
+-keep class expo.modules.iap.** { *; }
+-keep class com.reactnativecommunity.webview.** { *; }
+
 # Hermes
 -keep class com.facebook.hermes.** { *; }
 

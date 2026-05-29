@@ -1,7 +1,9 @@
 import React from 'react';
 import {
     ActivityIndicator,
+    BackHandler,
     Linking,
+    Platform,
     Pressable,
     StyleSheet,
     Text,
@@ -32,9 +34,11 @@ export function InAppBrowserScreen({ navigation, route }: Props) {
     const styles = React.useMemo(() => createStyles(theme), [theme]);
     const title = route.params.title?.trim() || '문서 보기';
     const url = React.useMemo(() => normalizeBrowserUrl(route.params.url), [route.params.url]);
+    const webViewRef = React.useRef<React.ElementRef<typeof WebView>>(null);
     const [isLoading, setIsLoading] = React.useState(true);
     const [error, setError] = React.useState<string | null>(null);
     const [reloadKey, setReloadKey] = React.useState(0);
+    const [canGoBackInWebView, setCanGoBackInWebView] = React.useState(false);
 
     const handleRetry = React.useCallback(() => {
         setError(null);
@@ -45,6 +49,25 @@ export function InAppBrowserScreen({ navigation, route }: Props) {
     const handleOpenExternally = React.useCallback(async () => {
         await Linking.openURL(url);
     }, [url]);
+
+    React.useEffect(() => {
+        if (Platform.OS !== 'android') {
+            return undefined;
+        }
+
+        const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+            if (!canGoBackInWebView) {
+                return false;
+            }
+
+            webViewRef.current?.goBack();
+            return true;
+        });
+
+        return () => {
+            subscription.remove();
+        };
+    }, [canGoBackInWebView]);
 
     return (
         <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
@@ -68,7 +91,7 @@ export function InAppBrowserScreen({ navigation, route }: Props) {
             {isLoading ? (
                 <View style={styles.loadingBar}>
                     <ActivityIndicator size="small" color={theme.colors.accent} />
-                    <Text style={styles.loadingText}>문서를 여는 중이에요</Text>
+                    <Text style={styles.loadingText}>문서를 열고 있어요</Text>
                 </View>
             ) : null}
 
@@ -103,10 +126,14 @@ export function InAppBrowserScreen({ navigation, route }: Props) {
 
             <WebView
                 key={reloadKey}
+                ref={webViewRef}
                 source={{ uri: url }}
                 style={styles.webView}
                 originWhitelist={['http://*', 'https://*']}
                 startInLoadingState
+                onNavigationStateChange={(event) => {
+                    setCanGoBackInWebView(event.canGoBack);
+                }}
                 onLoadStart={() => {
                     setError(null);
                     setIsLoading(true);

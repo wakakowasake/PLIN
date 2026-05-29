@@ -12,7 +12,6 @@ import {
     signInWithGoogleRedirect,
     signOutCurrentUser
 } from '../services/firebase/auth-service.js';
-import { fetchUserProfile } from '../services/firebase/profile-repository.js';
 import {
     exchangeWebSocialAuthSession,
     getSocialAuthProviderLabel,
@@ -23,7 +22,7 @@ import {
 
 const SITE_ADMIN_EMAILS = new Set([
     'contact@plin.ink',
-    'plin.ink@gmail.com'
+    'wakakowasake@gmail.com'
 ]);
 const CUSTOM_WEB_AUTH_PROVIDERS = new Set(['kakao', 'naver']);
 const POPUP_DISABLED_CUSTOM_WEB_AUTH_PROVIDERS = new Set(['naver']);
@@ -507,21 +506,7 @@ async function readAdminState(user) {
 
     const isEmailAdmin = user.emailVerified === true
         && SITE_ADMIN_EMAILS.has(String(user.email || '').trim().toLowerCase());
-    let isTokenAdmin = false;
-
-    try {
-        const tokenResult = await user.getIdTokenResult();
-        isTokenAdmin = tokenResult?.claims?.admin === true;
-    } catch {}
-
-    try {
-        const profile = await fetchUserProfile(user.uid);
-        const role = String(profile.data()?.role || '').trim().toLowerCase();
-        state.isAdmin = isTokenAdmin || isEmailAdmin || role === 'admin';
-    } catch (error) {
-        console.warn('사이트 작성 권한 확인 실패:', error);
-        state.isAdmin = isTokenAdmin || isEmailAdmin;
-    }
+    state.isAdmin = isEmailAdmin;
 
     renderAuthState();
 }

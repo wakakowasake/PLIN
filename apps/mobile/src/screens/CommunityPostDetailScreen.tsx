@@ -35,11 +35,6 @@ import { normalizeCommunityLoadError } from '@/hooks/community-load-error';
 import { useCommunityPostDetail } from '@/hooks/useCommunityPostDetail';
 import { useForegroundResumeRefresh } from '@/hooks/useForegroundResumeRefresh';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
-import {
-    isPurchaseCancelledError,
-    purchasePlanMarketplacePost,
-    restorePlanMarketplacePostPurchase
-} from '@/services/plan-marketplace-purchases';
 import { usePrimaryScrollActivityReporter } from '@/state/primary-scroll-activity';
 import { type AppTheme, useAppTheme } from '@/theme';
 import type { MobileCommunityComment } from '@/types/community';
@@ -88,7 +83,6 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
     const [interactionError, setInteractionError] = React.useState<string | null>(null);
     const [isSubmittingComment, setIsSubmittingComment] = React.useState(false);
     const [isLikeUpdating, setIsLikeUpdating] = React.useState(false);
-    const [isPurchaseUpdating, setIsPurchaseUpdating] = React.useState(false);
     const [isLiked, setIsLiked] = React.useState(false);
     const [likesCount, setLikesCount] = React.useState(0);
     const [isCommentsModalVisible, setIsCommentsModalVisible] = React.useState(false);
@@ -492,63 +486,14 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
         );
     }, [canDeletePost, communityRepository, detail, navigation, user]);
 
-    const handlePurchasePlan = React.useCallback(async () => {
-        if (!user?.uid || !detail?.marketplace.productId || isPurchaseUpdating) {
+    const openSubscriptionCenter = React.useCallback(() => {
+        if (!user?.uid) {
             return;
         }
 
         setInteractionError(null);
-        setIsPurchaseUpdating(true);
-
-        try {
-            await purchasePlanMarketplacePost({
-                userId: user.uid,
-                postId: detail.id,
-                productId: detail.marketplace.productId
-            });
-            await refresh();
-            Alert.alert('PLIN Plus 활성화', '이제 내 일정으로 가져올 수 있어요.');
-        } catch (error) {
-            if (isPurchaseCancelledError(error)) {
-                return;
-            }
-
-            const message = error instanceof Error
-                ? error.message
-                : '구독을 시작하지 못했어요.';
-            setInteractionError(message);
-            Alert.alert('구독을 시작하지 못했어요', message, undefined, { presentation: 'native' });
-        } finally {
-            setIsPurchaseUpdating(false);
-        }
-    }, [detail?.id, detail?.marketplace.productId, isPurchaseUpdating, refresh, user?.uid]);
-
-    const handleRestorePlanPurchase = React.useCallback(async () => {
-        if (!user?.uid || !detail?.marketplace.productId || isPurchaseUpdating) {
-            return;
-        }
-
-        setInteractionError(null);
-        setIsPurchaseUpdating(true);
-
-        try {
-            await restorePlanMarketplacePostPurchase({
-                userId: user.uid,
-                postId: detail.id,
-                productId: detail.marketplace.productId
-            });
-            await refresh();
-            Alert.alert('구독을 복원했어요', '이제 내 일정으로 가져올 수 있어요.');
-        } catch (error) {
-            const message = error instanceof Error
-                ? error.message
-                : '구독 내역을 복원하지 못했어요.';
-            setInteractionError(message);
-            Alert.alert('구독을 복원하지 못했어요', message, undefined, { presentation: 'native' });
-        } finally {
-            setIsPurchaseUpdating(false);
-        }
-    }, [detail?.id, detail?.marketplace.productId, isPurchaseUpdating, refresh, user?.uid]);
+        navigation.navigate('Settings', { openSubscription: true });
+    }, [navigation, user?.uid]);
 
     const handleReportPost = React.useCallback(() => {
         if (!detail || !user || detail.authorUid === user.uid) {
@@ -694,7 +639,7 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
                             description={error}
                             supportText={
                                 errorKind === 'network'
-                                    ? '인터넷 연결이 돌아오면 새로고침으로 내용을 다시 확인할 수 있어요.'
+                                    ? '인터넷 연결이 돌아오면 새로고침으로 내용을 다시 확인해요.'
                                     : undefined
                             }
                             actionLabel={
@@ -921,30 +866,28 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
                             <View style={styles.purchaseActionRow}>
                                 <Pressable
                                     accessibilityRole="button"
-                                    disabled={isPurchaseUpdating}
+                                    disabled={false}
                                     onPress={() => {
-                                        void handlePurchasePlan();
+                                        openSubscriptionCenter();
                                     }}
                                     style={({ pressed }) => [
                                         styles.purchasePrimaryButton,
-                                        pressed && !isPurchaseUpdating ? styles.authorActionButtonPressed : null,
-                                        isPurchaseUpdating ? styles.purchaseButtonDisabled : null
+                                        pressed ? styles.authorActionButtonPressed : null
                                     ]}
                                 >
                                     <Text style={styles.purchasePrimaryButtonText}>
-                                        {isPurchaseUpdating ? '처리 중...' : '무료 체험 시작'}
+                                        무료 체험 시작
                                     </Text>
                                 </Pressable>
                                 <Pressable
                                     accessibilityRole="button"
-                                    disabled={isPurchaseUpdating}
+                                    disabled={false}
                                     onPress={() => {
-                                        void handleRestorePlanPurchase();
+                                        openSubscriptionCenter();
                                     }}
                                     style={({ pressed }) => [
                                         styles.purchaseSecondaryButton,
-                                        pressed && !isPurchaseUpdating ? styles.authorActionButtonPressed : null,
-                                        isPurchaseUpdating ? styles.purchaseButtonDisabled : null
+                                        pressed ? styles.authorActionButtonPressed : null
                                     ]}
                                 >
                                     <Text style={styles.purchaseSecondaryButtonText}>구독 복원</Text>
@@ -1029,7 +972,7 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
                             <View style={styles.commentsSheetBody}>
                                 <View style={styles.commentsContentArea}>
                                     {isCommentsLoading ? (
-                                        <Text style={styles.commentLoadingText}>댓글을 불러오는 중이에요.</Text>
+                                        <Text style={styles.commentLoadingText}>댓글을 불러오고 있어요.</Text>
                                     ) : commentsError ? (
                                         <View style={styles.commentsStatusCard}>
                                             <Text style={styles.commentsStatusText}>{commentsError}</Text>
@@ -1144,7 +1087,7 @@ export function CommunityPostDetailScreen({ navigation, route }: Props) {
                                                         commentsListRef.current?.scrollToEnd({ animated: true });
                                                     });
                                                 }}
-                                                placeholder="의견을 남겨주세요..."
+                                                placeholder="의견을 남겨주세요"
                                                 placeholderTextColor={theme.colors.textSecondary}
                                                 multiline
                                                 textAlignVertical="top"

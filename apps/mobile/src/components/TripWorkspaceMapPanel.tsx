@@ -24,9 +24,9 @@ export function TripWorkspaceMapPanel({
     return (
         <View style={styles.shell}>
             <MaterialCommunityIcons name="map-outline" size={32} color={theme.colors.textSecondary} />
-            <Text style={styles.title}>지도는 웹에서 열려요</Text>
+            <Text style={styles.title}>지도 보기 준비 중</Text>
             <Text style={styles.description}>
-                PC 웹 작업공간에서는 일정 장소를 지도 핀으로 함께 볼 수 있어요.
+                큰 화면에서는 일정 장소를 지도 핀으로 함께 볼 수 있어요.
             </Text>
         </View>
     );

@@ -25,6 +25,6 @@ test('production builds block when runtime config is incomplete', () => {
     });
 
     assert.equal(gate.isBlocked, true);
-    assert.equal(gate.title, '앱 설정을 확인해 주세요.');
+    assert.equal(gate.title, '앱을 열 수 없어요.');
     assert.match(gate.description || '', /Google 로그인 설정 오류/);
 });

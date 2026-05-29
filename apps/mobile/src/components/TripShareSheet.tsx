@@ -525,8 +525,8 @@ export function TripShareSheet({
                             <Text style={styles.sectionTitle}>멤버</Text>
                             <Text style={styles.sectionHint}>
                                 {canManageMembers
-                                    ? '소유자는 멤버 역할을 바꾸거나 내보낼 수 있어요.'
-                                    : '참여 중인 멤버를 확인할 수 있어요.'}
+                                    ? '소유자는 멤버 역할 변경과 내보내기를 관리해요.'
+                                    : '참여 중인 멤버를 확인해요.'}
                             </Text>
 
                             <View style={styles.memberList}>
@@ -547,7 +547,7 @@ export function TripShareSheet({
                                     : (
                                         <View style={styles.emptyState}>
                                             <Text style={styles.emptyStateText}>
-                                                협업 멤버를 불러오는 중이에요.
+                                                협업 멤버를 불러오고 있어요.
                                             </Text>
                                         </View>
                                     )}
@@ -559,7 +559,7 @@ export function TripShareSheet({
                                 <Text style={styles.sectionEyebrow}>커뮤니티 공개</Text>
                                 <Text style={styles.sectionTitle}>플랜 공개</Text>
                                 <Text style={styles.sectionHint}>
-                                    공유 가능한 플랜을 공개 공간에 올릴 수 있어요.
+                                    공유 가능한 플랜을 공개 공간에 올려요.
                                 </Text>
 
                                 <View style={styles.communityNoticeCard}>
@@ -596,7 +596,7 @@ export function TripShareSheet({
                                             color="#ffffff"
                                         />
                                         <Text style={styles.primaryActionButtonText}>
-                                            {busyAction === 'community-publish' ? '공개 중...' : '플랜 공개하기'}
+                                            {busyAction === 'community-publish' ? '공개 중' : '플랜 공개하기'}
                                         </Text>
                                     </View>
                                 </Pressable>

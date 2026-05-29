@@ -108,6 +108,7 @@ apps/mobile/ios/.xcode.env.local
 
 # Local agent and generated audit/build artifacts
 .codex/
+.lazyweb/
 apps/mobile/.tmp-tests/
 apps/mobile/dist-mobile-web-check/
 apps/mobile/reports/

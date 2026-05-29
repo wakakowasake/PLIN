@@ -59,7 +59,7 @@ export type RootStackParamList = {
     Home: undefined;
     TripList: undefined;
     Community: undefined;
-    Settings: undefined;
+    Settings: { openSubscription?: boolean } | undefined;
     SettingsAccount: undefined;
     InAppBrowser: { url: string; title?: string };
     TripCreate: undefined;

@@ -38,11 +38,6 @@ import { useCommunityFeed } from '@/hooks/useCommunityFeed';
 import { useKeyboardAwareInputScroll } from '@/hooks/useKeyboardAwareInputScroll';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
 import { readCommunityViewMode, writeCommunityViewMode } from '@/services/list-view-preferences';
-import {
-    isPurchaseCancelledError,
-    purchasePlanMarketplacePost,
-    restorePlanMarketplacePostPurchase
-} from '@/services/plan-marketplace-purchases';
 import { usePrimaryScrollActivityReporter } from '@/state/primary-scroll-activity';
 import { publishTripCreated } from '@/state/trip-write-sync';
 import { type AppTheme, useAppTheme } from '@/theme';
@@ -401,7 +396,6 @@ export function CommunityScreen({ navigation }: Props) {
     const [isDuplicateDatePickerVisible, setIsDuplicateDatePickerVisible] = React.useState(false);
     const [actionError, setActionError] = React.useState<string | null>(null);
     const [processingPostId, setProcessingPostId] = React.useState<string | null>(null);
-    const [purchaseBusyPostId, setPurchaseBusyPostId] = React.useState<string | null>(null);
     const [pendingSharePost, setPendingSharePost] = React.useState<MobileCommunityPostSummary | null>(null);
     const viewModeTransitionTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const { notifyPrimaryScrollActivity, scrollEventThrottle } = usePrimaryScrollActivityReporter();
@@ -458,7 +452,7 @@ export function CommunityScreen({ navigation }: Props) {
     const publishSheetInsetStyle = React.useMemo(() => ({
         paddingBottom: insets.bottom + theme.spacing.md
     }), [insets.bottom, theme.spacing.md]);
-    const hasPendingAction = Boolean(processingPostId || purchaseBusyPostId);
+    const hasPendingAction = Boolean(processingPostId);
     const activeMenuIsLockedPlan = activeMenuPost?.marketplace.purchaseState === 'locked';
     const communityRenderItems = React.useMemo<Array<MobileCommunityPostSummary | LoadingCommunityRow>>(
         () => (
@@ -573,7 +567,7 @@ export function CommunityScreen({ navigation }: Props) {
     const loadPublishableTrips = React.useCallback(async () => {
         if (!user?.uid) {
             setPublishableTrips([]);
-            setPublishHubError('로그인 후 공개 가능한 일정을 확인할 수 있어요.');
+            setPublishHubError('로그인 후 공개 가능한 일정을 확인해요.');
             return;
         }
 
@@ -886,77 +880,15 @@ export function CommunityScreen({ navigation }: Props) {
         setDuplicateDraft(buildDuplicateDraft(post));
     }, [hasPendingAction]);
 
-    const handlePurchasePost = React.useCallback(async (post: MobileCommunityPostSummary) => {
+    const openSubscriptionCenter = React.useCallback(() => {
         if (!user?.uid || hasPendingAction) {
             return;
         }
 
-        const productId = post.marketplace.productId;
-        if (!productId) {
-            setActionError('구독이 필요한 플랜 정보를 찾지 못했어요.');
-            return;
-        }
-
         setActionError(null);
-        setPurchaseBusyPostId(post.id);
-
-        try {
-            await purchasePlanMarketplacePost({
-                userId: user.uid,
-                postId: post.id,
-                productId
-            });
-            await refresh();
-            setActiveMenuPost(null);
-            Alert.alert('PLIN Plus 활성화', '이제 내 일정으로 가져올 수 있어요.');
-        } catch (purchaseError) {
-            if (isPurchaseCancelledError(purchaseError)) {
-                return;
-            }
-
-            const message = purchaseError instanceof Error
-                ? purchaseError.message
-                : '구독을 시작하지 못했어요. 잠시 후 다시 시도해 주세요.';
-            setActionError(message);
-            Alert.alert('구독을 시작하지 못했어요', message, undefined, { presentation: 'native' });
-        } finally {
-            setPurchaseBusyPostId(null);
-        }
-    }, [hasPendingAction, refresh, user?.uid]);
-
-    const handleRestorePostPurchase = React.useCallback(async (post: MobileCommunityPostSummary) => {
-        if (!user?.uid || hasPendingAction) {
-            return;
-        }
-
-        const productId = post.marketplace.productId;
-        if (!productId) {
-            setActionError('복원할 플랜 정보를 찾지 못했어요.');
-            return;
-        }
-
-        setActionError(null);
-        setPurchaseBusyPostId(post.id);
-
-        try {
-            await restorePlanMarketplacePostPurchase({
-                userId: user.uid,
-                postId: post.id,
-                productId
-            });
-            await refresh();
-            setActiveMenuPost(null);
-            Alert.alert('구독을 복원했어요', '이제 내 일정으로 가져올 수 있어요.');
-        } catch (restoreError) {
-            const message = restoreError instanceof Error
-                ? restoreError.message
-                : '구독 내역을 복원하지 못했어요.';
-            setActionError(message);
-            Alert.alert('구독을 복원하지 못했어요', message);
-        } finally {
-            setPurchaseBusyPostId(null);
-        }
-    }, [hasPendingAction, refresh, user?.uid]);
+        setActiveMenuPost(null);
+        navigation.navigate('Settings', { openSubscription: true });
+    }, [hasPendingAction, navigation, user?.uid]);
 
     const handleOpenDuplicateDatePicker = React.useCallback(() => {
         if (!duplicateDraft || hasPendingAction) {
@@ -1134,7 +1066,7 @@ export function CommunityScreen({ navigation }: Props) {
                                 description={error}
                                 supportText={
                                     errorKind === 'network'
-                                        ? '인터넷 연결이 돌아오면 새로고침으로 플랜 목록을 다시 확인할 수 있어요.'
+                                        ? '인터넷 연결이 돌아오면 새로고침으로 플랜 목록을 다시 확인해요.'
                                         : undefined
                                 }
                                 actionLabel={
@@ -1454,7 +1386,7 @@ export function CommunityScreen({ navigation }: Props) {
                         >
                             <View style={styles.actionMenuCopy}>
                                 <Text style={styles.actionMenuLabel}>공유</Text>
-                                <Text style={styles.actionMenuHint}>이 일정을 링크로 바로 공유할 수 있어요.</Text>
+                                <Text style={styles.actionMenuHint}>이 일정을 링크로 바로 공유해요.</Text>
                             </View>
                             <Text style={styles.actionMenuArrow}>›</Text>
                         </Pressable>
@@ -1467,7 +1399,7 @@ export function CommunityScreen({ navigation }: Props) {
                                         disabled={hasPendingAction || !activeMenuPost}
                                         onPress={() => {
                                             if (activeMenuPost) {
-                                                void handlePurchasePost(activeMenuPost);
+                                                openSubscriptionCenter();
                                             }
                                         }}
                                         style={({ pressed }) => [
@@ -1491,7 +1423,7 @@ export function CommunityScreen({ navigation }: Props) {
                                         disabled={hasPendingAction || !activeMenuPost}
                                         onPress={() => {
                                             if (activeMenuPost) {
-                                                void handleRestorePostPurchase(activeMenuPost);
+                                                openSubscriptionCenter();
                                             }
                                         }}
                                         style={({ pressed }) => [
@@ -1598,7 +1530,7 @@ export function CommunityScreen({ navigation }: Props) {
                             >
                                     <View style={styles.actionMenuCopy}>
                                         <Text style={[styles.actionMenuLabel, styles.actionMenuDeleteLabel]}>삭제</Text>
-                                        <Text style={styles.actionMenuHint}>작성한 플랜만 삭제할 수 있어요.</Text>
+                                        <Text style={styles.actionMenuHint}>내가 작성한 플랜만 삭제돼요.</Text>
                                     </View>
                                 <Text style={[styles.actionMenuArrow, styles.actionMenuDeleteLabel]}>›</Text>
                             </Pressable>
@@ -1921,7 +1853,7 @@ export function CommunityScreen({ navigation }: Props) {
                                 ]}
                             >
                                 <Text style={styles.duplicatePrimaryButtonText}>
-                                    {hasPendingAction ? '가져오는 중...' : '내 일정에 담기'}
+                                    {hasPendingAction ? '가져오는 중' : '내 일정에 담기'}
                                 </Text>
                             </Pressable>
                         </View>
@@ -2023,7 +1955,7 @@ export function CommunityScreen({ navigation }: Props) {
                                                 {buildPublishableTripMeta(trip)}
                                             </Text>
                                             <Text style={styles.publishTripSubInfoText} numberOfLines={1}>
-                                                {trip.subInfo || '일정 정보를 확인해 공개할 수 있어요.'}
+                                                {trip.subInfo || '일정 정보를 확인해 공개해요.'}
                                             </Text>
                                         </View>
                                         <Text style={styles.publishTripActionText}>등록</Text>

@@ -475,7 +475,7 @@ export function TimelineTransitComposerModal({
                                 ]}
                             >
                                 <Text style={styles.saveButtonText}>
-                                    {isSaving ? '저장 중...' : '저장'}
+                                    {isSaving ? '저장 중' : '저장'}
                                 </Text>
                             </Pressable>
                         </View>

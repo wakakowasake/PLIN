@@ -176,7 +176,7 @@ function isCancelledPurchaseCode(code: unknown) {
 
 function assertPurchasesSupported() {
     if (Platform.OS !== 'ios' && Platform.OS !== 'android') {
-        throw new Error('앱에서만 구독할 수 있어요.');
+        throw new Error('구독은 앱에서만 진행돼요.');
     }
 
     if (readAllProductIds().length === 0) {
@@ -605,13 +605,14 @@ export async function restorePlanMarketplacePostPurchase(input: PlanMarketplaceP
         '구독 내역 확인이 지연되고 있어요. 잠시 후 다시 시도해 주세요.'
     ) || [];
     const productIds = new Set(readAllProductIds());
-    const purchase = availablePurchases.find((entry) => productIds.has(entry.productId));
+    const purchase = availablePurchases.find((entry) => productIds.has(readPurchaseProductId(entry)));
 
     if (!purchase) {
         throw new Error('복원할 구독 내역을 찾지 못했어요.');
     }
 
-    const kind: StoreProductKind = isLifetimeProductId(purchase.productId) ? 'in-app' : 'subscription';
+    const productId = readPurchaseProductId(purchase);
+    const kind: StoreProductKind = isLifetimeProductId(productId) ? 'in-app' : 'subscription';
     return syncAndFinishPurchase(input.userId, purchase, kind);
 }
 
@@ -627,13 +628,14 @@ export async function refreshActivePlanMarketplaceSubscription(input: Pick<PlanM
         '구독 내역 확인이 지연되고 있어요. 잠시 후 다시 시도해 주세요.'
     ) || [];
     const productIds = new Set(readAllProductIds());
-    const purchase = availablePurchases.find((entry) => productIds.has(entry.productId));
+    const purchase = availablePurchases.find((entry) => productIds.has(readPurchaseProductId(entry)));
 
     if (!purchase) {
         return syncPlanMarketplaceSubscription(input);
     }
 
-    const kind: StoreProductKind = isLifetimeProductId(purchase.productId) ? 'in-app' : 'subscription';
+    const productId = readPurchaseProductId(purchase);
+    const kind: StoreProductKind = isLifetimeProductId(productId) ? 'in-app' : 'subscription';
     return syncAndFinishPurchase(input.userId, purchase, kind);
 }
 
@@ -649,9 +651,9 @@ export async function getActivePlanMarketplaceSubscriptionProductId() {
         '구독 내역 확인이 지연되고 있어요. 잠시 후 다시 시도해 주세요.'
     ) || [];
     const subscriptionProductIds = new Set(readSubscriptionProductIds());
-    const purchase = availablePurchases.find((entry) => subscriptionProductIds.has(entry.productId));
+    const purchase = availablePurchases.find((entry) => subscriptionProductIds.has(readPurchaseProductId(entry)));
 
-    return purchase?.productId || null;
+    return purchase ? readPurchaseProductId(purchase) || null : null;
 }
 
 export async function presentPlanMarketplaceCustomerCenter(input: Pick<PlanMarketplacePurchaseInput, 'userId'>) {

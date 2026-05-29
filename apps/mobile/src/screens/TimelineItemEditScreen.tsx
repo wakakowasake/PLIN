@@ -1565,7 +1565,7 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
         if (remainingTripAttachmentCount < 1) {
             Alert.alert(
                 '첨부파일 제한',
-                `첨부파일은 일정당 최대 ${MAX_TRIP_ATTACHMENT_COUNT}개까지 추가할 수 있어요.`
+                `첨부파일은 일정당 최대 ${MAX_TRIP_ATTACHMENT_COUNT}개까지예요.`
             );
             return;
         }
@@ -1616,6 +1616,10 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
             Alert.alert('첨부파일', '이 첨부파일을 열 수 없어요.');
         });
     }, []);
+
+    const openSubscriptionCenter = React.useCallback(() => {
+        navigation.navigate('Settings', { openSubscription: true });
+    }, [navigation]);
 
     const handleSave = React.useCallback(async () => {
         if (!user?.uid || isSaving || isDeleting || isReminderSaving) {
@@ -1796,7 +1800,7 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
                                 throw new Error('이미 시작이 가까운 일정은 새 알림을 추가할 수 없어요.');
                             }
 
-                            throw new Error('시간이 설정된 일정만 알림을 추가할 수 있어요.');
+                            throw new Error('시간이 설정된 일정에만 알림을 추가해요.');
                         }
 
                         setExistingReminder(result.record);
@@ -1834,6 +1838,7 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
                 promptSubscriptionUpgradeForMemoryLimit({
                     userId: user?.uid,
                     message,
+                    onOpenSubscription: openSubscriptionCenter,
                     onError: setSaveError
                 });
             }
@@ -1909,7 +1914,8 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
         tripRepository,
         normalizedExpenseEntries,
         user?.uid,
-        clearPersistedDraft
+        clearPersistedDraft,
+        openSubscriptionCenter
     ]);
 
     const handleDelete = React.useCallback(() => {
@@ -2078,7 +2084,7 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
     const saveSupportText = isSessionLikeMessage(saveError)
         ? '로그인 상태를 다시 확인한 뒤 저장을 다시 시도해 주세요.'
         : isNetworkLikeMessage(saveError)
-            ? '연결이 돌아오면 같은 내용으로 다시 저장할 수 있어요.'
+            ? '연결이 돌아오면 같은 내용으로 다시 저장해요.'
             : null;
     const canRetrySession = Boolean(saveError && isSessionLikeMessage(saveError) && !isSaving && !isAuthActionLoading);
     const reminderUi = React.useMemo(() => {
@@ -2103,7 +2109,7 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
         if (!reminderSchedule) {
             return {
                 visible: true,
-                body: '시간이 있는 일정만 알림을 설정할 수 있어요.',
+                body: '시간이 있는 일정만 알림을 설정해요.',
                 support: '시작 시간이 있으면 10분 전에 알려드려요.',
                 buttonLabel: ''
             };
@@ -2129,7 +2135,7 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
 
         return {
             visible: true,
-            body: `${reminderSchedule.reminderTimeLabel}에 10분 전 알림을 설정할 수 있어요.`,
+            body: `${reminderSchedule.reminderTimeLabel}에 10분 전 알림을 설정해요.`,
             support: hasReminderChanges ? '저장하면 이 일정의 알림이 꺼져요.' : '원하면 이 일정의 10분 전 알림을 켤 수 있어요.',
             buttonLabel: '알림 켜기'
         };
@@ -2183,7 +2189,7 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
                                 ]}
                             >
                                 <Text numberOfLines={1} style={styles.deleteActionText}>
-                                    {isDeleting ? '삭제 중...' : '삭제'}
+                                    {isDeleting ? '삭제 중' : '삭제'}
                                 </Text>
                             </Pressable>
                             <Pressable
@@ -2201,7 +2207,7 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
                                 ]}
                             >
                                 <Text numberOfLines={1} style={styles.primaryActionText}>
-                                    {isSaving ? '저장 중...' : '저장'}
+                                    {isSaving ? '저장 중' : '저장'}
                                 </Text>
                             </Pressable>
                         </View>
@@ -2708,7 +2714,7 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
                         <View style={styles.sectionHeaderCopy}>
                             <Text style={styles.fieldLabel}>첨부파일</Text>
                             <Text style={styles.sectionHelpText}>
-                                일정당 최대 {MAX_TRIP_ATTACHMENT_COUNT}개, 파일당 {MAX_TRIP_ATTACHMENT_SIZE_LABEL}까지 가능해요.
+                                일정당 최대 {MAX_TRIP_ATTACHMENT_COUNT}개, 파일당 {MAX_TRIP_ATTACHMENT_SIZE_LABEL}까지 첨부해요.
                             </Text>
                         </View>
                         <Pressable
@@ -2722,7 +2728,7 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
                             ]}
                         >
                             <Text style={styles.inlineActionButtonText}>
-                                {isPickingAttachment ? '선택 중...' : '첨부 추가'}
+                                {isPickingAttachment ? '선택 중' : '첨부 추가'}
                             </Text>
                         </Pressable>
                     </View>
@@ -3007,7 +3013,7 @@ export function TimelineItemEditScreen({ navigation, route }: Props) {
                                         ? styles.secondaryActionButtonDangerText
                                         : styles.secondaryButtonText}
                                 >
-                                    {isReminderSaving ? '알림 처리 중...' : reminderUi.buttonLabel}
+                                    {isReminderSaving ? '알림 처리 중' : reminderUi.buttonLabel}
                                 </Text>
                             </Pressable>
                         ) : null}

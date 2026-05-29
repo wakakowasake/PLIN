@@ -63,7 +63,7 @@ const BOOKING_SCREEN_CONFIG: Record<BookingRouteName, {
     },
     StayBooking: {
         accentColor: '#E75B64',
-        description: '숙소 API가 연결되면 외부 페이지로 나가지 않고 앱 안에서 후보를 살펴볼 수 있게 할게요.',
+        description: '숙소 후보를 PLIN 안에서 비교할 수 있도록 준비하고 있어요.',
         eyebrow: 'STAY',
         icon: 'bed-outline',
         kind: 'stay',
@@ -71,7 +71,7 @@ const BOOKING_SCREEN_CONFIG: Record<BookingRouteName, {
     },
     ActivityBooking: {
         accentColor: '#38A96B',
-        description: '액티비티 API가 연결되면 투어와 입장권 후보를 PLIN 안에서 바로 보여줄게요.',
+        description: '투어와 입장권 후보를 PLIN 안에서 바로 볼 수 있도록 준비하고 있어요.',
         eyebrow: 'ACTIVITY',
         icon: 'ticket-outline',
         kind: 'activity',
@@ -298,7 +298,7 @@ export function TripPartnerBookingScreen({ route }: Props) {
         try {
             const nextCards = await saveFlightCard(card);
             setSavedFlightCards(nextCards);
-            Alert.alert('항공편을 담았어요.', '이 화면에서 다시 확인할 수 있어요.');
+            Alert.alert('항공편을 담았어요.', '이 화면에서 다시 확인해요.');
         } catch {
             Alert.alert('저장하지 못했어요.', '잠시 후 다시 시도해 주세요.');
         }
@@ -307,7 +307,7 @@ export function TripPartnerBookingScreen({ route }: Props) {
     const handleSaveManualFlightCard = React.useCallback(async () => {
         const safeFlightNumber = normalizeFlightNumberInput(flightNumber);
         if (!safeFlightNumber) {
-            Alert.alert('항공편 번호를 입력해 주세요.', '조회 결과가 없어도 항공편을 직접 추가할 수 있어요.');
+            Alert.alert('항공편 번호를 입력해 주세요.', '조회 결과가 없어도 항공편을 직접 추가해요.');
             return;
         }
 
@@ -561,7 +561,7 @@ export function TripPartnerBookingScreen({ route }: Props) {
                             />
                             <Text style={styles.placeholderTitle}>앱 내 목록 연결 준비 중</Text>
                             <Text style={styles.placeholderText}>
-                                외부 페이지로 보내지 않고, 제휴 API 응답을 PLIN 카드 목록으로 보여주는 구조만 남겨뒀어요.
+                                후보를 PLIN 카드 목록으로 비교하는 흐름을 준비하고 있어요.
                             </Text>
                         </View>
                     )}

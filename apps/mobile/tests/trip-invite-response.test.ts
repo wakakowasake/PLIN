@@ -19,6 +19,6 @@ test('throws when the accepted invite payload does not include a trip id', () =>
         () => readAcceptedInviteTripId({
             trip: {}
         }),
-        /초대받은 여행 정보를 확인하지 못했어요/
+        /초대받은 일정 정보를 확인하지 못했어요/
     );
 });

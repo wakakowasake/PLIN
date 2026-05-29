@@ -35,7 +35,6 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js';
 import { firebaseReady, db, storage } from '../services/firebase/firebase-app.js';
 import { assertAuthServicesReady, observeAuthState } from '../services/firebase/auth-service.js';
-import { fetchUserProfile } from '../services/firebase/profile-repository.js';
 
 const BLOG_LIMIT = 50;
 const BLOG_BODY_HTML_LIMIT = 30000;
@@ -49,7 +48,7 @@ const BLOG_COVER_ALLOWED_TYPES = new Set([
 ]);
 const BLOG_ADMIN_EMAILS = new Set([
     'contact@plin.ink',
-    'plin.ink@gmail.com'
+    'wakakowasake@gmail.com'
 ]);
 const blogPostsRef = collection(db, 'blogPosts');
 
@@ -592,21 +591,7 @@ async function readAdminState(user) {
     const editorWasOpen = els.adminPanel && !els.adminPanel.classList.contains('hidden');
     const isEmailAdmin = user.emailVerified === true
         && BLOG_ADMIN_EMAILS.has(String(user.email || '').trim().toLowerCase());
-    let isTokenAdmin = false;
-
-    try {
-        const tokenResult = await user.getIdTokenResult();
-        isTokenAdmin = tokenResult?.claims?.admin === true;
-    } catch {}
-
-    try {
-        const profile = await fetchUserProfile(user.uid);
-        const role = String(profile.data()?.role || '').trim().toLowerCase();
-        state.isAdmin = isTokenAdmin || isEmailAdmin || role === 'admin';
-    } catch (error) {
-        console.warn('블로그 작성 권한 확인 실패:', error);
-        state.isAdmin = isTokenAdmin || isEmailAdmin;
-    }
+    state.isAdmin = isEmailAdmin;
 
     setBlogEditorVisible(state.isAdmin && editorWasOpen);
     renderBlogList();

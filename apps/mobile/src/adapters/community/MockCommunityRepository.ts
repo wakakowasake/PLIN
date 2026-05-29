@@ -364,7 +364,7 @@ export class MockCommunityRepository implements CommunityRepository {
 
         const post = MOCK_COMMUNITY_POSTS[postIndex];
         if ((post.authorUid || '') !== userId) {
-            throw new Error('작성한 플랜만 삭제할 수 있어요.');
+            throw new Error('내가 작성한 플랜만 삭제돼요.');
         }
 
         MOCK_COMMUNITY_POSTS.splice(postIndex, 1);

@@ -312,7 +312,7 @@ export function SettingsAccountScreen({ navigation }: Props) {
                             ]}
                         >
                             <Text style={styles.primaryActionText}>
-                                {isAuthActionLoading ? '처리 중...' : '로그아웃'}
+                                {isAuthActionLoading ? '처리 중' : '로그아웃'}
                             </Text>
                         </Pressable>
                     </View>
@@ -344,9 +344,9 @@ export function SettingsAccountScreen({ navigation }: Props) {
                                 || (entry.linkedAt
                                     ? `${new Date(entry.linkedAt).toLocaleDateString('ko-KR')} 연결`
                                     : entry.linked
-                                        ? '계정에 연결되어 있어요.'
+                                        ? '계정에 연결됨'
                                         : entry.available
-                                            ? '로그인 후 현재 계정에 추가할 수 있어요.'
+                                            ? '로그인 후 현재 계정에 추가해요.'
                                             : '지금은 이 로그인 방식을 사용할 수 없어요.');
                             const canAct = entry.canLink || entry.canUnlink;
 
@@ -394,7 +394,7 @@ export function SettingsAccountScreen({ navigation }: Props) {
                             <View style={styles.providerEmptyCard}>
                                 <Text style={styles.providerEmptyTitle}>연결된 소셜 로그인이 없어요.</Text>
                                 <Text style={styles.providerEmptyText}>
-                                    지금은 {currentSignInMethodLabel}로 로그인 중이에요.
+                                    지금은 {currentSignInMethodLabel}로 로그인했어요.
                                 </Text>
                             </View>
                         )}
@@ -417,7 +417,7 @@ export function SettingsAccountScreen({ navigation }: Props) {
                                         {areOtherProvidersVisible ? '다른 로그인 수단 숨기기' : `다른 로그인 수단 ${hiddenProviderCount}개 보기`}
                                     </Text>
                                     <Text style={styles.providerToggleHint}>
-                                        연결하지 않은 로그인 수단을 볼 수 있어요.
+                                        연결하지 않은 로그인 수단을 확인해요.
                                     </Text>
                                 </View>
                                 <Ionicons
@@ -433,7 +433,7 @@ export function SettingsAccountScreen({ navigation }: Props) {
                                         const statusLabel = entry.available ? '연결 가능' : '준비 중';
                                         const detailLabel = entry.emailHint
                                             || (entry.available
-                                                ? '로그인 후 현재 계정에 추가할 수 있어요.'
+                                                ? '로그인 후 현재 계정에 추가해요.'
                                                 : '지금은 이 로그인 방식을 사용할 수 없어요.');
                                         const canAct = entry.canLink || entry.canUnlink;
 

@@ -468,7 +468,7 @@ export function useTripDetailShareActions({
 
         Alert.alert(
             '소유권을 넘길까요?',
-            `${memberLabel} 님에게 이 일정의 소유권을 넘겨요. 넘긴 뒤에도 편집 멤버로 계속 참여할 수 있어요.`,
+            `${memberLabel} 님에게 이 일정의 소유권을 넘겨요. 넘긴 뒤에도 편집 멤버로 계속 참여해요.`,
             [
                 {
                     text: '취소',

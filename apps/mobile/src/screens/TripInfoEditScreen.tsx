@@ -488,7 +488,7 @@ export function TripInfoEditScreen({ navigation, route }: Props) {
             ? '변경사항을 저장하고 있어요.'
             : !hasChanges
                 ? '아직 바뀐 내용이 없어요.'
-                : '변경한 내용을 확인한 뒤 저장할 수 있어요.');
+                : '변경한 내용을 확인한 뒤 저장해요.');
     const statusIsWarning = Boolean(saveError || visibleFormError);
     const saveErrorLooksNetworkLike = isNetworkLikeMessage(saveError);
     const saveErrorLooksSessionLike = isSessionLikeMessage(saveError);
@@ -496,9 +496,9 @@ export function TripInfoEditScreen({ navigation, route }: Props) {
     const saveSupportText = saveErrorLooksConfigLike
         ? '문제가 반복되면 고객센터로 문의해 주세요.'
         : saveErrorLooksSessionLike
-            ? '세션을 다시 확인한 뒤 같은 내용으로 바로 다시 저장할 수 있어요.'
+            ? '세션을 다시 확인한 뒤 같은 내용으로 바로 다시 저장해요.'
             : saveErrorLooksNetworkLike
-                ? '연결이 돌아오면 현재 입력값은 그대로 유지된 상태에서 다시 저장할 수 있어요.'
+                ? '연결이 돌아오면 현재 입력값 그대로 다시 저장해요.'
                 : null;
     const showSessionRecoveryAction = Boolean(
         saveError && saveErrorLooksSessionLike && !isSaving && !isAuthActionLoading
@@ -608,7 +608,7 @@ export function TripInfoEditScreen({ navigation, route }: Props) {
                 <View style={styles.hero}>
                     <Text style={styles.title}>일정 정보 편집</Text>
                     <Text style={styles.description}>
-                        일정 제목, 지역, 기간, 대표 사진을 한 번에 정리할 수 있어요.
+                        일정 제목, 지역, 기간, 대표 사진을 한 번에 정리해요.
                     </Text>
                 </View>
 
@@ -790,7 +790,7 @@ export function TripInfoEditScreen({ navigation, route }: Props) {
                             ]}
                         >
                             <Text style={styles.supportActionButtonText}>
-                                {isAuthActionLoading ? '세션 확인 중...' : '세션 다시 확인'}
+                                {isAuthActionLoading ? '세션 확인 중' : '세션 다시 확인'}
                             </Text>
                         </Pressable>
                     ) : null}
@@ -828,7 +828,7 @@ export function TripInfoEditScreen({ navigation, route }: Props) {
                             ]}
                         >
                             <Text style={styles.primaryButtonText}>
-                                {isSaving ? '저장 중...' : '변경사항 저장'}
+                                {isSaving ? '저장 중' : '변경사항 저장'}
                             </Text>
                         </Pressable>
                     </View>
@@ -850,7 +850,7 @@ export function TripInfoEditScreen({ navigation, route }: Props) {
                         <Text style={styles.photoModalEyebrow}>대표 사진</Text>
                         <Text style={styles.photoModalTitle}>대표 사진 고르기</Text>
                         <Text style={styles.photoModalSubtitle}>
-                            직접 업로드하거나 추억 사진 중에서 선택할 수 있어요.
+                            직접 업로드하거나 추억 사진 중에서 골라요.
                         </Text>
 
                         <Pressable

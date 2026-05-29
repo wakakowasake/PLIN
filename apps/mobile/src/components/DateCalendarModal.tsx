@@ -369,7 +369,7 @@ function DateCalendarPanel({
             <Text style={[styles.helperText, variant === 'inline' ? styles.helperTextInline : null]}>
                 {isSingleDateMode
                     ? '데이트 일정은 선택한 날짜 하루로 만들어져요.'
-                    : '하루 일정도 가능하고, 종료일을 시작일과 같은 날로 선택할 수 있어요.'}
+                    : '하루 일정은 종료일을 시작일과 같은 날로 고르면 돼요.'}
             </Text>
 
             {showConfirmButton ? (

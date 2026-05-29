@@ -55,7 +55,7 @@ function mapTripCoverUploadError(error: unknown) {
         || normalizedMessage.includes('does not have permission')
         || normalizedMessage.includes('unauthorized')
     ) {
-        return '이 일정은 열람만 가능해요. 편집 멤버에게 수정을 요청해 주세요.';
+        return '이 일정은 열람 전용이에요. 편집 멤버에게 수정을 요청해 주세요.';
     }
 
     if (

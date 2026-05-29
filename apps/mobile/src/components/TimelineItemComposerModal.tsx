@@ -470,7 +470,7 @@ function resolveCardMeta(card: SearchResultCard) {
         return secondary;
     }
 
-    return '지도에서 위치를 바로 확인할 수 있어요.';
+    return '지도에서 위치를 바로 확인해요.';
 }
 
 export function TimelineItemComposerModal({
@@ -668,13 +668,13 @@ export function TimelineItemComposerModal({
             ? '반영하면 현재 일정 수정 화면에 바로 채워져요.'
             : '저장하면 현재 날짜 카드 사이에 새 일정이 바로 추가돼요.';
     const submitActionLabel = isLoadingPlaceDetail
-        ? '장소 확인 중...'
+        ? '장소 확인 중'
         : isSaving
-            ? (isEditMode ? '반영 중...' : '추가 중...')
+            ? (isEditMode ? '반영 중' : '추가 중')
             : (isEditMode ? '현재 일정에 반영' : '일정 추가');
     const locationSectionSupport = isEditMode
         ? '기존 일정 정보를 불러왔어요. 장소와 일정 정보를 한 번에 다시 맞춰 보세요.'
-        : '선택한 장소명은 일정 이름으로 자동 사용돼요. 필요하면 나중에 수정할 수 있어요.';
+        : '선택한 장소명은 일정 이름으로 자동 사용돼요. 필요하면 나중에 수정해요.';
 
     const animateSheetToSnap = React.useCallback((nextSnap: SheetSnap) => {
         const nextHeight = sheetHeights[nextSnap];
@@ -1746,7 +1746,7 @@ export function TimelineItemComposerModal({
                                     size={18}
                                 />
                                 <Text style={styles.areaSearchButtonText}>
-                                    {isSearching || isMapCandidatesLoading ? '검색 중...' : '이 지역에서 검색'}
+                                    {isSearching || isMapCandidatesLoading ? '검색 중' : '이 지역에서 검색'}
                                 </Text>
                             </Pressable>
                         </Animated.View>
@@ -1815,7 +1815,7 @@ export function TimelineItemComposerModal({
                             >
                                 <MaterialCommunityIcons color="#ffffff" name="map-marker-check-outline" size={20} />
                                 <Text style={styles.manualConfirmButtonText}>
-                                    {isManualConfirming ? '위치를 확인하고 있어요...' : '이 위치 선택'}
+                                    {isManualConfirming ? '위치를 확인하고 있어요' : '이 위치 선택'}
                                 </Text>
                             </Pressable>
                         </Animated.View>
@@ -2143,7 +2143,7 @@ export function TimelineItemComposerModal({
                                                 ) : (
                                                     <View style={styles.emptyInlineCard}>
                                                         <Text style={styles.emptyInlineCardText}>
-                                                            아직 확정한 장소가 없어요. 장소 이름만 입력해도 저장할 수 있어요.
+                                                            아직 확정한 장소가 없어요. 장소 이름만 입력해도 저장돼요.
                                                         </Text>
                                                     </View>
                                                 )}
