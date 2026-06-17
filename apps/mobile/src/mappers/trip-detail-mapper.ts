@@ -560,6 +560,35 @@ function resolveTransitWindowLabel(item: CanonicalTripItem) {
     return start || end;
 }
 
+function isGenericTransitRouteLabel(label: string) {
+    const normalizedLabel = String(label || '').trim();
+    return !normalizedLabel
+        || normalizedLabel === '대중교통'
+        || normalizedLabel === '이동'
+        || normalizedLabel === '버스'
+        || normalizedLabel === '전철'
+        || normalizedLabel === '기차';
+}
+
+function resolveTransitRouteLabelFromStep(step: Record<string, unknown>) {
+    const rawLabel = String(step.tag || '').trim();
+    const transitInfoValue = step.transitInfo;
+    const transitInfo = transitInfoValue && typeof transitInfoValue === 'object'
+        ? transitInfoValue as Record<string, unknown>
+        : null;
+
+    if (!isGenericTransitRouteLabel(rawLabel)) {
+        return rawLabel;
+    }
+
+    return String(
+        transitInfo?.lineSymbol
+        || transitInfo?.lineCode
+        || transitInfo?.lineName
+        || rawLabel
+    ).trim();
+}
+
 function mapTransitRouteChips(item: CanonicalTripItem): MobileTransitRouteChip[] {
     const rawItem = item as CanonicalTripItem & {
         detailedSteps?: unknown[];
@@ -574,7 +603,7 @@ function mapTransitRouteChips(item: CanonicalTripItem): MobileTransitRouteChip[]
         }
 
         const step = entry as Record<string, unknown>;
-        const label = String(step.tag || '').trim();
+        const label = resolveTransitRouteLabelFromStep(step);
         if (!label) {
             continue;
         }

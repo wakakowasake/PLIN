@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PLIN | 나를 담는 여행 앱</title>
-    <meta name="description" content="PLIN은 여행 일정, 사진, 메모, 비용을 한 여행 노트에 모아 함께 보고 다시 펼쳐볼 수 있게 합니다.">
+    <title>PLIN | 계획과 기록을 위한 앱 패밀리</title>
+    <meta name="description" content="PLIN은 여행 노트 앱 PLIN과 시간표·일정 앱 Daily-ing을 운영하는 앱 패밀리입니다.">
     <link rel="canonical" href="https://plin.ink/">
     <link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png">
     <link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png">
@@ -21,7 +21,8 @@
                 <span>PLIN</span>
             </a>
             <nav class="nav-links" aria-label="PLIN 사이트 메뉴">
-                <a href="/company" aria-current="page">회사소개</a>
+                <a href="#apps" aria-current="page">앱</a>
+                <a href="/company">회사소개</a>
                 <a href="/notices">공지사항</a>
                 <a href="/blog">블로그</a>
                 <a href="mailto:contact@plin.ink">문의</a>
@@ -29,184 +30,230 @@
         </div>
     </header>
 
-    <main class="company-page">
-        <section class="company-hero" aria-labelledby="company-hero-title">
-            <div class="company-hero-media" aria-hidden="true">
-                <img src="/images/trip-destinations/gangneung.jpg" alt="">
-            </div>
+    <main class="company-page home-page">
+        <section class="company-hero company-hero--studio home-hero" aria-labelledby="home-hero-title">
             <div class="company-hero-inner">
-                <p class="company-kicker">다음 여행을 적어두는 노트</p>
-                <h1 id="company-hero-title">
-                    <span>여행을 준비하고,</span>
-                    <span>함께 보고,</span>
-                    <span>다시 펼쳐요.</span>
+                <p class="company-kicker">PLIN App Family</p>
+                <h1 id="home-hero-title">
+                    <span>계획은 더 분명하게,</span>
+                    <span>지나간 시간은</span>
+                    <span>다시 읽히게.</span>
                 </h1>
                 <p class="company-hero-lead">
-                    <span>가고 싶은 곳과 시간을 담고,</span>
-                    <span>같이 보는 사람을 초대해 보세요.</span>
-                    여행 뒤에는 사진과 비용까지 한곳에 남습니다.
+                    <span>PLIN은 계획과 기록을 오래 남기는 앱을 만듭니다.</span>
+                    <span>여행을 정리하는 PLIN과 오늘 일정을 계속 보여주는 Daily-ing이 같은 방향 안에서 움직입니다.</span>
                 </p>
-                <div class="company-actions company-start-actions" aria-label="PLIN 시작">
-                    <a href="/m" class="button button-primary company-start-button" data-site-auth-open data-site-auth-next="/m">시작하기</a>
+                <div class="company-actions company-start-actions" aria-label="PLIN 앱 보기">
+                    <a href="#apps" class="button button-primary company-start-button">앱 둘러보기</a>
+                    <a href="/company" class="button button-secondary company-start-button">회사 소개</a>
                 </div>
-                <div class="company-actions company-store-actions" aria-label="PLIN 앱 연결">
-                    <a href="https://play.google.com/store/apps/details?id=ink.plin.mobile" class="store-button store-button--android" aria-label="Google Play에서 PLIN 열기">
-                        <span class="store-button-icon" aria-hidden="true">
-                            <img class="store-button-mark store-button-mark--play" src="/images/store/google-play-icon.svg" alt="">
-                        </span>
-                        <span>
-                            <small>Android 앱</small>
-                            <strong>Google Play</strong>
-                        </span>
-                    </a>
-                    <a href="/m" class="store-button store-button--apple" aria-label="iPhone에서 PLIN 열기">
-                        <span class="store-button-icon" aria-hidden="true"></span>
-                        <span>
-                            <small>Apple 앱</small>
-                            <strong>iPhone에서 열기</strong>
-                        </span>
-                    </a>
+
+                <div class="company-studio-board home-studio-board" aria-label="PLIN 앱 그래픽 미리보기">
+                    <div class="company-studio-note company-studio-note--left">
+                        <strong>계획</strong>
+                        <span>여행과 하루를 미리 그려요</span>
+                    </div>
+                    <div class="company-studio-card company-studio-card--plin">
+                        <div class="company-studio-app">
+                            <img src="/images/plin-app-icon.png" alt="" aria-hidden="true">
+                            <span>PLIN</span>
+                        </div>
+                        <div class="company-studio-trip">
+                            <img src="/images/trip-destinations/jeju.jpg" alt="">
+                            <div>
+                                <strong>제주 여행</strong>
+                                <span>3일 일정 · 12개 장소</span>
+                            </div>
+                        </div>
+                        <div class="company-studio-row">
+                            <span>09:30</span>
+                            <strong>협재 해변 산책</strong>
+                        </div>
+                        <div class="company-studio-row">
+                            <span>14:00</span>
+                            <strong>카페 메모 남기기</strong>
+                        </div>
+                    </div>
+                    <div class="company-studio-card company-studio-card--dailying">
+                        <div class="company-studio-app">
+                            <img src="/images/daily-ing-icon.png" alt="" aria-hidden="true">
+                            <span>Daily-ing</span>
+                        </div>
+                        <div class="company-studio-app-meta">
+                            <strong>5월 31일 일요일</strong>
+                            <span>이번 주 시간표</span>
+                        </div>
+                        <div class="company-studio-switch">
+                            <b>주</b>
+                            <span>일</span>
+                            <span>월</span>
+                        </div>
+                        <div class="company-studio-live">
+                            <strong>공부</strong>
+                            <span>1시간 12분 남음</span>
+                        </div>
+                        <div class="company-studio-schedule">
+                            <span>월</span>
+                            <span>화</span>
+                            <span>수</span>
+                            <span>목</span>
+                            <span>금</span>
+                            <span>토</span>
+                            <span>일</span>
+                            <i style="grid-column: 1; grid-row: 2 / span 3;">공부</i>
+                            <i style="grid-column: 3; grid-row: 3 / span 2;">프로젝트</i>
+                            <i style="grid-column: 5; grid-row: 2 / span 3;">근로</i>
+                            <i style="grid-column: 7; grid-row: 4 / span 2;">약속</i>
+                        </div>
+                    </div>
+                    <div class="company-studio-note company-studio-note--right">
+                        <strong>기록</strong>
+                        <span>끝난 뒤에도 맥락이 남아요</span>
+                    </div>
                 </div>
-                <dl class="company-hero-facts" aria-label="PLIN 서비스 요약">
+
+                <dl class="company-hero-facts" aria-label="PLIN 앱 패밀리 요약">
                     <div>
-                        <dt>준비</dt>
-                        <dd>일정과 장소를 한곳에</dd>
+                        <dt>PLIN</dt>
+                        <dd>여행 계획과 기록</dd>
                     </div>
                     <div>
-                        <dt>함께</dt>
-                        <dd>초대한 사람과 같은 여행 보기</dd>
+                        <dt>Daily-ing</dt>
+                        <dd>시간표와 상시 표시</dd>
                     </div>
                     <div>
-                        <dt>기록</dt>
-                        <dd>사진, 메모, 비용까지 남기기</dd>
+                        <dt>방향</dt>
+                        <dd>계획과 기록의 연결</dd>
                     </div>
                 </dl>
             </div>
         </section>
 
-        <section class="company-section company-statement" aria-labelledby="company-statement-title">
+        <section id="apps" class="company-section company-app-showcase home-apps" aria-labelledby="home-apps-title">
             <div class="company-section-copy">
-                <p class="company-kicker">여행 준비가 번거로웠다면</p>
-                <h2 id="company-statement-title">일정은 메모장에, 장소는 지도에, 이야기는 채팅방에 남아 있나요?</h2>
+                <p class="company-kicker">Apps</p>
+                <h2 id="home-apps-title">PLIN 안에는 서로 다른 두 계획 도구가 있습니다.</h2>
+                <p>
+                    긴 여행을 준비할 때와 오늘의 수업을 놓치지 않아야 할 때, 필요한 화면은 다릅니다.
+                    PLIN은 두 상황을 각각의 앱으로 분명하게 나눠 다룹니다.
+                </p>
+            </div>
+            <div class="company-app-showcase-grid" aria-label="PLIN 운영 앱">
+                <article class="company-app-panel company-app-panel--plin">
+                    <div class="company-app-panel-head">
+                        <img src="/images/plin-app-icon.png" alt="" aria-hidden="true">
+                        <span>PLIN</span>
+                    </div>
+                    <div class="company-app-visual company-app-visual--plin" aria-hidden="true">
+                        <div class="company-trip-card">
+                            <div>
+                                <strong>제주 여행</strong>
+                                <span>3일 일정 · 12개 장소</span>
+                            </div>
+                            <img src="/images/trip-destinations/jeju.jpg" alt="">
+                        </div>
+                        <div class="company-trip-row">
+                            <span>09:30</span>
+                            <strong>협재 해변 산책</strong>
+                        </div>
+                        <div class="company-trip-row">
+                            <span>14:00</span>
+                            <strong>카페 메모 남기기</strong>
+                        </div>
+                    </div>
+                    <h3>여행을 계획하고 다시 펼치는 노트</h3>
+                    <p>장소, 일정, 사진, 메모, 비용이 하나의 여행 기록 안에서 이어집니다.</p>
+                    <a href="/apps/plin">PLIN 앱 보기</a>
+                </article>
+
+                <article class="company-app-panel company-app-panel--dailying">
+                    <div class="company-app-panel-head">
+                        <img src="/images/daily-ing-icon.png" alt="" aria-hidden="true">
+                        <span>Daily-ing</span>
+                    </div>
+                    <div class="company-app-visual company-app-visual--dailying" aria-hidden="true">
+                        <div class="company-dailying-header">
+                            <div>
+                                <strong>Daily-ing</strong>
+                                <span>5월 31일 일요일</span>
+                            </div>
+                            <em>＋ ✎</em>
+                        </div>
+                        <div class="company-dailying-switch">
+                            <b>주</b>
+                            <span>일</span>
+                            <span>월</span>
+                        </div>
+                        <div class="company-live-pill company-live-pill--wide">
+                            <strong>공부</strong>
+                            <span>도서관 · 1시간 12분 남음</span>
+                        </div>
+                        <div class="company-week-grid">
+                            <span>월</span>
+                            <span>화</span>
+                            <span>수</span>
+                            <span>목</span>
+                            <span>금</span>
+                            <span>토</span>
+                            <span>일</span>
+                            <i style="grid-column: 1; grid-row: 2 / span 4;">공부</i>
+                            <i style="grid-column: 3; grid-row: 3 / span 2;">프로젝트</i>
+                            <i style="grid-column: 5; grid-row: 2 / span 3;">근로</i>
+                            <i style="grid-column: 7; grid-row: 4 / span 2;">약속</i>
+                        </div>
+                    </div>
+                    <h3>현재 일정을 계속 보이게 하는 시간표</h3>
+                    <p>시간표와 약속을 정리하고, 진행 중인 일정을 화면 밖에서도 확인하게 합니다.</p>
+                    <a href="/apps/daily-ing">Daily-ing 앱 보기</a>
+                </article>
+            </div>
+        </section>
+
+        <section class="company-section company-statement company-statement--center" aria-labelledby="home-statement-title">
+            <div class="company-section-copy">
+                <p class="company-kicker">Direction</p>
+                <h2 id="home-statement-title">좋은 계획은 실행 중에도 보이고, 끝난 뒤에도 이해되어야 합니다.</h2>
             </div>
             <div class="company-prose">
                 <p>
-                    여행을 준비하다 보면 저장한 곳이 자꾸 늘어납니다.
-                    누가 어떤 장소를 골랐는지, 왜 그 시간을 비워뒀는지 나중에는 금방 흐려져요.
-                </p>
-                <p>
-                    PLIN은 그 흐름을 한 여행 노트로 묶습니다.
-                    떠나기 전 만든 일정이 여행 중 사진과 메모로 이어지고, 돌아온 뒤에도 그대로 남아요.
+                    계획은 미래의 시간을 정리하는 일이고, 기록은 지나간 시간을 다시 찾게 하는 일입니다.
+                    PLIN은 두 과정이 끊어지지 않게 만드는 작은 도구들을 쌓아갑니다.
                 </p>
             </div>
         </section>
 
-        <section class="company-section company-photo-story" aria-labelledby="company-photo-title">
+        <section class="company-section company-product home-product" aria-labelledby="home-product-title">
             <div class="company-section-copy">
-                <p class="company-kicker">쓰기 쉬운 여행 노트</p>
-                <h2 id="company-photo-title">가고 싶은 곳을 고르면, 하루가 조금씩 그려집니다.</h2>
-            </div>
-            <div class="company-photo-grid" aria-label="PLIN이 다루는 여행 흐름">
-                <figure>
-                    <img src="/images/trip-destinations/jeju.jpg" alt="제주 바닷가 산책로">
-                    <figcaption>
-                        <strong>가기 전</strong>
-                        <span>장소를 담고, 하루 순서를 맞춰요.</span>
-                    </figcaption>
-                </figure>
-                <figure>
-                    <img src="/images/trip-destinations/gyeongju.jpg" alt="경주의 전통 건축 디테일">
-                    <figcaption>
-                        <strong>여행 중</strong>
-                        <span>사진과 메모를 일정 옆에 남겨요.</span>
-                    </figcaption>
-                </figure>
-                <figure>
-                    <img src="/images/trip-destinations/seoul.jpg" alt="해질녘 서울 도심 풍경">
-                    <figcaption>
-                        <strong>돌아온 뒤</strong>
-                        <span>쓴 돈과 좋았던 순간을 다시 봐요.</span>
-                    </figcaption>
-                </figure>
-            </div>
-        </section>
-
-        <section id="product" class="company-section company-product" aria-labelledby="company-product-title">
-            <div class="company-section-copy">
-                <p class="company-kicker">여행 노트에 담기는 것</p>
-                <h2 id="company-product-title">같이 짜고, 같이 보고, 다녀와서도 남겨요.</h2>
+                <p class="company-kicker">What we care about</p>
+                <h2 id="home-product-title">앱은 달라도 기준은 같습니다.</h2>
             </div>
             <div class="company-product-grid">
                 <article>
                     <span>01</span>
-                    <h3><span>여행 일정</span><span>만들기</span></h3>
-                    <p>장소와 이동, 메모를 날짜별로 정리해요.</p>
+                    <h3><span>맥락이 남는</span><span>계획</span></h3>
+                    <p>시간, 장소, 사람, 메모가 따로 흩어지지 않게 연결합니다.</p>
                 </article>
                 <article>
                     <span>02</span>
-                    <h3><span>친구와 함께</span><span>보기</span></h3>
-                    <p>초대한 사람과 같은 여행 흐름을 확인해요.</p>
+                    <h3><span>실행 중에도</span><span>보이는 일정</span></h3>
+                    <p>계획한 시간이 실제 하루 안에서 놓치지 않고 드러나게 합니다.</p>
                 </article>
                 <article>
                     <span>03</span>
-                    <h3><span>사진과 비용</span><span>남기기</span></h3>
-                    <p>사진, 메모, 지출을 여행별로 모아두어요.</p>
+                    <h3><span>나중에 다시</span><span>읽히는 기록</span></h3>
+                    <p>끝난 일도 왜 중요했는지 이해할 수 있는 형태로 남깁니다.</p>
                 </article>
             </div>
         </section>
 
-        <section id="principles" class="company-trust" aria-labelledby="company-trust-title">
-            <div class="company-trust-inner">
-                <div class="company-section-copy">
-                    <p class="company-kicker">믿고 쓸 수 있도록</p>
-                    <h2 id="company-trust-title">내 일정 기록이니까,<br>다루는 방식도<br>분명해야 해요.</h2>
-                    <p>
-                        중요한 변경은 공지와 약관에 남기고,
-                        삭제처럼 되돌리기 어려운 일은 한 번 더 확인해요.
-                    </p>
-                </div>
-                <ul class="company-principles">
-                    <li>
-                        <strong>내 기록은 내가 정한 범위까지만</strong>
-                        <span>여행, 사진, 비용은 내가 선택한 사람에게만 보여요.</span>
-                    </li>
-                    <li>
-                        <strong>삭제와 탈퇴는 헷갈리지 않게</strong>
-                        <span>되돌리기 어려운 행동은 한 번 더 확인하고, 결과를 분명히 알려요.</span>
-                    </li>
-                    <li>
-                        <strong>바뀌는 내용은 밖에서도 확인</strong>
-                        <span>공지와 약관은 로그인하지 않아도 웹에서 볼 수 있어요.</span>
-                    </li>
-                </ul>
-            </div>
-        </section>
-
-        <section id="app-download" class="company-cta" aria-labelledby="company-cta-title">
+        <section class="company-cta home-cta" aria-labelledby="home-cta-title">
             <div class="company-cta-inner">
-                <p class="company-kicker">여행 노트 시작하기</p>
-                <h2 id="company-cta-title">다음 여행, PLIN에 먼저 담아보세요.</h2>
-                <p>웹에서 시작하고, 앱에서도 이어서 내 일정 노트를 사용할 수 있어요.</p>
-                <div class="company-actions company-start-actions" aria-label="PLIN 시작">
-                    <a href="/m" class="button button-primary company-start-button" data-site-auth-open data-site-auth-next="/m">시작하기</a>
-                </div>
-                <div class="company-actions company-store-actions" aria-label="PLIN 앱 연결">
-                    <a href="https://play.google.com/store/apps/details?id=ink.plin.mobile" class="store-button store-button--android" aria-label="Google Play에서 PLIN 열기">
-                        <span class="store-button-icon" aria-hidden="true">
-                            <img class="store-button-mark store-button-mark--play" src="/images/store/google-play-icon.svg" alt="">
-                        </span>
-                        <span>
-                            <small>Android 앱</small>
-                            <strong>Google Play</strong>
-                        </span>
-                    </a>
-                    <a href="/m" class="store-button store-button--apple" aria-label="iPhone에서 PLIN 열기">
-                        <span class="store-button-icon" aria-hidden="true"></span>
-                        <span>
-                            <small>Apple 앱</small>
-                            <strong>iPhone에서 열기</strong>
-                        </span>
-                    </a>
+                <p class="company-kicker">Start with PLIN</p>
+                <h2 id="home-cta-title">여행은 PLIN에, 오늘 일정은 Daily-ing에 담아보세요.</h2>
+                <p>각 앱 소개에서 기능과 내려받기 경로를 확인할 수 있습니다.</p>
+                <div class="company-actions company-start-actions" aria-label="PLIN 앱 선택">
+                    <a href="/apps/plin" class="button button-primary company-start-button">PLIN 앱 보기</a>
+                    <a href="/apps/daily-ing" class="button button-secondary company-start-button">Daily-ing 앱 보기</a>
                 </div>
             </div>
         </section>
@@ -222,16 +269,20 @@
                     주소 : 서울특별시 동작구 상도로 55길 8 2층<br>
                     사업자등록번호 : 663-02-03874<br>
                     통신판매업 신고 : 2026-서울동작-0669<br>
-                    © 2026 플린(PLIN). PLIN은 여행 계획과 기록을 위한 베타 서비스입니다.
+                    © 2026 플린(PLIN). PLIN은 여행과 일상의 계획을 위한 앱 패밀리입니다.
                 </p>
             </div>
             <nav class="footer-links" aria-label="정책 문서">
                 <a href="/company">회사 소개</a>
+                <a href="/apps/plin">PLIN 앱</a>
+                <a href="/apps/daily-ing">Daily-ing 앱</a>
                 <a href="/notices">공지사항</a>
                 <a href="/blog">블로그</a>
-                <a href="/terms">서비스 이용약관</a>
+                <a href="/terms">PLIN 이용약관</a>
                 <a href="/subscription-terms">유료서비스 약관</a>
-                <a href="/privacy">개인정보처리방침</a>
+                <a href="/privacy">PLIN 개인정보처리방침</a>
+                <a href="/daily-ing/terms">Daily-ing 이용약관</a>
+                <a href="/daily-ing/privacy">Daily-ing 개인정보처리방침</a>
                 <a href="/location-terms">위치기반서비스 약관</a>
                 <a href="/operation-policy">운영정책</a>
                 <a href="/youth-protection-policy">청소년보호정책</a>

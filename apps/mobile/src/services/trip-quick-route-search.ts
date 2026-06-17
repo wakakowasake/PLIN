@@ -288,7 +288,8 @@ function resolveTransitLineLabel(line: GoogleTransitLine, vehicleType: string | 
         normalizedVehicleType === 'TRAIN';
 
     if (isRail) {
-        return translateTransitLineLabel(name || shortName) || '대중교통';
+        const railShortNameLooksSpecific = /[0-9０-９]|호선|[가-힣]/.test(shortName);
+        return translateTransitLineLabel(railShortNameLooksSpecific ? shortName : (name || shortName)) || '대중교통';
     }
 
     return translateTransitLineLabel(shortName || name) || '대중교통';
@@ -314,6 +315,7 @@ function buildGoogleTransitDetailedStep(step: GoogleDirectionStep) {
     const line = step.transit?.line || {};
     const vehicleType = normalizeText(line.vehicle?.type) || 'BUS';
     const lineName = resolveTransitLineLabel(line, vehicleType);
+    const lineSymbol = translateTransitLineLabel(line.short_name) || lineName;
     const meta = getGoogleStepVehicleMeta(vehicleType);
     const { lineColor, textColor } = getContrastColor(line.color, line.text_color);
 
@@ -333,6 +335,9 @@ function buildGoogleTransitDetailedStep(step: GoogleDirectionStep) {
             start: normalizeText(step.transit?.departure_time?.text),
             end: normalizeText(step.transit?.arrival_time?.text),
             headsign: translateTransitStationLabel(step.transit?.headsign),
+            lineName,
+            lineSymbol,
+            lineCode: normalizeText(line.short_name),
             numStops: step.transit?.num_stops || 0
         }
     };

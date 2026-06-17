@@ -28,6 +28,16 @@
   <priority>0.80</priority>
 </url>
 <url>
+  <loc>https://plin.ink/apps/plin.html</loc>
+  <lastmod>2026-05-31T00:00:00+09:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://plin.ink/apps/daily-ing.html</loc>
+  <lastmod>2026-05-31T00:00:00+09:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
   <loc>https://plin.ink/privacy.html</loc>
   <lastmod>2026-05-25T00:00:00+09:00</lastmod>
   <priority>0.80</priority>
@@ -46,6 +56,21 @@
   <loc>https://plin.ink/youth-protection-policy.html</loc>
   <lastmod>2026-05-25T00:00:00+09:00</lastmod>
   <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://plin.ink/daily-ing/terms.html</loc>
+  <lastmod>2026-05-31T00:00:00+09:00</lastmod>
+  <priority>0.70</priority>
+</url>
+<url>
+  <loc>https://plin.ink/daily-ing/privacy.html</loc>
+  <lastmod>2026-05-31T00:00:00+09:00</lastmod>
+  <priority>0.70</priority>
+</url>
+<url>
+  <loc>https://plin.ink/daily-ing/support.html</loc>
+  <lastmod>2026-05-31T00:00:00+09:00</lastmod>
+  <priority>0.60</priority>
 </url>
 
 

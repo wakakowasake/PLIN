@@ -1602,7 +1602,6 @@ export function buildTimelineQuickRouteCreatePatch(routeOption, currentTrip, tar
     const transitType = readString(routeOption?.transitType) || 'walk';
     const summaryIcon = readDisplayString(routeOption?.summaryIcon) || 'commute';
     const summaryTag = readDisplayString(routeOption?.summaryTag) || '이동';
-    const summaryTitle = readDisplayString(routeOption?.summaryTitle) || '이동';
     const durationText = readDisplayString(routeOption?.durationText) || `${Math.max(1, Math.floor(durationMinutes))}분`;
     const distanceText = readDisplayString(routeOption?.distanceText);
     const detailedSteps = Array.isArray(routeOption?.detailedSteps)
@@ -1610,6 +1609,46 @@ export function buildTimelineQuickRouteCreatePatch(routeOption, currentTrip, tar
             .filter((entry) => isPlainObject(entry))
             .map((entry) => ({ ...entry }))
         : [];
+    const routeLineLabels = detailedSteps
+        .map((entry) => {
+            const tag = readDisplayString(entry?.tag);
+            const transitInfo = isPlainObject(entry?.transitInfo) ? entry.transitInfo : {};
+            const isGenericLabel =
+                !tag
+                || tag === '대중교통'
+                || tag === '이동'
+                || tag === '버스'
+                || tag === '전철'
+                || tag === '기차';
+
+            if (!isGenericLabel) {
+                return tag;
+            }
+
+            return readDisplayString(
+                transitInfo.lineSymbol
+                || transitInfo.lineCode
+                || transitInfo.lineName
+                || tag
+            );
+        })
+        .filter((label) => {
+            return label
+                && label !== '도보'
+                && label !== '대중교통'
+                && label !== '이동';
+        });
+    const rawSummaryTitle = readDisplayString(routeOption?.summaryTitle);
+    const summaryTitleIsGeneric =
+        !rawSummaryTitle
+        || rawSummaryTitle === '대중교통'
+        || rawSummaryTitle === '이동'
+        || rawSummaryTitle === '버스'
+        || rawSummaryTitle === '전철'
+        || rawSummaryTitle === '기차';
+    const summaryTitle = summaryTitleIsGeneric && routeLineLabels.length > 0
+        ? routeLineLabels.join(' → ')
+        : rawSummaryTitle || '이동';
     const routeGroupId = `mobile_route_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
     const insertAfterIndex = insertIndex - 1;
     const { routeStartTime, routeEndTime } = buildGoogleRouteTiming(

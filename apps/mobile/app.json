@@ -4,7 +4,7 @@
     "owner": "plin.ink",
     "slug": "plin-mobile",
     "scheme": "plinmobile",
-    "version": "0.1.0",
+    "version": "1.0",
     "orientation": "default",
     "userInterfaceStyle": "light",
     "icon": "./assets/images/app-icon.png",
