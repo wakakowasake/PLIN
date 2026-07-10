@@ -288,6 +288,7 @@ export function SettingsScreen({ navigation, route }: Props) {
     const [draftDisplayName, setDraftDisplayName] = React.useState('');
     const [draftPhotoPreviewUri, setDraftPhotoPreviewUri] = React.useState<string | null>(null);
     const [pendingPhotoAsset, setPendingPhotoAsset] = React.useState<PickedProfilePhotoAsset | null>(null);
+    const [hasDraftPhotoChange, setHasDraftPhotoChange] = React.useState(false);
     const [isProfileEditorSaving, setIsProfileEditorSaving] = React.useState(false);
     const [isFontPresetModalVisible, setIsFontPresetModalVisible] = React.useState(false);
     const [isSubscriptionSheetVisible, setIsSubscriptionSheetVisible] = React.useState(false);
@@ -314,7 +315,7 @@ export function SettingsScreen({ navigation, route }: Props) {
     const editableProfileName = getEditableProfileName(summary ?? { displayName: null, email: null });
     const trimmedDraftDisplayName = draftDisplayName.trim();
     const hasDraftDisplayName = trimmedDraftDisplayName.length > 0;
-    const hasProfileChanges = Boolean(pendingPhotoAsset)
+    const hasProfileChanges = hasDraftPhotoChange
         || trimmedDraftDisplayName !== editableProfileName;
     const isProfileEditorBusy = isProfileEditorSaving || isAuthActionLoading;
     const activeFontPresetOption = React.useMemo(
@@ -666,6 +667,7 @@ export function SettingsScreen({ navigation, route }: Props) {
         setDraftDisplayName(editableProfileName);
         setDraftPhotoPreviewUri(summary?.photoURL || null);
         setPendingPhotoAsset(null);
+        setHasDraftPhotoChange(false);
         setIsProfileEditorVisible(true);
     }, [editableProfileName, summary?.photoURL]);
 
@@ -686,6 +688,7 @@ export function SettingsScreen({ navigation, route }: Props) {
 
             setPendingPhotoAsset(asset);
             setDraftPhotoPreviewUri(asset.uri);
+            setHasDraftPhotoChange(true);
         } catch (error) {
             const message = error instanceof Error && error.message
                 ? error.message
@@ -709,7 +712,11 @@ export function SettingsScreen({ navigation, route }: Props) {
 
         setIsProfileEditorSaving(true);
         try {
-            if (pendingPhotoAsset) {
+            if (hasDraftPhotoChange) {
+                if (!pendingPhotoAsset) {
+                    throw new Error('선택한 프로필 사진을 다시 확인해 주세요.');
+                }
+
                 const uploadedUrl = await uploadProfilePhotoAsset({
                     uid: user.uid,
                     asset: pendingPhotoAsset
@@ -717,6 +724,7 @@ export function SettingsScreen({ navigation, route }: Props) {
                 await updateProfilePhoto(uploadedUrl);
                 setPendingPhotoAsset(null);
                 setDraftPhotoPreviewUri(uploadedUrl);
+                setHasDraftPhotoChange(false);
             }
 
             if (trimmedDraftDisplayName !== editableProfileName) {
@@ -734,6 +742,7 @@ export function SettingsScreen({ navigation, route }: Props) {
         }
     }, [
         editableProfileName,
+        hasDraftPhotoChange,
         hasDraftDisplayName,
         hasProfileChanges,
         pendingPhotoAsset,
@@ -1120,16 +1129,16 @@ export function SettingsScreen({ navigation, route }: Props) {
                             </Pressable>
                             <Pressable
                                 accessibilityRole="button"
-                                disabled={isProfileEditorBusy || !hasDraftDisplayName || !hasProfileChanges}
+                                disabled={isProfileEditorBusy || !hasDraftDisplayName}
                                 onPress={() => {
                                     void handleSaveProfile();
                                 }}
                                 style={({ pressed }) => [
                                     styles.profilePrimaryButton,
-                                    isProfileEditorBusy || !hasDraftDisplayName || !hasProfileChanges
+                                    isProfileEditorBusy || !hasDraftDisplayName
                                         ? styles.actionDisabled
                                         : null,
-                                    pressed && !isProfileEditorBusy && hasDraftDisplayName && hasProfileChanges
+                                    pressed && !isProfileEditorBusy && hasDraftDisplayName
                                         ? styles.actionPressed
                                         : null
                                 ]}

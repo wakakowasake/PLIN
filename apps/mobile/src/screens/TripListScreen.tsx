@@ -444,6 +444,7 @@ export function TripListScreen({
     const [draftDisplayName, setDraftDisplayName] = React.useState('');
     const [draftPhotoPreviewUri, setDraftPhotoPreviewUri] = React.useState<string | null>(null);
     const [pendingPhotoAsset, setPendingPhotoAsset] = React.useState<PickedProfilePhotoAsset | null>(null);
+    const [hasDraftPhotoChange, setHasDraftPhotoChange] = React.useState(false);
     const [isProfileEditorSaving, setIsProfileEditorSaving] = React.useState(false);
     const { notifyPrimaryScrollActivity, scrollEventThrottle } = usePrimaryScrollActivityReporter();
     const openedProfileEditorRef = React.useRef(false);
@@ -494,7 +495,7 @@ export function TripListScreen({
     const isPendingDeletion = summary?.accountStatus === 'pending_deletion';
     const trimmedDraftDisplayName = draftDisplayName.trim();
     const hasDraftDisplayName = trimmedDraftDisplayName.length > 0;
-    const hasProfileChanges = Boolean(pendingPhotoAsset)
+    const hasProfileChanges = hasDraftPhotoChange
         || trimmedDraftDisplayName !== editableProfileName;
     const isProfileEditorBusy = isProfileEditorSaving || isAuthActionLoading;
     const activeSortOption = React.useMemo(() => (
@@ -670,6 +671,7 @@ export function TripListScreen({
             setDraftDisplayName(editableProfileName);
             setDraftPhotoPreviewUri(summary?.photoURL || null);
             setPendingPhotoAsset(null);
+            setHasDraftPhotoChange(false);
         }
 
         openedProfileEditorRef.current = isProfileEditorVisible;
@@ -720,6 +722,7 @@ export function TripListScreen({
 
             setPendingPhotoAsset(asset);
             setDraftPhotoPreviewUri(asset.uri);
+            setHasDraftPhotoChange(true);
         } catch (error) {
             const message = error instanceof Error && error.message
                 ? error.message
@@ -743,7 +746,11 @@ export function TripListScreen({
 
         setIsProfileEditorSaving(true);
         try {
-            if (pendingPhotoAsset) {
+            if (hasDraftPhotoChange) {
+                if (!pendingPhotoAsset) {
+                    throw new Error('선택한 프로필 사진을 다시 확인해 주세요.');
+                }
+
                 const uploadedUrl = await uploadProfilePhotoAsset({
                     uid: user.uid,
                     asset: pendingPhotoAsset
@@ -751,6 +758,7 @@ export function TripListScreen({
                 await updateProfilePhoto(uploadedUrl);
                 setPendingPhotoAsset(null);
                 setDraftPhotoPreviewUri(uploadedUrl);
+                setHasDraftPhotoChange(false);
             }
 
             if (trimmedDraftDisplayName !== editableProfileName) {
@@ -768,6 +776,7 @@ export function TripListScreen({
         }
     }, [
         editableProfileName,
+        hasDraftPhotoChange,
         hasDraftDisplayName,
         hasProfileChanges,
         pendingPhotoAsset,
@@ -2448,16 +2457,16 @@ export function TripListScreen({
                             </Pressable>
                             <Pressable
                                 accessibilityRole="button"
-                                disabled={isProfileEditorBusy || !hasDraftDisplayName || !hasProfileChanges}
+                                disabled={isProfileEditorBusy || !hasDraftDisplayName}
                                 onPress={() => {
                                     void handleSaveProfile();
                                 }}
                                 style={({ pressed }) => [
                                     styles.profilePrimaryButton,
-                                    isProfileEditorBusy || !hasDraftDisplayName || !hasProfileChanges
+                                    isProfileEditorBusy || !hasDraftDisplayName
                                         ? styles.actionButtonDisabled
                                         : null,
-                                    pressed && !isProfileEditorBusy && hasDraftDisplayName && hasProfileChanges
+                                    pressed && !isProfileEditorBusy && hasDraftDisplayName
                                         ? styles.topBarAddButtonPressed
                                         : null
                                 ]}

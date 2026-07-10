@@ -1,4 +1,4 @@
-import { useWindowDimensions } from 'react-native';
+import { Platform, useWindowDimensions } from 'react-native';
 
 export type AdaptiveLayoutMode = 'phone' | 'tablet' | 'desktop';
 export type AdaptiveOrientation = 'portrait' | 'landscape';
@@ -11,9 +11,11 @@ export const DESKTOP_RIGHT_PANE_WIDTH = 360;
 
 export function useAdaptiveLayout() {
     const { width, height, scale, fontScale } = useWindowDimensions();
-    const mode: AdaptiveLayoutMode = width >= DESKTOP_MIN_WIDTH
+    const shortestSide = Math.min(width, height);
+    const canUseExpandedNativeLayout = Platform.OS === 'web' || shortestSide >= TABLET_MIN_WIDTH;
+    const mode: AdaptiveLayoutMode = canUseExpandedNativeLayout && width >= DESKTOP_MIN_WIDTH
         ? 'desktop'
-        : width >= TABLET_MIN_WIDTH
+        : canUseExpandedNativeLayout && width >= TABLET_MIN_WIDTH
             ? 'tablet'
             : 'phone';
     const orientation: AdaptiveOrientation = width >= height ? 'landscape' : 'portrait';
