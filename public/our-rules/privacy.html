@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ko" class="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>둘이정해 개인정보처리방침 | PLIN</title>
+    <meta name="description" content="PLIN이 제공하는 둘이정해 앱의 개인정보처리방침입니다.">
+    <link rel="canonical" href="https://plin.ink/our-rules/privacy">
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { primary: '#ff5f57' },
+                    fontFamily: { sans: ['Pretendard', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="/css/policy-docs.css">
+</head>
+
+<body>
+    <div class="policy-page">
+        <header class="policy-header">
+            <div class="policy-topbar">
+                <a href="/" class="policy-brand">PLIN</a>
+                <nav class="policy-topnav" aria-label="둘이정해 정책 문서">
+                    <a href="/our-rules/privacy" aria-current="page">개인정보처리방침</a>
+                    <a href="/our-rules/terms">이용약관</a>
+                    <a href="/our-rules/support">지원</a>
+                </nav>
+            </div>
+            <p class="policy-kicker">Duli Privacy</p>
+            <h1>둘이정해 개인정보처리방침</h1>
+            <p class="policy-meta">시행일 2026년 7월 22일</p>
+        </header>
+
+        <main class="policy-main">
+            <section class="policy-intro">
+                <p class="policy-lead">플린(PLIN)은 로그인을 제공하고 두 사람의 약속을 동기화하는 데 필요한 정보만 처리합니다.</p>
+                <p class="policy-note">관계 데이터에는 광고를 붙이지 않으며, 위치·연락처·비밀번호나 상대 평가를 수집하지 않습니다. 개인정보를 추적 또는 광고 목적으로 사용하지 않습니다.</p>
+            </section>
+
+            <nav class="policy-index" aria-labelledby="our-rules-privacy-index">
+                <h2 id="our-rules-privacy-index">목차</h2>
+                <ol>
+                    <li><a href="#privacy-purpose">처리 목적</a></li>
+                    <li><a href="#privacy-fields">처리하는 개인정보</a></li>
+                    <li><a href="#privacy-transfer">처리 위탁 및 제3자 제공</a></li>
+                    <li><a href="#privacy-retention">보유 및 삭제</a></li>
+                    <li><a href="#privacy-rights">이용자 선택과 권리</a></li>
+                    <li><a href="#privacy-contact">문의처</a></li>
+                </ol>
+            </nav>
+
+            <section id="privacy-purpose">
+                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center"><span class="section-number">1조.</span> 처리 목적</h2>
+                <div class="space-y-3 pl-2 border-l-2 border-orange-100">
+                    <ul class="list-disc list-inside space-y-2 opacity-90 pl-2">
+                        <li><span class="font-bold">약속 관리:</span> 두 사람이 함께 정한 약속, 분류, 제안 상태 및 점검일 표시</li>
+                        <li><span class="font-bold">변경 기록:</span> 약속 제안, 수락, 수정, 종료 및 점검 이력 표시</li>
+                        <li><span class="font-bold">계정 및 동기화:</span> Google 또는 Apple 로그인, 초대 코드 연결, 두 기기 사이의 실시간 데이터 복원</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section id="privacy-fields">
+                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center"><span class="section-number">2조.</span> 처리하는 개인정보</h2>
+                <div class="space-y-3 pl-2 border-l-2 border-orange-100">
+                    <p><span class="font-bold">계정 정보:</span> Firebase 이용자 식별자, 로그인 제공자, Google 또는 Apple이 제공하는 이메일과 표시 이름(제공된 경우)</p>
+                    <p><span class="font-bold">프로필 정보:</span> 로그인 제공자가 제공하는 프로필 사진 URL(제공된 경우). 앱은 사진 보관함 권한을 요청하거나 사진을 직접 업로드하지 않습니다.</p>
+                    <p><span class="font-bold">동의 기록:</span> 만 14세 이상 여부, 이용약관·개인정보처리방침 버전과 동의 시각</p>
+                    <p><span class="font-bold">방 정보:</span> 임의로 생성된 6자리 방 코드, 방 소유자와 참여자 식별자, 생성 시각, 연결 상태</p>
+                    <p><span class="font-bold">약속 및 제안 정보:</span> 사용자가 입력하거나 선택한 약속 문구, 분류, 제안자·응답자 구분, 제안·합의 시각, 점검일, 상태</p>
+                    <p><span class="font-bold">기록 정보:</span> 약속의 제안, 수락, 수정, 거절, 종료 및 점검 내역</p>
+                    <p><span class="font-bold">알림 및 기술 정보:</span> 알림을 허용한 경우 APNs 토큰, Firebase Cloud Messaging 등록 토큰·설치 식별자, 기기 모델·언어·시간대·운영체제·앱 식별자와 버전. 서버 기능 이용 시 함수 이름, 호출 시각, IP 주소 등 호출 메타데이터가 처리될 수 있습니다.</p>
+                    <p>전화번호, 연락처, 실시간 위치, 광고 식별자, 비밀번호 및 약속 위반 기록은 수집하지 않습니다.</p>
+                </div>
+            </section>
+
+            <section id="privacy-transfer">
+                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center"><span class="section-number">3조.</span> 처리 위탁 및 제3자 제공</h2>
+                <div class="space-y-3 pl-2 border-l-2 border-orange-100">
+                    <p><span class="font-bold">Google Firebase:</span> Firebase Authentication, Cloud Firestore, Cloud Functions와 Firebase Cloud Messaging을 통해 로그인, 저장·동기화, 알림을 제공합니다. 이를 위해 계정 식별 정보, 동의 기록, 방·약속 데이터, 알림 토큰과 기술 정보를 처리하며 Google Cloud의 Firebase 인프라에 저장 또는 전송합니다.</p>
+                    <p><span class="font-bold">Google 또는 Apple:</span> 사용자가 선택한 소셜 로그인 인증을 위해 해당 제공자의 로그인 화면과 인증 토큰을 사용합니다.</p>
+                    <p><span class="font-bold">Apple Push Notification service:</span> 사용자가 알림을 허용한 경우 알림 전송을 위해 기기 토큰과 알림 내용을 처리합니다.</p>
+                    <p>PLIN은 법령상 의무가 있거나 이용자가 별도로 동의한 경우를 제외하고 개인정보를 판매하거나 광고 목적으로 제3자에게 제공하지 않습니다.</p>
+                </div>
+            </section>
+
+            <section id="privacy-retention">
+                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center"><span class="section-number">4조.</span> 보유 및 삭제</h2>
+                <div class="space-y-3 pl-2 border-l-2 border-orange-100">
+                    <p>계정과 동의 기록은 계정 삭제 시까지, 방과 약속 데이터는 연결된 사용자가 방을 유지하는 동안 보관합니다.</p>
+                    <p>사용자가 방 연결을 해제하면 해당 방과 방에 포함된 약속·제안·변경 기록이 두 사용자에게서 삭제됩니다. 계정을 삭제하면 계정·프로필·알림 토큰과 연결된 방 데이터가 함께 삭제됩니다.</p>
+                    <p>법령에 별도의 보존 의무가 있는 경우 해당 기간 동안 분리 보관한 뒤 지체 없이 삭제합니다.</p>
+                </div>
+            </section>
+
+            <section id="privacy-rights">
+                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center"><span class="section-number">5조.</span> 이용자 선택과 권리</h2>
+                <div class="space-y-3 pl-2 border-l-2 border-orange-100">
+                    <p>둘이정해는 카메라, 사진 보관함, 위치, 연락처, 마이크 또는 추적 권한을 요청하지 않습니다. 알림 권한은 사용자가 앱 설정에서 약속 알림 기능을 켤 때만 선택적으로 요청하며, 거부해도 다른 기능을 사용할 수 있습니다.</p>
+                    <p>사용자는 로그인 직후의 둘만의 방 화면, 초대 대기 화면 또는 연결 후 설정 화면에서 계정과 관련 데이터를 직접 삭제할 수 있습니다. 방 연결은 설정에서 해제할 수 있습니다. 계정 삭제 시 Google 또는 Apple 계정을 다시 확인하며, 선택한 로그인 제공자의 앱 연결 권한도 함께 해제합니다.</p>
+                    <p>개인정보 관련 문의는 <a href="mailto:contact@plin.ink" class="font-semibold text-primary hover:underline">contact@plin.ink</a>로 보낼 수 있습니다.</p>
+                </div>
+            </section>
+
+            <section id="privacy-contact" class="policy-contact">
+                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center"><span class="section-number">6조.</span> 운영 주체 및 문의처</h2>
+                <div class="policy-contact-grid">
+                    <div>
+                        <p class="policy-contact-label">운영 주체</p>
+                        <p class="policy-contact-value">플린(PLIN) / 대표 우지형</p>
+                    </div>
+                    <div>
+                        <p class="policy-contact-label">개인정보 보호책임자</p>
+                        <p class="policy-contact-value">우지형</p>
+                    </div>
+                    <div>
+                        <p class="policy-contact-label">문의</p>
+                        <a href="mailto:contact@plin.ink" class="policy-contact-value">contact@plin.ink</a>
+                    </div>
+                </div>
+                <p class="mt-5 text-sm text-gray-600">주소: 서울특별시 동작구 상도로 55길 8 2층 · 사업자등록번호: 663-02-03874</p>
+            </section>
+        </main>
+    </div>
+</body>
+
+</html>

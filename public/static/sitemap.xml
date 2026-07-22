@@ -72,6 +72,31 @@
   <lastmod>2026-05-31T00:00:00+09:00</lastmod>
   <priority>0.60</priority>
 </url>
+<url>
+  <loc>https://plin.ink/nowdo/privacy</loc>
+  <lastmod>2026-07-12T00:00:00+09:00</lastmod>
+  <priority>0.70</priority>
+</url>
+<url>
+  <loc>https://plin.ink/nowdo/support</loc>
+  <lastmod>2026-07-12T00:00:00+09:00</lastmod>
+  <priority>0.60</priority>
+</url>
+<url>
+  <loc>https://plin.ink/our-rules/privacy</loc>
+  <lastmod>2026-07-18T00:00:00+09:00</lastmod>
+  <priority>0.70</priority>
+</url>
+<url>
+  <loc>https://plin.ink/our-rules/terms</loc>
+  <lastmod>2026-07-18T00:00:00+09:00</lastmod>
+  <priority>0.70</priority>
+</url>
+<url>
+  <loc>https://plin.ink/our-rules/support</loc>
+  <lastmod>2026-07-18T00:00:00+09:00</lastmod>
+  <priority>0.60</priority>
+</url>
 
 
 </urlset>

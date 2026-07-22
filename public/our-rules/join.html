@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>둘이정해 초대</title>
+    <meta name="description" content="둘이정해 둘만의 방 초대 링크입니다.">
+    <meta name="theme-color" content="#ffffff">
+    <style>
+        :root { color-scheme: light dark; font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif; }
+        * { box-sizing: border-box; }
+        body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: Canvas; color: CanvasText; }
+        main { width: min(100% - 40px, 420px); text-align: center; }
+        .mark { width: 72px; height: 72px; margin: 0 auto 24px; display: grid; place-items: center; border-radius: 50%; background: #ef5950; color: white; font-size: 30px; font-weight: 800; }
+        h1 { margin: 0; font-size: 32px; letter-spacing: 0; }
+        p { margin: 12px 0 0; color: GrayText; line-height: 1.55; }
+        .code { margin: 28px 0 20px; padding: 18px; border-radius: 8px; background: color-mix(in srgb, CanvasText 7%, Canvas); font-size: 28px; font-weight: 750; letter-spacing: 6px; }
+        a.button { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 54px; padding: 14px 18px; border-radius: 8px; background: #ef5950; color: white; text-decoration: none; font-weight: 700; }
+        a.button.secondary { margin-top: 10px; background: transparent; color: CanvasText; border: 1px solid color-mix(in srgb, CanvasText 22%, Canvas); }
+        .policy { display: inline-block; margin-top: 22px; color: GrayText; font-size: 13px; }
+    </style>
+</head>
+
+<body>
+    <main>
+        <div class="mark" aria-hidden="true">✓</div>
+        <h1>둘이정해</h1>
+        <p>초대받은 둘만의 방에서<br>함께 지킬 약속을 정해요.</p>
+        <div class="code" id="invite-code">------</div>
+        <a class="button" id="open-app" href="woorirules://join">앱에서 초대 열기</a>
+        <a class="button secondary" href="https://apps.apple.com/app/id6792621735">App Store에서 받기</a>
+        <a class="policy" href="/our-rules/privacy">개인정보처리방침</a>
+    </main>
+    <script>
+        const rawCode = new URLSearchParams(window.location.search).get('code') || '';
+        const code = rawCode.replace(/\D/g, '').slice(0, 6);
+        const isValid = code.length === 6;
+        document.getElementById('invite-code').textContent = isValid ? code : '코드 확인 필요';
+        document.getElementById('open-app').href = isValid
+            ? `woorirules://join?code=${encodeURIComponent(code)}`
+            : 'woorirules://join';
+    </script>
+</body>
+
+</html>

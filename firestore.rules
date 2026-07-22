@@ -34,6 +34,67 @@ service cloud.firestore {
         request.auth.token.email_verified == true &&
         (hasAdminClaim() || hasLegacyAdminEmail());
     }
+
+    function isOurRulesCode(code) {
+      return code is string && code.matches('^[0-9]{6}$');
+    }
+
+    function isOurRulesMember(data) {
+      return isAuthenticated()
+        && data.memberIds is list
+        && request.auth.uid in data.memberIds;
+    }
+
+    function isValidOurRulesProfile(userId, data) {
+      return data.keys().hasOnly([
+          'uid',
+          'providerIDs',
+          'isAtLeast14',
+          'termsVersion',
+          'privacyVersion',
+          'termsAcceptedAt',
+          'privacyAcceptedAt',
+          'updatedAt',
+          'email',
+          'displayName',
+          'roomCode'
+        ])
+        && data.uid == userId
+        && data.providerIDs is list
+        && data.isAtLeast14 == true
+        && data.termsVersion is string
+        && data.privacyVersion is string
+        && data.termsAcceptedAt is timestamp
+        && data.privacyAcceptedAt is timestamp
+        && data.updatedAt is timestamp
+        && (!('email' in data) || data.email is string)
+        && (!('displayName' in data) || data.displayName is string)
+        && (!('roomCode' in data) || isOurRulesCode(data.roomCode));
+    }
+
+    function isValidOurRulesRoom(code, data) {
+      return isOurRulesCode(code)
+        && data.keys().hasOnly([
+          'schemaVersion',
+          'ownerId',
+          'memberIds',
+          'isPartnerConnected',
+          'snapshot',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.schemaVersion == 1
+        && data.ownerId is string
+        && data.memberIds is list
+        && data.memberIds.size() >= 1
+        && data.memberIds.size() <= 2
+        && data.ownerId in data.memberIds
+        && data.isPartnerConnected == (data.memberIds.size() == 2)
+        && data.snapshot is string
+        && data.snapshot.size() <= 700000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
     
     function roleForPlan(data) {
       return !isAuthenticated()
@@ -118,6 +179,81 @@ service cloud.firestore {
           'purgeLastAttemptAt',
           'purgeAttempts'
         ]));
+    }
+
+    // 우리의 규칙: 로그인 프로필과 필수 약관 동의 기록
+    match /our_rules_users/{userId} {
+      allow get: if isUser(userId);
+      allow list: if false;
+
+      allow create: if isUser(userId)
+        && isValidOurRulesProfile(userId, request.resource.data)
+        && request.resource.data.termsAcceptedAt == request.time
+        && request.resource.data.privacyAcceptedAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      allow update: if isUser(userId)
+        && isValidOurRulesProfile(userId, request.resource.data)
+        && request.resource.data.updatedAt == request.time
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+            'termsVersion',
+            'privacyVersion',
+            'isAtLeast14'
+          ])
+          || (
+            request.resource.data.termsAcceptedAt == request.time
+            && request.resource.data.privacyAcceptedAt == request.time
+          )
+        );
+
+      allow delete: if isUser(userId);
+    }
+
+    // 우리의 규칙: 멤버만 방을 읽고, 생성·참여는 검증된 서버 함수를 통합니다.
+    match /our_rules_rooms/{code} {
+      allow get: if isOurRulesMember(resource.data);
+      allow list: if false;
+
+      allow create: if false;
+
+      allow update: if isValidOurRulesRoom(code, request.resource.data)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time
+        && (
+          // 연결된 사용자는 약속 스냅샷만 갱신할 수 있습니다.
+          (
+            isOurRulesMember(resource.data)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'snapshot',
+              'isPartnerConnected',
+              'updatedAt'
+            ])
+          )
+          // 사용자는 자신만 연결 해제할 수 있고 남은 사람이 방 소유자가 됩니다.
+          || (
+            isOurRulesMember(resource.data)
+            && resource.data.memberIds.size() == 2
+            && request.resource.data.memberIds.size() == 1
+            && !(request.auth.uid in request.resource.data.memberIds)
+            && request.resource.data.memberIds[0] in resource.data.memberIds
+            && request.resource.data.ownerId == request.resource.data.memberIds[0]
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'ownerId',
+              'memberIds',
+              'isPartnerConnected',
+              'snapshot',
+              'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if isOurRulesMember(resource.data)
+        && resource.data.memberIds.size() == 1;
+    }
+
+    match /our_rules_join_attempts/{userId} {
+      allow read, write: if false;
     }
 
     match /push_installations/{installationId} {

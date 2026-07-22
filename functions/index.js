@@ -1,4 +1,4 @@
-const { onRequest } = require("firebase-functions/v2/https");
+const { HttpsError, onCall, onRequest } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { defineSecret } = require('firebase-functions/params');
 const express = require("express");
@@ -10206,6 +10206,175 @@ exports.purgeExpiredDeletedTrips = onSchedule({
     purgedCount,
     retentionDays: TRIP_TRASH_RETENTION_DAYS
   });
+});
+
+const OUR_RULES_TERMS_VERSION = "2026-07-18";
+const OUR_RULES_JOIN_WINDOW_MS = 10 * 60 * 1000;
+const OUR_RULES_JOIN_MAX_ATTEMPTS = 10;
+
+function validateOurRulesProfile(profile) {
+  return profile
+    && profile.isAtLeast14 === true
+    && profile.termsVersion === OUR_RULES_TERMS_VERSION
+    && profile.privacyVersion === OUR_RULES_TERMS_VERSION;
+}
+
+function validateOurRulesCode(value) {
+  return typeof value === "string" && /^\d{6}$/.test(value);
+}
+
+function decodeOurRulesSnapshot(value, code) {
+  if (typeof value !== "string" || value.length > 700000) {
+    throw new HttpsError("invalid-argument", "방 데이터 형식이 올바르지 않습니다.");
+  }
+
+  try {
+    const snapshot = JSON.parse(Buffer.from(value, "base64").toString("utf8"));
+    if (!snapshot || snapshot.room?.code !== code) {
+      throw new Error("room-code-mismatch");
+    }
+    return snapshot;
+  } catch (error) {
+    throw new HttpsError("invalid-argument", "방 데이터 형식이 올바르지 않습니다.");
+  }
+}
+
+exports.ourRulesCreateRoom = onCall({
+  region: "asia-northeast3",
+  memory: "256MiB",
+  timeoutSeconds: 15,
+  maxInstances: 10
+}, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError("unauthenticated", "로그인이 필요합니다.");
+  }
+
+  const code = request.data?.code;
+  const encodedSnapshot = request.data?.snapshot;
+  if (!validateOurRulesCode(code)) {
+    throw new HttpsError("invalid-argument", "초대 코드는 숫자 6자리여야 합니다.");
+  }
+  decodeOurRulesSnapshot(encodedSnapshot, code);
+
+  const database = admin.firestore();
+  const userReference = database.collection("our_rules_users").doc(uid);
+  const roomReference = database.collection("our_rules_rooms").doc(code);
+
+  await database.runTransaction(async (transaction) => {
+    const [profileSnapshot, roomSnapshot] = await transaction.getAll(
+      userReference,
+      roomReference
+    );
+
+    if (!validateOurRulesProfile(profileSnapshot.data())) {
+      throw new HttpsError("failed-precondition", "필수 약관 동의를 확인할 수 없습니다.");
+    }
+    if (profileSnapshot.data()?.roomCode) {
+      throw new HttpsError("failed-precondition", "이미 연결된 방이 있습니다.");
+    }
+    if (roomSnapshot.exists) {
+      throw new HttpsError("already-exists", "다른 초대 코드를 만들고 있습니다.");
+    }
+
+    transaction.create(roomReference, {
+      schemaVersion: 1,
+      ownerId: uid,
+      memberIds: [uid],
+      isPartnerConnected: false,
+      snapshot: encodedSnapshot,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    transaction.update(userReference, {
+      roomCode: code,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+  });
+
+  return { code };
+});
+
+exports.ourRulesJoinRoom = onCall({
+  region: "asia-northeast3",
+  memory: "256MiB",
+  timeoutSeconds: 15,
+  maxInstances: 10
+}, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError("unauthenticated", "로그인이 필요합니다.");
+  }
+
+  const code = request.data?.code;
+  if (!validateOurRulesCode(code)) {
+    throw new HttpsError("invalid-argument", "초대 코드는 숫자 6자리여야 합니다.");
+  }
+
+  const database = admin.firestore();
+  const userReference = database.collection("our_rules_users").doc(uid);
+  const roomReference = database.collection("our_rules_rooms").doc(code);
+  const attemptReference = database.collection("our_rules_join_attempts").doc(uid);
+  const now = Date.now();
+
+  await database.runTransaction(async (transaction) => {
+    const attemptSnapshot = await transaction.get(attemptReference);
+    const attempt = attemptSnapshot.data() || {};
+    const windowStart = attempt.windowStart?.toMillis?.() || 0;
+    const isCurrentWindow = now - windowStart < OUR_RULES_JOIN_WINDOW_MS;
+    const attemptCount = isCurrentWindow ? Number(attempt.count || 0) : 0;
+    if (attemptCount >= OUR_RULES_JOIN_MAX_ATTEMPTS) {
+      throw new HttpsError("resource-exhausted", "잠시 후 다시 시도해 주세요.");
+    }
+
+    transaction.set(attemptReference, {
+      count: attemptCount + 1,
+      windowStart: isCurrentWindow
+        ? attempt.windowStart
+        : admin.firestore.Timestamp.fromMillis(now),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+  });
+
+  await database.runTransaction(async (transaction) => {
+    const [profileSnapshot, roomSnapshot] = await transaction.getAll(
+      userReference,
+      roomReference
+    );
+
+    if (!validateOurRulesProfile(profileSnapshot.data())) {
+      throw new HttpsError("failed-precondition", "필수 약관 동의를 확인할 수 없습니다.");
+    }
+
+    if (!roomSnapshot.exists) {
+      throw new HttpsError("not-found", "해당 초대 코드의 방을 찾지 못했습니다.");
+    }
+
+    const room = roomSnapshot.data() || {};
+    const memberIds = Array.isArray(room.memberIds) ? [...room.memberIds] : [];
+    if (!memberIds.includes(uid)) {
+      if (memberIds.length >= 2) {
+        throw new HttpsError("failed-precondition", "이미 두 사람이 연결된 방입니다.");
+      }
+      memberIds.push(uid);
+    }
+
+    const snapshot = decodeOurRulesSnapshot(room.snapshot, code);
+    snapshot.room.isPartnerConnected = memberIds.length === 2;
+
+    transaction.update(roomReference, {
+      memberIds,
+      isPartnerConnected: memberIds.length === 2,
+      snapshot: Buffer.from(JSON.stringify(snapshot), "utf8").toString("base64"),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    transaction.update(userReference, {
+      roomCode: code,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+  });
+
+  return { code };
 });
 
 exports.api = onRequest({

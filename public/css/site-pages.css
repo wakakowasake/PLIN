@@ -105,6 +105,376 @@ img {
     display: none !important;
 }
 
+/* 둘이정해 product page */
+.duli-body {
+    background: #fff8f3;
+}
+
+.duli-hero,
+.duli-flow,
+.duli-principle,
+.duli-cta,
+.duli-footer {
+    width: min(var(--site-wide-width), calc(100% - (var(--site-gutter) * 2)));
+    margin-inline: auto;
+}
+
+.duli-hero {
+    min-height: 820px;
+    padding: 150px 0 90px;
+    display: grid;
+    grid-template-columns: minmax(0, .88fr) minmax(520px, 1.12fr);
+    align-items: center;
+    gap: clamp(44px, 6vw, 86px);
+}
+
+.duli-hero-copy {
+    display: grid;
+    align-content: center;
+    gap: 20px;
+}
+
+.duli-brandline {
+    display: inline-flex;
+    width: fit-content;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 14px 9px 9px;
+    border: 1px solid rgba(26, 28, 32, .1);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, .72);
+    color: var(--ink-soft);
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.duli-brandline img {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+}
+
+.duli-hero h1 {
+    margin: 0;
+    color: var(--ink);
+    font-size: clamp(50px, 6vw, 78px);
+    line-height: 1.04;
+    letter-spacing: -.045em;
+    word-break: keep-all;
+}
+
+.duli-lead {
+    max-width: 590px;
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: 18px;
+    line-height: 1.75;
+    word-break: keep-all;
+}
+
+.duli-actions {
+    margin-top: 4px;
+}
+
+.duli-note {
+    margin: 0;
+    color: rgba(26, 28, 32, .52);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.duli-phone-stage {
+    min-height: 650px;
+    position: relative;
+    display: grid;
+    place-items: center;
+}
+
+.duli-phone-stage::before {
+    content: "";
+    position: absolute;
+    width: 520px;
+    height: 520px;
+    border-radius: 50%;
+    background: #ffdcd5;
+    filter: blur(1px);
+}
+
+.duli-phone {
+    position: absolute;
+    width: 276px;
+    aspect-ratio: 1320 / 2868;
+    margin: 0;
+    overflow: hidden;
+    border: 8px solid #17181b;
+    border-radius: 46px;
+    background: #fff;
+    box-shadow: 0 32px 90px rgba(78, 45, 33, .18);
+}
+
+.duli-phone img {
+    object-fit: cover;
+}
+
+.duli-phone--center {
+    z-index: 3;
+    transform: translateY(-10px);
+}
+
+.duli-phone--left {
+    z-index: 1;
+    transform: translate(-178px, 42px) rotate(-8deg) scale(.82);
+}
+
+.duli-phone--right {
+    z-index: 2;
+    transform: translate(178px, 42px) rotate(8deg) scale(.82);
+}
+
+.duli-flow {
+    padding: 100px 0;
+    border-top: 1px solid rgba(26, 28, 32, .1);
+}
+
+.duli-section-heading {
+    max-width: 760px;
+}
+
+.duli-section-heading h2,
+.duli-principle h2,
+.duli-cta h2 {
+    margin: 0;
+    font-size: clamp(36px, 4.6vw, 58px);
+    line-height: 1.12;
+    letter-spacing: -.035em;
+    word-break: keep-all;
+}
+
+.duli-section-heading > p:not(.company-kicker) {
+    margin: 18px 0 0;
+    max-width: 620px;
+    color: var(--ink-soft);
+    font-size: 17px;
+    line-height: 1.7;
+}
+
+.duli-flow-list {
+    list-style: none;
+    padding: 0;
+    margin: 56px 0 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.duli-flow-list li {
+    min-height: 320px;
+    padding: 28px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 60px;
+    border: 1px solid rgba(26, 28, 32, .09);
+    border-radius: 28px;
+    background: #fff;
+}
+
+.duli-flow-list > li > span {
+    color: #ef5950;
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.duli-flow-label {
+    margin: 0 0 8px;
+    color: #ef5950;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.duli-flow-list h3 {
+    margin: 0 0 12px;
+    font-size: 28px;
+    letter-spacing: -.025em;
+}
+
+.duli-flow-list li p:last-child {
+    margin: 0;
+    color: var(--ink-soft);
+    line-height: 1.65;
+    word-break: keep-all;
+}
+
+.duli-principle {
+    padding: 110px 0;
+    display: grid;
+    grid-template-columns: 1.15fr .85fr;
+    gap: clamp(48px, 8vw, 100px);
+    align-items: end;
+    border-top: 1px solid rgba(26, 28, 32, .1);
+}
+
+.duli-principle-copy {
+    display: grid;
+    gap: 20px;
+}
+
+.duli-principle-copy p {
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: 16px;
+    line-height: 1.75;
+    word-break: keep-all;
+}
+
+.duli-cta {
+    margin-bottom: 70px;
+    padding: 44px;
+    display: grid;
+    grid-template-columns: 76px 1fr auto;
+    gap: 28px;
+    align-items: center;
+    border-radius: 32px;
+    background: #202124;
+    color: #fff;
+}
+
+.duli-cta > img {
+    width: 76px;
+    height: 76px;
+    border-radius: 19px;
+}
+
+.duli-cta .company-kicker {
+    color: #ff8c82;
+}
+
+.duli-cta h2 {
+    font-size: clamp(30px, 3.4vw, 44px);
+}
+
+.duli-cta p:not(.company-kicker) {
+    margin: 10px 0 0;
+    color: rgba(255, 255, 255, .66);
+}
+
+.duli-footer {
+    padding: 38px 0 54px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 24px 48px;
+    align-items: center;
+    border-top: 1px solid rgba(26, 28, 32, .1);
+}
+
+.duli-footer nav {
+    justify-self: end;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 22px;
+    color: var(--ink-soft);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.duli-footer > p {
+    grid-column: 1 / -1;
+    margin: 0;
+    color: rgba(26, 28, 32, .5);
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+@media (max-width: 980px) {
+    .duli-hero {
+        min-height: auto;
+        grid-template-columns: 1fr;
+        padding-bottom: 20px;
+    }
+
+    .duli-phone-stage {
+        min-height: 680px;
+    }
+
+    .duli-flow-list,
+    .duli-principle {
+        grid-template-columns: 1fr;
+    }
+
+    .duli-cta {
+        grid-template-columns: 70px 1fr;
+    }
+
+    .duli-cta .button {
+        grid-column: 1 / -1;
+        justify-self: stretch;
+        text-align: center;
+    }
+}
+
+@media (max-width: 640px) {
+    .duli-hero,
+    .duli-flow,
+    .duli-principle,
+    .duli-cta,
+    .duli-footer {
+        width: min(100% - 28px, var(--site-wide-width));
+    }
+
+    .duli-hero {
+        padding-top: 118px;
+        gap: 28px;
+    }
+
+    .duli-hero h1 {
+        font-size: clamp(42px, 13vw, 58px);
+    }
+
+    .duli-lead {
+        font-size: 16px;
+    }
+
+    .duli-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .duli-phone-stage {
+        min-height: 520px;
+        transform: scale(.78);
+        transform-origin: top center;
+        margin-bottom: -100px;
+    }
+
+    .duli-flow,
+    .duli-principle {
+        padding: 74px 0;
+    }
+
+    .duli-flow-list {
+        grid-template-columns: 1fr;
+        margin-top: 36px;
+    }
+
+    .duli-flow-list li {
+        min-height: 240px;
+    }
+
+    .duli-cta {
+        margin-bottom: 36px;
+        padding: 28px;
+        border-radius: 24px;
+    }
+
+    .duli-footer {
+        grid-template-columns: 1fr;
+    }
+
+    .duli-footer nav {
+        justify-self: start;
+    }
+}
+
 .site-header {
     position: fixed;
     top: 0;
